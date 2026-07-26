@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Конфиги ниш.
  *
  * Это ДАННЫЕ, а не логика. Ядро приложения про ниши ничего не знает:
@@ -20,6 +20,14 @@ export type NicheKey =
 export type Niche = {
   key: NicheKey;
   icon: string;
+  /**
+   * Показывать ли нишу при регистрации.
+   *
+   * Продаём сейчас только автомойкам, и выбор из шести вариантов размывает
+   * сообщение. Конфиги остальных не удаляем: ядро ради них и построено,
+   * вернуть — поменять флаг.
+   */
+  enabled: boolean;
   /** Название ниши, показывается на экране выбора */
   name: string;
   /** Одна строка: что болит в этой нише */
@@ -47,6 +55,7 @@ export type Niche = {
 export const NICHES: Record<NicheKey, Niche> = {
   carwash: {
     key: 'carwash',
+    enabled: true,
     icon: '🚿',
     name: 'Ավտոլվացում',
     tag: 'Հերթափոխ, լվացողներ, տոկոս մեքենայից',
@@ -71,6 +80,7 @@ export const NICHES: Record<NicheKey, Niche> = {
 
   dental: {
     key: 'dental',
+    enabled: false,
     icon: '🦷',
     name: 'Ատամնաբուժարան',
     tag: 'Ընդունելություններ, բժիշկներ, հիվանդների բազա',
@@ -95,6 +105,7 @@ export const NICHES: Record<NicheKey, Niche> = {
 
   autoservice: {
     key: 'autoservice',
+    enabled: false,
     icon: '🔧',
     name: 'Ավտոսերվիս',
     tag: 'Պատվերներ, վարպետներ, մեքենայի պատմություն',
@@ -119,6 +130,7 @@ export const NICHES: Record<NicheKey, Niche> = {
 
   barber: {
     key: 'barber',
+    enabled: false,
     icon: '💈',
     name: 'Բարբերշոփ',
     tag: 'Հաճախորդներ, բարբերներ, տոկոս սանրվածքից',
@@ -143,6 +155,7 @@ export const NICHES: Record<NicheKey, Niche> = {
 
   cleaning: {
     key: 'cleaning',
+    enabled: false,
     icon: '🧹',
     name: 'Մաքրման ծառայություն',
     tag: 'Այցեր, բրիգադներ, տոկոս օբյեկտից',
@@ -167,6 +180,7 @@ export const NICHES: Record<NicheKey, Niche> = {
 
   vet: {
     key: 'vet',
+    enabled: false,
     icon: '🐾',
     name: 'Անասնաբուժարան',
     tag: 'Ընդունելություններ, բժիշկներ, կենդանու քարտ',
@@ -192,8 +206,15 @@ export const NICHES: Record<NicheKey, Niche> = {
 
 export const NICHE_LIST = Object.values(NICHES);
 
+/** Ниши, доступные для регистрации прямо сейчас. */
+export const ACTIVE_NICHES = NICHE_LIST.filter((n) => n.enabled);
+
 export function getNiche(key: string): Niche {
   const n = NICHES[key as NicheKey];
   if (!n) throw new Error(`Unknown niche: ${key}`);
   return n;
+}
+
+export function isNicheAvailable(key: string): boolean {
+  return NICHES[key as NicheKey]?.enabled === true;
 }

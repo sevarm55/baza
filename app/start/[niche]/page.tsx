@@ -12,7 +12,8 @@ export default async function RegisterPage({
 }) {
   const { niche: key } = await params;
   const niche = NICHES[key as NicheKey];
-  if (!niche) notFound();
+  // закрытую нишу нельзя открыть и прямой ссылкой
+  if (!niche || !niche.enabled) notFound();
 
   return (
     <main className="mx-auto w-full max-w-[520px] px-4 pb-24">

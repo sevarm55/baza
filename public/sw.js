@@ -6,12 +6,17 @@
  * страницу «нет интернета» и не сможет ничего записать.
  *
  * Стратегия:
- *   переходы    — сеть, при провале последняя удачная копия из кэша
- *   статика     — кэш, при промахе сеть
- *   всё прочее  — мимо (POST-запросы серверных действий не трогаем)
+ *   переходы            — сеть, при провале последняя удачная копия из кэша
+ *   /_next/static/*     — кэш: имена файлов содержат хеш, содержимое неизменно
+ *   остальная статика   — сеть, кэш только как запасной вариант
+ *   всё прочее          — мимо (POST-запросы серверных действий не трогаем)
+ *
+ * «Сначала кэш» применяется ТОЛЬКО к неизменяемым файлам. Раньше так
+ * кэшировалось всё подряд, и после обновления браузер продолжал отдавать
+ * старую вёрстку: имя файла то же, содержимое новое, а кэш об этом не знает.
  */
 
-const CACHE = 'bazis-v1';
+const CACHE = 'bazis-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -65,17 +70,29 @@ self.addEventListener('fetch', (event) => {
   // RSC-полезная нагрузка меняется каждый запрос — кэшировать её вредно
   if (url.searchParams.has('_rsc')) return;
 
+  // Файлы с хешем в имени: содержимое за именем никогда не меняется,
+  // поэтому кэш здесь безопасен и экономит трафик.
+  const immutable = url.pathname.startsWith('/_next/static/');
+
   event.respondWith(
     (async () => {
-      const cached = await caches.match(request);
-      if (cached) return cached;
-
-      const response = await fetch(request);
-      if (response.ok && response.type === 'basic') {
-        const cache = await caches.open(CACHE);
-        cache.put(request, response.clone());
+      if (immutable) {
+        const cached = await caches.match(request);
+        if (cached) return cached;
       }
-      return response;
+
+      try {
+        const response = await fetch(request);
+        if (response.ok && response.type === 'basic') {
+          const cache = await caches.open(CACHE);
+          cache.put(request, response.clone());
+        }
+        return response;
+      } catch (error) {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        throw error;
+      }
     })(),
   );
 });

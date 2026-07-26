@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_Armenian } from 'next/font/google';
+import { Noto_Sans_Armenian, Noto_Serif_Armenian } from 'next/font/google';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
@@ -9,6 +9,15 @@ const sans = Noto_Sans_Armenian({
   variable: '--font-sans',
   subsets: ['armenian', 'latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
+/* Антиква для заголовков лендинга. В приложении не используется:
+   там всё решает скорость чтения, а не характер. */
+const serif = Noto_Serif_Armenian({
+  variable: '--font-serif',
+  subsets: ['armenian', 'latin'],
+  weight: ['500', '600'],
   display: 'swap',
 });
 
@@ -36,7 +45,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hy" className={`${sans.variable} h-full antialiased`}>
+    <html lang="hy" className={`${sans.variable} ${serif.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
         <ServiceWorker />

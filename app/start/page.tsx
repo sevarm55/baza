@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { NICHE_LIST } from '@/lib/niches';
+import { ACTIVE_NICHES } from '@/lib/niches';
 import { getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
 
 export default async function StartPage() {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+
+  // Пока открыта одна ниша, экран выбора — лишний шаг между желанием
+  // и регистрацией. Вернётся сам, как только включим вторую.
+  if (ACTIVE_NICHES.length === 1) redirect(`/start/${ACTIVE_NICHES[0].key}`);
 
   return (
     <main className="mx-auto w-full max-w-[520px] px-4 pb-24">
@@ -21,7 +25,7 @@ export default async function StartPage() {
       </header>
 
       <div className="mt-6 grid grid-cols-2 gap-2.5">
-        {NICHE_LIST.map((n) => (
+        {ACTIVE_NICHES.map((n) => (
           <Link
             key={n.key}
             href={`/start/${n.key}`}

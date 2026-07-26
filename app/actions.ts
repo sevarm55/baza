@@ -27,7 +27,7 @@ import {
 } from '@/lib/auth';
 import { hashPin } from '@/lib/pin';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
-import { NICHES, type NicheKey } from '@/lib/niches';
+import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
 
 /**
@@ -56,7 +56,8 @@ export async function registerBusiness(
   const phone = String(formData.get('phone') ?? '');
   const pin = String(formData.get('pin') ?? '');
 
-  if (!(niche in NICHES)) return { error: hy.errors.generic };
+  // действие открыто наружу, поэтому нишу проверяем здесь, а не только в UI
+  if (!isNicheAvailable(niche)) return { error: hy.errors.generic };
   if (businessName.length < 2 || ownerName.length < 2) return { error: hy.errors.required };
   if (!isValidPhone(phone)) return { error: hy.errors.badPhone };
   if (!isValidPin(pin)) return { error: hy.errors.badPin };
