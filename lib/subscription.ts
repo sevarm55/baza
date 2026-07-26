@@ -30,6 +30,35 @@ export type Access = {
 /** За сколько дней до конца начинаем напоминать. */
 const WARN_DAYS = 5;
 
+/**
+ * Пока платящих клиентов нет, счётчик триала только мешает: он выключит
+ * собственную демонстрацию посреди разговора с мойкой. Включается
+ * переменной BILLING_ENABLED=1, когда придёт время брать деньги.
+ *
+ * Ручное отключение бизнеса работает всегда: это не про оплату,
+ * а про возможность закрыть доступ.
+ */
+export function billingEnabled(): boolean {
+  return process.env.BILLING_ENABLED === '1';
+}
+
+/**
+ * Доступ с учётом того, включена ли вообще оплата.
+ * Экраны спрашивают именно это, а accessOf остаётся чистым расчётом
+ * состояния подписки — его удобно проверять тестами.
+ */
+export function currentAccess(
+  tenant: Pick<Tenant, 'plan' | 'trialEndsAt' | 'paidUntil'>,
+  now: Date = new Date(),
+): Access {
+  if (tenant.plan === 'blocked') return accessOf(tenant, now);
+
+  if (!billingEnabled()) {
+    return { state: 'active', daysLeft: 0, canRead: true, canWrite: true, warn: false };
+  }
+  return accessOf(tenant, now);
+}
+
 export function accessOf(
   tenant: Pick<Tenant, 'plan' | 'trialEndsAt' | 'paidUntil'>,
   now: Date = new Date(),

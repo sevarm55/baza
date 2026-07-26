@@ -194,7 +194,7 @@ export function OrderFlow({
         {/* Мойщик должен видеть, что его работа не потерялась,
             даже если связи нет прямо сейчас. */}
         {queue.length > 0 && (
-          <div className="mt-3 rounded-[14px] border border-[#3a2a10] bg-[#241a08] px-3.5 py-2.5 text-[13px] text-warn">
+          <div className="hint-warn mt-3">
             {hy.work.waitingToSend(queue.length)}
           </div>
         )}
@@ -294,7 +294,7 @@ export function OrderFlow({
               }}
             />
             {known && (
-              <div className="mt-2.5 rounded-[10px] border border-[#245038] bg-[#16281f] px-3.5 py-2.5 text-[13px] text-good">
+              <div className="hint-good mt-2.5">
                 {hy.work.knownClient(
                   known.visits,
                   agoLabel(known.lastSeenAt),
@@ -349,7 +349,7 @@ export function OrderFlow({
                 брать с него деньги повторно — прямая ошибка. */}
             {activePass && (
               <button
-                className="opt !border-[#245038] !bg-[#16281f]"
+                className="opt !border-good-line !bg-good-bg"
                 disabled={pending}
                 onClick={() => confirm('pass', activePass.id)}
               >

@@ -36,7 +36,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0f1115',
+  // цвет строки состояния на телефоне должен совпадать с фоном страницы,
+  // иначе сверху висит полоса чужого цвета
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0e1014' },
+    { media: '(prefers-color-scheme: light)', color: '#f3f5f9' },
+  ],
   // интерфейс сотрудника живёт на телефоне: зум при тапе по полю недопустим
   width: 'device-width',
   initialScale: 1,
@@ -45,7 +50,20 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hy" className={`${sans.variable} ${serif.variable} h-full antialiased`}>
+    <html
+      lang="hy"
+      className={`${sans.variable} ${serif.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Тема ставится до первой отрисовки. Иначе тёмный экран моргнёт
+            белым на каждой загрузке — на телефоне это очень заметно. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(()=>{try{var s=localStorage.getItem('bazis.theme');var m=window.matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.dataset.theme=s||(m?'light':'dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <ServiceWorker />

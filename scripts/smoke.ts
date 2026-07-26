@@ -448,6 +448,28 @@ async function main() {
   check('и не пишет', !shutOff.canWrite);
   check('отключение важнее действующей оплаты', shutOff.state === 'blocked', shutOff.state);
 
+  /* ---------- выключенный биллинг ---------- */
+  // пока платящих нет, счётчик триала только мешает: он выключил бы
+  // собственную демонстрацию посреди разговора с мойкой
+  const { currentAccess, billingEnabled } = await import('../lib/subscription');
+  check('биллинг по умолчанию выключен', !billingEnabled());
+
+  const expiredButOpen = currentAccess({
+    plan: 'trial',
+    trialEndsAt: inDays(-100),
+    paidUntil: null,
+  });
+  check('просроченный триал никого не блокирует', expiredButOpen.canWrite);
+  check('и не показывает плашку', !expiredButOpen.warn);
+
+  // а ручное отключение работает всегда: это не про оплату
+  const stillBlocked = currentAccess({
+    plan: 'blocked',
+    trialEndsAt: inDays(100),
+    paidUntil: inDays(100),
+  });
+  check('ручное отключение действует и без биллинга', !stillBlocked.canRead);
+
   /* ---------- список для админки ---------- */
   const all = await q.listTenantsForAdmin();
   check('админка видит оба бизнеса', all.length === 2, all.length);

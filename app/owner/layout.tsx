@@ -1,11 +1,11 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { TopBar } from '@/components/top-bar';
 import { OwnerTabs } from '@/components/owner-tabs';
 import { BillingBanner } from '@/components/billing-banner';
-import { accessOf } from '@/lib/subscription';
+import { currentAccess } from '@/lib/subscription';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const session = await requireOwner();
@@ -17,14 +17,14 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   ]);
   if (!tenant || !me) redirect('/login');
   // отключённый бизнес не пускаем внутрь вообще
-  if (!accessOf(tenant).canRead) redirect('/blocked');
+  if (!currentAccess(tenant).canRead) redirect('/blocked');
 
   return (
     <>
       <TopBar tenantName={tenant.name} subtitle={me.name} role="owner" active="owner" />
       <main className="mx-auto w-full max-w-[760px] px-4 pb-24">
         <OwnerTabs />
-        <BillingBanner access={accessOf(tenant)} role="owner" />
+        <BillingBanner access={currentAccess(tenant)} role="owner" />
         {children}
       </main>
     </>

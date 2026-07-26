@@ -1,8 +1,8 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { ensureDb } from '@/lib/db/ready';
 import { listTenantsForAdmin } from '@/lib/queries';
-import { accessOf, type Access } from '@/lib/subscription';
+import { accessOf, billingEnabled, type Access } from '@/lib/subscription';
 import { formatMoney } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { NICHES, type NicheKey } from '@/lib/niches';
@@ -23,6 +23,9 @@ export default async function AdminPage() {
   await ensureDb();
 
   const tenants = await listTenantsForAdmin();
+  // здесь показываем НАСТОЯЩЕЕ состояние подписки, а не то, что видит
+  // клиент: при выключенном биллинге иначе все были бы «оплачено»,
+  // и панель перестала бы что-либо сообщать
   const rows = tenants.map((t) => ({ ...t, access: accessOf(t) }));
 
   const count = (state: Access['state']) => rows.filter((r) => r.access.state === state).length;
@@ -40,6 +43,13 @@ export default async function AdminPage() {
             <Link href="/">к приложению</Link>
           </div>
         </header>
+
+        {!billingEnabled() && (
+          <div className={s.billingOff}>
+            Оплата выключена: сроки считаются, но никого не блокируют.
+            Включается переменной <code>BILLING_ENABLED=1</code>.
+          </div>
+        )}
 
         <div className={s.summary}>
           <div className={s.sum}>

@@ -1,28 +1,148 @@
 @import 'tailwindcss';
 
-@theme {
-  --color-bg: #0e1014;
-  --color-surface: #171a21;
-  --color-surface2: #1e222b;
-  --color-line: #262b35;
-  /* приглушённая линия для разделителей внутри списка: сплошная рамка
-     вокруг каждой строки дробит взгляд и делает экран однообразным */
-  --color-hairline: #1d222b;
-  --color-ink: #e9ebf0;
-  --color-muted: #8b93a7;
-  --color-faint: #667085;
-  --color-accent: #4f8cff;
-  --color-good: #2dd4a7;
-  --color-warn: #f5a524;
-  --color-bad: #f2545b;
+/* ─────────────────────────────────────────────────────────────
+   Две темы.
+
+   Значения живут в обычных переменных, а @theme inline лишь
+   ссылается на них — только так утилиты Tailwind переключаются
+   на лету, а не запекаются в сборку.
+
+   Зелёный и синий в светлой теме заметно темнее: #2dd4a7 на белом
+   почти не читается. Это самая частая ошибка в светлых темах —
+   взять те же цвета и удивиться, почему всё блёклое.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #0e1014;
+  --surface: #171a21;
+  --surface2: #1e222b;
+  --line: #262b35;
+  --hairline: #1d222b;
+  --hover: rgb(255 255 255 / 3%);
+  --tile-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+
+  --ink: #e9ebf0;
+  --muted: #8b93a7;
+  --faint: #667085;
+
+  --accent: #4f8cff;
+  --good: #2dd4a7;
+  --warn: #f5a524;
+  --bad: #f2545b;
+
+  --accent-bg: #14224a;
+  --accent-ink: #8fb4ff;
+  --violet: #a78bfa;
+  --violet-bg: #16121f;
+
+  --good-bg: #16281f;
+  --good-line: #245038;
+  --good-ink: #2dd4a7;
+
+  --warn-bg: #241a08;
+  --warn-line: #3a2a10;
+  --warn-ink: #f5a524;
+
+  --bad-bg: #2a1416;
+  --bad-line: #6b2b31;
+  --bad-ink: #ffb4b8;
+
+  /* блок заработка на экране мойщика */
+  --shift-from: #1b2740;
+  --shift-to: #161d2e;
+  --shift-line: #2a3550;
+
+  /* столбики графика */
+  --bar: #2f3a52;
+  --bar-empty: #1b1f28;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --surface2: #eaeef5;
+  --line: #dbe1ea;
+  --hairline: #e9edf3;
+  --hover: rgb(16 20 28 / 3%);
+  --tile-shadow: 0 1px 2px rgb(16 20 28 / 7%);
+
+  --ink: #10141c;
+  --muted: #55607a;
+  --faint: #7c879b;
+
+  --accent: #2563eb;
+  --good: #0f9b76;
+  --warn: #a86400;
+  --bad: #d32f45;
+
+  --accent-bg: #e6efff;
+  --accent-ink: #1d4ed8;
+  --violet: #6d3fd4;
+  --violet-bg: #f1ecfd;
+
+  --good-bg: #e6f7f0;
+  --good-line: #b5e5d3;
+  --good-ink: #0b7a5c;
+
+  --warn-bg: #fdf3e1;
+  --warn-line: #f0dcb2;
+  --warn-ink: #8a5200;
+
+  --bad-bg: #fdebed;
+  --bad-line: #f4c2c8;
+  --bad-ink: #a3202f;
+
+  --shift-from: #e8f0ff;
+  --shift-to: #dbe8ff;
+  --shift-line: #c2d7ff;
+
+  --bar: #c3cfe2;
+  --bar-empty: #e6eaf1;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-line: var(--line);
+  --color-hairline: var(--hairline);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-accent: var(--accent);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+
+  --color-good-bg: var(--good-bg);
+  --color-good-line: var(--good-line);
+  --color-good-ink: var(--good-ink);
+
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-line: var(--warn-line);
+  --color-warn-ink: var(--warn-ink);
+
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-line: var(--bad-line);
+  --color-bad-ink: var(--bad-ink);
+
+  --color-shift-from: var(--shift-from);
+  --color-shift-to: var(--shift-to);
+  --color-shift-line: var(--shift-line);
 
   --radius-card: 14px;
   --radius-sm: 10px;
 }
 
 html {
-  background: var(--color-bg);
-  color: var(--color-ink);
+  background: var(--bg);
+  color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -32,7 +152,7 @@ body {
 
 /* Видимый фокус — не украшение: без него с клавиатуры работать вслепую. */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -43,14 +163,12 @@ body {
 @layer components {
   /* ─────────────────────── типографика ─────────────────────── */
 
-  /* Микро-подпись над данными. Разница в размере и разрядке создаёт
-     иерархию, которой не было, когда весь текст шёл одним кеглем. */
   .label {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--color-faint);
+    color: var(--faint);
   }
 
   .h-section {
@@ -58,7 +176,7 @@ body {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--color-faint);
+    color: var(--faint);
     margin: 1.75rem 0 0.6rem;
   }
 
@@ -69,24 +187,22 @@ body {
   /* ─────────────────────── поверхности ─────────────────────── */
 
   .card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-card);
     padding: 1rem;
   }
 
-  /* Плитка с числом: без рамки, отделена фоном и лёгкой тенью.
-     Обведённые прямоугольники повсюду — главный признак «шаблона». */
   .tile {
-    background: var(--color-surface);
+    background: var(--surface);
     border-radius: var(--radius-card);
     padding: 0.95rem 1rem;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+    box-shadow: var(--tile-shadow);
   }
 
   .list {
-    background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-card);
     overflow: hidden;
   }
@@ -96,14 +212,14 @@ body {
     align-items: center;
     gap: 0.75rem;
     padding: 0.8rem 1rem;
-    border-bottom: 1px solid var(--color-hairline);
+    border-bottom: 1px solid var(--hairline);
     transition: background 0.12s ease;
   }
   .li:last-child {
     border-bottom: 0;
   }
   .li:hover {
-    background: rgb(255 255 255 / 2%);
+    background: var(--hover);
   }
 
   /* ───────────────────────── кнопки ───────────────────────── */
@@ -114,7 +230,7 @@ body {
     padding: 0.9rem 1rem;
     border: 1px solid transparent;
     border-radius: var(--radius-card);
-    background: var(--color-accent);
+    background: var(--accent);
     color: #fff;
     font: inherit;
     font-weight: 600;
@@ -135,11 +251,11 @@ body {
 
   .btn-ghost {
     background: transparent;
-    border-color: var(--color-line);
-    color: var(--color-ink);
+    border-color: var(--line);
+    color: var(--ink);
   }
   .btn-ghost:hover:not(:disabled) {
-    background: var(--color-surface2);
+    background: var(--surface2);
     filter: none;
   }
 
@@ -157,9 +273,9 @@ body {
     width: auto;
     padding: 0.45rem 0.7rem;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--color-line);
-    background: var(--color-surface2);
-    color: var(--color-ink);
+    border: 1px solid var(--line);
+    background: var(--surface2);
+    color: var(--ink);
     font: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -168,7 +284,7 @@ body {
     transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   }
   .btn-inline:hover:not(:disabled) {
-    border-color: var(--color-accent);
+    border-color: var(--accent);
   }
   .btn-inline:disabled {
     opacity: 0.45;
@@ -176,8 +292,8 @@ body {
   }
 
   .btn-inline-primary {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
+    background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
   }
   .btn-inline-primary:hover:not(:disabled) {
@@ -186,11 +302,30 @@ body {
 
   .btn-inline-danger {
     background: transparent;
-    color: var(--color-muted);
+    color: var(--muted);
   }
   .btn-inline-danger:hover:not(:disabled) {
-    border-color: var(--color-bad);
-    color: var(--color-bad);
+    border-color: var(--bad);
+    color: var(--bad);
+  }
+
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  .btn-icon:hover {
+    background: var(--surface2);
+    color: var(--ink);
   }
 
   /* ───────────────────────── поля ───────────────────────── */
@@ -198,28 +333,27 @@ body {
   .field {
     width: 100%;
     padding: 0.8rem 0.85rem;
-    background: var(--color-bg);
-    border: 1px solid var(--color-line);
+    background: var(--bg);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    color: var(--color-ink);
+    color: var(--ink);
     font: inherit;
     font-size: 1rem;
     outline: none;
     transition: border-color 0.12s ease, background 0.12s ease;
   }
   .field::placeholder {
-    color: var(--color-faint);
+    color: var(--faint);
   }
   .field:hover {
-    border-color: #333a47;
+    border-color: var(--muted);
   }
   .field:focus {
-    border-color: var(--color-accent);
-    background: var(--color-surface);
+    border-color: var(--accent);
+    background: var(--surface);
     outline: none;
   }
 
-  /* Идентификатор клиента набирают на бегу — крупно и по центру */
   .field-key {
     font-size: 1.35rem;
     letter-spacing: 0.06em;
@@ -232,39 +366,55 @@ body {
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-card);
     padding: 1rem;
     font: inherit;
     font-size: 1rem;
-    color: var(--color-ink);
+    color: var(--ink);
     cursor: pointer;
     text-align: start;
     transition: border-color 0.12s ease, background 0.12s ease;
   }
   .opt:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    background: var(--color-surface2);
+    border-color: var(--accent);
+    background: var(--surface2);
   }
   .opt:disabled {
     opacity: 0.5;
     cursor: default;
   }
 
-  /* ───────────────────────── прочее ───────────────────────── */
+  /* ───────────────────── цветные врезки ───────────────────── */
 
   .alert {
-    background: #3a1a1d;
-    border: 1px solid #6b2b31;
-    color: #ffb4b8;
+    background: var(--bad-bg);
+    border: 1px solid var(--bad-line);
+    color: var(--bad-ink);
     border-radius: var(--radius-sm);
     padding: 0.7rem 0.85rem;
     font-size: 0.875rem;
   }
 
-  /* Полоса вкладок прокручивается на телефоне, но полоса прокрутки
-     под ней выглядит как ошибка вёрстки. */
+  .hint-good {
+    background: var(--good-bg);
+    border: 1px solid var(--good-line);
+    color: var(--good-ink);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    font-size: 13px;
+  }
+
+  .hint-warn {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: var(--warn-ink);
+    border-radius: var(--radius-card);
+    padding: 0.65rem 0.85rem;
+    font-size: 13px;
+  }
+
   .scroll-x {
     overflow-x: auto;
     scrollbar-width: none;
@@ -279,36 +429,36 @@ body {
     border-radius: 999px;
     padding: 0.5rem 0.9rem;
     font-size: 13.5px;
-    color: var(--color-muted);
-    background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--line);
     transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
   }
   .tab:hover {
-    color: var(--color-ink);
-    border-color: #333a47;
+    color: var(--ink);
+    border-color: var(--muted);
   }
   .tab-on {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
+    background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
     font-weight: 600;
   }
   .tab-on:hover {
     color: #fff;
-    border-color: var(--color-accent);
+    border-color: var(--accent);
   }
 
   .note {
-    border-inline-start: 3px solid var(--color-accent);
-    background: var(--color-surface);
+    border-inline-start: 3px solid var(--accent);
+    background: var(--surface);
     border-radius: var(--radius-card);
     padding: 0.85rem 0.95rem;
     font-size: 13px;
     line-height: 1.6;
-    color: var(--color-muted);
+    color: var(--muted);
   }
   .note-warn {
-    border-inline-start-color: var(--color-warn);
+    border-inline-start-color: var(--warn);
   }
 }

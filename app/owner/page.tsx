@@ -21,11 +21,13 @@ const PERIODS = [
   { key: '30', label: hy.owner.periodMonth },
 ] as const;
 
+/* Через переменные, а не хексами: в светлой теме те же оттенки темнеют,
+   иначе полоса на белом фоне выцветает до неразличимости. */
 const PAYMENT_COLORS: Record<string, string> = {
-  cash: '#2dd4a7',
-  card: '#4f8cff',
-  transfer: '#a78bfa',
-  pass: '#f5a524',
+  cash: 'var(--good)',
+  card: 'var(--accent)',
+  transfer: '#8b5cf6',
+  pass: 'var(--warn)',
 };
 
 export default async function TodayPage({
@@ -101,7 +103,7 @@ export default async function TodayPage({
         segments={split.map((s) => ({
           label: paymentLabel(s.payment),
           value: s.revenue,
-          color: PAYMENT_COLORS[s.payment] ?? '#8b93a7',
+          color: PAYMENT_COLORS[s.payment] ?? 'var(--muted)',
         }))}
       />
 

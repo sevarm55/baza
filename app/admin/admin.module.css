@@ -5,12 +5,15 @@
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  --violet: #a78bfa;
   --deep: #0a0b10;
-  --line: #232733;
+  --line: var(--color-line);
 
   min-height: 100vh;
   background: var(--deep);
+}
+
+:global(:root[data-theme='light']) .page {
+  --deep: #eceff5;
 }
 
 .shell {
@@ -52,6 +55,21 @@
   color: var(--color-ink);
 }
 
+.billingOff {
+  margin-bottom: 18px;
+  border-inline-start: 3px solid var(--violet);
+  background: var(--violet-bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+.billingOff code {
+  color: var(--violet);
+  font-size: 12.5px;
+}
+
 /* ───────────────────────── сводка ───────────────────────── */
 
 .summary {
@@ -68,7 +86,7 @@
 }
 
 .sum {
-  background: #12141b;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 13px 14px;
 }
@@ -97,7 +115,7 @@
 }
 
 .row {
-  background: #12141b;
+  background: var(--color-surface);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
@@ -149,20 +167,20 @@
   white-space: nowrap;
 }
 .badgeActive {
-  background: #10312a;
-  color: var(--color-good);
+  background: var(--color-good-bg);
+  color: var(--color-good-ink);
 }
 .badgeTrial {
-  background: #14224a;
-  color: #8fb4ff;
+  background: var(--accent-bg);
+  color: var(--accent-ink);
 }
 .badgeExpired {
-  background: #3a2a10;
-  color: var(--color-warn);
+  background: var(--color-warn-bg);
+  color: var(--color-warn-ink);
 }
 .badgeBlocked {
-  background: #3a1a1d;
-  color: #ffb4b8;
+  background: var(--color-bad-bg);
+  color: var(--color-bad-ink);
 }
 
 .meta {
@@ -201,7 +219,7 @@
 
 .btn {
   border: 1px solid var(--line);
-  background: #191c25;
+  background: var(--color-surface2);
   color: var(--color-ink);
   border-radius: 9px;
   padding: 7px 12px;

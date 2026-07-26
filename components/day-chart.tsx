@@ -1,4 +1,4 @@
-import { formatMoney } from '@/lib/money';
+﻿import { formatMoney } from '@/lib/money';
 
 export type ChartPoint = { label: string; value: number; peak?: boolean };
 
@@ -49,8 +49,8 @@ export function DayChart({
                 background: isPeak
                   ? 'var(--color-accent)'
                   : p.value > 0
-                    ? '#2f3a52'
-                    : '#1b1f28',
+                    ? 'var(--bar)'
+                    : 'var(--bar-empty)',
               }}
               title={`${p.label} · ${formatMoney(p.value, currency)}`}
             />

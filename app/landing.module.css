@@ -10,11 +10,19 @@
 .page {
   --deep: #0a0c10;
   --line: #1e222b;
+  /* номерной знак остаётся белым в любой теме: это физический предмет,
+     а не элемент интерфейса */
   --plate: #eef0f3;
+  --plate-ink: #14161c;
 
   background: var(--deep);
   color: var(--color-ink);
   overflow-x: hidden;
+}
+
+:global(:root[data-theme='light']) .page {
+  --deep: #eceff5;
+  --line: #dbe1ea;
 }
 
 .shell {
@@ -152,7 +160,7 @@
   border-radius: 26px;
   background: var(--color-bg);
   padding: 16px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 28%);
 }
 
 .phoneBar {
@@ -173,9 +181,9 @@
 }
 
 .shift {
-  border: 1px solid #2a3550;
+  border: 1px solid var(--color-shift-line);
   border-radius: 14px;
-  background: linear-gradient(135deg, #1b2740, #161d2e);
+  background: linear-gradient(135deg, var(--color-shift-from), var(--color-shift-to));
   padding: 16px;
 }
 
@@ -219,7 +227,7 @@
   align-items: center;
   gap: 8px;
   background: var(--plate);
-  color: #14161c;
+  color: var(--plate-ink);
   border-radius: 8px;
   padding: 11px 12px;
   font-variant-numeric: tabular-nums;
@@ -244,7 +252,7 @@
   display: inline-block;
   width: 2px;
   height: 20px;
-  background: #14161c;
+  background: var(--plate-ink);
   animation: blink 1s steps(2, start) infinite;
 }
 

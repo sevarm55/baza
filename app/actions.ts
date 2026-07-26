@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 import { redirect } from 'next/navigation';
 import { refresh, revalidatePath } from 'next/cache';
@@ -15,7 +15,7 @@ import {
 } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { listActivePasses, sellPass } from '@/lib/passes';
-import { accessOf, SubscriptionExpiredError } from '@/lib/subscription';
+import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness, PhoneTakenError } from '@/lib/tenant';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
 import {
@@ -166,7 +166,7 @@ export async function deactivateStaff(staffId: string): Promise<void> {
 async function requireWriteAccess(tenantId: string) {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error('NO_TENANT');
-  if (!accessOf(tenant).canWrite) throw new SubscriptionExpiredError();
+  if (!currentAccess(tenant).canWrite) throw new SubscriptionExpiredError();
   return tenant;
 }
 
@@ -393,7 +393,7 @@ export async function sellPassAction(
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: hy.errors.generic };
-  if (!accessOf(tenant).canWrite) return { error: hy.billing.expiredTitle };
+  if (!currentAccess(tenant).canWrite) return { error: hy.billing.expiredTitle };
 
   const clientKey = String(formData.get('clientKey') ?? '').trim();
   const serviceId = String(formData.get('serviceId') ?? '');

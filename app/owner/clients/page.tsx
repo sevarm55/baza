@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listClients } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
@@ -56,7 +56,7 @@ export default async function ClientsPage() {
           <div className="list">
             {lost.slice(0, 10).map((c) => (
               <div key={c.id} className="li">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#241a08] text-warn">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-warn-bg text-warn-ink">
                   💤
                 </div>
                 <div className="min-w-0 flex-1">
@@ -65,7 +65,7 @@ export default async function ClientsPage() {
                     {c.visits} {hy.owner.visits} · {money(c.total)}
                   </div>
                 </div>
-                <span className="num shrink-0 rounded-full bg-[#241a08] px-2.5 py-1 text-xs font-semibold text-warn">
+                <span className="num shrink-0 rounded-full bg-warn-bg px-2.5 py-1 text-xs font-semibold text-warn-ink">
                   {hy.owner.lostFor(c.days)}
                 </span>
               </div>

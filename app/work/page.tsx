@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
@@ -6,7 +6,7 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
 import { BillingBanner } from '@/components/billing-banner';
-import { accessOf } from '@/lib/subscription';
+import { currentAccess } from '@/lib/subscription';
 import { OrderFlow } from './order-flow';
 
 export default async function WorkPage() {
@@ -19,7 +19,7 @@ export default async function WorkPage() {
   ]);
   if (!tenant || !me) redirect('/login');
 
-  const access = accessOf(tenant);
+  const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
   const [services, shift] = await Promise.all([
     listServices(tenant.id),
@@ -34,7 +34,7 @@ export default async function WorkPage() {
         <BillingBanner access={access} role={session.role} />
         {/* Личный заработок в реальном времени. Это не украшение:
             без него сотруднику незачем вбивать записи вообще. */}
-        <section className="mb-3.5 rounded-[14px] border border-[#2a3550] bg-gradient-to-br from-[#1b2740] to-[#161d2e] p-[18px]">
+        <section className="mb-3.5 rounded-[14px] border border-shift-line bg-gradient-to-br from-shift-from to-shift-to p-[18px]">
           <div className="text-xs uppercase tracking-[1px] text-muted">
             {hy.work.shiftTitle}
           </div>
