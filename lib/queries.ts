@@ -201,6 +201,52 @@ export async function getPeriodStats(tenantId: string, from: Date, to?: Date) {
   };
 }
 
+/**
+ * Форма периода: сколько денег принесли часы дня или дни недели.
+ *
+ * У мойки день имеет рельеф — утренний заезд, дневной провал, вечерний
+ * наплыв. Владелец это чувствует, но не видит; список записей рельеф
+ * не показывает, а столбики показывают сразу.
+ */
+export async function getRevenueSeries(
+  tenantId: string,
+  from: Date,
+  timezone: string,
+  bucket: 'hour' | 'day',
+) {
+  const local = sql`(${orders.createdAt} at time zone ${timezone})`;
+
+  /* Ключ отдаём строкой, а не Date: timestamp without time zone при
+     обратном разборе в JS молча трактуется как время сервера, и график
+     съезжает на разницу часовых поясов. Текст такой двусмысленности
+     не имеет. */
+  return db
+    .select({
+      key: sql<string>`to_char(date_trunc(${bucket}, ${local}), 'YYYY-MM-DD HH24')`,
+      revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(orders)
+    .where(and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), notCanceled))
+    .groupBy(sql`1`)
+    .orderBy(sql`1`);
+}
+
+/** Разбивка прихода по способу оплаты — для полосы вместо четырёх плиток. */
+export async function getPaymentSplit(tenantId: string, from: Date) {
+  const rows = await db
+    .select({
+      payment: orders.payment,
+      revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(orders)
+    .where(and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), notCanceled))
+    .groupBy(orders.payment);
+
+  return rows;
+}
+
 export async function getFeed(tenantId: string, from: Date, limit = 100) {
   return db
     .select({

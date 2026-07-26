@@ -3,7 +3,7 @@ import { requireOwner } from '@/lib/auth';
 import { getSettledUntil, getTenant, getUnsettledPayroll, listPayouts } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import { Avatar, Stat, StatGrid } from '@/components/stat';
+import { Avatar, Hero } from '@/components/stat';
 import { PayButton } from '@/components/pay-button';
 
 export default async function PayrollPage() {
@@ -23,10 +23,11 @@ export default async function PayrollPage() {
 
   return (
     <>
-      <StatGrid>
-        <Stat label={hy.owner.sinceLastPayout} value={money(revenue)} />
-        <Stat label={hy.owner.payrollDue} value={money(due)} tone="good" />
-      </StatGrid>
+      <Hero
+        label={hy.owner.payrollDue}
+        value={money(due)}
+        meta={`${hy.owner.sinceLastPayout} · ${money(revenue)}`}
+      />
 
       <div className="list">
         {rows.length === 0 ? (

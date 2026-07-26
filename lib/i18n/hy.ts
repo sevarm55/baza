@@ -197,6 +197,8 @@ export const hy = {
     clientsLoyal: 'Մշտական',
     clientsLost: 'Վաղուց չեն եղել',
     clientsAvg: 'Միջին եկամուտ հաճախորդից',
+    allClients: 'Բոլորը',
+    comeBack: 'Արժե զանգել',
     visits: 'այց',
     lostFor: (days: number) => `չկա ${days} օր`,
     lastVisitToday: 'այսօր',

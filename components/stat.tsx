@@ -1,3 +1,36 @@
+/**
+ * Главное число экрана.
+ *
+ * Владелец открывает приложение ради одной цифры. Когда она набрана
+ * тем же кеглем, что и средний чек, взгляду не за что зацепиться —
+ * именно это и читается как «скучно».
+ */
+export function Hero({
+  label,
+  value,
+  meta,
+  tone = 'good',
+}: {
+  label: string;
+  value: string;
+  meta?: React.ReactNode;
+  tone?: 'good' | 'ink';
+}) {
+  return (
+    <div className="mb-3.5">
+      <div className="label">{label}</div>
+      <div
+        className={`num mt-1.5 text-[clamp(2.5rem,11vw,3.25rem)] leading-none font-bold tracking-tight ${
+          tone === 'good' ? 'text-good' : 'text-ink'
+        }`}
+      >
+        {value}
+      </div>
+      {meta && <div className="mt-2.5 text-[13.5px] text-muted">{meta}</div>}
+    </div>
+  );
+}
+
 export function Stat({
   label,
   value,

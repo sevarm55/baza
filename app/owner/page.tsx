@@ -1,10 +1,18 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
-import { getFeed, getPeriodStats, getTenant, startOfDay } from '@/lib/queries';
+import {
+  getFeed,
+  getPaymentSplit,
+  getPeriodStats,
+  getRevenueSeries,
+  getTenant,
+  startOfDay,
+} from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import { Avatar, Stat, StatGrid } from '@/components/stat';
+import { Avatar, Hero } from '@/components/stat';
+import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
 
 const PERIODS = [
@@ -12,6 +20,13 @@ const PERIODS = [
   { key: '7', label: hy.owner.periodWeek },
   { key: '30', label: hy.owner.periodMonth },
 ] as const;
+
+const PAYMENT_COLORS: Record<string, string> = {
+  cash: '#2dd4a7',
+  card: '#4f8cff',
+  transfer: '#a78bfa',
+  pass: '#f5a524',
+};
 
 export default async function TodayPage({
   searchParams,
@@ -24,28 +39,31 @@ export default async function TodayPage({
 
   const { p } = await searchParams;
   const period = PERIODS.find((x) => x.key === p) ?? PERIODS[0];
+  const byHour = period.key === 'today';
 
-  const from =
-    period.key === 'today'
-      ? startOfDay(tenant.timezone)
-      : new Date(Date.now() - Number(period.key) * 86_400_000);
+  const from = byHour
+    ? startOfDay(tenant.timezone)
+    : new Date(Date.now() - Number(period.key) * 86_400_000);
 
-  const [stats, feed] = await Promise.all([
+  const [stats, feed, series, split] = await Promise.all([
     getPeriodStats(tenant.id, from),
     getFeed(tenant.id, from),
+    getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day'),
+    getPaymentSplit(tenant.id, from),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency);
   const maxRevenue = Math.max(1, ...stats.byStaff.map((s) => s.revenue));
+  const points = buildPoints(series, byHour, Number(period.key));
 
   return (
     <>
-      <div className="mb-3.5 flex gap-1.5">
+      <div className="mb-4 flex gap-1.5">
         {PERIODS.map((x) => (
           <Link
             key={x.key}
             href={x.key === 'today' ? '/owner' : `/owner?p=${x.key}`}
-            className={`rounded-[10px] px-3 py-1.5 text-[13px] ${
+            className={`rounded-[10px] px-3 py-1.5 text-[13px] transition-colors ${
               x.key === period.key
                 ? 'bg-surface2 font-semibold text-ink'
                 : 'text-muted hover:text-ink'
@@ -56,42 +74,60 @@ export default async function TodayPage({
         ))}
       </div>
 
-      <StatGrid>
-        <Stat label={hy.owner.revenue} value={money(stats.revenue)} tone="good" />
-        <Stat label={tenant.unitOne} value={stats.count} />
-        <Stat label={hy.owner.avgCheck} value={money(stats.avgCheck)} />
-        <Stat label={hy.owner.cashShare} value={money(stats.cash)} />
-        {stats.passSales > 0 && (
-          <Stat label={hy.passes.revenue} value={money(stats.passSales)} />
-        )}
-        {stats.passUses > 0 && (
-          <Stat label={hy.payment.pass} value={stats.passUses} tone="warn" />
-        )}
-      </StatGrid>
+      <Hero
+        label={hy.owner.revenue}
+        value={money(stats.revenue)}
+        meta={
+          <>
+            {stats.count} {tenant.unitOne} · {hy.owner.avgCheck} {money(stats.avgCheck)}
+            {stats.passSales > 0 && (
+              <>
+                {' · '}
+                {hy.passes.revenue} {money(stats.passSales)}
+              </>
+            )}
+          </>
+        }
+      />
+
+      <DayChart
+        points={points}
+        currency={tenant.currency}
+        labelEvery={byHour ? 3 : points.length > 14 ? 5 : 1}
+      />
+
+      <PaymentSplit
+        currency={tenant.currency}
+        segments={split.map((s) => ({
+          label: paymentLabel(s.payment),
+          value: s.revenue,
+          color: PAYMENT_COLORS[s.payment] ?? '#8b93a7',
+        }))}
+      />
 
       <h2 className="h-section">{hy.owner.onShift}</h2>
       <div className="list">
         {stats.byStaff.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted">{hy.common.empty}</div>
+          <Empty text={hy.common.empty} />
         ) : (
           stats.byStaff.map((s) => (
             <div key={s.staffId ?? 'none'} className="li">
               <Avatar text={s.name ?? '—'} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[14.5px] font-semibold">{s.name ?? '—'}</div>
-                <div className="text-[12.5px] text-muted">
+                <div className="num text-[12.5px] text-muted">
                   {s.count} {tenant.unitOne}
                 </div>
                 <div className="mt-[7px] h-1.5 overflow-hidden rounded bg-surface2">
                   <div
-                    className="h-full bg-accent"
+                    className="h-full rounded bg-accent"
                     style={{ width: `${Math.round((s.revenue / maxRevenue) * 100)}%` }}
                   />
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[14.5px] font-semibold">{money(s.revenue)}</div>
-                <div className="text-xs text-muted">
+                <div className="num text-[14.5px] font-semibold">{money(s.revenue)}</div>
+                <div className="num text-xs text-muted">
                   {hy.owner.earned} {money(s.earned)}
                 </div>
               </div>
@@ -103,19 +139,21 @@ export default async function TodayPage({
       <h2 className="h-section">{hy.owner.feed}</h2>
       <div className="list">
         {feed.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted">{hy.common.empty}</div>
+          <Empty text={hy.common.empty} />
         ) : (
           feed.map((o) => (
             <div key={o.id} className="li">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[14.5px] font-semibold">{o.clientKey ?? '—'}</div>
+                <div className="num truncate text-[14.5px] font-semibold">
+                  {o.clientKey ?? '—'}
+                </div>
                 <div className="truncate text-[12.5px] text-muted">
                   {o.serviceName} · {o.staffName ?? '—'} · {paymentLabel(o.payment)}
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[14.5px] font-semibold">{money(o.price)}</div>
-                <div className="text-xs text-muted">{hhmm(o.createdAt)}</div>
+                <div className="num text-[14.5px] font-semibold">{money(o.price)}</div>
+                <div className="num text-xs text-muted">{hhmm(o.createdAt)}</div>
               </div>
               <CancelOrderButton orderId={o.id} />
             </div>
@@ -126,13 +164,58 @@ export default async function TodayPage({
   );
 }
 
+function Empty({ text }: { text: string }) {
+  return <div className="px-4 py-12 text-center text-sm text-faint">{text}</div>;
+}
+
+/**
+ * Достраиваем пустые часы и дни.
+ *
+ * Без этого график врёт: три записи подряд в 9, 14 и 19 нарисуются
+ * тремя соседними столбиками, и провала между ними не будет видно —
+ * а он и есть самое интересное.
+ */
+function buildPoints(
+  series: { key: string; revenue: number }[],
+  byHour: boolean,
+  days: number,
+): ChartPoint[] {
+  const found = new Map(series.map((s) => [s.key, s.revenue]));
+
+  if (byHour) {
+    const hours = series.map((s) => Number(s.key.slice(11, 13)));
+    if (hours.length === 0) return [];
+    const day = series[0].key.slice(0, 10);
+    const start = Math.min(...hours);
+    const end = Math.max(...hours);
+    const points: ChartPoint[] = [];
+    for (let h = start; h <= end; h++) {
+      const key = `${day} ${String(h).padStart(2, '0')}`;
+      points.push({ label: String(h).padStart(2, '0'), value: found.get(key) ?? 0 });
+    }
+    return points;
+  }
+
+  const points: ChartPoint[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00`;
+    points.push({ label: pad(d.getDate()), value: found.get(key) ?? 0 });
+  }
+  return points;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
 function paymentLabel(p: string): string {
   if (p === 'cash') return hy.payment.cash;
   if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return `🎟 ${hy.payment.pass}`;
+  if (p === 'pass') return hy.payment.pass;
   return hy.payment.transfer;
 }
 
 function hhmm(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
