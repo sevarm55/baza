@@ -1,13 +1,22 @@
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { db } from './index';
+import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import { db, isServerDb } from './index';
 
 /**
- * Миграции применяются один раз за процесс.
- * На PGlite это дёшево, а на сервере этот файл заменится на шаг деплоя.
+ * Локально миграции применяются сами — чтобы `npm run dev` работал
+ * на чистом клоне без единой команды.
+ *
+ * На сервере — нет, и это осознанно: параллельные лямбды начали бы
+ * мигрировать одну базу наперегонки. Там миграции идут отдельным шагом
+ * при деплое (`npm run db:migrate`).
  */
 let applied: Promise<void> | null = null;
 
 export function ensureDb(): Promise<void> {
-  applied ??= migrate(db, { migrationsFolder: './drizzle' });
+  if (isServerDb) return Promise.resolve();
+  // сюда попадаем только когда db действительно PGlite: проверка выше
+  applied ??= migrate(db as unknown as PgliteDatabase, {
+    migrationsFolder: './drizzle',
+  });
   return applied;
 }

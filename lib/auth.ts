@@ -7,6 +7,13 @@ export { hashPin, verifyPin } from './pin';
 const COOKIE = 'bz_session';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 дней — сотрудник не должен логиниться каждый день
 
+/* Дефолтный ключ допустим только локально. На сервере без своего секрета
+   сессии подписывались бы общеизвестной строкой — подделать cookie
+   владельца смог бы кто угодно. Лучше не запуститься, чем работать так. */
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET не задан');
+}
+
 const secret = new TextEncoder().encode(
   process.env.SESSION_SECRET ?? 'dev-only-insecure-secret-please-change-me-now',
 );
