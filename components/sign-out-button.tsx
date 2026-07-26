@@ -16,11 +16,7 @@ export function SignOutButton() {
         navigator.serviceWorker?.controller?.postMessage('bazis:signout');
       }}
     >
-      <button
-        className="text-[13px] text-muted hover:text-ink"
-        title={hy.auth.signOut}
-        aria-label={hy.auth.signOut}
-      >
+      <button className="btn-icon" title={hy.auth.signOut} aria-label={hy.auth.signOut}>
         ⏻
       </button>
     </form>

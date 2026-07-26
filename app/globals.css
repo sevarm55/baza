@@ -30,6 +30,12 @@
   --warn: #f5a524;
   --bad: #f2545b;
 
+  /* Цвета знака. Одни и те же в обеих темах — это марка, а не
+     элемент интерфейса, и меняться она не должна. */
+  --brand-1: #f2a33c;
+  --brand-2: #f2645c;
+  --brand-3: #12897e;
+
   --accent-bg: #14224a;
   --accent-ink: #8fb4ff;
   --violet: #a78bfa;
@@ -135,6 +141,10 @@
   --color-shift-from: var(--shift-from);
   --color-shift-to: var(--shift-to);
   --color-shift-line: var(--shift-line);
+
+  --color-brand-1: var(--brand-1);
+  --color-brand-2: var(--brand-2);
+  --color-brand-3: var(--brand-3);
 
   --radius-card: 14px;
   --radius-sm: 10px;
@@ -309,22 +319,28 @@ body {
     color: var(--bad);
   }
 
+  /* Квадратная кнопка-иконка. Рамка и фон есть всегда, а не только при
+     наведении: голая иконка не читается как нажимаемая, особенно на
+     телефоне, где наведения не существует в принципе. */
   .btn-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: none;
     border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    background: transparent;
+    border: 1px solid var(--line);
+    background: var(--surface);
     color: var(--muted);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 15px;
+    line-height: 1;
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   }
   .btn-icon:hover {
     background: var(--surface2);
+    border-color: var(--muted);
     color: var(--ink);
   }
 

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
@@ -10,6 +11,8 @@ import s from './landing.module.css';
 
 /** Цена подписки. Одно место — меняется здесь. */
 const PRICE = 15000;
+
+const STEP_COLORS = ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', 'var(--brand-1)'];
 
 export default async function Home() {
   const session = await getSession();
@@ -58,8 +61,14 @@ export default async function Home() {
         <section className={s.day}>
           <div className={s.shell}>
             <div className={s.steps}>
-              {L.steps.map((step) => (
-                <article key={step.time} className={s.step}>
+              {L.steps.map((step, i) => (
+                <article
+                  key={step.time}
+                  className={s.step}
+                  /* метки времени идут цветами знака по кругу — страница
+                     и логотип перестают жить отдельными жизнями */
+                  style={{ '--step-color': STEP_COLORS[i % STEP_COLORS.length] } as CSSProperties}
+                >
                   <div className={s.stepTime}>{step.time}</div>
                   <div>
                     <h2 className={s.stepTitle}>{step.title}</h2>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Logo } from '@/components/logo';
 import type { Role } from '@/lib/auth';
 
 export function TopBar({
@@ -21,9 +22,12 @@ export function TopBar({
           Иначе три элемента в ряд сжимают название бизнеса до одной
           буквы — а владелец должен видеть, куда он вошёл. */}
       <div className="mx-auto flex max-w-[760px] flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="order-1 min-w-0 flex-1">
-          <div className="truncate text-[15px] font-semibold">{tenantName}</div>
-          <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
+        <div className="order-1 flex min-w-0 flex-1 items-center gap-2.5">
+          <Logo size={26} withName={false} />
+          <div className="min-w-0">
+            <div className="truncate text-[15px] font-semibold">{tenantName}</div>
+            <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
+          </div>
         </div>
 
         <div className="order-2 flex shrink-0 items-center gap-1">
