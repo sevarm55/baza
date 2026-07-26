@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────
+#  Базис на своём VPS, рядом с чужим продакшном.
+#
+#  На сервере уже живёт giperstroy, и его Caddy держит порты 80/443.
+#  Поэтому Базис наружу НЕ торчит вообще: он подключается к сети
+#  giperstroy, и туда его пускает тот же Caddy по своему имени хоста.
+#
+#  Имена сервисов уникальные не для красоты: у соседа есть сервис `web`,
+#  и второй `web` в той же сети сделал бы DNS неоднозначным — Caddy
+#  соседа начал бы иногда попадать в наше приложение.
+# ─────────────────────────────────────────────────────────────
+
+name: bazis
+
+services:
+  bazis-postgres:
+    image: postgres:17-alpine
+    container_name: bazis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bazis
+      POSTGRES_USER: bazis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?нужен POSTGRES_PASSWORD в .env}
+      # быстрее и безопаснее md5, ради этого и задаём явно
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bazis -d bazis']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - bazis-internal
+
+  bazis-web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: bazis/web:latest
+    container_name: bazis-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://bazis:${POSTGRES_PASSWORD:?}@bazis-postgres:5432/bazis
+      SESSION_SECRET: ${SESSION_SECRET:?нужен SESSION_SECRET в .env}
+      # экземпляр один, поэтому миграции при старте безопасны
+      MIGRATE_ON_START: '1'
+    depends_on:
+      bazis-postgres:
+        condition: service_healthy
+    networks:
+      bazis-internal:
+      # сеть соседа — единственный способ пустить сюда его Caddy
+      giperstroy:
+        aliases:
+          - bazis-web
+
+networks:
+  bazis-internal:
+  giperstroy:
+    external: true
+
+volumes:
+  postgres_data:

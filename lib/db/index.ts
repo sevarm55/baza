@@ -24,8 +24,15 @@ const globalForDb = globalThis as unknown as {
   __pg?: ReturnType<typeof postgres>;
 };
 
+/* Интеграции хостингов называют переменную по-разному: Neon через Vercel
+   ставит DATABASE_URL, старые шаблоны Vercel Postgres — POSTGRES_URL.
+   Принимаем оба, чтобы деплой не падал из-за названия. */
+function databaseUrl(): string | undefined {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || undefined;
+}
+
 function createClient() {
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
 
   if (url) {
     const client =
