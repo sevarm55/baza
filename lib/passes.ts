@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { audit, clients, passes, services, users } from './db/schema';
 import { NotFoundError } from './orders';
@@ -131,8 +131,11 @@ export async function getPassSales(tenantId: string, from: Date, to?: Date) {
     .where(
       and(
         eq(passes.tenantId, tenantId),
-        sql`${passes.soldAt} >= ${from}`,
-        to ? sql`${passes.soldAt} < ${to}` : undefined,
+        // именно gte/lt, а не sql`... >= ${from}`: в сыром шаблоне дата
+        // уезжает драйверу как есть, и postgres-js её отвергает.
+        // PGlite локально это прощал — поймалось только на сервере.
+        gte(passes.soldAt, from),
+        to ? lt(passes.soldAt, to) : undefined,
       ),
     );
   return { count: row?.count ?? 0, revenue: row?.revenue ?? 0 };
