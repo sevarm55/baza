@@ -9,15 +9,19 @@ export function Stat({
 }) {
   const color = tone === 'good' ? 'text-good' : tone === 'warn' ? 'text-warn' : '';
   return (
-    <div className="card">
-      <div className="mb-[5px] text-xs text-muted">{label}</div>
-      <div className={`text-2xl font-bold tracking-tight ${color}`}>{value}</div>
+    <div className="tile">
+      <div className="label mb-1.5">{label}</div>
+      {/* Число — главное на плитке, поэтому кегль отрывается от подписи резко.
+          Когда всё набрано одним размером, глазу не за что зацепиться. */}
+      <div className={`num text-[26px] font-semibold leading-none tracking-tight ${color}`}>
+        {value}
+      </div>
     </div>
   );
 }
 
 export function StatGrid({ children }: { children: React.ReactNode }) {
-  return <div className="mb-3.5 grid grid-cols-2 gap-2.5">{children}</div>;
+  return <div className="mb-4 grid grid-cols-2 gap-2.5">{children}</div>;
 }
 
 export function Avatar({ text }: { text: string }) {
@@ -28,7 +32,7 @@ export function Avatar({ text }: { text: string }) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface2 text-[13px] font-semibold">
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface2 text-[12.5px] font-semibold text-muted">
       {initials}
     </div>
   );

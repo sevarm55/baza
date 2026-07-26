@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listServices, startOfDay } from '@/lib/queries';
 import { getPassSales, listPasses } from '@/lib/passes';
@@ -35,7 +35,7 @@ export default async function PassesPage() {
         />
       </StatGrid>
 
-      <h2 className="mb-2.5 mt-6 text-[15px] font-semibold">{hy.passes.sell}</h2>
+      <h2 className="h-section">{hy.passes.sell}</h2>
       <SellPassForm
         services={services.map((s) => ({
           id: s.id,
@@ -46,11 +46,11 @@ export default async function PassesPage() {
         clientIdPlaceholder={tenant.clientIdType === 'plate' ? '12 AB 345' : '+374 77 123 456'}
       />
 
-      <p className="mt-3.5 rounded-[14px] border-l-[3px] border-accent bg-surface p-3.5 text-[13px] leading-relaxed text-muted">
+      <p className="note mt-3.5">
         {hy.passes.note}
       </p>
 
-      <h2 className="mb-2.5 mt-8 text-[15px] font-semibold">{hy.passes.title}</h2>
+      <h2 className="h-section">{hy.passes.title}</h2>
       <div className="list">
         {list.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted">{hy.passes.empty}</div>

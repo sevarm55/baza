@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listClients } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
@@ -71,7 +71,7 @@ export default async function ClientsPage() {
       </div>
 
       {lost.length > 0 && (
-        <p className="mt-3.5 rounded-[14px] border-l-[3px] border-warn bg-surface p-3.5 text-[13px] leading-relaxed text-muted">
+        <p className="note note-warn mt-3.5">
           {hy.owner.clientsLostNote(lost.length)}
         </p>
       )}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -199,7 +199,7 @@ export function OrderFlow({
           </div>
         )}
 
-        <h2 className="mt-6 mb-2.5 text-[15px] font-semibold">{hy.work.recent}</h2>
+        <h2 className="h-section">{hy.work.recent}</h2>
         <div className="list">
           {queue.map((q) => (
             <div key={q.ref} className="li opacity-70">

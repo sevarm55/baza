@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getSettledUntil, getTenant, getUnsettledPayroll, listPayouts } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
@@ -61,13 +61,13 @@ export default async function PayrollPage() {
         )}
       </div>
 
-      <p className="mt-3.5 rounded-[14px] border-l-[3px] border-accent bg-surface p-3.5 text-[13px] leading-relaxed text-muted">
+      <p className="note mt-3.5">
         {hy.owner.payrollNote}
       </p>
 
       {history.length > 0 && (
         <>
-          <h2 className="mb-2.5 mt-6 text-[15px] font-semibold">{hy.owner.payoutHistory}</h2>
+          <h2 className="h-section">{hy.owner.payoutHistory}</h2>
           <div className="list">
             {history.map((p) => (
               <div key={p.id} className="li">

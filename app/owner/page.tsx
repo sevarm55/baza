@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getFeed, getPeriodStats, getTenant, startOfDay } from '@/lib/queries';
@@ -69,7 +69,7 @@ export default async function TodayPage({
         )}
       </StatGrid>
 
-      <h2 className="mb-2.5 mt-6 text-[15px] font-semibold">{hy.owner.onShift}</h2>
+      <h2 className="h-section">{hy.owner.onShift}</h2>
       <div className="list">
         {stats.byStaff.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted">{hy.common.empty}</div>
@@ -100,7 +100,7 @@ export default async function TodayPage({
         )}
       </div>
 
-      <h2 className="mb-2.5 mt-6 text-[15px] font-semibold">{hy.owner.feed}</h2>
+      <h2 className="h-section">{hy.owner.feed}</h2>
       <div className="list">
         {feed.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted">{hy.common.empty}</div>

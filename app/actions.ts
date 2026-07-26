@@ -176,18 +176,22 @@ async function requireWriteAccess(tenantId: string) {
  * вчерашняя выручка и зарплаты останутся прежними.
  * ----------------------------------------------------------------- */
 
-export async function saveService(formData: FormData): Promise<void> {
+export async function saveService(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return;
+  if (!tenant) return { error: hy.errors.generic };
 
   const id = String(formData.get('id') ?? '');
   const name = String(formData.get('name') ?? '').trim();
   const price = toMinor(Number(formData.get('price') ?? 0), tenant.currency);
 
-  if (name.length < 1 || !Number.isFinite(price) || price < 0) return;
+  if (name.length < 1) return { error: hy.errors.required };
+  if (!Number.isFinite(price) || price < 0) return { error: hy.errors.required };
 
   if (id) {
     await db
@@ -205,6 +209,7 @@ export async function saveService(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/owner/settings');
+  return { ok: true };
 }
 
 /** Не удаляем: на услугу ссылаются прошлые записи. */
@@ -221,7 +226,7 @@ export async function archiveService(formData: FormData): Promise<void> {
   revalidatePath('/owner/settings');
 }
 
-export async function saveStaff(formData: FormData): Promise<void> {
+export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireOwner();
   await ensureDb();
 
@@ -229,8 +234,10 @@ export async function saveStaff(formData: FormData): Promise<void> {
   const name = String(formData.get('name') ?? '').trim();
   const percent = Number(formData.get('percent') ?? 0);
 
-  if (name.length < 2) return;
-  if (!Number.isInteger(percent) || percent < 0 || percent > 100) return;
+  if (name.length < 2) return { error: hy.errors.required };
+  if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+    return { error: hy.errors.badPercent };
+  }
 
   await db
     .update(users)
@@ -238,6 +245,7 @@ export async function saveStaff(formData: FormData): Promise<void> {
     .where(and(eq(users.id, id), eq(users.tenantId, session.tid)));
 
   revalidatePath('/owner/staff');
+  return { ok: true };
 }
 
 export async function archiveStaff(formData: FormData): Promise<void> {

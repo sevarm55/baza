@@ -15,32 +15,34 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="grid gap-2.5">
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.settings.name}</span>
-        <input className="field" name="name" required autoComplete="off" />
-      </label>
-
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.auth.phone}</span>
-        <input
-          className="field"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          placeholder="+374 77 123 456"
-          required
-          autoComplete="off"
-        />
-      </label>
-
-      <div className="grid grid-cols-2 gap-2.5">
+    <form ref={formRef} action={action} className="card grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5">
-          <span className="text-xs text-muted">
+          <span className="label">{hy.settings.name}</span>
+          <input className="field !py-2.5 !text-[15px]" name="name" required autoComplete="off" />
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="label">{hy.auth.phone}</span>
+          <input
+            className="field !py-2.5 !text-[15px]"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            placeholder="+374 77 123 456"
+            required
+            autoComplete="off"
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="grid gap-1.5">
+          <span className="label">
             {hy.auth.pin} · {hy.auth.pinHint}
           </span>
           <input
-            className="field field-key"
+            className="field num !py-2.5 !text-center !text-[15px]"
             name="pin"
             inputMode="numeric"
             pattern="\d{4}"
@@ -51,25 +53,30 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
         </label>
 
         <label className="grid gap-1.5">
-          <span className="text-xs text-muted">
+          <span className="label">
             {hy.settings.percent} · {staffRole}
           </span>
-          <input
-            className="field field-key"
-            name="percent"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={100}
-            defaultValue={40}
-            required
-          />
+          <div className="relative">
+            <input
+              className="field num !py-2.5 !pe-7 !text-center !text-[15px]"
+              name="percent"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100}
+              defaultValue={40}
+              required
+            />
+            <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-sm text-faint">
+              %
+            </span>
+          </div>
         </label>
       </div>
 
       {state?.error && <p className="alert">{state.error}</p>}
 
-      <button className="btn mt-1.5" disabled={pending}>
+      <button className="btn" disabled={pending}>
         {pending ? hy.common.loading : hy.settings.addStaff}
       </button>
     </form>

@@ -45,6 +45,10 @@ function group(n: number): string {
 /* В базе деньги лежат в минимальных единицах, а владелец в форме
    вводит привычные ему цифры. Для AMD это одно и то же, для EUR — нет. */
 
+export function currencySymbol(currency = 'AMD'): string {
+  return SYMBOLS[currency] ?? currency;
+}
+
 export function toMajor(minor: number, currency = 'AMD'): number {
   return minor / 10 ** (DECIMALS[currency] ?? 2);
 }

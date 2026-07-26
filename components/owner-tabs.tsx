@@ -17,23 +17,17 @@ export function OwnerTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-4 flex gap-1.5 overflow-x-auto">
-      {TABS.map((t) => {
-        const on = pathname === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`whitespace-nowrap rounded-full border px-[15px] py-[9px] text-[13.5px] ${
-              on
-                ? 'border-ink bg-ink font-semibold text-bg'
-                : 'border-line bg-surface text-muted'
-            }`}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
+    <nav className="scroll-x mb-4 flex gap-1.5 pb-0.5">
+      {TABS.map((t) => (
+        <Link
+          key={t.href}
+          href={t.href}
+          aria-current={pathname === t.href ? 'page' : undefined}
+          className={`tab ${pathname === t.href ? 'tab-on' : ''}`}
+        >
+          {t.label}
+        </Link>
+      ))}
     </nav>
   );
 }
