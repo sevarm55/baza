@@ -1,0 +1,238 @@
+/* ─────────────────────────────────────────────────────────────
+   Админка платформы. Намеренно не похожа на продукт: другой акцент
+   и другая плотность. Здесь нельзя перепутать, где ты находишься —
+   одно нажатие отключает живой бизнес.
+   ───────────────────────────────────────────────────────────── */
+
+.page {
+  --violet: #a78bfa;
+  --deep: #0a0b10;
+  --line: #232733;
+
+  min-height: 100vh;
+  background: var(--deep);
+}
+
+.shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 26px 0 22px;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.who {
+  font-size: 12.5px;
+  color: var(--color-faint);
+}
+.who a {
+  color: var(--color-muted);
+  text-decoration: none;
+  margin-inline-start: 12px;
+}
+.who a:hover {
+  color: var(--color-ink);
+}
+
+/* ───────────────────────── сводка ───────────────────────── */
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+@media (min-width: 700px) {
+  .summary {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.sum {
+  background: #12141b;
+  border-radius: 12px;
+  padding: 13px 14px;
+}
+
+.sumLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.sumValue {
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 5px;
+}
+
+/* ───────────────────────── бизнесы ───────────────────────── */
+
+.rows {
+  display: grid;
+  gap: 12px;
+}
+
+.row {
+  background: #12141b;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.rowTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15.5px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dotActive {
+  background: var(--color-good);
+}
+.dotTrial {
+  background: var(--color-accent);
+}
+.dotExpired {
+  background: var(--color-warn);
+}
+.dotBlocked {
+  background: var(--color-bad);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.badgeActive {
+  background: #10312a;
+  color: var(--color-good);
+}
+.badgeTrial {
+  background: #14224a;
+  color: #8fb4ff;
+}
+.badgeExpired {
+  background: #3a2a10;
+  color: var(--color-warn);
+}
+.badgeBlocked {
+  background: #3a1a1d;
+  color: #ffb4b8;
+}
+
+.meta {
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--color-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Бизнес без единой записи — тревожный сигнал: зарегистрировался
+   и не пользуется. Такому звонить, а не ждать оплаты. */
+.idle {
+  color: var(--color-warn);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  border: 1px solid var(--line);
+  background: #191c25;
+  color: var(--color-ink);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--violet);
+  color: var(--violet);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btnDanger:hover:not(:disabled) {
+  border-color: var(--color-bad);
+  color: var(--color-bad);
+}
+
+.btnGood:hover:not(:disabled) {
+  border-color: var(--color-good);
+  color: var(--color-good);
+}
+
+.empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-faint);
+}

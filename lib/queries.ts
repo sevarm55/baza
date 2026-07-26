@@ -7,6 +7,63 @@ import { getPassSales } from './passes';
    Запросов к db из компонентов быть не должно — иначе рано или поздно
    один забытый where покажет владельцу чужие деньги. */
 
+/* ─────────────────── админка платформы ───────────────────
+   Единственное место, где запрос НЕ ограничен одним бизнесом.
+   Вызывать только после requirePlatformAdmin().                */
+
+export type AdminTenant = Awaited<ReturnType<typeof listTenantsForAdmin>>[number];
+
+/**
+ * Несколько простых запросов вместо одного с коррелированными подзапросами.
+ * Бизнесов десятки, разница в скорости незаметна, а читается и проверяется
+ * это несравнимо легче — что для единственного места без scope по тенанту
+ * важнее экономии на запросах.
+ */
+export async function listTenantsForAdmin() {
+  const [list, owners, activity, staff] = await Promise.all([
+    db.select().from(tenants).orderBy(desc(tenants.createdAt)),
+
+    db
+      .select({ tenantId: users.tenantId, name: users.name, phone: users.phone })
+      .from(users)
+      .where(eq(users.role, 'owner')),
+
+    db
+      .select({
+        tenantId: orders.tenantId,
+        orderCount: sql<number>`count(*)::int`,
+        revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
+        lastOrderAt: sql<string | null>`max(${orders.createdAt})`,
+      })
+      .from(orders)
+      .where(isNull(orders.canceledAt))
+      .groupBy(orders.tenantId),
+
+    db
+      .select({ tenantId: users.tenantId, count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.active, true))
+      .groupBy(users.tenantId),
+  ]);
+
+  const ownerBy = new Map(owners.map((o) => [o.tenantId, o]));
+  const activityBy = new Map(activity.map((a) => [a.tenantId, a]));
+  const staffBy = new Map(staff.map((s) => [s.tenantId, s.count]));
+
+  return list.map((t) => {
+    const a = activityBy.get(t.id);
+    return {
+      ...t,
+      ownerName: ownerBy.get(t.id)?.name ?? null,
+      ownerPhone: ownerBy.get(t.id)?.phone ?? null,
+      staffCount: staffBy.get(t.id) ?? 0,
+      orderCount: a?.orderCount ?? 0,
+      revenue: a?.revenue ?? 0,
+      lastOrderAt: a?.lastOrderAt ? new Date(a.lastOrderAt) : null,
+    };
+  });
+}
+
 export async function getTenant(tenantId: string) {
   const [t] = await db.select().from(tenants).where(eq(tenants.id, tenantId));
   return t ?? null;

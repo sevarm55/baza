@@ -20,6 +20,7 @@ export default async function WorkPage() {
   if (!tenant || !me) redirect('/login');
 
   const access = accessOf(tenant);
+  if (!access.canRead) redirect('/blocked');
   const [services, shift] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),

@@ -3,16 +3,24 @@ import type { Tenant } from './db/schema';
 /**
  * Состояние подписки.
  *
- * Блокировка мягкая: когда срок вышел, бизнес по-прежнему видит свои
- * цифры, историю и выгрузку — закрывается только запись новых машин.
- * Отбирать у человека его собственные данные нельзя: это худший способ
- * попрощаться с клиентом, и он не вернётся.
+ * Различаем две очень разные ситуации:
+ *
+ *   срок вышел  — человек забыл заплатить. Блокировка мягкая: он видит
+ *                 свои цифры, историю и выгрузку, закрыта только запись
+ *                 новой работы. Отбирать данные за просрочку — верный
+ *                 способ, чтобы он не вернулся.
+ *
+ *   отключён    — решение владельца продукта: не платит и не собирается.
+ *                 Вход закрыт целиком. Данные остаются в базе: заплатит —
+ *                 включим обратно, и всё будет на месте.
  */
 
 export type Access = {
-  state: 'trial' | 'active' | 'expired';
+  state: 'trial' | 'active' | 'expired' | 'blocked';
   /** сколько дней осталось; 0 если срок вышел */
   daysLeft: number;
+  /** пускать ли в приложение вообще */
+  canRead: boolean;
   /** можно ли записывать новую работу */
   canWrite: boolean;
   /** пора показать напоминание */
@@ -26,11 +34,16 @@ export function accessOf(
   tenant: Pick<Tenant, 'plan' | 'trialEndsAt' | 'paidUntil'>,
   now: Date = new Date(),
 ): Access {
+  if (tenant.plan === 'blocked') {
+    return { state: 'blocked', daysLeft: 0, canRead: false, canWrite: false, warn: true };
+  }
+
   const paidLeft = daysBetween(now, tenant.paidUntil);
   if (tenant.plan === 'active' && paidLeft > 0) {
     return {
       state: 'active',
       daysLeft: paidLeft,
+      canRead: true,
       canWrite: true,
       warn: paidLeft <= WARN_DAYS,
     };
@@ -38,10 +51,10 @@ export function accessOf(
 
   const trialLeft = daysBetween(now, tenant.trialEndsAt);
   if (trialLeft > 0) {
-    return { state: 'trial', daysLeft: trialLeft, canWrite: true, warn: true };
+    return { state: 'trial', daysLeft: trialLeft, canRead: true, canWrite: true, warn: true };
   }
 
-  return { state: 'expired', daysLeft: 0, canWrite: false, warn: true };
+  return { state: 'expired', daysLeft: 0, canRead: true, canWrite: false, warn: true };
 }
 
 /** Дней осталось, округляя вверх: последний день должен считаться днём. */

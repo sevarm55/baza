@@ -16,6 +16,8 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
     getUser(session.tid, session.uid),
   ]);
   if (!tenant || !me) redirect('/login');
+  // отключённый бизнес не пускаем внутрь вообще
+  if (!accessOf(tenant).canRead) redirect('/blocked');
 
   return (
     <>

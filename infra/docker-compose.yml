@@ -45,6 +45,9 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://bazis:${POSTGRES_PASSWORD:?}@bazis-postgres:5432/bazis
       SESSION_SECRET: ${SESSION_SECRET:?нужен SESSION_SECRET в .env}
+      # телефоны с доступом в /admin, через запятую. Список в окружении,
+      # а не в базе: чтобы выдать себе админку, мало добраться до базы
+      PLATFORM_ADMIN_PHONES: ${PLATFORM_ADMIN_PHONES:-}
       # экземпляр один, поэтому миграции при старте безопасны
       MIGRATE_ON_START: '1'
     depends_on:

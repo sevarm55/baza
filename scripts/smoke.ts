@@ -435,10 +435,28 @@ async function main() {
   const lapsed = accessOf({ plan: 'active', trialEndsAt: null, paidUntil: inDays(-1) });
   check('просроченная оплата закрывает запись', !lapsed.canWrite);
 
-  // блокировка мягкая: чтение и выгрузка остаются доступны всегда
+  // просрочка мягкая: чтение и выгрузка остаются доступны
+  check('просрочка не закрывает чтение', over.canRead);
   check(
-    'но отчёты продолжают открываться',
+    'и отчёты продолжают открываться',
     (await q.getPeriodStats(tenant.id, today)).count > 0,
+  );
+
+  // отключение вручную — другое дело: внутрь не пускаем совсем
+  const shutOff = accessOf({ plan: 'blocked', trialEndsAt: inDays(30), paidUntil: inDays(30) });
+  check('отключённый не читает', !shutOff.canRead);
+  check('и не пишет', !shutOff.canWrite);
+  check('отключение важнее действующей оплаты', shutOff.state === 'blocked', shutOff.state);
+
+  /* ---------- список для админки ---------- */
+  const all = await q.listTenantsForAdmin();
+  check('админка видит оба бизнеса', all.length === 2, all.length);
+  const carwashRow = all.find((t) => t.id === tenant.id);
+  check('владелец подтянут', carwashRow?.ownerPhone === '+37477111222', carwashRow?.ownerPhone);
+  check('записи посчитаны', (carwashRow?.orderCount ?? 0) > 0, carwashRow?.orderCount);
+  check(
+    'у пустого бизнеса ноль записей',
+    all.find((t) => t.id === second.tenant.id)?.orderCount === 0,
   );
 
   /* ---------- формат денег ---------- */
