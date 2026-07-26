@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "paid_until" timestamp with time zone;

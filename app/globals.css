@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0f1115;
+  --color-surface: #171a21;
+  --color-surface2: #1e222b;
+  --color-line: #282d38;
+  --color-ink: #e8eaef;
+  --color-muted: #8b93a7;
+  --color-accent: #4f8cff;
+  --color-good: #2dd4a7;
+  --color-warn: #f5a524;
+  --color-bad: #f2545b;
+
+  --radius-card: 14px;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Повторяющиеся блоки держим здесь, а не размазываем по JSX:
+   экранов много, а выглядеть они должны как один продукт. */
+
+@layer components {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    padding: 1rem;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    border: 0;
+    border-radius: var(--radius-card);
+    background: var(--color-accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .btn:active {
+    transform: scale(0.985);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn-ghost {
+    background: var(--color-surface2);
+    color: var(--color-ink);
+  }
+  .btn-big {
+    padding: 1.4rem;
+    font-size: 1.125rem;
+  }
+
+  .field {
+    width: 100%;
+    padding: 1rem;
+    background: var(--color-surface2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    outline: none;
+  }
+  .field:focus {
+    border-color: var(--color-accent);
+  }
+  /* Идентификатор клиента набирают на бегу — крупно и по центру */
+  .field-key {
+    font-size: 1.375rem;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .opt {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: var(--color-surface2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    padding: 1.0625rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: start;
+    transition: border-color 0.12s ease;
+  }
+  .opt:hover {
+    border-color: var(--color-accent);
+  }
+
+  .list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+  .li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .li:last-child {
+    border-bottom: 0;
+  }
+
+  .alert {
+    background: #3a1a1d;
+    border: 1px solid #6b2b31;
+    color: #ffb4b8;
+    border-radius: 10px;
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+  }
+}

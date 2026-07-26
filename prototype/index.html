@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Базис — учёт для сервисного бизнеса</title>
+<style>
+:root{
+  --bg:#0f1115; --surface:#171a21; --surface2:#1e222b; --line:#282d38;
+  --text:#e8eaef; --muted:#8b93a7; --accent:#4f8cff; --accent2:#2dd4a7;
+  --warn:#f5a524; --danger:#f2545b;
+  --r:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+  min-height:100vh;
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px 100px}
+.wrap.wide{max-width:760px}
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.5px}
+h2{font-size:17px;margin:26px 0 10px;letter-spacing:-.2px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+.hidden{display:none !important}
+
+/* ---------- setup ---------- */
+.hero{padding:44px 0 8px;text-align:center}
+.logo{font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700;margin-bottom:14px}
+.niches{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.niche{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px 14px;cursor:pointer;text-align:left;transition:.15s;
+}
+.niche:hover{border-color:var(--accent);transform:translateY(-2px)}
+.niche .ic{font-size:26px;display:block;margin-bottom:8px}
+.niche .nm{font-weight:600;font-size:15px}
+.niche .ds{color:var(--muted);font-size:12px;margin-top:3px}
+.note{margin-top:24px;padding:14px;background:var(--surface);border-radius:var(--r);
+  border-left:3px solid var(--accent);color:var(--muted);font-size:13px}
+
+/* ---------- chrome ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;background:rgba(15,17,21,.92);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  padding:12px 16px;margin-bottom:18px;
+}
+.topbar-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.biz{font-weight:600;font-size:15px;flex:1;display:flex;align-items:center;gap:8px}
+.biz small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+.roles{display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:2px}
+.roles button{
+  background:none;border:0;color:var(--muted);font:inherit;font-size:13px;
+  padding:6px 12px;border-radius:8px;cursor:pointer;
+}
+.roles button.on{background:var(--accent);color:#fff;font-weight:600}
+
+/* ---------- generic ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.btn{
+  display:block;width:100%;padding:16px;border:0;border-radius:var(--r);
+  background:var(--accent);color:#fff;font:inherit;font-weight:600;font-size:16px;
+  cursor:pointer;transition:.15s;
+}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:var(--surface2);color:var(--text)}
+.btn.big{padding:22px;font-size:18px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.muted{color:var(--muted)}
+.tiny{font-size:12px}
+
+/* ---------- worker ---------- */
+.shift{
+  background:linear-gradient(135deg,#1b2740,#161d2e);
+  border:1px solid #2a3550;border-radius:var(--r);
+  padding:18px;margin-bottom:14px;
+}
+.shift .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.shift .earn{font-size:32px;font-weight:700;letter-spacing:-1px;margin:6px 0 2px;color:var(--accent2)}
+.shift .meta{color:var(--muted);font-size:13px}
+.steps{display:flex;gap:6px;margin-bottom:16px}
+.steps div{flex:1;height:3px;background:var(--line);border-radius:2px}
+.steps div.on{background:var(--accent)}
+.field{width:100%;padding:16px;font:inherit;font-size:20px;letter-spacing:1px;
+  background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);
+  color:var(--text);text-align:center;outline:none}
+.field:focus{border-color:var(--accent)}
+.opts{display:grid;gap:8px;margin-top:4px}
+.opt{
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);
+  padding:17px 16px;cursor:pointer;font-size:16px;transition:.12s;
+}
+.opt:hover{border-color:var(--accent)}
+.opt b{font-weight:600}
+.opt .p{color:var(--muted);font-size:15px}
+.known{background:#16281f;border:1px solid #245038;color:var(--accent2);
+  padding:11px 14px;border-radius:10px;font-size:13px;margin-top:10px}
+.done{text-align:center;padding:40px 0}
+.done .big{font-size:52px}
+.done h3{margin:14px 0 4px;font-size:20px}
+
+/* ---------- owner ---------- */
+.tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto}
+.tabs button{
+  background:var(--surface);border:1px solid var(--line);color:var(--muted);
+  font:inherit;font-size:13.5px;padding:9px 15px;border-radius:20px;cursor:pointer;white-space:nowrap;
+}
+.tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.stat .k{color:var(--muted);font-size:12px;margin-bottom:5px}
+.stat .v{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.stat .v.acc{color:var(--accent2)}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.li{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.li .av{width:36px;height:36px;border-radius:10px;background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0}
+.li .mn{flex:1;min-width:0}
+.li .mn b{display:block;font-weight:600;font-size:14.5px}
+.li .mn span{color:var(--muted);font-size:12.5px}
+.li .rt{text-align:right;flex-shrink:0}
+.li .rt b{display:block;font-weight:600;font-size:14.5px}
+.li .rt span{color:var(--muted);font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.warn{background:#3a2a10;color:var(--warn)}
+.badge.ok{background:#16281f;color:var(--accent2)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);font-size:14px}
+.bar{height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.footer{max-width:760px;margin:30px auto 0;padding:0 16px;color:var(--muted);font-size:12px;text-align:center}
+.reset{background:none;border:0;color:var(--muted);font:inherit;font-size:12px;
+  text-decoration:underline;cursor:pointer;padding:0}
+</style>
+</head>
+<body>
+
+<!-- ============ ЭКРАН 1: выбор ниши ============ -->
+<div id="setup">
+  <div class="wrap">
+    <div class="hero">
+      <div class="logo">БАЗИС</div>
+      <h1>Учёт, который уже настроен<br>под ваш бизнес</h1>
+      <p class="sub">Выберите тип — получите готовую систему,<br>а не пустой конструктор</p>
+    </div>
+    <div class="niches" id="nicheGrid"></div>
+    <div class="note">
+      <b style="color:var(--text)">Что здесь важно:</b> под всеми вариантами — один движок.
+      Записи, клиенты, сотрудники, деньги, зарплата. Меняются только услуги,
+      термины и проценты. Это и есть «универсально снаружи, одно ядро внутри».
+    </div>
+  </div>
+</div>
+
+<!-- ============ ЭКРАН 2: приложение ============ -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="topbar-in">
+      <div class="biz">
+        <span id="bizIcon" style="font-size:20px"></span>
+        <span>
+          <span id="bizName"></span>
+          <small id="bizSub"></small>
+        </span>
+      </div>
+      <div class="roles">
+        <button id="rWorker" onclick="setRole('worker')">Сотрудник</button>
+        <button id="rOwner" onclick="setRole('owner')">Владелец</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---- интерфейс сотрудника ---- -->
+  <div id="workerView" class="wrap">
+    <div class="shift">
+      <div class="lbl">Твоя смена сегодня</div>
+      <div class="earn" id="wEarn">0 ֏</div>
+      <div class="meta" id="wMeta"></div>
+    </div>
+    <div id="wHome">
+      <button class="btn big" onclick="startOrder()">+ <span id="wAddLabel"></span></button>
+      <h2>Последние</h2>
+      <div class="list" id="wRecent"></div>
+    </div>
+
+    <div id="wFlow" class="hidden">
+      <div class="steps"><div id="st1"></div><div id="st2"></div><div id="st3"></div></div>
+
+      <div id="step1">
+        <div class="card">
+          <div class="muted tiny" id="idLabel" style="margin-bottom:10px"></div>
+          <input class="field" id="idInput" autocomplete="off">
+          <div id="idKnown" class="known hidden"></div>
+        </div>
+        <button class="btn" onclick="toStep(2)">Дальше</button>
+        <button class="btn ghost" style="margin-top:8px" onclick="cancelOrder()">Отмена</button>
+      </div>
+
+      <div id="step2" class="hidden">
+        <div class="muted tiny" style="margin-bottom:10px">Услуга</div>
+        <div class="opts" id="svcList"></div>
+        <button class="btn ghost" style="margin-top:10px" onclick="toStep(1)">Назад</button>
+      </div>
+
+      <div id="step3" class="hidden">
+        <div class="muted tiny" style="margin-bottom:10px">Оплата</div>
+        <div class="opts">
+          <div class="opt" onclick="finishOrder('Наличные')"><b>💵 Наличные</b></div>
+          <div class="opt" onclick="finishOrder('Карта')"><b>💳 Карта</b></div>
+          <div class="opt" onclick="finishOrder('Перевод')"><b>📱 Перевод</b></div>
+        </div>
+        <button class="btn ghost" style="margin-top:10px" onclick="toStep(2)">Назад</button>
+      </div>
+
+      <div id="stepDone" class="hidden done">
+        <div class="big">✅</div>
+        <h3>Записано</h3>
+        <p class="muted" id="doneTxt"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---- интерфейс владельца ---- -->
+  <div id="ownerView" class="wrap wide hidden">
+    <div class="tabs">
+      <button data-t="today" onclick="setTab('today')">Сегодня</button>
+      <button data-t="pay"   onclick="setTab('pay')">Зарплаты</button>
+      <button data-t="cli"   onclick="setTab('cli')">Клиенты</button>
+    </div>
+    <div id="tabBody"></div>
+  </div>
+
+  <div class="footer">
+    Прототип · данные хранятся локально в браузере ·
+    <button class="reset" onclick="resetAll()">сбросить и выбрать другой бизнес</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   КОНФИГИ НИШ — это данные, не код.
+   Добавить новую нишу = добавить объект. Ядро не трогается.
+   ========================================================================= */
+const NICHES = {
+  carwash: {
+    name:'Автомойка', icon:'🚿', tag:'смены, мойщики, % с машины',
+    idLabel:'Гос. номер машины', idPlaceholder:'12 AB 345', idType:'plate',
+    staffRole:'Мойщик', staffRolePl:'Мойщики', percent:40,
+    unit:'машина', unitGen:'машины', unitPl:'машин', addLabel:'Новая машина',
+    staff:['Ашот','Давид','Тигран'],
+    services:[
+      {n:'Комплекс', p:5000}, {n:'Кузов', p:3000}, {n:'Салон', p:2500},
+      {n:'Химчистка', p:12000}, {n:'Полировка', p:20000}
+    ]
+  },
+  dental: {
+    name:'Стоматология', icon:'🦷', tag:'приёмы, врачи, база пациентов',
+    idLabel:'Телефон пациента', idPlaceholder:'+374 77 123 456', idType:'phone',
+    staffRole:'Врач', staffRolePl:'Врачи', percent:35,
+    unit:'приём', unitGen:'приёма', unitPl:'приёмов', addLabel:'Новый приём',
+    staff:['Д-р Арутюнян','Д-р Саркисян','Д-р Петросян'],
+    services:[
+      {n:'Осмотр', p:3000}, {n:'Чистка', p:15000}, {n:'Пломба', p:25000},
+      {n:'Удаление', p:20000}, {n:'Имплант', p:150000}
+    ]
+  },
+  autoservice: {
+    name:'Автосервис', icon:'🔧', tag:'заказ-наряды, мастера, история авто',
+    idLabel:'Гос. номер машины', idPlaceholder:'34 CD 789', idType:'plate',
+    staffRole:'Мастер', staffRolePl:'Мастера', percent:35,
+    unit:'заказ', unitGen:'заказа', unitPl:'заказов', addLabel:'Новый заказ',
+    staff:['Карен','Гор','Ваган'],
+    services:[
+      {n:'Замена масла', p:8000}, {n:'Диагностика', p:5000}, {n:'Тормоза', p:25000},
+      {n:'Подвеска', p:40000}, {n:'Шиномонтаж', p:6000}
+    ]
+  },
+  barber: {
+    name:'Барбершоп', icon:'💈', tag:'клиенты, барберы, % со стрижки',
+    idLabel:'Телефон клиента', idPlaceholder:'+374 91 555 010', idType:'phone',
+    staffRole:'Барбер', staffRolePl:'Барберы', percent:45,
+    unit:'клиент', unitGen:'клиента', unitPl:'клиентов', addLabel:'Новый клиент',
+    staff:['Нарек','Артур','Сурен'],
+    services:[
+      {n:'Стрижка', p:4000}, {n:'Борода', p:3000}, {n:'Комплекс', p:6000},
+      {n:'Детская', p:2500}, {n:'Бритьё', p:3500}
+    ]
+  },
+  cleaning: {
+    name:'Клининг', icon:'🧹', tag:'выезды, бригады, % с объекта',
+    idLabel:'Телефон заказчика', idPlaceholder:'+374 55 200 300', idType:'phone',
+    staffRole:'Клинер', staffRolePl:'Клинеры', percent:50,
+    unit:'выезд', unitGen:'выезда', unitPl:'выездов', addLabel:'Новый выезд',
+    staff:['Анна','Мариам','Лусине'],
+    services:[
+      {n:'Квартира', p:15000}, {n:'Офис', p:25000}, {n:'Генеральная', p:35000},
+      {n:'После ремонта', p:50000}, {n:'Окна', p:9000}
+    ]
+  },
+  vet: {
+    name:'Ветклиника', icon:'🐾', tag:'приёмы, врачи, карта питомца',
+    idLabel:'Телефон владельца', idPlaceholder:'+374 98 404 505', idType:'phone',
+    staffRole:'Врач', staffRolePl:'Врачи', percent:35,
+    unit:'приём', unitGen:'приёма', unitPl:'приёмов', addLabel:'Новый приём',
+    staff:['Д-р Григорян','Д-р Аванесян'],
+    services:[
+      {n:'Приём', p:5000}, {n:'Вакцинация', p:8000}, {n:'УЗИ', p:12000},
+      {n:'Стерилизация', p:45000}, {n:'Стрижка', p:7000}
+    ]
+  }
+};
+
+const CUR = '֏';
+const money = n => n.toLocaleString('ru-RU') + ' ' + CUR;
+const DAY = 86400000;
+
+/* ===================== состояние ===================== */
+let db = null, role = 'worker', tab = 'today';
+let draft = {};
+
+function save(){ localStorage.setItem('bazis', JSON.stringify(db)); }
+function load(){
+  try { db = JSON.parse(localStorage.getItem('bazis')); } catch(e){ db = null; }
+}
+function N(){ return NICHES[db.niche]; }
+
+/* ===================== старт ===================== */
+function renderNiches(){
+  document.getElementById('nicheGrid').innerHTML =
+    Object.entries(NICHES).map(([k,v]) => `
+      <div class="niche" onclick="createWorkspace('${k}')">
+        <span class="ic">${v.icon}</span>
+        <div class="nm">${v.name}</div>
+        <div class="ds">${v.tag}</div>
+      </div>`).join('');
+}
+
+function createWorkspace(key){
+  const n = NICHES[key];
+  db = {
+    niche: key,
+    bizName: n.name + ' на Комитаса',
+    staff: n.staff.map((nm,i) => ({id:'s'+i, name:nm, percent:n.percent})),
+    me: 's0',
+    orders: [],
+    clients: {}
+  };
+  seedDemo();
+  save();
+  boot();
+}
+
+/* демо-данные, чтобы экраны не были пустыми при показе владельцу */
+function seedDemo(){
+  const n = N();
+  const plates = ['12 AB 345','07 XY 991','34 CD 789','55 KL 210','21 MN 604',
+                  '90 QR 118','43 ST 777','66 UV 302','15 WZ 450','88 BC 963'];
+  const phones = ['+374 77 123 456','+374 91 555 010','+374 55 200 300','+374 98 404 505',
+                  '+374 93 811 220','+374 44 617 330','+374 77 902 145','+374 95 330 880',
+                  '+374 41 275 690','+374 99 158 470'];
+  const ids = n.idType === 'plate' ? plates : phones;
+  const now = Date.now();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const t0 = today.getTime();
+
+  // сегодняшние записи
+  const plan = [
+    [9.2,0,0],[9.8,1,1],[10.4,2,0],[11.1,0,2],[11.9,1,3],[12.6,2,1],
+    [13.3,0,0],[14.2,1,2],[15.0,2,4],[15.7,0,1],[16.5,1,0],[17.2,2,2]
+  ];
+  plan.forEach(([h, si, svi], i) => {
+    const ts = t0 + h*3600000;
+    if (ts > now) return;
+    addOrderRaw(ids[i % ids.length], n.services[svi % n.services.length],
+                ['Наличные','Карта','Перевод'][i%3], db.staff[si % db.staff.length].id, ts);
+  });
+
+  // «пропавшие» клиенты — для экрана удержания
+  [[30,0],[47,1],[68,2],[92,3]].forEach(([d, svi], i) => {
+    const key = ids[(i+5) % ids.length];
+    addOrderRaw(key, n.services[svi % n.services.length], 'Наличные',
+                db.staff[i % db.staff.length].id, now - d*DAY);
+  });
+}
+
+function addOrderRaw(key, svc, pay, staffId, ts){
+  db.orders.push({id:'o'+ts+Math.random().toString(36).slice(2,6), ts,
+    key, svc:svc.n, price:svc.p, pay, staffId});
+  const c = db.clients[key] || (db.clients[key] = {key, first:ts, last:0, visits:0, total:0});
+  c.visits++; c.total += svc.p;
+  if (ts > c.last) c.last = ts;
+  if (ts < c.first) c.first = ts;
+}
+
+/* ===================== каркас ===================== */
+function boot(){
+  const n = N();
+  document.getElementById('setup').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('bizIcon').textContent = n.icon;
+  document.getElementById('bizName').textContent = db.bizName;
+  document.getElementById('bizSub').textContent = n.name;
+  document.getElementById('wAddLabel').textContent = n.addLabel;
+  document.getElementById('idLabel').textContent = n.idLabel;
+  document.getElementById('idInput').placeholder = n.idPlaceholder;
+  setRole(role);
+}
+
+function setRole(r){
+  role = r;
+  document.getElementById('rWorker').classList.toggle('on', r==='worker');
+  document.getElementById('rOwner').classList.toggle('on', r==='owner');
+  document.getElementById('workerView').classList.toggle('hidden', r!=='worker');
+  document.getElementById('ownerView').classList.toggle('hidden', r!=='owner');
+  r === 'worker' ? renderWorker() : renderOwner();
+}
+
+/* ===================== выборки ===================== */
+function startOfToday(){ const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function todayOrders(){ const t = startOfToday(); return db.orders.filter(o => o.ts >= t); }
+function staffById(id){ return db.staff.find(s => s.id === id) || db.staff[0]; }
+
+/* ===================== СОТРУДНИК ===================== */
+function renderWorker(){
+  const n = N(), me = staffById(db.me);
+  const mine = todayOrders().filter(o => o.staffId === me.id).sort((a,b) => b.ts - a.ts);
+  const rev = mine.reduce((s,o) => s + o.price, 0);
+
+  document.getElementById('wEarn').textContent = money(Math.round(rev * me.percent / 100));
+  document.getElementById('wMeta').textContent =
+    `${me.name} · ${mine.length} ${plural(mine.length, n.unit, n.unitGen, n.unitPl)} · ${money(rev)} · твои ${me.percent}%`;
+
+  document.getElementById('wRecent').innerHTML = mine.length ? mine.slice(0,6).map(o => `
+    <div class="li">
+      <div class="av">${n.icon}</div>
+      <div class="mn"><b>${o.key}</b><span>${o.svc} · ${o.pay}</span></div>
+      <div class="rt"><b>${money(o.price)}</b><span>${hhmm(o.ts)}</span></div>
+    </div>`).join('') : `<div class="empty">Смена ещё не начата</div>`;
+}
+
+function startOrder(){
+  draft = {};
+  document.getElementById('wHome').classList.add('hidden');
+  document.getElementById('wFlow').classList.remove('hidden');
+  document.getElementById('idInput').value = '';
+  document.getElementById('idKnown').classList.add('hidden');
+  toStep(1);
+  setTimeout(() => document.getElementById('idInput').focus(), 50);
+}
+
+function cancelOrder(){
+  document.getElementById('wFlow').classList.add('hidden');
+  document.getElementById('wHome').classList.remove('hidden');
+}
+
+function toStep(s){
+  ['step1','step2','step3','stepDone'].forEach((id,i) =>
+    document.getElementById(id).classList.toggle('hidden', i !== s-1));
+  ['st1','st2','st3'].forEach((id,i) =>
+    document.getElementById(id).classList.toggle('on', i < s));
+  if (s === 2) renderServices();
+}
+
+document.getElementById('idInput').addEventListener('input', e => {
+  const v = e.target.value.trim().toUpperCase();
+  const box = document.getElementById('idKnown');
+  const c = db.clients[v] || db.clients[e.target.value.trim()];
+  if (c) {
+    const d = Math.round((Date.now() - c.last) / DAY);
+    box.textContent = `Уже был(а) ${c.visits} раз · последний ${d === 0 ? 'сегодня' : d + ' дн. назад'} · всего ${money(c.total)}`;
+    box.classList.remove('hidden');
+  } else box.classList.add('hidden');
+});
+
+function renderServices(){
+  document.getElementById('svcList').innerHTML = N().services.map((s,i) => `
+    <div class="opt" onclick="pickSvc(${i})"><b>${s.n}</b><span class="p">${money(s.p)}</span></div>
+  `).join('');
+}
+
+function pickSvc(i){ draft.svc = N().services[i]; toStep(3); }
+
+function finishOrder(pay){
+  const key = document.getElementById('idInput').value.trim().toUpperCase() || '—';
+  addOrderRaw(key, draft.svc, pay, db.me, Date.now());
+  save();
+  const me = staffById(db.me);
+  document.getElementById('doneTxt').textContent =
+    `${key} · ${draft.svc.n} · ${money(draft.svc.p)} — тебе ${money(Math.round(draft.svc.p*me.percent/100))}`;
+  toStep(4);
+  setTimeout(() => { cancelOrder(); renderWorker(); }, 1400);
+}
+
+/* ===================== ВЛАДЕЛЕЦ ===================== */
+function setTab(t){
+  tab = t;
+  document.querySelectorAll('.tabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.t === t));
+  renderOwner();
+}
+
+function renderOwner(){
+  document.querySelectorAll('.tabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.t === tab));
+  const body = document.getElementById('tabBody');
+  body.innerHTML = tab === 'today' ? viewToday() : tab === 'pay' ? viewPay() : viewClients();
+}
+
+function viewToday(){
+  const n = N(), os = todayOrders();
+  const rev = os.reduce((s,o) => s + o.price, 0);
+  const cash = os.filter(o => o.pay === 'Наличные').reduce((s,o) => s + o.price, 0);
+  const avg = os.length ? Math.round(rev / os.length) : 0;
+
+  const byStaff = db.staff.map(s => {
+    const my = os.filter(o => o.staffId === s.id);
+    return {s, cnt:my.length, sum:my.reduce((a,o) => a + o.price, 0)};
+  }).sort((a,b) => b.sum - a.sum);
+  const max = Math.max(1, ...byStaff.map(x => x.sum));
+
+  return `
+    <div class="stats">
+      <div class="stat"><div class="k">Выручка сегодня</div><div class="v acc">${money(rev)}</div></div>
+      <div class="stat"><div class="k">${cap(n.unitPl)}</div><div class="v">${os.length}</div></div>
+      <div class="stat"><div class="k">Средний чек</div><div class="v">${money(avg)}</div></div>
+      <div class="stat"><div class="k">Наличными</div><div class="v">${money(cash)}</div></div>
+    </div>
+    <h2>${n.staffRolePl} на смене</h2>
+    <div class="list">
+      ${byStaff.map(x => `
+        <div class="li">
+          <div class="av">${initials(x.s.name)}</div>
+          <div class="mn">
+            <b>${x.s.name}</b>
+            <span>${x.cnt} ${plural(x.cnt, n.unit, n.unitGen, n.unitPl)}</span>
+            <div class="bar"><i style="width:${Math.round(x.sum/max*100)}%"></i></div>
+          </div>
+          <div class="rt"><b>${money(x.sum)}</b><span>ему ${money(Math.round(x.sum*x.s.percent/100))}</span></div>
+        </div>`).join('')}
+    </div>
+    <h2>Лента</h2>
+    <div class="list">
+      ${os.length ? os.slice().sort((a,b) => b.ts - a.ts).map(o => `
+        <div class="li">
+          <div class="av">${n.icon}</div>
+          <div class="mn"><b>${o.key}</b><span>${o.svc} · ${staffById(o.staffId).name} · ${o.pay}</span></div>
+          <div class="rt"><b>${money(o.price)}</b><span>${hhmm(o.ts)}</span></div>
+        </div>`).join('') : `<div class="empty">Сегодня записей нет</div>`}
+    </div>`;
+}
+
+function viewPay(){
+  const n = N(), from = Date.now() - 7*DAY;
+  const os = db.orders.filter(o => o.ts >= from);
+  const rows = db.staff.map(s => {
+    const my = os.filter(o => o.staffId === s.id);
+    const sum = my.reduce((a,o) => a + o.price, 0);
+    return {s, cnt:my.length, sum, pay:Math.round(sum*s.percent/100)};
+  }).sort((a,b) => b.pay - a.pay);
+  const total = rows.reduce((a,r) => a + r.pay, 0);
+  const rev = rows.reduce((a,r) => a + r.sum, 0);
+
+  return `
+    <div class="stats">
+      <div class="stat"><div class="k">Выручка за 7 дней</div><div class="v">${money(rev)}</div></div>
+      <div class="stat"><div class="k">К выплате</div><div class="v acc">${money(total)}</div></div>
+    </div>
+    <div class="list">
+      ${rows.map(r => `
+        <div class="li">
+          <div class="av">${initials(r.s.name)}</div>
+          <div class="mn"><b>${r.s.name}</b>
+            <span>${r.cnt} ${plural(r.cnt, n.unit, n.unitGen, n.unitPl)} · ${money(r.sum)} · ставка ${r.s.percent}%</span></div>
+          <div class="rt"><b>${money(r.pay)}</b><span class="badge ok">к выплате</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="note" style="margin-top:14px">
+      Раньше это был час с калькулятором и спор с каждым ${n.staffRole.toLowerCase()}ом.
+      Теперь цифра одна и та же у обоих — спорить не о чем.
+    </div>`;
+}
+
+function viewClients(){
+  const n = N();
+  const cs = Object.values(db.clients).sort((a,b) => b.last - a.last);
+  const lost = cs.filter(c => Date.now() - c.last > 21*DAY);
+  const loyal = cs.filter(c => c.visits > 1);
+
+  return `
+    <div class="stats">
+      <div class="stat"><div class="k">Всего в базе</div><div class="v">${cs.length}</div></div>
+      <div class="stat"><div class="k">Постоянных</div><div class="v acc">${loyal.length}</div></div>
+      <div class="stat"><div class="k">Давно не были</div><div class="v" style="color:var(--warn)">${lost.length}</div></div>
+      <div class="stat"><div class="k">Средний доход с клиента</div><div class="v">${money(cs.length ? Math.round(cs.reduce((a,c)=>a+c.total,0)/cs.length) : 0)}</div></div>
+    </div>
+    <h2>База</h2>
+    <div class="list">
+      ${cs.map(c => {
+        const d = Math.round((Date.now() - c.last)/DAY);
+        const away = d > 21;
+        return `<div class="li">
+          <div class="av">${away ? '💤' : '👤'}</div>
+          <div class="mn"><b>${c.key}</b>
+            <span>${c.visits} ${plural(c.visits,'визит','визита','визитов')} · всего ${money(c.total)}</span></div>
+          <div class="rt">
+            ${away ? `<span class="badge warn">пропал ${d} дн.</span>`
+                   : `<b>${d === 0 ? 'сегодня' : d + ' дн. назад'}</b>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="note" style="margin-top:14px">
+      Вот эти ${lost.length} — деньги, которые уже лежат на столе.
+      Вернуть старого клиента дешевле, чем привести нового.
+    </div>`;
+}
+
+/* ===================== мелочи ===================== */
+function hhmm(ts){ const d = new Date(ts);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function initials(s){ return s.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(); }
+function cap(s){ return s[0].toUpperCase() + s.slice(1); }
+function plural(n1, one, few, many){
+  const n10 = n1 % 10, n100 = n1 % 100;
+  if (n10 === 1 && n100 !== 11) return one;
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return few;
+  return many;
+}
+function resetAll(){
+  if (!confirm('Сбросить данные прототипа и выбрать другой тип бизнеса?')) return;
+  localStorage.removeItem('bazis');
+  location.reload();
+}
+
+/* ===================== init ===================== */
+renderNiches();
+load();
+if (db && db.niche && NICHES[db.niche]) boot();
+</script>
+</body>
+</html>
