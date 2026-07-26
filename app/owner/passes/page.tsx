@@ -1,4 +1,5 @@
-﻿import { redirect } from 'next/navigation';
+﻿import { notFound, redirect } from 'next/navigation';
+import { passesEnabled } from '@/lib/features';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listServices, startOfDay } from '@/lib/queries';
 import { getPassSales, listPasses } from '@/lib/passes';
@@ -8,6 +9,9 @@ import { Stat, StatGrid } from '@/components/stat';
 import { SellPassForm } from './sell-pass-form';
 
 export default async function PassesPage() {
+  // спрятанную фичу нельзя открыть и прямой ссылкой
+  if (!passesEnabled()) notFound();
+
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/login');

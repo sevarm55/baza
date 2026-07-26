@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
+import { passesEnabled } from '@/lib/features';
 import { HeroDemo } from './hero-demo';
 import s from './landing.module.css';
 
@@ -72,7 +73,9 @@ export default async function Home() {
         <section className={`${s.shell} ${s.more}`}>
           <h2 className={s.sectionTitle}>{L.moreTitle}</h2>
           <div className={s.moreGrid}>
-            {L.more.map((item) => (
+            {L.more
+              .filter((item) => !('feature' in item) || passesEnabled())
+              .map((item) => (
               <div key={item.title} className={s.moreCard}>
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>

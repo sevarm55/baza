@@ -11,6 +11,7 @@ import {
 } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
+import { passesEnabled } from '@/lib/features';
 import { Avatar, Hero } from '@/components/stat';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
@@ -82,7 +83,7 @@ export default async function TodayPage({
         meta={
           <>
             {stats.count} {tenant.unitOne} · {hy.owner.avgCheck} {money(stats.avgCheck)}
-            {stats.passSales > 0 && (
+            {passesEnabled() && stats.passSales > 0 && (
               <>
                 {' · '}
                 {hy.passes.revenue} {money(stats.passSales)}
@@ -100,11 +101,14 @@ export default async function TodayPage({
 
       <PaymentSplit
         currency={tenant.currency}
-        segments={split.map((s) => ({
-          label: paymentLabel(s.payment),
-          value: s.revenue,
-          color: PAYMENT_COLORS[s.payment] ?? 'var(--muted)',
-        }))}
+        segments={split
+          // абонементы спрятаны — не показываем их и в разбивке
+          .filter((s) => passesEnabled() || s.payment !== 'pass')
+          .map((s) => ({
+            label: paymentLabel(s.payment),
+            value: s.revenue,
+            color: PAYMENT_COLORS[s.payment] ?? 'var(--muted)',
+          }))}
       />
 
       <h2 className="h-section">{hy.owner.onShift}</h2>

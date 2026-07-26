@@ -15,6 +15,7 @@ import {
 } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { listActivePasses, sellPass } from '@/lib/passes';
+import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness, PhoneTakenError } from '@/lib/tenant';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
@@ -337,9 +338,10 @@ export async function addOrder(input: {
   await ensureDb();
   await requireWriteAccess(session.tid);
 
-  if (!['cash', 'card', 'transfer', 'pass'].includes(input.payment)) {
-    throw new Error('BAD_PAYMENT');
-  }
+  const allowed = passesEnabled()
+    ? ['cash', 'card', 'transfer', 'pass']
+    : ['cash', 'card', 'transfer'];
+  if (!allowed.includes(input.payment)) throw new Error('BAD_PAYMENT');
 
   await createOrder({
     tenantId: session.tid,
@@ -367,7 +369,7 @@ export async function lookupClient(key: string) {
   const client = await findClient(session.tid, key);
   if (!client) return null;
 
-  const active = await listActivePasses(session.tid, client.id);
+  const active = passesEnabled() ? await listActivePasses(session.tid, client.id) : [];
 
   return {
     visits: client.visits,
@@ -390,6 +392,7 @@ export async function sellPassAction(
 ): Promise<FormState> {
   const session = await requireOwner();
   await ensureDb();
+  if (!passesEnabled()) return { error: hy.errors.generic };
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: hy.errors.generic };

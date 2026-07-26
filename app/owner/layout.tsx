@@ -6,6 +6,7 @@ import { TopBar } from '@/components/top-bar';
 import { OwnerTabs } from '@/components/owner-tabs';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
+import { passesEnabled } from '@/lib/features';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const session = await requireOwner();
@@ -23,7 +24,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
     <>
       <TopBar tenantName={tenant.name} subtitle={me.name} role="owner" active="owner" />
       <main className="mx-auto w-full max-w-[760px] px-4 pb-24">
-        <OwnerTabs />
+        <OwnerTabs passes={passesEnabled()} />
         <BillingBanner access={currentAccess(tenant)} role="owner" />
         {children}
       </main>
