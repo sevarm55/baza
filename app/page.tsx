@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
+import { Logo } from '@/components/logo';
 import { HeroDemo } from './hero-demo';
 import s from './landing.module.css';
 
@@ -20,7 +21,7 @@ export default async function Home() {
     <div className={s.page}>
       <header className={s.shell}>
         <nav className={s.nav}>
-          <span className={s.wordmark}>{hy.app.name.toUpperCase()}</span>
+          <Logo size={26} />
           <div className={s.navLinks}>
             <Link href="/login" className={s.navLink}>
               {hy.auth.signInTitle}

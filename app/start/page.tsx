@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ACTIVE_NICHES } from '@/lib/niches';
 import { getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
+import { Logo } from '@/components/logo';
 
 export default async function StartPage() {
   const session = await getSession();
@@ -15,9 +16,7 @@ export default async function StartPage() {
   return (
     <main className="mx-auto w-full max-w-[520px] px-4 pb-24">
       <header className="pt-11 pb-2 text-center">
-        <div className="mb-3.5 text-[13px] font-bold tracking-[3px] text-accent">
-          {hy.app.name.toUpperCase()}
-        </div>
+        <Logo size={28} className="mb-4" />
         <h1 className="text-[26px] font-semibold leading-tight tracking-tight">
           {hy.onboarding.chooseNiche}
         </h1>

@@ -10,7 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#0f1115',
+    // фон заставки совпадает с фоном иконки — иначе при запуске
+    // светлая плитка вспыхивает на тёмном поле
+    background_color: '#F5F3EF',
     theme_color: '#0f1115',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

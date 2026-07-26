@@ -22,10 +22,10 @@ const serif = Noto_Serif_Armenian({
 });
 
 export const metadata: Metadata = {
-  title: 'Բազիս',
+  title: 'Տետր',
   description: 'Հաշվառում սպասարկման բիզնեսի համար',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Բազիս', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'Տետր', statusBarStyle: 'black-translucent' },
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
