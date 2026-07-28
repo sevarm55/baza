@@ -8,7 +8,7 @@ import { AddStaffForm } from './add-staff-form';
 export default async function StaffPage() {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const staff = await listStaff(tenant.id);
 

@@ -47,7 +47,7 @@ export function DayChart({
                 // пик выделен цветом: именно он отвечает на вопрос
                 // «когда у меня заезд», ради которого сюда и смотрят
                 background: isPeak
-                  ? 'var(--color-accent)'
+                  ? 'var(--color-accent-strong)'
                   : p.value > 0
                     ? 'var(--bar)'
                     : 'var(--bar-empty)',

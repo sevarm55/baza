@@ -272,7 +272,11 @@ export function OrderFlow({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className={`h-[3px] flex-1 rounded-sm ${i <= stepIndex ? 'bg-accent' : 'bg-line'}`}
+            /* яркий мандарин, а не тёмный: полоска в три пикселя —
+               единственное, что показывает, сколько шагов осталось */
+            className={`h-[5px] flex-1 rounded-full transition-colors ${
+              i <= stepIndex ? 'bg-accent-strong' : 'bg-line'
+            }`}
           />
         ))}
       </div>

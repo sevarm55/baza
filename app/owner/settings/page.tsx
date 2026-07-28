@@ -10,7 +10,7 @@ import { AddServiceForm } from './add-service-form';
 export default async function SettingsPage() {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const services = await listServices(tenant.id);
   const symbol = currencySymbol(tenant.currency);

@@ -38,23 +38,29 @@ export function TopBar({
         {/* Владелец переключается между своим кабинетом и экраном записи:
             на маленькой мойке он и сам моет. */}
         {role === 'owner' && (
-          <nav className="order-3 flex w-full gap-0.5 rounded-[10px] bg-surface2 p-[3px] sm:order-2 sm:w-auto">
-            <Link
-              href="/work"
-              className={`flex-1 rounded-lg px-3 py-1.5 text-center text-[13px] sm:flex-none ${
-                active === 'work' ? 'bg-accent font-semibold text-white' : 'text-muted'
-              }`}
-            >
-              {hy.roles.staff}
-            </Link>
-            <Link
-              href="/owner"
-              className={`flex-1 rounded-lg px-3 py-1.5 text-center text-[13px] sm:flex-none ${
-                active === 'owner' ? 'bg-accent font-semibold text-white' : 'text-muted'
-              }`}
-            >
-              {hy.roles.owner}
-            </Link>
+          /* Выбранная сторона — белая плашка на сером жёлобе, а не
+             мандариновая заливка: это «вы находитесь здесь», а мандарин
+             в продукте означает «нажми меня». */
+          <nav className="order-3 flex w-full gap-1 rounded-[14px] bg-surface2 p-1 sm:order-2 sm:w-auto">
+            {(
+              [
+                { href: '/work', key: 'work', label: hy.roles.staff },
+                { href: '/owner', key: 'owner', label: hy.roles.owner },
+              ] as const
+            ).map((tab) => (
+              <Link
+                key={tab.key}
+                href={tab.href}
+                aria-current={active === tab.key ? 'page' : undefined}
+                className={`flex-1 rounded-[10px] px-3.5 py-2 text-center text-[13.5px] transition sm:flex-none ${
+                  active === tab.key
+                    ? 'bg-surface font-semibold text-ink shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                {tab.label}
+              </Link>
+            ))}
           </nav>
         )}
       </div>

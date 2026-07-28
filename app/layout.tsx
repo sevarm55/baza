@@ -46,8 +46,8 @@ export const viewport: Viewport = {
   // цвет строки состояния на телефоне должен совпадать с фоном страницы,
   // иначе сверху висит полоса чужого цвета
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0e1014' },
-    { media: '(prefers-color-scheme: light)', color: '#f3f5f9' },
+    { media: '(prefers-color-scheme: dark)', color: '#14120f' },
+    { media: '(prefers-color-scheme: light)', color: '#faf9f7' },
   ],
   // интерфейс сотрудника живёт на телефоне: зум при тапе по полю недопустим
   width: 'device-width',
@@ -69,11 +69,15 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Тема ставится до первой отрисовки. Иначе тёмный экран моргнёт
-            белым на каждой загрузке — на телефоне это очень заметно. */}
+        {/* Тема ставится до первой отрисовки, иначе экран моргнёт чужим
+            цветом — на телефоне это очень заметно.
+
+            Системную тему больше не спрашиваем: светлая — это и есть вид
+            продукта, и он должен быть одинаковым у всех, кому его
+            показывают. Тёмная включается только вручную и запоминается. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(()=>{try{var s=localStorage.getItem('bazis.theme');var m=window.matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.dataset.theme=s||(m?'light':'dark')}catch(e){}})()`,
+            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='dark'?'dark':'light'}catch(e){}})()`,
           }}
         />
       </head>

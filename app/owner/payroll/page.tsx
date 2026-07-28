@@ -9,7 +9,7 @@ import { PayButton } from '@/components/pay-button';
 export default async function PayrollPage() {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const [rows, settled, history] = await Promise.all([
     getUnsettledPayroll(tenant.id),

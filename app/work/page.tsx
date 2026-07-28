@@ -17,7 +17,7 @@ export default async function WorkPage() {
     getTenant(session.tid),
     getUser(session.tid, session.uid),
   ]);
-  if (!tenant || !me) redirect('/login');
+  if (!tenant || !me) redirect('/session-ended');
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
@@ -28,20 +28,29 @@ export default async function WorkPage() {
 
   return (
     <>
-      <TopBar tenantName={tenant.name} subtitle={me.name} role={session.role} />
+      <TopBar
+        tenantName={tenant.name}
+        subtitle={me.name}
+        role={session.role}
+        active="work"
+      />
 
       <main className="mx-auto w-full max-w-[520px] px-4 pb-24">
         <BillingBanner access={access} role={session.role} />
         {/* Личный заработок в реальном времени. Это не украшение:
             без него сотруднику незачем вбивать записи вообще. */}
-        <section className="mb-3.5 rounded-[14px] border border-shift-line bg-gradient-to-br from-shift-from to-shift-to p-[18px]">
-          <div className="text-xs uppercase tracking-[1px] text-muted">
+        {/* Заливка индиго, текст белый: на светлом экране это единственный
+            способ сказать «вот твои деньги» так, чтобы читалось на солнце.
+            Цвета берутся не от общих токенов текста — на цветном фоне
+            приглушённый серый превращается в грязь. */}
+        <section className="mb-3.5 rounded-[var(--radius-card)] bg-gradient-to-br from-shift-from to-shift-to p-5 text-shift-ink">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.1em] opacity-70">
             {hy.work.shiftTitle}
           </div>
-          <div className="my-1.5 text-[32px] font-bold leading-none tracking-tight text-good">
+          <div className="num my-1.5 text-[40px] font-bold leading-none tracking-tight">
             {formatMoney(shift.earned, tenant.currency)}
           </div>
-          <div className="text-[13px] text-muted">
+          <div className="num text-[13px] opacity-70">
             {shift.count} {tenant.unitOne} · {formatMoney(shift.revenue, tenant.currency)} ·{' '}
             {hy.work.yourShare} {me.percent}%
           </div>

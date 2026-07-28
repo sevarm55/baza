@@ -11,7 +11,7 @@ const LOST_AFTER_DAYS = 21;
 export default async function ClientsPage() {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const clients = await listClients(tenant.id);
   const money = (n: number) => formatMoney(n, tenant.currency);

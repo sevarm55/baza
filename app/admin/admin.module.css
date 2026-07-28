@@ -5,15 +5,15 @@
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  --deep: #0a0b10;
+  --deep: #f1efec;
   --line: var(--color-line);
 
   min-height: 100vh;
   background: var(--deep);
 }
 
-:global(:root[data-theme='light']) .page {
-  --deep: #eceff5;
+:global(:root[data-theme='dark']) .page {
+  --deep: #0f0d0b;
 }
 
 .shell {
@@ -39,7 +39,7 @@
   font-weight: 700;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--violet);
+  color: var(--accent2);
 }
 
 .who {
@@ -57,8 +57,8 @@
 
 .billingOff {
   margin-bottom: 18px;
-  border-inline-start: 3px solid var(--violet);
-  background: var(--violet-bg);
+  border-inline-start: 3px solid var(--accent2);
+  background: var(--accent2-bg);
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 13px;
@@ -66,7 +66,7 @@
   color: var(--color-muted);
 }
 .billingOff code {
-  color: var(--violet);
+  color: var(--accent2);
   font-size: 12.5px;
 }
 
@@ -231,8 +231,8 @@
   transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
 .btn:hover:not(:disabled) {
-  border-color: var(--violet);
-  color: var(--violet);
+  border-color: var(--accent2);
+  color: var(--accent2);
 }
 .btn:disabled {
   opacity: 0.45;

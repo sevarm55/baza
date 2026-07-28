@@ -18,7 +18,7 @@ export default async function BlockedPage() {
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   // сюда попадают только отключённые: остальных возвращаем в приложение
   if (currentAccess(tenant).canRead) {

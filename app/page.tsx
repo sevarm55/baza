@@ -11,7 +11,16 @@ import { Logo } from '@/components/logo';
 import { HeroDemo } from './hero-demo';
 import s from './landing.module.css';
 
-const STEP_COLORS = ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', 'var(--brand-1)'];
+/**
+ * Цвета шагов идут по кругу цветами знака — страница и марка перестают
+ * жить отдельными жизнями. Цвет текста едет вместе с фоном: белый
+ * читается на индиго, но не на мандарине и не на мяте.
+ */
+const STEP_COLORS = [
+  { bg: 'var(--color-brand-1)', ink: '#1c1917' },
+  { bg: 'var(--color-brand-2)', ink: '#ffffff' },
+  { bg: 'var(--color-brand-3)', ink: '#1c1917' },
+];
 
 export default async function Home() {
   const session = await getSession();
@@ -29,7 +38,7 @@ export default async function Home() {
             <Link href="/login" className={s.navLink}>
               {hy.auth.signInTitle}
             </Link>
-            <Link href={start} className={s.navLink}>
+            <Link href={start} className={s.navCta}>
               {hy.onboarding.createAccount}
             </Link>
           </div>
@@ -39,7 +48,10 @@ export default async function Home() {
       <main>
         <section className={`${s.shell} ${s.hero}`}>
           <div className={s.heroText}>
-            <span className={s.eyebrow}>{L.eyebrow}</span>
+            <span className={s.eyebrow}>
+              <i className={s.eyebrowDot} />
+              {L.eyebrow}
+            </span>
             <h1 className={s.headline}>
               {L.headline}
               <span className={s.headlineAccent}>{L.headlineAccent}</span>
@@ -56,26 +68,49 @@ export default async function Home() {
           <HeroDemo />
         </section>
 
+        {/* Три вопроса, которые задают до чтения: сложно ли, сколько
+            стоит попробовать, надо ли учиться. Ответы — до текста. */}
+        <section className={s.stats}>
+          <div className={s.shell}>
+            <div className={s.statsGrid}>
+              {L.stats(TRIAL_DAYS).map((stat) => (
+                <div key={stat.label} className={s.stat}>
+                  <div className={s.statValue}>
+                    <span className="num">{stat.value}</span>
+                    <span className={s.statUnit}>{stat.unit}</span>
+                  </div>
+                  <div className={s.statLabel}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Рабочий день мойки — он же порядок разделов.
             Метки времени не украшение: ровно так выглядит лента записей. */}
         <section className={s.day}>
           <div className={s.shell}>
+            <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
             <div className={s.steps}>
-              {L.steps.map((step, i) => (
-                <article
-                  key={step.time}
-                  className={s.step}
-                  /* метки времени идут цветами знака по кругу — страница
-                     и логотип перестают жить отдельными жизнями */
-                  style={{ '--step-color': STEP_COLORS[i % STEP_COLORS.length] } as CSSProperties}
-                >
-                  <div className={s.stepTime}>{step.time}</div>
-                  <div>
-                    <h2 className={s.stepTitle}>{step.title}</h2>
+              {L.steps.map((step, i) => {
+                const color = STEP_COLORS[i % STEP_COLORS.length];
+                return (
+                  <article
+                    key={step.time}
+                    className={s.step}
+                    style={
+                      {
+                        '--step-color': color.bg,
+                        '--step-ink': color.ink,
+                      } as CSSProperties
+                    }
+                  >
+                    <div className={s.stepTime}>{step.time}</div>
+                    <h3 className={s.stepTitle}>{step.title}</h3>
                     <p className={s.stepBody}>{step.body}</p>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -86,20 +121,21 @@ export default async function Home() {
             {L.more
               .filter((item) => !('feature' in item) || passesEnabled())
               .map((item) => (
-              <div key={item.title} className={s.moreCard}>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </div>
-            ))}
+                <div key={item.title} className={s.moreCard}>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </div>
+              ))}
           </div>
         </section>
 
-        <section className={s.price}>
-          <div className={s.shell}>
-            <h2 className={s.sectionTitle} style={{ marginBottom: 18 }}>
+        <section className={`${s.shell} ${s.price}`}>
+          <div className={s.priceCard}>
+            <span className={s.eyebrow}>
+              <i className={s.eyebrowDot} />
               {L.priceTitle}
-            </h2>
-            <p className={s.priceValue}>{formatMoney(PRICE)}</p>
+            </span>
+            <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
             <p className={s.pricePeriod}>{L.pricePeriod}</p>
             <div className={s.priceActions}>
               <Link href={start} className={s.cta}>

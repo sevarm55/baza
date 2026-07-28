@@ -14,7 +14,7 @@ export default async function PassesPage() {
 
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const [services, list, salesToday] = await Promise.all([
     listServices(tenant.id),

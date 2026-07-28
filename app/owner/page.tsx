@@ -26,8 +26,8 @@ const PERIODS = [
    иначе полоса на белом фоне выцветает до неразличимости. */
 const PAYMENT_COLORS: Record<string, string> = {
   cash: 'var(--good)',
-  card: 'var(--accent)',
-  transfer: '#8b5cf6',
+  card: 'var(--accent-strong)',
+  transfer: 'var(--accent2)',
   pass: 'var(--warn)',
 };
 
@@ -38,7 +38,7 @@ export default async function TodayPage({
 }) {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
-  if (!tenant) redirect('/login');
+  if (!tenant) redirect('/session-ended');
 
   const { p } = await searchParams;
   const period = PERIODS.find((x) => x.key === p) ?? PERIODS[0];
@@ -124,9 +124,9 @@ export default async function TodayPage({
                 <div className="num text-[12.5px] text-muted">
                   {s.count} {tenant.unitOne}
                 </div>
-                <div className="mt-[7px] h-1.5 overflow-hidden rounded bg-surface2">
+                <div className="mt-[7px] h-1.5 overflow-hidden rounded-full bg-surface2">
                   <div
-                    className="h-full rounded bg-accent"
+                    className="h-full rounded-full bg-accent-strong"
                     style={{ width: `${Math.round((s.revenue / maxRevenue) * 100)}%` }}
                   />
                 </div>

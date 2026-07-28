@@ -49,7 +49,14 @@ function createClient() {
     return { kind: 'postgres' as const, client };
   }
 
-  const dataDir = process.env.PGLITE_DIR ?? './.data/pglite';
+  /* Сборка идёт в полтора десятка воркеров, и каждый поднимает свою
+     PGlite. Если пустить их всех в один каталог, файлы базы рвутся —
+     запросы начинают отвечать «Aborted()», и локальные данные теряются.
+     Данные при сборке никому не нужны (все маршруты динамические),
+     поэтому на это время база живёт в памяти. */
+  const building = process.env.NEXT_PHASE === 'phase-production-build';
+  const dataDir = building ? 'memory://' : (process.env.PGLITE_DIR ?? './.data/pglite');
+
   // PGlite не создаёт директорию данных сам и падает с ENOENT на чистом
   // клоне репозитория. Пустая папка для него — сигнал инициализировать базу.
   if (!dataDir.startsWith('memory://')) mkdirSync(dataDir, { recursive: true });

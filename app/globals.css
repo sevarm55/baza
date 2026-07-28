@@ -1,113 +1,143 @@
 @import 'tailwindcss';
 
 /* ─────────────────────────────────────────────────────────────
-   Две темы.
+   Палитра.
 
-   Значения живут в обычных переменных, а @theme inline лишь
-   ссылается на них — только так утилиты Tailwind переключаются
-   на лету, а не запекаются в сборку.
+   Основа светлая: этим пользуются во дворе мойки, днём, под солнцем —
+   там белое читается, а тёмное превращается в зеркало. Тёмная тема
+   осталась переключателем для тех, кто работает вечером.
 
-   Зелёный и синий в светлой теме заметно темнее: #2dd4a7 на белом
-   почти не читается. Это самая частая ошибка в светлых темах —
-   взять те же цвета и удивиться, почему всё блёклое.
+   Три цвета несут смысл, а не украшают:
+     мандарин — действие, то, что нажимают;
+     индиго   — опора: шапки, выделение, структура;
+     мята     — деньги и всё, что сошлось.
+
+   Яркость и читаемость спорят друг с другом, и спор решён так:
+   яркий мандарин #f97316 идёт под УГОЛЬНЫЙ текст (контраст 6.1) —
+   отсюда кнопки, которые одновременно яркие и читаются. Там, где по
+   смыслу нужен белый текст, берётся тёмный #c2410c (контраст 4.8).
+   Наоборот — белым по яркому оранжевому — не делаем: 2.9, нечитаемо,
+   и именно так выглядит большинство «ярких» интерфейсов вблизи.
    ───────────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #0e1014;
-  --surface: #171a21;
-  --surface2: #1e222b;
-  --line: #262b35;
-  --hairline: #1d222b;
-  --hover: rgb(255 255 255 / 3%);
-  --tile-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface2: #f4f2ef;
+  --line: #e6e2dc;
+  --hairline: #f0ede8;
+  --hover: rgb(28 25 23 / 4%);
+  --tile-shadow: 0 1px 2px rgb(28 25 23 / 6%), 0 10px 30px -18px rgb(28 25 23 / 35%);
 
-  --ink: #e9ebf0;
-  --muted: #8b93a7;
-  --faint: #667085;
+  --ink: #1c1917;
+  --muted: #57534e;
+  --faint: #8b857e;
 
-  --accent: #4f8cff;
-  --good: #2dd4a7;
-  --warn: #f5a524;
-  --bad: #f2545b;
+  /* мандарин: заливка яркая, текст-акцент тёмный */
+  --accent: #c2410c;
+  --accent-strong: #f97316;
+  /* текст, который ложится НА яркую заливку */
+  --accent-on: #1c1917;
+
+  --good: #047857;
+  --warn: #b45309;
+  --bad: #dc2626;
 
   /* Цвета знака. Одни и те же в обеих темах — это марка, а не
      элемент интерфейса, и меняться она не должна. */
-  --brand-1: #f2a33c;
-  --brand-2: #f2645c;
-  --brand-3: #12897e;
+  --brand-1: #f97316;
+  --brand-2: #4338ca;
+  --brand-3: #10b981;
 
-  --accent-bg: #14224a;
-  --accent-ink: #8fb4ff;
-  --violet: #a78bfa;
-  --violet-bg: #16121f;
+  --accent-bg: #fff1e7;
+  --accent-ink: #c2410c;
 
-  --good-bg: #16281f;
-  --good-line: #245038;
-  --good-ink: #2dd4a7;
+  /* индиго — опора */
+  --accent2: #4338ca;
+  --accent2-bg: #eef0ff;
+  --accent2-ink: #3730a3;
+  /* текст поверх заливки индиго: в тёмной теме индиго светлеет,
+     и белый по нему перестаёт читаться */
+  --accent2-on: #ffffff;
 
-  --warn-bg: #241a08;
-  --warn-line: #3a2a10;
-  --warn-ink: #f5a524;
+  --good-bg: #ecfdf5;
+  --good-line: #a7f3d0;
+  --good-ink: #047857;
 
-  --bad-bg: #2a1416;
-  --bad-line: #6b2b31;
-  --bad-ink: #ffb4b8;
+  --warn-bg: #fff7ed;
+  --warn-line: #fed7aa;
+  --warn-ink: #9a3412;
+
+  --bad-bg: #fef2f2;
+  --bad-line: #fecaca;
+  --bad-ink: #b91c1c;
 
   /* блок заработка на экране мойщика */
-  --shift-from: #1b2740;
-  --shift-to: #161d2e;
-  --shift-line: #2a3550;
+  --shift-from: #4338ca;
+  --shift-to: #3730a3;
+  --shift-line: #3730a3;
+  --shift-ink: #ffffff;
 
-  /* столбики графика */
-  --bar: #2f3a52;
-  --bar-empty: #1b1f28;
-
-  color-scheme: dark;
-}
-
-:root[data-theme='light'] {
-  --bg: #f3f5f9;
-  --surface: #ffffff;
-  --surface2: #eaeef5;
-  --line: #dbe1ea;
-  --hairline: #e9edf3;
-  --hover: rgb(16 20 28 / 3%);
-  --tile-shadow: 0 1px 2px rgb(16 20 28 / 7%);
-
-  --ink: #10141c;
-  --muted: #55607a;
-  --faint: #7c879b;
-
-  --accent: #2563eb;
-  --good: #0f9b76;
-  --warn: #a86400;
-  --bad: #d32f45;
-
-  --accent-bg: #e6efff;
-  --accent-ink: #1d4ed8;
-  --violet: #6d3fd4;
-  --violet-bg: #f1ecfd;
-
-  --good-bg: #e6f7f0;
-  --good-line: #b5e5d3;
-  --good-ink: #0b7a5c;
-
-  --warn-bg: #fdf3e1;
-  --warn-line: #f0dcb2;
-  --warn-ink: #8a5200;
-
-  --bad-bg: #fdebed;
-  --bad-line: #f4c2c8;
-  --bad-ink: #a3202f;
-
-  --shift-from: #e8f0ff;
-  --shift-to: #dbe8ff;
-  --shift-line: #c2d7ff;
-
-  --bar: #c3cfe2;
-  --bar-empty: #e6eaf1;
+  /* Столбики графика приглушены, а пик берёт полный мандарин: график
+     нужен ради одного ответа — когда заезд, — и пик должен выделяться
+     сам, без подписи. */
+  --bar: #fdba74;
+  --bar-empty: #f0ede8;
 
   color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #14120f;
+  --surface: #1e1b18;
+  --surface2: #292522;
+  --line: #38322d;
+  --hairline: #262220;
+  --hover: rgb(255 255 255 / 4%);
+  --tile-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+
+  --ink: #faf9f7;
+  --muted: #a8a29e;
+  --faint: #837b74;
+
+  /* на угольном фоне яркий мандарин читается и текстом */
+  --accent: #fb923c;
+  --accent-strong: #f97316;
+  --accent-on: #1c1917;
+
+  --good: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+
+  --accent-bg: #2c1a0e;
+  --accent-ink: #fdba74;
+
+  --accent2: #818cf8;
+  --accent2-bg: #1c1b33;
+  --accent2-ink: #a5b4fc;
+  --accent2-on: #1c1917;
+
+  --good-bg: #10231d;
+  --good-line: #1f4f40;
+  --good-ink: #34d399;
+
+  --warn-bg: #271a0b;
+  --warn-line: #4a3313;
+  --warn-ink: #fbbf24;
+
+  --bad-bg: #2a1516;
+  --bad-line: #5f2626;
+  --bad-ink: #fca5a5;
+
+  --shift-from: #312e81;
+  --shift-to: #1e1b4b;
+  --shift-line: #3730a3;
+  --shift-ink: #ffffff;
+
+  --bar: #9a3412;
+  --bar-empty: #262220;
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -122,6 +152,16 @@
   --color-faint: var(--faint);
 
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-on: var(--accent-on);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-accent2: var(--accent2);
+  --color-accent2-bg: var(--accent2-bg);
+  --color-accent2-ink: var(--accent2-ink);
+  --color-accent2-on: var(--accent2-on);
+
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
@@ -141,13 +181,17 @@
   --color-shift-from: var(--shift-from);
   --color-shift-to: var(--shift-to);
   --color-shift-line: var(--shift-line);
+  --color-shift-ink: var(--shift-ink);
 
   --color-brand-1: var(--brand-1);
   --color-brand-2: var(--brand-2);
   --color-brand-3: var(--brand-3);
 
-  --radius-card: 14px;
-  --radius-sm: 10px;
+  /* Крупнее прежнего: у мойщика мокрые руки и перчатки, а мягкая
+     форма прощает промах пальцем лучше, чем острая. */
+  --radius-card: 18px;
+  --radius-sm: 12px;
+  --radius-btn: 14px;
 }
 
 html {
@@ -160,11 +204,12 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Видимый фокус — не украшение: без него с клавиатуры работать вслепую. */
+/* Видимый фокус — не украшение: без него с клавиатуры работать вслепую.
+   Индиго, а не мандарин: фокус не должен спорить с кнопками действия. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent2);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* Повторяющиеся блоки держим здесь, а не размазываем по JSX:
@@ -200,13 +245,15 @@ body {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 1rem;
+    padding: 1.1rem;
+    box-shadow: var(--tile-shadow);
   }
 
   .tile {
     background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 0.95rem 1rem;
+    padding: 1.05rem 1.1rem;
     box-shadow: var(--tile-shadow);
   }
 
@@ -214,6 +261,7 @@ body {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
+    box-shadow: var(--tile-shadow);
     overflow: hidden;
   }
 
@@ -221,7 +269,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.8rem 1rem;
+    /* строки списка — тоже цели для пальца, а не просто текст */
+    padding: 0.95rem 1.1rem;
     border-bottom: 1px solid var(--hairline);
     transition: background 0.12s ease;
   }
@@ -234,44 +283,58 @@ body {
 
   /* ───────────────────────── кнопки ───────────────────────── */
 
+  /* Главное действие — яркий мандарин под угольным текстом. Белый по
+     оранжевому дал бы контраст 2.9 и разваливался на солнце; уголь по
+     тому же оранжевому даёт 6.1 и остаётся таким же ярким. */
   .btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    padding: 0.9rem 1rem;
+    min-height: 3.25rem;
+    padding: 0.9rem 1.1rem;
     border: 1px solid transparent;
-    border-radius: var(--radius-card);
-    background: var(--accent);
-    color: #fff;
+    border-radius: var(--radius-btn);
+    background: var(--accent-strong);
+    color: var(--accent-on);
     font: inherit;
-    font-weight: 600;
-    font-size: 1rem;
+    font-weight: 700;
+    font-size: 1.0625rem;
     cursor: pointer;
-    transition: filter 0.12s ease, transform 0.12s ease;
+    transition: filter 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
   }
   .btn:hover:not(:disabled) {
-    filter: brightness(1.08);
+    filter: brightness(1.05);
+    box-shadow: 0 8px 20px -8px var(--accent-strong);
   }
   .btn:active:not(:disabled) {
-    transform: scale(0.99);
+    transform: translateY(1px);
+    box-shadow: none;
   }
   .btn:disabled {
-    opacity: 0.45;
+    opacity: 0.4;
     cursor: default;
   }
 
   .btn-ghost {
-    background: transparent;
+    background: var(--surface);
     border-color: var(--line);
     color: var(--ink);
+    font-weight: 600;
   }
   .btn-ghost:hover:not(:disabled) {
     background: var(--surface2);
+    border-color: var(--muted);
     filter: none;
+    box-shadow: none;
   }
 
+  /* Кнопка, которую жмут в перчатках и мокрыми руками. */
   .btn-big {
-    padding: 1.35rem;
-    font-size: 1.125rem;
+    min-height: 4rem;
+    padding: 1.25rem;
+    font-size: 1.1875rem;
+    border-radius: var(--radius-card);
   }
 
   /* Компактное действие внутри строки. С подписью, а не голой иконкой:
@@ -302,9 +365,9 @@ body {
   }
 
   .btn-inline-primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--accent-on);
   }
   .btn-inline-primary:hover:not(:disabled) {
     filter: brightness(1.08);
@@ -326,8 +389,8 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
     flex: none;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
@@ -348,15 +411,16 @@ body {
 
   .field {
     width: 100%;
-    padding: 0.8rem 0.85rem;
-    background: var(--bg);
+    min-height: 3.25rem;
+    padding: 0.85rem 0.95rem;
+    background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     color: var(--ink);
     font: inherit;
     font-size: 1rem;
     outline: none;
-    transition: border-color 0.12s ease, background 0.12s ease;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
   .field::placeholder {
     color: var(--faint);
@@ -364,9 +428,11 @@ body {
   .field:hover {
     border-color: var(--muted);
   }
+  /* Кольцо, а не смена цвета рамки в один пиксель: на телефоне под
+     солнцем однопиксельную рамку не видно вовсе. */
   .field:focus {
-    border-color: var(--accent);
-    background: var(--surface);
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 3px var(--accent2-bg);
     outline: none;
   }
 
@@ -385,7 +451,8 @@ body {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 1rem;
+    box-shadow: var(--tile-shadow);
+    padding: 1.15rem 1.1rem;
     font: inherit;
     font-size: 1rem;
     color: var(--ink);
@@ -394,8 +461,8 @@ body {
     transition: border-color 0.12s ease, background 0.12s ease;
   }
   .opt:hover:not(:disabled) {
-    border-color: var(--accent);
-    background: var(--surface2);
+    border-color: var(--accent-strong);
+    background: var(--accent-bg);
   }
   .opt:disabled {
     opacity: 0.5;
@@ -443,8 +510,8 @@ body {
   .tab {
     white-space: nowrap;
     border-radius: 999px;
-    padding: 0.5rem 0.9rem;
-    font-size: 13.5px;
+    padding: 0.6rem 1.05rem;
+    font-size: 14px;
     color: var(--muted);
     background: var(--surface);
     border: 1px solid var(--line);
@@ -454,19 +521,21 @@ body {
     color: var(--ink);
     border-color: var(--muted);
   }
+  /* Выбранная вкладка — индиго: это не действие, а место, где вы сейчас
+     стоите, и спорить с мандариновыми кнопками ему незачем. */
   .tab-on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--accent2);
+    border-color: var(--accent2);
+    color: var(--accent2-on);
     font-weight: 600;
   }
   .tab-on:hover {
-    color: #fff;
-    border-color: var(--accent);
+    color: var(--accent2-on);
+    border-color: var(--accent2);
   }
 
   .note {
-    border-inline-start: 3px solid var(--accent);
+    border-inline-start: 3px solid var(--accent2);
     background: var(--surface);
     border-radius: var(--radius-card);
     padding: 0.85rem 0.95rem;
