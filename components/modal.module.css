@@ -1,0 +1,105 @@
+/* ─────────────────────────────────────────────────────────────
+   Модальное окно на нативном <dialog>.
+
+   Не самодельный оверлей: <dialog> сам держит фокус внутри, сам
+   реагирует на Escape и сам поднимается над всем остальным. Ручная
+   реализация всего этого — источник багов, а не гибкости.
+
+   На телефоне это лист, выезжающий снизу: пальцу до него ближе,
+   и жест привычен по всему остальному, чем человек пользуется.
+   На большом экране — обычное окно по центру.
+   ───────────────────────────────────────────────────────────── */
+
+.dialog {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  /* лист прижат к низу экрана */
+  margin: auto auto 0;
+  overflow: visible;
+}
+
+.dialog::backdrop {
+  background: rgb(4 6 10 / 0%);
+  backdrop-filter: blur(0px);
+  transition: background 0.26s ease, backdrop-filter 0.26s ease;
+}
+
+.dialog[data-open='true']::backdrop {
+  background: rgb(4 6 10 / 62%);
+  backdrop-filter: blur(6px);
+}
+
+.panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  padding: 26px 22px calc(30px + env(safe-area-inset-bottom));
+
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+.dialog[data-open='true'] .panel {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Полоска-ручка: намекает, что лист можно закрыть, и отделяет
+   его от фона лучше любой тени. */
+.grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  margin: -8px auto 20px;
+}
+
+.close {
+  position: absolute;
+  inset-block-start: 16px;
+  inset-inline-end: 16px;
+}
+
+@media (min-width: 640px) {
+  .dialog {
+    /* по центру экрана, а не листом снизу */
+    margin: auto;
+    width: auto;
+  }
+
+  .panel {
+    width: 400px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 30px 28px 28px;
+    box-shadow: 0 30px 80px rgb(0 0 0 / 45%);
+
+    transform: translateY(12px) scale(0.97);
+  }
+
+  .dialog[data-open='true'] .panel {
+    transform: translateY(0) scale(1);
+  }
+
+  .grip {
+    display: none;
+  }
+}
+
+/* Движение — приправа. Кому оно мешает, тот его не увидит. */
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .dialog::backdrop {
+    transition-duration: 0.01ms;
+  }
+  .panel {
+    transform: none;
+  }
+}
