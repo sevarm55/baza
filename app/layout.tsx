@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_Armenian, Noto_Serif_Armenian } from 'next/font/google';
+import { Noto_Sans_Armenian } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
@@ -12,12 +13,16 @@ const sans = Noto_Sans_Armenian({
   display: 'swap',
 });
 
-/* Антиква для заголовков лендинга. В приложении не используется:
-   там всё решает скорость чтения, а не характер. */
-const serif = Noto_Serif_Armenian({
-  variable: '--font-serif',
-  subsets: ['armenian', 'latin'],
-  weight: ['500', '600'],
+/* Заголовки лендинга — Mardoto: армянский гротеск, нарисованный именно
+   под этот алфавит, а не растянутый из латиницы. Лежит в проекте, потому
+   что в Google Fonts его нет. Лицензия Apache 2.0, файл рядом со шрифтом.
+   В самом приложении не используется: там решает скорость чтения. */
+const display = localFont({
+  src: [
+    { path: './fonts/Mardoto-Medium.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/Mardoto-Bold.woff2', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-display',
   display: 'swap',
 });
 
@@ -52,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="hy"
-      className={`${sans.variable} ${serif.variable} h-full antialiased`}
+      className={`${sans.variable} ${display.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

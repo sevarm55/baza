@@ -2,9 +2,9 @@
    Лендинг. Живёт по своим правилам, поэтому стили изолированы
    в модуле и не трогают дизайн-систему приложения.
 
-   Палитра взята из продукта, свобода потрачена на типографику:
-   заголовки армянской антиквой. В тёмных лендингах почти всегда
-   гротеск везде — засечки дают лицо, которого нет у соседей.
+   Палитра взята из знака, свобода потрачена на типографику:
+   заголовки набраны Mardoto — армянским гротеском, нарисованным под
+   этот алфавит, а не растянутым из латиницы, как большинство «Noto».
    ───────────────────────────────────────────────────────────── */
 
 .page {
@@ -96,8 +96,8 @@
 }
 
 .headline {
-  font-family: var(--font-serif), Georgia, serif;
-  font-weight: 600;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
   font-size: clamp(2.1rem, 5.6vw, 3.9rem);
   line-height: 1.08;
   letter-spacing: -0.015em;
@@ -375,9 +375,9 @@
 }
 
 .stepTitle {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--font-display), system-ui, sans-serif;
   font-size: clamp(1.25rem, 2.4vw, 1.65rem);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.25;
   margin: 0 0 8px;
 }
@@ -397,9 +397,9 @@
 }
 
 .sectionTitle {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--font-display), system-ui, sans-serif;
   font-size: clamp(1.4rem, 3vw, 2rem);
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 28px;
 }
 
@@ -446,10 +446,10 @@
 }
 
 .priceValue {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--font-display), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   font-size: clamp(2.6rem, 8vw, 4.2rem);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
   margin: 0;

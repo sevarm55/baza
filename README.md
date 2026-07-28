@@ -104,6 +104,16 @@ DATABASE_URL=... npm run db:migrate
 
 См. [TESTING.md](TESTING.md) — сценарии по группам с ожидаемым результатом.
 
+## Шрифты
+
+| Где | Шрифт | Откуда |
+|---|---|---|
+| Интерфейс | Noto Sans Armenian | Google Fonts |
+| Заголовки лендинга | Mardoto | `app/fonts/`, Apache 2.0 |
+
+[Mardoto](https://github.com/vahanhovh/mardoto) лежит в проекте, потому что его нет
+в Google Fonts. Текст лицензии — `app/fonts/MARDOTO-LICENSE.txt`.
+
 ## Прототип
 
 `prototype/index.html` — первый кликабельный макет, с которого всё началось.
