@@ -1,6 +1,8 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
+import { startHref } from '@/lib/niches';
 import { Modal } from '@/components/modal';
 import { Logo } from '@/components/logo';
 import { LoginForm } from '@/app/login/login-form';
@@ -18,12 +20,19 @@ export default async function LoginModal() {
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
 
   return (
-    <Modal>
+    <Modal path="/login">
       <div className="mb-5">
         <Logo size={30} className="mb-4" />
         <h1 className="text-[22px] font-bold">{hy.auth.signInTitle}</h1>
       </div>
       <LoginForm />
+
+      {/* Окно не должно быть тупиком: у пришедшего впервые аккаунта ещё нет */}
+      <p className="mt-6 text-center text-[13px] text-muted">
+        <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">
+          {hy.onboarding.createAccount}
+        </Link>
+      </p>
     </Modal>
   );
 }

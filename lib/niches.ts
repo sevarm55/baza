@@ -215,6 +215,17 @@ export function getNiche(key: string): Niche {
   return n;
 }
 
+/**
+ * Куда ведёт кнопка «Создать».
+ *
+ * Пока ниша одна, экран выбора — лишний шаг, и ссылаться на него нельзя
+ * ещё по одной причине: перехват маршрута работает по адресу, а через
+ * редирект с `/start` окно регистрации не откроется.
+ */
+export function startHref(): string {
+  return ACTIVE_NICHES.length === 1 ? `/start/${ACTIVE_NICHES[0].key}` : '/start';
+}
+
 export function isNicheAvailable(key: string): boolean {
   return NICHES[key as NicheKey]?.enabled === true;
 }

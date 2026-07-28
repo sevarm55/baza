@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
+import { startHref } from '@/lib/niches';
 import { Logo } from '@/components/logo';
 import { LoginForm } from './login-form';
 
@@ -19,7 +20,7 @@ export default async function LoginPage() {
       <LoginForm />
 
       <p className="mt-7 text-center text-sm text-muted">
-        <Link href="/start" className="underline underline-offset-4 hover:text-ink">
+        <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">
           {hy.onboarding.createAccount}
         </Link>
       </p>

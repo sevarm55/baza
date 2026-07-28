@@ -34,21 +34,39 @@
 }
 
 .panel {
+  --pad: 22px;
+
   position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+
   background: var(--surface);
   border: 1px solid var(--line);
   border-bottom: 0;
   border-radius: 20px 20px 0 0;
-  padding: 26px 22px calc(30px + env(safe-area-inset-bottom));
+  padding: 26px var(--pad) calc(30px + env(safe-area-inset-bottom));
 
   transform: translateY(100%);
   opacity: 0;
+  /* панель держит фокус вместо первого поля — обводка тут ни к чему */
+  outline: none;
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
 }
 
 .dialog[data-open='true'] .panel {
   transform: translateY(0);
   opacity: 1;
+}
+
+.body {
+  overflow-y: auto;
+  /* прокрутка не утаскивает за собой страницу под окном */
+  overscroll-behavior: contain;
+  /* поля возвращаем изнутри: без этого overflow срезает кольца фокуса
+     по бокам полей */
+  margin-inline: calc(var(--pad) * -1);
+  padding-inline: var(--pad);
 }
 
 /* Полоска-ручка: намекает, что лист можно закрыть, и отделяет
@@ -77,10 +95,13 @@
   }
 
   .panel {
+    --pad: 28px;
+
     width: 400px;
+    max-height: 88vh;
     border: 1px solid var(--line);
     border-radius: 18px;
-    padding: 30px 28px 28px;
+    padding: 30px var(--pad) 28px;
     box-shadow: 0 30px 80px rgb(0 0 0 / 45%);
 
     transform: translateY(12px) scale(0.97);

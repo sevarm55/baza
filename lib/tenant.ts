@@ -5,7 +5,7 @@ import { hashPin } from './pin';
 import { normalizePhone } from './phone';
 import { eq } from 'drizzle-orm';
 
-const TRIAL_DAYS = 14;
+import { TRIAL_DAYS } from './plan';
 
 export type CreateBusinessInput = {
   niche: NicheKey;

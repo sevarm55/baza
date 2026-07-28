@@ -28,6 +28,7 @@ async function main() {
   const q = await import('../lib/queries');
   const { eq } = await import('drizzle-orm');
   const { formatMoney } = await import('../lib/money');
+  const { TRIAL_DAYS } = await import('../lib/plan');
 
   await ensureDb();
   console.log('\nмиграции применены\n');
@@ -47,7 +48,11 @@ async function main() {
     'термины ниши скопированы в тенант',
     tenant.clientIdType === 'plate' && tenant.staffRole === 'Լվացող',
   );
-  check('триал на 14 дней', !!tenant.trialEndsAt);
+  // не просто «дата есть»: срок обещан на лендинге, и разъехаться он не должен
+  const trialDays = tenant.trialEndsAt
+    ? Math.round((tenant.trialEndsAt.getTime() - Date.now()) / 86_400_000)
+    : 0;
+  check(`триал на ${TRIAL_DAYS} дней`, trialDays === TRIAL_DAYS, trialDays);
 
   const svc = await q.listServices(tenant.id);
   check('услуги засеяны из конфига ниши', svc.length === 5, svc.length);

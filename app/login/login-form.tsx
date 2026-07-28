@@ -26,7 +26,9 @@ export function LoginForm() {
             inputMode="tel"
             placeholder="77 123 456"
             required
-            autoFocus
+            /* без autoFocus: на телефоне он тут же выбрасывает клавиатуру
+               и подбрасывает вёрстку, а человек ещё не решил, входит он
+               или регистрируется */
             autoComplete="username"
           />
         </div>

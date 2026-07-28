@@ -5,12 +5,11 @@ import { getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
+import { PRICE, TRIAL_DAYS } from '@/lib/plan';
+import { startHref } from '@/lib/niches';
 import { Logo } from '@/components/logo';
 import { HeroDemo } from './hero-demo';
 import s from './landing.module.css';
-
-/** Цена подписки. Одно место — меняется здесь. */
-const PRICE = 15000;
 
 const STEP_COLORS = ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', 'var(--brand-1)'];
 
@@ -19,6 +18,7 @@ export default async function Home() {
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
 
   const L = hy.landing;
+  const start = startHref();
 
   return (
     <div className={s.page}>
@@ -29,7 +29,7 @@ export default async function Home() {
             <Link href="/login" className={s.navLink}>
               {hy.auth.signInTitle}
             </Link>
-            <Link href="/start" className={s.navLink}>
+            <Link href={start} className={s.navLink}>
               {hy.onboarding.createAccount}
             </Link>
           </div>
@@ -46,8 +46,8 @@ export default async function Home() {
             </h1>
             <p className={s.lead}>{L.lead}</p>
             <div className={s.actions}>
-              <Link href="/start" className={s.cta}>
-                {L.ctaPrimary}
+              <Link href={start} className={s.cta}>
+                {L.ctaPrimary(TRIAL_DAYS)}
               </Link>
               <span className={s.ctaNote}>{L.ctaNote}</span>
             </div>
@@ -102,11 +102,11 @@ export default async function Home() {
             <p className={s.priceValue}>{formatMoney(PRICE)}</p>
             <p className={s.pricePeriod}>{L.pricePeriod}</p>
             <div className={s.priceActions}>
-              <Link href="/start" className={s.cta}>
-                {L.ctaPrimary}
+              <Link href={start} className={s.cta}>
+                {L.ctaPrimary(TRIAL_DAYS)}
               </Link>
             </div>
-            <p className={s.priceNote}>{L.priceNote}</p>
+            <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
           </div>
         </section>
       </main>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import s from './modal.module.css';
 
 const EXIT_MS = 280;
@@ -13,17 +13,40 @@ const EXIT_MS = 280;
  * рывком, потому что React снимет его с экрана раньше, чем доиграет
  * анимация. Поэтому сначала запускаем выезд, ждём его и только потом
  * возвращаемся назад.
+ *
+ * `path` — адрес, которому окно принадлежит. Он обязателен, потому что
+ * параллельный слот не забывает своё содержимое сам: уйдя с `/start/...`
+ * не «назад», а редиректом (после регистрации или выхода), окно
+ * оставалось висеть поверх следующей страницы. Сверяемся с адресом
+ * сами — и снимаем окно, как только он перестал быть нашим.
  */
-export function Modal({ children }: { children: React.ReactNode }) {
+export function Modal({ path, children }: { path: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const closing = useRef(false);
   const router = useRouter();
+  const mine = usePathname() === path;
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
+    // showModal сам наводится на первое поле формы. На телефоне это
+    // мгновенно выбрасывает клавиатуру поверх только что открывшегося
+    // окна — человек ещё не прочитал, что ему предлагают.
+    //
+    // Отбирать фокус после открытия недостаточно: поле успевает его
+    // получить, и в браузере остаётся подсветка. Поэтому ставим цель
+    // заранее — по спецификации showModal сначала ищет элемент с
+    // autofocus и только потом берёт первый попавшийся. Ловушка фокуса
+    // и Escape при этом работают как обычно, а поле дождётся, пока в
+    // него ткнут.
+    panel.current?.setAttribute('autofocus', '');
     if (!dialog.open) dialog.showModal();
+    // подстраховка для браузеров, которые ищут autofocus только у полей
+    if (dialog.contains(document.activeElement) && document.activeElement !== panel.current) {
+      panel.current?.focus();
+    }
     // кадр задержки, иначе браузер не увидит смену состояния и не анимирует
     const id = requestAnimationFrame(() => setOpen(true));
     return () => cancelAnimationFrame(id);
@@ -35,6 +58,9 @@ export function Modal({ children }: { children: React.ReactNode }) {
     setOpen(false);
     setTimeout(() => router.back(), EXIT_MS);
   }, [router]);
+
+  // проверка после хуков: их порядок должен быть одинаковым на всех отрисовках
+  if (!mine) return null;
 
   return (
     <dialog
@@ -51,9 +77,12 @@ export function Modal({ children }: { children: React.ReactNode }) {
         if (e.target === ref.current) close();
       }}
     >
-      <div className={s.panel}>
+      <div ref={panel} tabIndex={-1} className={s.panel}>
         <div className={s.grip} aria-hidden />
-        {children}
+        {/* Содержимое прокручивается внутри окна, а не растит его за край
+            экрана: регистрация длиннее входа, и на телефоне кнопка
+            «Создать» иначе оказывается вне видимой части. */}
+        <div className={s.body}>{children}</div>
         <button className={`btn-icon ${s.close}`} onClick={close} aria-label="Փակել">
           ✕
         </button>

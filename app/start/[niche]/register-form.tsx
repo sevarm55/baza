@@ -2,6 +2,8 @@
 
 import { useActionState } from 'react';
 import { registerBusiness, type FormState } from '@/app/actions';
+import { PinInput } from '@/components/pin-input';
+import { TRIAL_DAYS } from '@/lib/plan';
 import { hy } from '@/lib/i18n/hy';
 
 export function RegisterForm({
@@ -17,13 +19,13 @@ export function RegisterForm({
   );
 
   return (
-    <form action={action} className="grid gap-2.5">
+    <form action={action} className="grid gap-4">
       <input type="hidden" name="niche" value={nicheKey} />
 
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.onboarding.bizName}</span>
+      <label className="grid gap-2">
+        <span className="label">{hy.onboarding.bizName}</span>
         <input
-          className="field"
+          className="field !text-[17px]"
           name="businessName"
           defaultValue={defaultName}
           required
@@ -31,45 +33,48 @@ export function RegisterForm({
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.onboarding.ownerName}</span>
-        <input className="field" name="ownerName" required autoComplete="name" />
+      <label className="grid gap-2">
+        <span className="label">{hy.onboarding.ownerName}</span>
+        <input className="field !text-[17px]" name="ownerName" required autoComplete="name" />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.auth.phone}</span>
-        <input
-          className="field"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          placeholder="+374 77 123 456"
-          required
-          autoComplete="tel"
-        />
+      <label className="grid gap-2">
+        <span className="label">{hy.auth.phone}</span>
+        <div className="relative">
+          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[17px] text-faint">
+            +374
+          </span>
+          <input
+            className="field num !ps-[4.4rem] !text-[17px]"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            placeholder="77 123 456"
+            required
+            autoComplete="tel"
+          />
+        </div>
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">
+      <label className="grid gap-2">
+        <span className="label">
           {hy.auth.pin} · {hy.auth.pinHint}
         </span>
-        <input
-          className="field field-key"
-          name="pin"
-          type="password"
-          inputMode="numeric"
-          pattern="\d{4}"
-          maxLength={4}
-          required
-          autoComplete="new-password"
-        />
+        {/* Здесь без авто-отправки: регистрация — не то действие, которое
+            должно случаться от последней набранной цифры. */}
+        <PinInput submitOnComplete={false} />
       </label>
 
       {state?.error && <p className="alert">{state.error}</p>}
 
-      <button className="btn mt-1.5" disabled={pending}>
-        {pending ? hy.common.loading : hy.onboarding.createAccount}
-      </button>
+      <div className="mt-1 grid gap-2">
+        <button className="btn" disabled={pending}>
+          {pending ? hy.common.loading : hy.onboarding.createAndStart}
+        </button>
+        <p className="text-center text-[12.5px] text-faint">
+          {hy.onboarding.freeDays(TRIAL_DAYS)}
+        </p>
+      </div>
     </form>
   );
 }

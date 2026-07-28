@@ -13,7 +13,13 @@ const LENGTH = 4;
  * легче, а после четвёртой цифры форма уходит без нажатия кнопки —
  * это на одно движение меньше в действии, которое повторяют каждый день.
  */
-export function PinInput({ name = 'pin' }: { name?: string }) {
+export function PinInput({
+  name = 'pin',
+  submitOnComplete = true,
+}: {
+  name?: string;
+  submitOnComplete?: boolean;
+}) {
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(''));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const hidden = useRef<HTMLInputElement>(null);
@@ -24,6 +30,7 @@ export function PinInput({ name = 'pin' }: { name?: string }) {
   // Отправляем, как только набрана последняя цифра. Флаг нужен, чтобы
   // исправление уже введённого не слало форму повторно.
   useEffect(() => {
+    if (!submitOnComplete) return;
     if (value.length < LENGTH) {
       submitted.current = false;
       return;
@@ -31,7 +38,7 @@ export function PinInput({ name = 'pin' }: { name?: string }) {
     if (submitted.current) return;
     submitted.current = true;
     hidden.current?.form?.requestSubmit();
-  }, [value]);
+  }, [value, submitOnComplete]);
 
   function setAt(index: number, digit: string) {
     setDigits((prev) => {
