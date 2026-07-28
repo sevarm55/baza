@@ -53,22 +53,16 @@ export default async function ClientsPage() {
               {hy.owner.comeBack}
             </span>
           </h2>
-          <div className="list">
+          <div className="grid gap-2">
             {lost.slice(0, 10).map((c) => (
-              <div key={c.id} className="li">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-warn-bg text-warn-ink">
-                  💤
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="num truncate text-[14.5px] font-semibold">{c.key}</div>
-                  <div className="num text-[12.5px] text-muted">
-                    {c.visits} {hy.owner.visits} · {money(c.total)}
-                  </div>
-                </div>
-                <span className="num shrink-0 rounded-full bg-warn-bg px-2.5 py-1 text-xs font-semibold text-warn-ink">
-                  {hy.owner.lostFor(c.days)}
-                </span>
-              </div>
+              <ClientCard
+                key={c.id}
+                plate={c.key}
+                meta={`${c.visits} ${hy.owner.visits} · ${money(c.total)}`}
+                loyal={c.visits > 1}
+                mark={hy.owner.lostFor(c.days)}
+                tone="warn"
+              />
             ))}
           </div>
           {lost.length > 10 && (
@@ -80,28 +74,78 @@ export default async function ClientsPage() {
       )}
 
       <h2 className="h-section !mt-0">{hy.owner.allClients}</h2>
-      <div className="list">
-        {withAge.length === 0 ? (
-          <div className="px-4 py-12 text-center text-sm text-faint">{hy.common.empty}</div>
-        ) : (
-          withAge.map((c) => (
-            <div key={c.id} className="li">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface2 text-muted">
-                {c.visits > 1 ? '★' : '·'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="num truncate text-[14.5px] font-semibold">{c.key}</div>
-                <div className="num text-[12.5px] text-muted">
-                  {c.visits} {hy.owner.visits} · {money(c.total)}
-                </div>
-              </div>
-              <div className="num shrink-0 text-right text-xs text-faint">
-                {c.days === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(c.days)}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {withAge.length === 0 ? (
+        <div className="tile px-4 py-12 text-center text-sm text-faint">
+          {hy.common.empty}
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {withAge.map((c) => (
+            <ClientCard
+              key={c.id}
+              plate={c.key}
+              meta={`${c.visits} ${hy.owner.visits} · ${money(c.total)}`}
+              loyal={c.visits > 1}
+              mark={c.days === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(c.days)}
+            />
+          ))}
+        </div>
+      )}
     </>
+  );
+}
+
+/**
+ * Клиент одной карточкой.
+ *
+ * Раньше слева стоял квадрат со звездой или точкой. Точка не значила
+ * ничего, звезда значила «постоянный» — но об этом надо было догадаться.
+ * Теперь то же самое сказано словом, и только там, где это правда;
+ * у остальных строка просто короче.
+ *
+ * Номер — единственное, по чему владелец узнаёт клиента, поэтому он
+ * набран крупно и первым, а не мельче даты последнего визита.
+ */
+function ClientCard({
+  plate,
+  meta,
+  loyal,
+  mark,
+  tone,
+}: {
+  plate: string;
+  meta: string;
+  loyal: boolean;
+  mark: string;
+  tone?: 'warn';
+}) {
+  return (
+    <div
+      className={`tile flex items-center gap-3 ${
+        tone === 'warn' ? '!border-warn-line !bg-warn-bg' : ''
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="num truncate text-[17px] leading-tight font-bold tracking-wide">
+          {plate}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {loyal && (
+            <span className="rounded-full bg-good-bg px-2 py-0.5 text-[11px] font-semibold text-good-ink">
+              {hy.owner.clientsLoyal}
+            </span>
+          )}
+          <span className="num text-[12.5px] text-muted">{meta}</span>
+        </div>
+      </div>
+
+      <span
+        className={`num shrink-0 text-right text-[12.5px] ${
+          tone === 'warn' ? 'font-semibold text-warn-ink' : 'text-faint'
+        }`}
+      >
+        {mark}
+      </span>
+    </div>
   );
 }
