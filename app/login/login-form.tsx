@@ -2,44 +2,44 @@
 
 import { useActionState } from 'react';
 import { signIn, type FormState } from '@/app/actions';
+import { PinInput } from '@/components/pin-input';
 import { hy } from '@/lib/i18n/hy';
 
 export function LoginForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(signIn, null);
 
   return (
-    <form action={action} className="grid gap-2.5">
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.auth.phone}</span>
-        <input
-          className="field"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          placeholder="+374 77 123 456"
-          required
-          autoFocus
-          autoComplete="username"
-        />
+    <form action={action} className="grid gap-4">
+      <label className="grid gap-2">
+        <span className="label">{hy.auth.phone}</span>
+        <div className="relative">
+          {/* Код страны нарисован в поле, а не набирается: клиенты все
+              местные, и восемь лишних нажатий каждый раз — это налог
+              на вход, который платят зря. */}
+          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[17px] text-faint">
+            +374
+          </span>
+          <input
+            className="field num !ps-[4.4rem] !text-[17px]"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            placeholder="77 123 456"
+            required
+            autoFocus
+            autoComplete="username"
+          />
+        </div>
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.auth.pin}</span>
-        <input
-          className="field field-key"
-          name="pin"
-          type="password"
-          inputMode="numeric"
-          pattern="\d{4}"
-          maxLength={4}
-          required
-          autoComplete="current-password"
-        />
+      <label className="grid gap-2">
+        <span className="label">{hy.auth.pin}</span>
+        <PinInput />
       </label>
 
       {state?.error && <p className="alert">{state.error}</p>}
 
-      <button className="btn mt-1.5" disabled={pending}>
+      <button className="btn mt-1" disabled={pending}>
         {pending ? hy.common.loading : hy.auth.signIn}
       </button>
     </form>

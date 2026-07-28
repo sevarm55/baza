@@ -69,9 +69,11 @@
 
 @media (min-width: 640px) {
   .dialog {
-    /* по центру экрана, а не листом снизу */
+    /* Именно fit-content, а не auto: браузер держит модальный диалог
+       с left:0 и right:0, и при auto он растягивается во всю ширину —
+       центрировать margin-ом становится нечего. */
+    width: fit-content;
     margin: auto;
-    width: auto;
   }
 
   .panel {
