@@ -38,7 +38,7 @@ export default async function Home() {
 
       <main>
         <section className={`${s.shell} ${s.hero}`}>
-          <div>
+          <div className={s.heroText}>
             <span className={s.eyebrow}>{L.eyebrow}</span>
             <h1 className={s.headline}>
               {L.headline}

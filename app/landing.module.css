@@ -74,13 +74,43 @@
   padding-block: 40px 88px;
 }
 
+/* Планшет в одну колонку: текст прижат влево, а карточка шириной с
+   телефон висела посреди пустоты — две разные оси в одном экране.
+   Держим их в общей колонке, тогда пустое поле по краям читается как
+   поле страницы, а не как дыра. */
+@media (min-width: 560px) and (max-width: 759px) {
+  .hero {
+    max-width: 480px;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 760px) {
+  .hero {
+    /* minmax(0,…) обязателен: иначе длинное армянское слово в заголовке
+       не даёт колонке сжаться и ломает сетку */
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: center;
+    gap: 32px;
+    padding-block: 56px 96px;
+  }
+}
+
 @media (min-width: 900px) {
   .hero {
-    grid-template-columns: 1.05fr 0.95fr;
-    align-items: center;
+    /* Текстовой колонке отдано больше: заголовок набран крупно, и в
+       равных долях каждое предложение ломалось на две строки. */
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
     gap: 64px;
     padding-block: 72px 120px;
   }
+}
+
+/* Заголовок меряется колонкой, а не окном. Иначе на планшете он
+   считает себя большим по ширине экрана, а живёт в узкой колонке —
+   и разваливается на четыре строки с висящим словом. */
+.heroText {
+  container-type: inline-size;
 }
 
 .eyebrow {
@@ -98,10 +128,20 @@
 .headline {
   font-family: var(--font-sans), system-ui, sans-serif;
   font-weight: 700;
-  font-size: clamp(2.1rem, 5.6vw, 3.9rem);
+  /* В одну колонку заголовок крупный и переносится — так и задумано. */
+  font-size: clamp(2.1rem, 8.6vw, 3rem);
   line-height: 1.08;
   letter-spacing: -0.015em;
   margin: 0;
+}
+
+/* А рядом с карточкой он меряется своей колонкой: 7.6% её ширины —
+   ровно столько, чтобы каждое предложение осталось одной строкой.
+   Замерено по самой длинной строке, с запасом на другие шрифты. */
+@media (min-width: 760px) {
+  .headline {
+    font-size: min(7.6cqw, 3.6rem);
+  }
 }
 
 .headlineAccent {
@@ -161,6 +201,15 @@
   background: var(--color-bg);
   padding: 16px;
   box-shadow: 0 24px 60px rgb(0 0 0 / 28%);
+}
+
+/* В планшетной колонке карточка растягивается на всю её ширину: её левый
+   край встаёт на одну линию с заголовком. Правило идёт после .phone —
+   специфичность та же, решает порядок. */
+@media (min-width: 560px) and (max-width: 759px) {
+  .phone {
+    max-width: none;
+  }
 }
 
 .phoneBar {
@@ -403,15 +452,18 @@
   margin: 0 0 28px;
 }
 
+/* Не «две колонки»: карточек три, и в жёсткой сетке третья оставалась
+   одна с пустотой справа. auto-fit сам берёт столько колонок, сколько
+   влезает, и схлопывает пустые — ряд всегда заполнен. Число карточек
+   меняется (абонементы скрыты флагом), сетка это переживёт. */
 .moreGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
 }
 
 @media (min-width: 700px) {
   .moreGrid {
-    grid-template-columns: 1fr 1fr;
     gap: 18px;
   }
 }
