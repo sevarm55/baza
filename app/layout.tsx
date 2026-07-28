@@ -1,28 +1,30 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_Armenian } from 'next/font/google';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
-/* Geist из стартового шаблона не содержит армянских глифов — весь интерфейс
-   рассыпался бы на квадраты. Noto Sans Armenian покрывает и армянский, и латиницу. */
-const sans = Noto_Sans_Armenian({
-  variable: '--font-sans',
-  subsets: ['armenian', 'latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
-
-/* Заголовки лендинга — Mardoto: армянский гротеск, нарисованный именно
-   под этот алфавит, а не растянутый из латиницы. Лежит в проекте, потому
-   что в Google Fonts его нет. Лицензия Apache 2.0, файл рядом со шрифтом.
-   В самом приложении не используется: там решает скорость чтения. */
-const display = localFont({
+/**
+ * Mardoto — весь текст продукта.
+ *
+ * Армянский гротеск, нарисованный под этот алфавит, а не растянутый из
+ * латиницы. В Google Fonts его нет, поэтому файлы лежат в проекте:
+ * свой хостинг вместо чужого CDN — чужая доступность и чужая аналитика
+ * на своём сайте никому не нужны. Лицензия Apache 2.0, текст рядом.
+ *
+ * Начертаний у Mardoto шесть, берём три: этого хватает интерфейсу,
+ * а каждое лишнее — ещё 28 КБ на первой загрузке.
+ *
+ * Диапазоны в weight не случайны: полужирного (600) у Mardoto нет, и без
+ * них браузер по правилам подбора взял бы для 600 ближайший сверху — Bold.
+ * Тогда каждая подпись и каждая цифра в интерфейсе стали бы жирными.
+ */
+const sans = localFont({
   src: [
-    { path: './fonts/Mardoto-Medium.woff2', weight: '500', style: 'normal' },
-    { path: './fonts/Mardoto-Bold.woff2', weight: '700', style: 'normal' },
+    { path: './fonts/Mardoto-Regular.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/Mardoto-Medium.woff2', weight: '500 600', style: 'normal' },
+    { path: './fonts/Mardoto-Bold.woff2', weight: '700 900', style: 'normal' },
   ],
-  variable: '--font-display',
+  variable: '--font-sans',
   display: 'swap',
 });
 
@@ -57,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="hy"
-      className={`${sans.variable} ${display.variable} h-full antialiased`}
+      className={`${sans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
