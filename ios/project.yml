@@ -25,7 +25,10 @@ settings:
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""
+    # Команда разработчика. Здесь, а не в настройках Xcode: .xcodeproj
+    # пересоздаётся из этого файла, и выставленное мышкой пропало бы при
+    # первом же `xcodegen generate`.
+    DEVELOPMENT_TEAM: V4Z29FXT9P
     CODE_SIGN_STYLE: Automatic
 
 targets:
