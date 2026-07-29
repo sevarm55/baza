@@ -9,6 +9,7 @@ struct OwnerView: View {
 
     @State private var summary: API.Summary?
     @State private var period = "today"
+    @State private var failure: String?
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -18,15 +19,23 @@ struct OwnerView: View {
         ScrollView {
             VStack(spacing: 14) {
                 picker
-                revenue
 
-                if let feed = summary?.feed, !feed.isEmpty {
-                    list(feed)
+                if let failure {
+                    // Нули вместо выручки — худшее, что может показать этот
+                    // экран: неверные данные выглядят как верные, и владелец
+                    // принимает решение по ним. Лучше честно ничего.
+                    problem(failure)
                 } else {
-                    Text("Դեռ տվյալներ չկան")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.muted)
-                        .padding(.vertical, 44)
+                    revenue
+
+                    if let feed = summary?.feed, !feed.isEmpty {
+                        list(feed)
+                    } else if summary != nil {
+                        Text("Դեռ տվյալներ չկան")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Brand.muted)
+                            .padding(.vertical, 44)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -107,13 +116,40 @@ struct OwnerView: View {
         }
     }
 
+    private func problem(_ text: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(Brand.grape)
+            Text(text)
+                .font(.system(size: 14))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Brand.muted)
+            Button("Կրկնել") { Task { await reload() } }
+                .buttonStyle(.glass)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
     private func reload() async {
-        summary = try? await session.authed { token in
-            try await APIClient.shared.send(
-                "summary?period=\(period)",
-                token: token,
-                as: API.Summary.self
-            )
+        do {
+            summary = try await session.authed { token in
+                try await APIClient.shared.send(
+                    "summary?period=\(period)",
+                    token: token,
+                    as: API.Summary.self
+                )
+            }
+            failure = nil
+        } catch let error as APIError {
+            failure = error.isOffline
+                ? "Կապ չկա։"
+                : "Սերվերը չպատասխանեց (\(error.status) \(error.code ?? "—"))"
+        } catch {
+            // разбор ответа: показываем как есть — это баг, а не сбой сети,
+            // и прятать его за «попробуйте позже» значит никогда не найти
+            failure = "\(error)"
         }
     }
 }

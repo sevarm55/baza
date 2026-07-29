@@ -36,6 +36,18 @@ export function ok<T>(data: T, status = 200): NextResponse {
   return NextResponse.json(data as Record<string, unknown>, { status });
 }
 
+/**
+ * Ответ без содержимого.
+ *
+ * Отдельно от ok(), потому что 204 по спецификации тела иметь не может, и
+ * NextResponse.json на нём бросает TypeError — не при сборке, а в бою.
+ * Выход из приложения и отмена записи так и падали пятисоткой, пока это
+ * не нашлось в логах.
+ */
+export function noContent(): NextResponse {
+  return new NextResponse(null, { status: 204 });
+}
+
 export function fail(
   error: ApiError,
   status: number,

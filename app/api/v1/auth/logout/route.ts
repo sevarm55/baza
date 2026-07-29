@@ -1,6 +1,6 @@
 import { ensureDb } from '@/lib/db/ready';
 import { revokeByRefresh } from '@/lib/api/tokens';
-import { body, failFromError, ok, str } from '@/lib/api/respond';
+import { body, failFromError, noContent, str } from '@/lib/api/respond';
 
 /**
  * Выход из приложения.
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const input = await body<{ refresh?: string }>(request);
     const token = str(input?.refresh);
     if (token) await revokeByRefresh(token);
-    return ok({}, 204);
+    return noContent();
   } catch (e) {
     return failFromError(e);
   }

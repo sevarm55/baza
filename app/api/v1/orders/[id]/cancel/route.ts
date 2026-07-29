@@ -1,7 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { cancelOrder } from '@/lib/orders';
 import { authorize, denied } from '@/lib/api/guard';
-import { fail, failFromError, isUuid, ok } from '@/lib/api/respond';
+import { fail, failFromError, isUuid, noContent } from '@/lib/api/respond';
 
 /**
  * Отмена записи.
@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       onlyOwnedBy: ctx.user.role === 'owner' ? undefined : ctx.user.id,
     });
 
-    return ok({}, 204);
+    return noContent();
   } catch (e) {
     return failFromError(e);
   }

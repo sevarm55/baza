@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { sessions } from '@/lib/db/schema';
 import { authorize, denied } from '@/lib/api/guard';
-import { fail, failFromError, isUuid, ok } from '@/lib/api/respond';
+import { fail, failFromError, isUuid, noContent } from '@/lib/api/respond';
 
 /**
  * Отключить устройство.
@@ -27,7 +27,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .returning({ id: sessions.id });
 
     if (!row) return fail('NOT_FOUND', 404);
-    return ok({}, 204);
+    return noContent();
   } catch (e) {
     return failFromError(e);
   }
