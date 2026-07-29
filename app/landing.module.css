@@ -2,194 +2,185 @@
    Лендинг. Живёт по своим правилам, поэтому стили изолированы
    в модуле и не трогают дизайн-систему приложения.
 
-   Страница построена как чередование: тёплый светлый фон — цветная
-   полоса — белый блок. Это даёт ритм без единой картинки и делает
-   цвет носителем смысла: мандарин зовёт нажать, индиго держит
-   структуру, мята считает деньги.
+   Ширину держит ОДИН класс — .container. Ни одна секция не задаёт
+   свою: полоса во всю ширину красит фон, а содержимое внутри неё
+   идёт через тот же контейнер. Поэтому левый край заголовка, карточек
+   и цены совпадает на всех экранах до пикселя.
+
+   Ритм страницы — чередование: тёмная грейповая полоса сверху,
+   дальше светлые разделы, и снова грейп на цене. Лайм появляется
+   ровно там, где что-то нажимают, и больше нигде: по светлому фону
+   он даёт контраст 1.06, то есть работает только заливкой.
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  --deep: #faf9f7;
-  --line: #e6e2dc;
-  --card: #ffffff;
-  /* номерной знак остаётся белым в любой теме: это физический предмет,
-     а не элемент интерфейса */
-  --plate: #f4f4f2;
-  --plate-ink: #14161c;
+  /* Телефон в первом экране — физический предмет, а не элемент
+     интерфейса: он остаётся светлым в обеих темах, иначе на грейповой
+     полосе тёмная тема превращает его в пятно. */
+  --pcard: #ffffff;
+  --pline: #e9e6f0;
+  --pink: #1a1626;
+  --pmuted: #56506b;
+  --plate: #f3f2f6;
 
-  background: var(--deep);
+  /* грейповая полоса — одинаковая в обеих темах */
+  --deep: #2e1065;
+  --deep-2: #4c1d95;
+  --on-deep: #ffffff;
+  --on-deep-soft: #c9b8f0;
+  --on-deep-line: rgb(255 255 255 / 14%);
+
+  background: var(--color-bg);
   color: var(--color-ink);
   overflow-x: hidden;
 }
 
-:global(:root[data-theme='dark']) .page {
-  --deep: #14120f;
-  --line: #38322d;
-  --card: #1e1b18;
+/* ─────────────────────── контейнер ─────────────────────── */
+
+.container {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 32px);
 }
 
-.shell {
+/* Полоса во всю ширину. Красит только фон — ширину содержимого
+   по-прежнему держит .container внутри неё. */
+.band {
   width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 24px;
+}
+
+.section {
+  padding-block: clamp(64px, 9vw, 112px);
 }
 
 /* ───────────────────────── шапка ───────────────────────── */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-hairline);
+}
 
 .nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 0;
+  padding-block: 14px;
 }
 
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: clamp(10px, 2vw, 22px);
 }
 
 .navLink {
-  padding: 10px 14px;
-  border-radius: 10px;
   color: var(--color-muted);
   text-decoration: none;
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.14s ease;
 }
 .navLink:hover {
   color: var(--color-ink);
-  background: var(--color-surface2);
 }
 
-/* Регистрация — единственное действие в шапке, и выглядит оно
-   действием, а не ещё одной ссылкой в ряду. */
 .navCta {
-  padding: 10px 16px;
-  border-radius: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
   background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
+  font-size: 14.5px;
   text-decoration: none;
   white-space: nowrap;
+  transition: filter 0.14s ease, transform 0.14s ease;
 }
 .navCta:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
-/* ───────────────────────── герой ───────────────────────── */
+/* ────────────────────── первый экран ────────────────────── */
 
-/* padding-block, а не padding: класс идёт после .shell и сокращённым
-   свойством обнулил бы её горизонтальные отступы. */
 .hero {
+  background: linear-gradient(160deg, var(--deep-2), var(--deep) 62%);
+  color: var(--on-deep);
+  padding-block: clamp(52px, 8vw, 92px) clamp(0px, 0vw, 0px);
+}
+
+.heroInner {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 44px;
-  padding-block: 36px 72px;
-}
-
-/* Планшет в одну колонку: текст прижат влево, а карточка шириной с
-   телефон висела посреди пустоты — две разные оси в одном экране.
-   Держим их в общей колонке с одним левым краем. */
-@media (min-width: 560px) and (max-width: 759px) {
-  .hero {
-    max-width: 480px;
-    margin-inline: auto;
-  }
-}
-
-@media (min-width: 760px) {
-  .hero {
-    /* minmax(0,…) обязателен: иначе длинное армянское слово в заголовке
-       не даёт колонке сжаться и ломает сетку */
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-    align-items: center;
-    gap: 32px;
-    padding-block: 52px 88px;
-  }
+  gap: clamp(40px, 6vw, 56px);
+  align-items: center;
 }
 
 @media (min-width: 900px) {
-  .hero {
-    /* Текстовой колонке отдано больше: заголовок набран крупно, и в
-       равных долях каждое предложение ломалось на две строки. */
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
-    gap: 56px;
-    padding-block: 64px 104px;
+  .heroInner {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 48px;
   }
-}
-
-/* Заголовок меряется колонкой, а не окном. Иначе на планшете он
-   считает себя большим по ширине экрана, а живёт в узкой колонке —
-   и разваливается на четыре строки с висящим словом. */
-.heroText {
-  container-type: inline-size;
 }
 
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-accent-ink);
-  background: var(--color-accent-bg);
-  border-radius: 999px;
+  gap: 9px;
   padding: 7px 14px 7px 11px;
-  margin-bottom: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--on-deep-line);
+  background: rgb(255 255 255 / 6%);
+  color: var(--on-deep-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
 }
 
-/* Точка цвета знака вместо линии слева: плашка уже держит форму,
-   а точка добавляет в неё марку. */
 .eyebrowDot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-accent-strong);
+  background: var(--color-accent-fill);
   flex: none;
 }
 
 .headline {
-  font-family: var(--font-sans), system-ui, sans-serif;
+  margin: 22px 0 0;
+  font-size: clamp(2.3rem, 6.4vw, 4.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   font-weight: 700;
-  /* В одну колонку заголовок крупный и переносится — так и задумано. */
-  font-size: clamp(2.1rem, 8.6vw, 3rem);
-  line-height: 1.06;
-  letter-spacing: -0.02em;
-  margin: 0;
+  text-wrap: balance;
 }
 
-/* А рядом с карточкой он меряется своей колонкой: 7.6% её ширины —
-   ровно столько, чтобы каждое предложение осталось одной строкой.
-   Замерено по самой длинной строке, с запасом на другие шрифты. */
-@media (min-width: 760px) {
-  .headline {
-    font-size: min(7.6cqw, 3.6rem);
-  }
-}
-
+/* Вторая строка заголовка — лайм: обещание про деньги и есть то,
+   ради чего сюда пришли, и цвет тут работает вместо восклицательного знака. */
 .headlineAccent {
   display: block;
-  color: var(--color-accent2);
+  color: var(--color-accent-fill);
 }
 
 .lead {
   margin: 20px 0 0;
-  max-width: 46ch;
+  max-width: 34rem;
   font-size: clamp(1rem, 1.6vw, 1.125rem);
-  line-height: 1.65;
-  color: var(--color-muted);
+  line-height: 1.62;
+  color: var(--on-deep-soft);
 }
 
 .actions {
-  margin-top: 30px;
+  margin-top: 32px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 14px 18px;
 }
 
 .cta {
@@ -204,17 +195,58 @@
   transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
 }
 .cta:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
-  box-shadow: 0 14px 30px -12px var(--color-accent-fill);
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 16px 34px -14px var(--color-accent-fill);
 }
 
 .ctaNote {
   font-size: 13.5px;
-  color: var(--color-muted);
+  color: var(--on-deep-soft);
 }
 
-/* ───────── телефон с живым экраном мойщика ───────── */
+/* Три обещания стоят внутри той же полосы, а не отдельным блоком:
+   это ответы на вопросы, которые задают ДО чтения, и уходить за ними
+   на второй экран человек не станет. */
+.heroStats {
+  margin-top: clamp(48px, 7vw, 72px);
+  border-top: 1px solid var(--on-deep-line);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat {
+  padding: clamp(20px, 3vw, 28px) 0;
+}
+.stat + .stat {
+  border-inline-start: 1px solid var(--on-deep-line);
+  padding-inline-start: clamp(14px, 3vw, 28px);
+}
+
+.statValue {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: clamp(1.9rem, 4.4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-accent-fill);
+}
+
+.statUnit {
+  font-size: clamp(0.8rem, 1.6vw, 1rem);
+  font-weight: 600;
+  color: var(--on-deep-soft);
+}
+
+.statLabel {
+  margin-top: 6px;
+  font-size: clamp(11.5px, 1.5vw, 13px);
+  line-height: 1.45;
+  color: var(--on-deep-soft);
+}
+
+/* ───────────────────── телефон в первом экране ───────────────────── */
 
 .phoneWrap {
   display: flex;
@@ -223,68 +255,59 @@
 
 .phone {
   width: 100%;
-  max-width: 330px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: var(--card);
+  max-width: 348px;
+  background: var(--pcard);
+  color: var(--pink);
+  border-radius: 26px;
   padding: 16px;
-  box-shadow: 0 30px 60px -30px rgb(28 25 23 / 45%), 0 2px 6px rgb(28 25 23 / 5%);
-}
-
-/* В планшетной колонке карточка растягивается на всю её ширину: её левый
-   край встаёт на одну линию с заголовком. */
-@media (min-width: 560px) and (max-width: 759px) {
-  .phone {
-    max-width: none;
-  }
+  box-shadow: 0 40px 80px -30px rgb(10 0 30 / 65%), 0 0 0 1px rgb(255 255 255 / 8%);
 }
 
 .phoneBar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px 14px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 14px;
+  gap: 10px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--pline);
+  font-size: 13px;
+  line-height: 1.35;
 }
 .phoneBar b {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
 }
 .phoneBar span {
-  font-size: 11px;
-  color: var(--color-muted);
+  color: var(--pmuted);
+  font-size: 12px;
 }
 
-/* Заработок мойщика — единственное цветное пятно внутри карточки.
-   Индиго с белой цифрой: на светлом экране это самый громкий способ
-   сказать «вот твои деньги», не занимая при этом мандарин. */
 .shift {
+  margin-top: 14px;
   border-radius: 16px;
+  padding: 15px 16px 17px;
   background: linear-gradient(135deg, var(--color-shift-from), var(--color-shift-to));
-  padding: 16px;
   color: var(--color-shift-ink);
 }
 
 .shiftLabel {
   font-size: 10.5px;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   opacity: 0.72;
 }
 
 .shiftValue {
-  font-variant-numeric: tabular-nums;
-  font-size: 32px;
+  margin-top: 5px;
+  font-size: 33px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 6px 0 2px;
+  font-variant-numeric: tabular-nums;
 }
 
 .shiftMeta {
+  margin-top: 5px;
   font-size: 12px;
-  opacity: 0.72;
+  opacity: 0.78;
   font-variant-numeric: tabular-nums;
 }
 
@@ -296,7 +319,7 @@
 
 .plateLabel {
   font-size: 11px;
-  color: var(--color-muted);
+  color: var(--pmuted);
   margin-bottom: 7px;
 }
 
@@ -305,8 +328,8 @@
   align-items: center;
   gap: 8px;
   background: var(--plate);
-  color: var(--plate-ink);
-  border: 1px solid var(--line);
+  color: var(--pink);
+  border: 1px solid var(--pline);
   border-radius: 10px;
   padding: 11px 12px;
   font-variant-numeric: tabular-nums;
@@ -331,7 +354,7 @@
   display: inline-block;
   width: 2px;
   height: 20px;
-  background: var(--plate-ink);
+  background: var(--pink);
   animation: blink 1s steps(2, start) infinite;
 }
 
@@ -352,9 +375,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--pline);
   border-radius: 12px;
-  background: var(--color-surface);
+  background: var(--pcard);
   padding: 11px 13px;
   animation: slideIn 0.32s ease both;
 }
@@ -365,7 +388,7 @@
 }
 .recordPay {
   font-size: 11.5px;
-  color: var(--color-muted);
+  color: var(--pmuted);
 }
 .recordSum {
   font-size: 14px;
@@ -381,216 +404,198 @@
   }
 }
 
-/* ─────────────────── три обещания ─────────────────── */
+/* ─────────────────────── заголовки разделов ─────────────────────── */
 
-/* Цветная полоса во всю ширину — тот самый ритм. Здесь же снимаются
-   три вопроса, которые человек задаёт до чтения: сложно ли, сколько
-   стоит попробовать, надо ли учиться. */
-.stats {
-  background: var(--color-accent2);
-  color: var(--color-accent2-on);
-  padding: 34px 0;
+.sectionHead {
+  max-width: 40rem;
+  margin-bottom: clamp(32px, 5vw, 48px);
 }
 
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 24px;
-}
-
-.stat {
-  display: grid;
-  gap: 4px;
-}
-
-.statValue {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(2.2rem, 4vw, 3rem);
+.sectionKicker {
+  display: block;
+  font-size: 11.5px;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.statUnit {
-  font-size: 0.45em;
-  font-weight: 600;
-  margin-inline-start: 0.35em;
-  opacity: 0.82;
-}
-
-.statLabel {
-  font-size: 13.5px;
-  line-height: 1.5;
-  opacity: 0.82;
-}
-
-/* ─────────────────── рабочий день ─────────────────── */
-
-.day {
-  background: var(--card);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 72px 0;
-}
-
-/* Карточками, а не строками вдоль вертикальной линии: линия держала
-   ритм на широком экране и рассыпалась на узком, а карточки одинаково
-   честно работают в любой сетке. */
-/* Шагов четыре, поэтому колонок должно быть две: при трёх последний
-   шаг оставался один в ряду. Порог подобран так, чтобы третья колонка
-   в 1032px не помещалась — на телефоне остаётся одна. */
-.steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 16px;
-  margin-top: 26px;
-}
-
-.step {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--color-bg);
-  padding: 22px;
-}
-
-/* Метка времени — цветная плашка цвета шага. Это настоящий ритм мойки,
-   а не декоративная нумерация: те же метки стоят в ленте записей. */
-.stepTime {
-  display: inline-block;
-  font-variant-numeric: tabular-nums;
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  /* цвет текста приходит вместе с цветом плашки: белый читается на
-     индиго, но не на мандарине и не на мяте — там нужен уголь */
-  color: var(--step-ink, #fff);
-  background: var(--step-color, var(--color-accent2));
-  border-radius: 999px;
-  padding: 6px 12px;
-  margin-bottom: 14px;
-}
-
-.stepTitle {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 1.2rem;
-  font-weight: 600;
-  line-height: 1.3;
-  margin: 0 0 8px;
-}
-
-.stepBody {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.6;
-  color: var(--color-muted);
-}
-
-/* ───────────────────── прочее ───────────────────── */
-
-.more {
-  padding-block: 72px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
 }
 
 .sectionTitle {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  margin: 12px 0 0;
+  font-size: clamp(1.75rem, 3.8vw, 2.6rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0;
+  text-wrap: balance;
 }
 
-/* Не «две колонки»: карточек три, и в жёсткой сетке третья оставалась
-   одна с пустотой справа. auto-fit берёт столько колонок, сколько
-   влезает, и схлопывает пустые — ряд всегда заполнен. Число карточек
-   меняется (абонементы скрыты флагом), сетка это переживёт. */
+/* ─────────────────────── рабочий день ─────────────────────── */
+
+/* Метки времени не украшение: ровно так выглядит лента записей внутри
+   продукта. Порядок разделов — порядок дня. */
+.steps {
+  display: grid;
+  gap: clamp(14px, 2vw, 20px);
+}
+
+@media (min-width: 760px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.step {
+  position: relative;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: var(--color-surface);
+  padding: clamp(22px, 3vw, 30px);
+  overflow: hidden;
+}
+
+/* Полоса цвета шага — по верхнему краю карточки. Цвет идёт из page.tsx:
+   он должен совпадать с цветами знака, а не жить своей жизнью. */
+.step::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 4px;
+  background: var(--step-color);
+}
+
+.stepTime {
+  display: inline-block;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--step-color);
+  color: var(--step-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepTitle {
+  margin: 16px 0 0;
+  font-size: clamp(1.0625rem, 1.9vw, 1.3rem);
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.stepBody {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--color-muted);
+}
+
+/* ─────────────────────────── и ещё ─────────────────────────── */
+
 .moreGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px;
-  margin-top: 26px;
+  gap: clamp(14px, 2vw, 20px);
+}
+
+@media (min-width: 640px) {
+  .moreGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .moreCard {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--card);
-  padding: 22px;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: var(--color-surface);
+  padding: clamp(22px, 3vw, 28px);
 }
 
 .moreCard h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .moreCard p {
-  margin: 0;
+  margin: 9px 0 0;
   font-size: 14.5px;
-  line-height: 1.6;
+  line-height: 1.62;
   color: var(--color-muted);
 }
 
-/* ───────────────────── цена ───────────────────── */
+/* ──────────────────────────── цена ──────────────────────────── */
 
 .price {
-  padding: 0 0 88px;
+  background: linear-gradient(160deg, var(--deep-2), var(--deep) 62%);
+  color: var(--on-deep);
 }
 
-/* Белая карточка на тёплом фоне: цена — последнее, что читают перед
-   решением, и она не должна тонуть в общем потоке. */
-.priceCard {
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: var(--card);
-  box-shadow: 0 30px 60px -40px rgb(28 25 23 / 40%);
-  padding: 44px 24px 40px;
-  text-align: center;
+.priceInner {
+  display: grid;
+  gap: clamp(28px, 5vw, 48px);
+  align-items: center;
+}
+
+@media (min-width: 760px) {
+  .priceInner {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 .priceValue {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(2.8rem, 8vw, 4.2rem);
+  margin: 18px 0 0;
+  font-size: clamp(2.6rem, 7vw, 4rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   line-height: 1;
-  margin: 14px 0 0;
-  color: var(--color-good);
 }
 
 .pricePeriod {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-size: 15px;
-  color: var(--color-muted);
-}
-
-.priceNote {
-  margin: 22px 0 0;
-  font-size: 13.5px;
-  color: var(--color-muted);
+  color: var(--on-deep-soft);
 }
 
 .priceActions {
-  margin-top: 26px;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
 }
+
+@media (min-width: 760px) {
+  .priceActions {
+    justify-items: end;
+    text-align: end;
+  }
+}
+
+.priceNote {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--on-deep-soft);
+  max-width: 18rem;
+}
+
+/* ─────────────────────────── подвал ─────────────────────────── */
 
 .footer {
-  padding: 26px 0 40px;
-  text-align: center;
-  font-size: 12.5px;
-  color: var(--color-muted);
+  border-top: 1px solid var(--color-hairline);
+  padding-block: 28px 40px;
+  font-size: 13px;
+  color: var(--color-faint);
 }
 
-/* Анимация — приправа, а не блюдо. Кому она мешает, тот её не увидит. */
 @media (prefers-reduced-motion: reduce) {
-  .record,
-  .caret {
+  .caret,
+  .record {
     animation: none;
   }
-  .cta:hover {
+  .cta:hover,
+  .navCta:hover {
     transform: none;
   }
 }
