@@ -12,6 +12,12 @@ struct ShiftView: View {
     @State private var shift: API.Shift?
     @State private var recording = false
     @State private var loading = false
+    /// Номер обновления. Экран открывается и сразу тянут вниз — два
+    /// обновления идут одновременно, и то, что стартовало раньше, может
+    /// ответить позже. Без этого счётчика старый ответ затирает свежий, и
+    /// только что записанная машина исчезает с экрана, хотя на сервере она
+    /// есть. Ровно так это и выглядело.
+    @State private var loadID = 0
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -20,8 +26,12 @@ struct ShiftView: View {
             VStack(spacing: 14) {
                 earnings
 
-                if !queue.items.isEmpty {
+                if !queue.waiting.isEmpty {
                     pending
+                }
+
+                ForEach(queue.rejected) { item in
+                    stuck(item)
                 }
 
                 if let shift, !shift.orders.isEmpty {
@@ -91,10 +101,42 @@ struct ShiftView: View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .foregroundStyle(Brand.grape)
-            Text("\(queue.items.count) գրանցում սպասում է կապի")
+            Text("\(queue.waiting.count) գրանցում սպասում է կապի")
                 .font(.system(size: 13.5))
                 .foregroundStyle(Brand.muted)
             Spacer()
+        }
+        .padding(14)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+
+    /// Запись, которую сервер не принял.
+    ///
+    /// Показывается как есть, с номером машины и причиной: молча выбросить
+    /// работу человека нельзя, а решить, повторить её или отменить, может
+    /// только он сам.
+    private func stuck(_ item: OrderQueue.Item) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Brand.grape)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.clientKey)
+                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                    Text("\(item.serviceName) · \(item.failure ?? "")")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.muted)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Button("Կրկնել") { queue.retry(item.ref) }
+                    .buttonStyle(.glass)
+                Button("Հեռացնել") { queue.drop(item.ref) }
+                    .buttonStyle(.glass)
+                    .tint(Brand.muted)
+            }
         }
         .padding(14)
         .glassEffect(.regular, in: .rect(cornerRadius: 14))
@@ -142,6 +184,8 @@ struct ShiftView: View {
     }
 
     private func reload() async {
+        loadID += 1
+        let id = loadID
         loading = true
         defer { loading = false }
 
@@ -149,9 +193,13 @@ struct ShiftView: View {
         // цифры, хотя записи уже сделаны
         await queue.flush(using: session)
 
-        shift = try? await session.authed { token in
+        let fresh = try? await session.authed { token in
             try await APIClient.shared.send("shift", token: token, as: API.Shift.self)
         }
+
+        // применяем только если за это время не начали новое обновление
+        guard id == loadID, let fresh else { return }
+        shift = fresh
     }
 }
 

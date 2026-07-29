@@ -23,6 +23,9 @@ final class OrderQueue: ObservableObject {
         let price: Int
         let payment: String
         let at: Date
+        /// Код отказа сервера, если он был. Запись при этом остаётся:
+        /// молча выбрасывать работу человека нельзя.
+        var failure: String?
 
         var id: String { ref }
     }
@@ -46,13 +49,22 @@ final class OrderQueue: ObservableObject {
 
     /// Отправить всё, что накопилось.
     ///
-    /// На первой же неудаче останавливаемся: связь пропала, остальное
-    /// подождёт следующей попытки. Порядок сохраняется — записи уходят
-    /// в том же порядке, в каком их сделали.
+    /// Три разных исхода, и разница между ними — это разница между
+    /// «подождём» и «потеряли»:
+    ///
+    ///   ушло          — убираем из очереди, дело сделано;
+    ///   связи нет     — останавливаем весь проход: остальным идти некуда;
+    ///   сервер отказал — ПОМЕЧАЕМ и идём дальше.
+    ///
+    /// Последнее раньше было удалением, и это было ошибкой: мойщик записал
+    /// машину, приложение сказало «готово», а запись исчезала молча и
+    /// навсегда. Для продукта, который обещает «не потеряется», хуже
+    /// поведения нет. Пусть лучше висит с пометкой и человек решит сам.
     @discardableResult
     func flush(using session: Session) async -> Int {
         var sent = 0
-        for item in items {
+
+        for item in items where item.failure == nil {
             do {
                 _ = try await session.authed { token in
                     try await self.api.raw(
@@ -71,14 +83,37 @@ final class OrderQueue: ObservableObject {
                 sent += 1
             } catch let error as APIError where error.isOffline {
                 break
+            } catch let error as APIError {
+                mark(item.ref, failure: error.code ?? "HTTP \(error.status)")
             } catch {
-                // сервер отказал по существу — например, услугу убрали из
-                // прайса. Держать такую запись вечно нельзя: она будет
-                // отваливаться при каждой попытке и блокировать очередь
-                remove(item.ref)
+                mark(item.ref, failure: "\(error)")
             }
         }
+
         return sent
+    }
+
+    /// Записи, которые сервер не принял. Показываются отдельно: это не
+    /// «ещё не ушло», а «не уйдёт само».
+    var rejected: [Item] { items.filter { $0.failure != nil } }
+    var waiting: [Item] { items.filter { $0.failure == nil } }
+
+    /// Повторить отвергнутую — например, после того как владелец вернул
+    /// услугу в прайс.
+    func retry(_ ref: String) {
+        mark(ref, failure: nil)
+    }
+
+    /// Убрать отвергнутую совсем. Только по решению человека: сама
+    /// очередь ничего не выбрасывает.
+    func drop(_ ref: String) {
+        remove(ref)
+    }
+
+    private func mark(_ ref: String, failure: String?) {
+        guard let i = items.firstIndex(where: { $0.ref == ref }) else { return }
+        items[i].failure = failure
+        save()
     }
 
     private func remove(_ ref: String) {
