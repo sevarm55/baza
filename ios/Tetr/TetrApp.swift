@@ -58,12 +58,30 @@ struct MainTabs: View {
             }
 
             if session.me?.isOwner == true {
-                Tab("Սեփականատեր", systemImage: "chart.bar.fill") {
+                Tab("Այսօր", systemImage: "chart.bar.fill") {
                     NavigationStack {
                         OwnerView()
                             .navigationTitle("Այսօր")
                             .navigationBarTitleDisplayMode(.inline)
-                            .toolbar { signOut }
+                    }
+                }
+
+                Tab("Աշխատավարձ", systemImage: "banknote.fill") {
+                    NavigationStack {
+                        PayrollView()
+                            .navigationTitle("Աշխատավարձեր")
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
+
+                // Разделы, куда заходят редко. Вкладок должно быть столько,
+                // сколько экранов открывают каждый день; прайс правят раз
+                // в месяц — ему в панели не место.
+                Tab("Ավելին", systemImage: "ellipsis.circle.fill") {
+                    NavigationStack {
+                        MoreView()
+                            .navigationTitle("Ավելին")
+                            .navigationBarTitleDisplayMode(.inline)
                     }
                 }
             }

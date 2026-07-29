@@ -107,9 +107,89 @@ enum API {
         let createdAt: Date
     }
 
+    /// Столбик графика. Ключ приходит строкой «2026-07-29 16», а не датой:
+    /// timestamp без зоны при разборе трактуется как время клиента, и
+    /// график съезжает на разницу часовых поясов.
+    struct SeriesPoint: Decodable, Identifiable {
+        let key: String
+        let revenue: Int
+        var id: String { key }
+        /// последние две цифры ключа — час или день
+        var label: String { String(key.suffix(2)) }
+    }
+
+    struct SplitSegment: Decodable, Identifiable {
+        let payment: String
+        let revenue: Int
+        var id: String { payment }
+    }
+
+    struct StaffLine: Decodable, Identifiable {
+        let staffId: String?
+        let name: String?
+        let count: Int
+        let revenue: Int
+        let earned: Int
+        var id: String { staffId ?? "—" }
+    }
+
     struct Summary: Decodable {
         let stats: Stats
+        let series: [SeriesPoint]
+        let split: [SplitSegment]
         let feed: [FeedItem]
+    }
+
+    struct PayrollDue: Decodable, Identifiable {
+        let staffId: String?
+        let name: String?
+        let percent: Int
+        let count: Int
+        let revenue: Int
+        let earned: Int
+        var id: String { staffId ?? "—" }
+    }
+
+    struct Payout: Decodable, Identifiable {
+        let id: String
+        let amount: Int
+        let paidAt: Date
+        let staffName: String?
+    }
+
+    struct Payroll: Decodable {
+        let due: [PayrollDue]
+        let payouts: [Payout]
+    }
+
+    struct Client: Decodable, Identifiable {
+        let id: String
+        let key: String
+        let name: String?
+        let visits: Int
+        let total: Int
+        let daysSince: Int
+    }
+
+    struct Clients: Decodable {
+        let clients: [Client]
+    }
+
+    struct StaffMember: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let phone: String
+        let role: String
+        let percent: Int
+        let isMe: Bool
+    }
+
+    struct Staff: Decodable {
+        let staff: [StaffMember]
+    }
+
+    struct Services: Decodable {
+        let services: [Service]
     }
 
     struct CreatedOrder: Decodable {
