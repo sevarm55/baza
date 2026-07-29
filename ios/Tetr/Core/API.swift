@@ -140,7 +140,9 @@ struct APIError: Error {
 actor APIClient {
     static let shared = APIClient()
 
-    private let base = URL(string: "https://baziss.duckdns.org/api/v1")!
+    /// Косая черта на конце обязательна: без неё относительный путь
+    /// заменяет последний сегмент, и `summary` уезжает в `/api/summary`.
+    private let base = URL(string: "https://baziss.duckdns.org/api/v1/")!
     private let session: URLSession
 
     private lazy var decoder: JSONDecoder = {
@@ -184,7 +186,15 @@ actor APIClient {
         body: [String: Any]? = nil,
         token: String? = nil
     ) async throws -> Data {
-        var request = URLRequest(url: base.appendingPathComponent(path))
+        /* Не appendingPathComponent: он считает весь аргумент именем
+           сегмента и кодирует «?» как часть пути. Запрос уходил на
+           /summary%3Fperiod=today и возвращал 404 — сборка при этом
+           проходила, и увидеть это можно было только запустив. */
+        guard let url = URL(string: path, relativeTo: base) else {
+            throw APIError(status: 0, code: nil, retryAfter: nil)
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = method
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

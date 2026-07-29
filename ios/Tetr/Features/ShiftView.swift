@@ -50,20 +50,26 @@ struct ShiftView: View {
         .refreshable { await reload() }
     }
 
+    /// У владельца процент обычно 0 — он не берёт долю со своей работы.
+    /// Показывать ему «твой заработок: 0 ֏» самым крупным числом на экране
+    /// значит показывать пустоту: цифра верная, но смысла в ней никакого.
+    /// Ему важна выручка смены, и она и становится главной.
+    private var takesShare: Bool { (shift?.percent ?? 0) > 0 }
+
     private var earnings: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Քո հերթափոխն այսօր")
+            Text(takesShare ? "Քո հերթափոխն այսօր" : "Հերթափոխի հասույթ")
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.2)
                 .textCase(.uppercase)
                 .foregroundStyle(.white.opacity(0.7))
 
-            Text(money(shift?.earned ?? 0, currency))
+            Text(money(takesShare ? (shift?.earned ?? 0) : (shift?.revenue ?? 0), currency))
                 .font(.system(size: 40, weight: .bold))
                 .foregroundStyle(.white)
                 .contentTransition(.numericText())
 
-            Text("\(shift?.count ?? 0) \(session.tenant?.unitOne ?? "") · \(money(shift?.revenue ?? 0, currency)) · քո \(shift?.percent ?? 0)%")
+            Text(meta)
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.75))
         }
@@ -71,6 +77,12 @@ struct ShiftView: View {
         .padding(18)
         .background(Brand.heroGradient, in: RoundedRectangle(cornerRadius: 20))
         .padding(.top, 8)
+    }
+
+    private var meta: String {
+        let cars = "\(shift?.count ?? 0) \(session.tenant?.unitOne ?? "")"
+        guard takesShare else { return cars }
+        return "\(cars) · \(money(shift?.revenue ?? 0, currency)) · քո \(shift?.percent ?? 0)%"
     }
 
     /// Несинхронизированное показываем честно, но не тревожно: запись
