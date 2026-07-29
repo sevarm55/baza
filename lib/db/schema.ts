@@ -54,6 +54,12 @@ export const users = pgTable(
     /** процент исполнителя на СЕГОДНЯ; в заказ пишется снимок */
     percent: integer('percent').notNull().default(0),
     active: boolean('active').notNull().default(true),
+    /**
+     * Поколение сессий. Растёт при смене PIN и при «выйти везде»:
+     * все выданные раньше токены сразу перестают действовать, не дожидаясь
+     * своего срока. Без этого сменить PIN после кражи телефона бесполезно.
+     */
+    tokenVersion: integer('token_version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -204,6 +210,70 @@ export const payouts = pgTable(
   (t) => [index('payouts_tenant_idx').on(t.tenantId, t.staffId)],
 );
 
+/**
+ * Сессия = устройство, с которого вошли.
+ *
+ * Нужна ради одного: возможности выключить доступ немедленно. Раньше токен
+ * жил 30 дней и действовал до конца срока — украли телефон, и сделать было
+ * нечего. Теперь в токене лежит `sid`, и строка отсюда решает, жив он ещё
+ * или нет.
+ *
+ * Приложению та же таблица служит хранилищем refresh-токена: в базе только
+ * его хеш, как и у PIN. Веб refresh не использует — у него cookie, — но
+ * отзывается ровно так же, поэтому «выйти на всех устройствах» работает
+ * одинаково с обеих сторон.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().default('web'), // web | app
+    /** как показать устройство в списке: «iPhone Ашота» */
+    device: text('device'),
+    /** только для приложения; хеш, а не сам токен */
+    refreshHash: text('refresh_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('sessions_user_idx').on(t.userId, t.revokedAt),
+    index('sessions_tenant_idx').on(t.tenantId),
+  ],
+);
+
+/**
+ * Попытки входа — и удачные, и нет.
+ *
+ * PIN из четырёх цифр это 10 000 комбинаций: публичный эндпоинт без счётчика
+ * перебирается за минуты. Считаем неудачи и по номеру, и по адресу: первое
+ * защищает конкретного человека, второе — от перебора номеров подряд.
+ *
+ * Таблица, а не память процесса: память обнуляется при каждом деплое, то есть
+ * ровно тогда, когда защита нужнее всего.
+ */
+export const loginAttempts = pgTable(
+  'login_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** нормализованный E.164; может не соответствовать ни одному пользователю */
+    phone: text('phone').notNull(),
+    ip: text('ip'),
+    ok: boolean('ok').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('login_attempts_phone_idx').on(t.phone, t.at),
+    index('login_attempts_ip_idx').on(t.ip, t.at),
+  ],
+);
+
 /** Кто что поправил. Нужен ровно для одного вопроса владельца: «а кто удалил запись?» */
 export const audit = pgTable(
   'audit',
@@ -228,3 +298,4 @@ export type Service = typeof services.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Pass = typeof passes.$inferSelect;
+export type Session = typeof sessions.$inferSelect;

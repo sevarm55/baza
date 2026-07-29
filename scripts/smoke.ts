@@ -503,6 +503,70 @@ async function main() {
     formatMoney(123456, 'EUR'),
   );
 
+  /* ---------- защита входа от перебора ---------- */
+
+  const guard = await import('../lib/login-guard');
+  const attacked = '+37477999888';
+
+  check('чистый номер пускают', (await guard.checkLogin(attacked, '1.2.3.4')).allowed);
+
+  // четыре промаха — ещё по-человечески: столько опечаток делают
+  for (let i = 0; i < 4; i++) await guard.noteLogin(attacked, '1.2.3.4', false);
+  check(
+    'четыре неудачи ещё не блокируют',
+    (await guard.checkLogin(attacked, '1.2.3.4')).allowed,
+    await guard.failCount(attacked),
+  );
+
+  await guard.noteLogin(attacked, '1.2.3.4', false);
+  const locked = await guard.checkLogin(attacked, '1.2.3.4');
+  check('пятая закрывает вход', !locked.allowed);
+  check(
+    'и говорит, сколько ждать',
+    !locked.allowed && locked.retryAfter > 0 && locked.retryAfter <= 60,
+    locked,
+  );
+
+  // перебор идёт с одного адреса по чужому номеру — номер тут ни при чём
+  check('чужой номер с того же адреса ещё пускают', (await guard.checkLogin('+37477000111', '1.2.3.4')).allowed);
+
+  await guard.noteLogin(attacked, '1.2.3.4', true);
+  check('удачный вход обнуляет счётчик', (await guard.checkLogin(attacked, '1.2.3.4')).allowed);
+  check('и стирает прошлые неудачи', (await guard.failCount(attacked)) === 0);
+
+  /* ---------- отзыв сессии ---------- */
+
+  const { sessions } = await import('../lib/db/schema');
+  const auth = await import('../lib/auth');
+
+  const [live] = await db
+    .insert(sessions)
+    .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'iPhone' })
+    .returning();
+
+  const claims = { uid: owner.id, tid: tenant.id, role: 'owner' as const, sid: live.id, ver: 0 };
+  check('свежая сессия жива', await auth.sessionAlive(claims));
+
+  await auth.revokeSession(live.id);
+  check('отозванная — мертва сразу', !(await auth.sessionAlive(claims)));
+
+  // «выйти везде»: поколение сдвигается, и старые токены отпадают все разом
+  const [other] = await db
+    .insert(sessions)
+    .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'iPad' })
+    .returning();
+  const otherClaims = { ...claims, sid: other.id };
+  check('второе устройство пока живо', await auth.sessionAlive(otherClaims));
+
+  await auth.revokeAllSessions(owner.id);
+  check('выход везде гасит и его', !(await auth.sessionAlive(otherClaims)));
+
+  const [bumped] = await db
+    .select({ ver: users.tokenVersion })
+    .from(users)
+    .where(eq(users.id, owner.id));
+  check('поколение сессий сдвинулось', bumped.ver === 1, bumped.ver);
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);

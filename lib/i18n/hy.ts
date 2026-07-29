@@ -121,6 +121,9 @@ export const hy = {
     wrongCredentials: 'Սխալ հեռախոս կամ PIN',
     phoneTaken: 'Այս համարն արդեն գրանցված է',
     pinHint: '4 նիշ',
+    // после нескольких неудач вход закрывается на растущее время
+    tooManyTries: (minutes: number) =>
+      `Չափազանց շատ փորձեր։ Կրկնեք ${minutes} րոպեից։`,
   },
 
   onboarding: {

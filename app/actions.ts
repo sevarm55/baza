@@ -1,5 +1,6 @@
 ﻿'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { refresh, revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
@@ -27,6 +28,7 @@ import {
   verifyPin,
 } from '@/lib/auth';
 import { hashPin } from '@/lib/pin';
+import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
@@ -85,6 +87,14 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 
   const phone = normalizePhone(String(formData.get('phone') ?? ''));
   const pin = String(formData.get('pin') ?? '');
+  const ip = clientIp(await headers());
+
+  /* Счётчик спрашивается ДО сверки: смысл в том, чтобы при переборе не
+     выполнялся ни дорогой scrypt, ни сама проверка. */
+  const guard = await checkLogin(phone, ip);
+  if (!guard.allowed) {
+    return { error: hy.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
+  }
 
   const [user] = await db
     .select()
@@ -94,13 +104,17 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   // одна и та же ошибка на неверный телефон и на неверный PIN —
   // иначе форма превращается в способ узнать, кто зарегистрирован
   const ok = user ? await verifyPin(pin, user.pinHash) : false;
+  await noteLogin(phone, ip, ok);
   if (!user || !ok) return { error: hy.auth.wrongCredentials };
 
-  await startSession({
-    uid: user.id,
-    tid: user.tenantId,
-    role: user.role === 'owner' ? 'owner' : 'staff',
-  });
+  await startSession(
+    {
+      uid: user.id,
+      tid: user.tenantId,
+      role: user.role === 'owner' ? 'owner' : 'staff',
+    },
+    { kind: 'web' },
+  );
 
   redirect(user.role === 'owner' ? '/owner' : '/work');
 }
