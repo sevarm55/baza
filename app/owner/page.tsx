@@ -18,11 +18,15 @@ import { getPeriod } from './periods';
 import { PeriodTabs } from './period-tabs';
 
 /* Через переменные, а не хексами: в светлой теме те же оттенки темнеют,
-   иначе полоса на белом фоне выцветает до неразличимости. */
+   иначе полоса на белом фоне выцветает до неразличимости.
+
+   Перевод берёт не сам лайм, а --accent2-ink: чистый лайм по белой
+   плитке даёт 1.06, и точка в легенде исчезла бы. В светлой теме это
+   приглушённая олива, в тёмной — тот же лайм. */
 const PAYMENT_COLORS: Record<string, string> = {
   cash: 'var(--good)',
   card: 'var(--accent-strong)',
-  transfer: 'var(--accent2)',
+  transfer: 'var(--accent2-ink)',
   pass: 'var(--warn)',
 };
 
