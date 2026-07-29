@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import {
@@ -15,12 +14,8 @@ import { passesEnabled } from '@/lib/features';
 import { Avatar, Hero } from '@/components/stat';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
-
-const PERIODS = [
-  { key: 'today', label: hy.owner.periodToday },
-  { key: '7', label: hy.owner.periodWeek },
-  { key: '30', label: hy.owner.periodMonth },
-] as const;
+import { getPeriod } from './periods';
+import { PeriodTabs } from './period-tabs';
 
 /* Через переменные, а не хексами: в светлой теме те же оттенки темнеют,
    иначе полоса на белом фоне выцветает до неразличимости. */
@@ -41,7 +36,7 @@ export default async function TodayPage({
   if (!tenant) redirect('/session-ended');
 
   const { p } = await searchParams;
-  const period = PERIODS.find((x) => x.key === p) ?? PERIODS[0];
+  const period = getPeriod(p);
   const byHour = period.key === 'today';
 
   const from = byHour
@@ -61,21 +56,7 @@ export default async function TodayPage({
 
   return (
     <>
-      <div className="mb-4 flex gap-1.5">
-        {PERIODS.map((x) => (
-          <Link
-            key={x.key}
-            href={x.key === 'today' ? '/owner' : `/owner?p=${x.key}`}
-            className={`rounded-[10px] px-3 py-1.5 text-[13px] transition-colors ${
-              x.key === period.key
-                ? 'bg-surface2 font-semibold text-ink'
-                : 'text-muted hover:text-ink'
-            }`}
-          >
-            {x.label}
-          </Link>
-        ))}
-      </div>
+      <PeriodTabs current={period.key} />
 
       <Hero
         label={hy.owner.revenue}

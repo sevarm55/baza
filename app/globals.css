@@ -534,6 +534,13 @@ body {
     border-color: var(--accent2);
   }
 
+  /* Нажатая вкладка подсвечивается сразу, но данные под ней ещё старые —
+     пока едут новые, она тихо дышит. Задержка перед началом больше, чем
+     обычный переход: на быстрых переключениях мигать незачем. */
+  a[data-pending] {
+    animation: pending 1.1s ease-in-out 0.25s infinite;
+  }
+
   .note {
     border-inline-start: 3px solid var(--accent2);
     background: var(--surface);
@@ -545,5 +552,18 @@ body {
   }
   .note-warn {
     border-inline-start-color: var(--warn);
+  }
+}
+
+@keyframes pending {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Кому анимация мешает — тому ожидание показывает система, а не мы. */
+@media (prefers-reduced-motion: reduce) {
+  a[data-pending] {
+    animation: none;
   }
 }
