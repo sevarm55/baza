@@ -12,10 +12,10 @@ import { HeroDemo } from './hero-demo';
 import s from './landing.module.css';
 
 /**
- * Цвета шагов идут по кругу цветами знака — страница и марка перестают
- * жить отдельными жизнями. Цвет текста едет вместе с фоном и меняется
- * вместе с ним: белый читается по грейпу (7.1), но по лайму даёт 1.15 —
- * там нужен тёмно-фиолетовый (13.2).
+ * Цвета меток времени идут по кругу цветами знака — страница и марка
+ * перестают жить отдельными жизнями. Цвет текста едет вместе с фоном:
+ * белый читается по грейпу (7.1), но по лайму даёт 1.15 — там нужен
+ * тёмно-фиолетовый (13.2).
  */
 const STEP_COLORS = [
   { bg: 'var(--color-brand-1)', ink: '#ffffff' },
@@ -29,9 +29,12 @@ export default async function Home() {
 
   const L = hy.landing;
   const start = startHref();
+  const more = L.more.filter((item) => !('feature' in item) || passesEnabled());
 
   return (
     <div className={s.page}>
+      {/* Шапка лежит поверх первого экрана: своя белая планка сверху
+          разрезала бы афишу пополам. */}
       <header className={s.header}>
         <div className={s.container}>
           <nav className={s.nav}>
@@ -49,34 +52,37 @@ export default async function Home() {
       </header>
 
       <main>
-        {/* Первый экран и три обещания — одна грейповая полоса. Человек
-            получает ответы на «сложно ли», «сколько стоит попробовать» и
-            «надо ли учиться», не уходя со стартового экрана. */}
         <section className={`${s.band} ${s.hero}`}>
           <div className={s.container}>
-            <div className={s.heroInner}>
-              <div>
-                <span className={s.eyebrow}>
-                  <i className={s.eyebrowDot} />
-                  {L.eyebrow}
-                </span>
-                <h1 className={s.headline}>
-                  {L.headline}
-                  <span className={s.headlineAccent}>{L.headlineAccent}</span>
-                </h1>
-                <p className={s.lead}>{L.lead}</p>
-                <div className={s.actions}>
-                  <Link href={start} className={s.cta}>
-                    {L.ctaPrimary(TRIAL_DAYS)}
-                  </Link>
-                  <span className={s.ctaNote}>{L.ctaNote}</span>
-                </div>
+            <div className={s.heroText}>
+              <span className={s.eyebrow}>
+                <i className={s.eyebrowDot} />
+                {L.eyebrow}
+              </span>
+              <h1 className={s.headline}>
+                {L.headline}
+                <span className={s.headlineAccent}>{L.headlineAccent}</span>
+              </h1>
+              <p className={s.lead}>{L.lead}</p>
+              <div className={s.actions}>
+                <Link href={start} className={s.cta}>
+                  {L.ctaPrimary(TRIAL_DAYS)}
+                </Link>
+                <span className={s.ctaNote}>{L.ctaNote}</span>
               </div>
-
-              <HeroDemo />
             </div>
 
-            <div className={s.heroStats}>
+            {/* Свешивается на следующий раздел — отсюда взгляд идёт вниз
+                сам, без стрелок и подсказок. */}
+            <HeroDemo />
+          </div>
+        </section>
+
+        {/* Три вопроса, которые задают до чтения: сложно ли, сколько стоит
+            попробовать, надо ли учиться. Ответы — до текста. */}
+        <section className={s.stats}>
+          <div className={s.container}>
+            <div className={s.statsRow}>
               {L.stats(TRIAL_DAYS).map((stat) => (
                 <div key={stat.label} className={s.stat}>
                   <div className={s.statValue}>
@@ -90,77 +96,75 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Рабочий день мойки — он же порядок разделов.
-            Метки времени не украшение: ровно так выглядит лента записей. */}
+        {/* Рабочий день мойки — он же порядок раздела. Метки времени
+            не украшение: ровно так выглядит лента записей. */}
         <section className={s.section}>
           <div className={s.container}>
-            <div className={s.sectionHead}>
-              <span className={s.sectionKicker}>{L.eyebrow}</span>
-              <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
-            </div>
+            <div className={s.day}>
+              <div className={s.dayHead}>
+                <span className={s.kicker}>{L.eyebrow}</span>
+                <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
+              </div>
 
-            <div className={s.steps}>
-              {L.steps.map((step, i) => {
-                const color = STEP_COLORS[i % STEP_COLORS.length];
-                return (
-                  <article
-                    key={step.time}
-                    className={s.step}
-                    style={
-                      {
-                        '--step-color': color.bg,
-                        '--step-ink': color.ink,
-                      } as CSSProperties
-                    }
-                  >
-                    <div className={s.stepTime}>{step.time}</div>
-                    <h3 className={s.stepTitle}>{step.title}</h3>
-                    <p className={s.stepBody}>{step.body}</p>
-                  </article>
-                );
-              })}
+              <div className={s.steps}>
+                {L.steps.map((step, i) => {
+                  const color = STEP_COLORS[i % STEP_COLORS.length];
+                  return (
+                    <article
+                      key={step.time}
+                      className={s.step}
+                      style={
+                        {
+                          '--step-color': color.bg,
+                          '--step-ink': color.ink,
+                        } as CSSProperties
+                      }
+                    >
+                      <div className={s.stepTime}>{step.time}</div>
+                      <h3 className={s.stepTitle}>{step.title}</h3>
+                      <p className={s.stepBody}>{step.body}</p>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>
 
         <section className={s.section} style={{ paddingTop: 0 }}>
           <div className={s.container}>
-            <div className={s.sectionHead}>
+            <div className={s.moreHead}>
               <h2 className={s.sectionTitle}>{L.moreTitle}</h2>
             </div>
 
-            <div className={s.moreGrid}>
-              {L.more
-                .filter((item) => !('feature' in item) || passesEnabled())
-                .map((item) => (
-                  <div key={item.title} className={s.moreCard}>
-                    <h3>{item.title}</h3>
-                    <p>{item.body}</p>
-                  </div>
-                ))}
+            <div className={s.moreList}>
+              {more.map((item, i) => (
+                <div key={item.title} className={s.moreItem}>
+                  <span className={`${s.moreNum} num`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <h3 className={s.moreTitle}>{item.title}</h3>
+                  <p className={s.moreBody}>{item.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className={`${s.band} ${s.price} ${s.section}`}>
+        <section className={`${s.band} ${s.price}`}>
           <div className={s.container}>
-            <div className={s.priceInner}>
-              <div>
-                <span className={s.eyebrow}>
-                  <i className={s.eyebrowDot} />
-                  {L.priceTitle}
-                </span>
-                <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
-                <p className={s.pricePeriod}>{L.pricePeriod}</p>
-              </div>
-
-              <div className={s.priceActions}>
-                <Link href={start} className={s.cta}>
-                  {L.ctaPrimary(TRIAL_DAYS)}
-                </Link>
-                <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
-              </div>
+            <span className={s.priceEyebrow}>
+              <i className={s.priceDot} />
+              {L.priceTitle}
+            </span>
+            <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
+            <p className={s.pricePeriod}>{L.pricePeriod}</p>
+            <div>
+              <Link href={start} className={s.priceCta}>
+                {L.ctaPrimary(TRIAL_DAYS)}
+              </Link>
             </div>
+            <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
           </div>
         </section>
       </main>

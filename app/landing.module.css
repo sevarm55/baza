@@ -2,33 +2,44 @@
    Лендинг. Живёт по своим правилам, поэтому стили изолированы
    в модуле и не трогают дизайн-систему приложения.
 
-   Ширину держит ОДИН класс — .container. Ни одна секция не задаёт
-   свою: полоса во всю ширину красит фон, а содержимое внутри неё
-   идёт через тот же контейнер. Поэтому левый край заголовка, карточек
-   и цены совпадает на всех экранах до пикселя.
+   Композиция построена на трёх приёмах, и каждый решает свою задачу.
 
-   Ритм страницы — чередование: тёмная грейповая полоса сверху,
-   дальше светлые разделы, и снова грейп на цене. Лайм появляется
-   ровно там, где что-то нажимают, и больше нигде: по светлому фону
-   он даёт контраст 1.06, то есть работает только заливкой.
+   Первый экран — афиша: заголовок по центру, во всю ширину колонки,
+   без соседа справа. Телефон стоит под ним и СВЕШИВАЕТСЯ на следующий
+   раздел — на границе двух фонов он читается как предмет, положенный
+   поверх страницы, и взгляд идёт вниз сам, без стрелок и подсказок.
+
+   Рабочий день — заголовок прилипает слева, шаги идут справа. Человек
+   всё время видит, про что раздел, и не собирает его заново после
+   каждой прокрутки.
+
+   Возможности — список, а не карточки. Четыре плитки в ряд выглядят
+   набором, из которого надо выбирать; строки с волосяной линией читаются
+   подряд, как их и читают.
+
+   Ширину держит один класс — .container. Полоса во всю ширину красит
+   только фон, содержимое внутри неё идёт через тот же контейнер.
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  /* Телефон в первом экране — физический предмет, а не элемент
-     интерфейса: он остаётся светлым в обеих темах, иначе на грейповой
-     полосе тёмная тема превращает его в пятно. */
+  /* Телефон — физический предмет, а не элемент интерфейса: он остаётся
+     светлым в обеих темах, иначе на грейповой полосе тёмная тема
+     превращает его в пятно. */
   --pcard: #ffffff;
   --pline: #e9e6f0;
   --pink: #1a1626;
   --pmuted: #56506b;
   --plate: #f3f2f6;
 
-  /* грейповая полоса — одинаковая в обеих темах */
+  /* грейп и лайм — одинаковые в обеих темах: это марка */
   --deep: #2e1065;
   --deep-2: #4c1d95;
   --on-deep: #ffffff;
   --on-deep-soft: #c9b8f0;
   --on-deep-line: rgb(255 255 255 / 14%);
+
+  /* насколько телефон свешивается на следующий раздел */
+  --overlap: clamp(80px, 13vw, 170px);
 
   background: var(--color-bg);
   color: var(--color-ink);
@@ -44,25 +55,20 @@
   padding-inline: clamp(20px, 5vw, 32px);
 }
 
-/* Полоса во всю ширину. Красит только фон — ширину содержимого
-   по-прежнему держит .container внутри неё. */
 .band {
   width: 100%;
 }
 
-.section {
-  padding-block: clamp(64px, 9vw, 112px);
-}
-
 /* ───────────────────────── шапка ───────────────────────── */
 
+/* Шапка лежит поверх грейповой полосы и не имеет своего фона: отдельная
+   белая планка сверху разрезала бы афишу пополам. */
 .header {
-  position: sticky;
+  position: absolute;
+  inset-inline: 0;
   top: 0;
-  z-index: 30;
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--color-hairline);
+  z-index: 20;
+  color: var(--on-deep);
 }
 
 .nav {
@@ -70,7 +76,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-block: 14px;
+  padding-block: 18px;
 }
 
 .navLinks {
@@ -80,7 +86,7 @@
 }
 
 .navLink {
-  color: var(--color-muted);
+  color: var(--on-deep-soft);
   text-decoration: none;
   font-size: 14.5px;
   font-weight: 600;
@@ -88,7 +94,7 @@
   transition: color 0.14s ease;
 }
 .navLink:hover {
-  color: var(--color-ink);
+  color: var(--on-deep);
 }
 
 .navCta {
@@ -110,29 +116,23 @@
 /* ────────────────────── первый экран ────────────────────── */
 
 .hero {
-  background: linear-gradient(160deg, var(--deep-2), var(--deep) 62%);
+  position: relative;
+  background: linear-gradient(168deg, var(--deep-2), var(--deep) 64%);
   color: var(--on-deep);
-  padding-block: clamp(52px, 8vw, 92px) clamp(0px, 0vw, 0px);
+  padding-block: clamp(104px, 15vw, 168px) clamp(52px, 7vw, 84px);
+  text-align: center;
 }
 
-.heroInner {
-  display: grid;
-  gap: clamp(40px, 6vw, 56px);
-  align-items: center;
-}
-
-@media (min-width: 900px) {
-  .heroInner {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: 48px;
-  }
+.heroText {
+  max-width: 42rem;
+  margin-inline: auto;
 }
 
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 14px 7px 11px;
+  padding: 7px 15px 7px 12px;
   border-radius: 999px;
   border: 1px solid var(--on-deep-line);
   background: rgb(255 255 255 / 6%);
@@ -152,41 +152,41 @@
 }
 
 .headline {
-  margin: 22px 0 0;
-  font-size: clamp(2.3rem, 6.4vw, 4.1rem);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  margin: 26px 0 0;
+  font-size: clamp(2.5rem, 7.2vw, 5rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
   font-weight: 700;
   text-wrap: balance;
 }
 
-/* Вторая строка заголовка — лайм: обещание про деньги и есть то,
-   ради чего сюда пришли, и цвет тут работает вместо восклицательного знака. */
+/* Вторая строка — лайм: обещание про деньги и есть то, ради чего сюда
+   пришли, и цвет тут работает вместо восклицательного знака. */
 .headlineAccent {
   display: block;
   color: var(--color-accent-fill);
 }
 
 .lead {
-  margin: 20px 0 0;
-  max-width: 34rem;
-  font-size: clamp(1rem, 1.6vw, 1.125rem);
-  line-height: 1.62;
+  margin: 24px auto 0;
+  max-width: 33rem;
+  font-size: clamp(1rem, 1.6vw, 1.1875rem);
+  line-height: 1.6;
   color: var(--on-deep-soft);
 }
 
 .actions {
-  margin-top: 32px;
+  margin-top: 34px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  gap: 14px 18px;
+  gap: 14px;
 }
 
 .cta {
   display: inline-block;
-  padding: 17px 30px;
-  border-radius: 14px;
+  padding: 18px 34px;
+  border-radius: 999px;
   background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
@@ -197,7 +197,7 @@
 .cta:hover {
   transform: translateY(-2px);
   filter: brightness(1.06);
-  box-shadow: 0 16px 34px -14px var(--color-accent-fill);
+  box-shadow: 0 18px 38px -16px var(--color-accent-fill);
 }
 
 .ctaNote {
@@ -205,62 +205,26 @@
   color: var(--on-deep-soft);
 }
 
-/* Три обещания стоят внутри той же полосы, а не отдельным блоком:
-   это ответы на вопросы, которые задают ДО чтения, и уходить за ними
-   на второй экран человек не станет. */
-.heroStats {
-  margin-top: clamp(48px, 7vw, 72px);
-  border-top: 1px solid var(--on-deep-line);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.stat {
-  padding: clamp(20px, 3vw, 28px) 0;
-}
-.stat + .stat {
-  border-inline-start: 1px solid var(--on-deep-line);
-  padding-inline-start: clamp(14px, 3vw, 28px);
-}
-
-.statValue {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: clamp(1.9rem, 4.4vw, 2.6rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--color-accent-fill);
-}
-
-.statUnit {
-  font-size: clamp(0.8rem, 1.6vw, 1rem);
-  font-weight: 600;
-  color: var(--on-deep-soft);
-}
-
-.statLabel {
-  margin-top: 6px;
-  font-size: clamp(11.5px, 1.5vw, 13px);
-  line-height: 1.45;
-  color: var(--on-deep-soft);
-}
-
-/* ───────────────────── телефон в первом экране ───────────────────── */
+/* ─────────────── телефон, свешенный через границу ─────────────── */
 
 .phoneWrap {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: center;
+  margin-top: clamp(44px, 6vw, 68px);
+  margin-bottom: calc(-1 * var(--overlap));
 }
 
 .phone {
   width: 100%;
   max-width: 348px;
+  text-align: start;
   background: var(--pcard);
   color: var(--pink);
   border-radius: 26px;
   padding: 16px;
-  box-shadow: 0 40px 80px -30px rgb(10 0 30 / 65%), 0 0 0 1px rgb(255 255 255 / 8%);
+  box-shadow: 0 50px 90px -34px rgb(10 0 30 / 70%), 0 0 0 1px rgb(255 255 255 / 8%);
 }
 
 .phoneBar {
@@ -404,14 +368,77 @@
   }
 }
 
-/* ─────────────────────── заголовки разделов ─────────────────────── */
+/* ───────────────────── три обещания ───────────────────── */
 
-.sectionHead {
-  max-width: 40rem;
-  margin-bottom: clamp(32px, 5vw, 48px);
+/* Верхний отступ добирает то, на что залез телефон. */
+.stats {
+  padding-top: calc(var(--overlap) + clamp(30px, 4vw, 48px));
+  padding-bottom: clamp(56px, 8vw, 96px);
 }
 
-.sectionKicker {
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--color-line);
+}
+
+.stat {
+  padding: clamp(20px, 3vw, 30px) 0;
+}
+.stat + .stat {
+  border-inline-start: 1px solid var(--color-line);
+  padding-inline-start: clamp(14px, 3vw, 30px);
+}
+
+.statValue {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--color-accent);
+}
+
+.statUnit {
+  font-size: clamp(0.8rem, 1.6vw, 1rem);
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.statLabel {
+  margin-top: 6px;
+  font-size: clamp(11.5px, 1.5vw, 13px);
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+/* ─────────────────────── рабочий день ─────────────────────── */
+
+.section {
+  padding-block: clamp(56px, 8vw, 100px);
+}
+
+.day {
+  display: grid;
+  gap: clamp(28px, 4vw, 40px);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .day {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: clamp(48px, 6vw, 88px);
+  }
+
+  /* Заголовок держится на месте, пока шаги идут мимо. */
+  .dayHead {
+    position: sticky;
+    top: clamp(56px, 12vh, 112px);
+  }
+}
+
+.kicker {
   display: block;
   font-size: 11.5px;
   font-weight: 700;
@@ -422,51 +449,31 @@
 
 .sectionTitle {
   margin: 12px 0 0;
-  font-size: clamp(1.75rem, 3.8vw, 2.6rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
   font-weight: 700;
   text-wrap: balance;
 }
 
-/* ─────────────────────── рабочий день ─────────────────────── */
-
-/* Метки времени не украшение: ровно так выглядит лента записей внутри
-   продукта. Порядок разделов — порядок дня. */
 .steps {
   display: grid;
-  gap: clamp(14px, 2vw, 20px);
 }
 
-@media (min-width: 760px) {
-  .steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
+/* Шаг — строка, а не карточка: день читается сверху вниз одной лентой. */
 .step {
-  position: relative;
-  border: 1px solid var(--color-line);
-  border-radius: 20px;
-  background: var(--color-surface);
-  padding: clamp(22px, 3vw, 30px);
-  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  padding-block: clamp(24px, 3vw, 34px);
+  border-top: 1px solid var(--color-line);
 }
-
-/* Полоса цвета шага — по верхнему краю карточки. Цвет идёт из page.tsx:
-   он должен совпадать с цветами знака, а не жить своей жизнью. */
-.step::before {
-  content: '';
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline: 0;
-  height: 4px;
-  background: var(--step-color);
+.step:last-child {
+  border-bottom: 1px solid var(--color-line);
 }
 
 .stepTime {
-  display: inline-block;
-  padding: 6px 11px;
+  justify-self: start;
+  padding: 6px 12px;
   border-radius: 999px;
   background: var(--step-color);
   color: var(--step-ink);
@@ -477,116 +484,148 @@
 }
 
 .stepTitle {
-  margin: 16px 0 0;
-  font-size: clamp(1.0625rem, 1.9vw, 1.3rem);
-  line-height: 1.28;
-  letter-spacing: -0.015em;
+  margin: 0;
+  font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+  line-height: 1.24;
+  letter-spacing: -0.02em;
   font-weight: 700;
   text-wrap: balance;
 }
 
 .stepBody {
-  margin: 10px 0 0;
-  font-size: 14.5px;
+  margin: 0;
+  max-width: 34rem;
+  font-size: 15px;
   line-height: 1.62;
   color: var(--color-muted);
 }
 
 /* ─────────────────────────── и ещё ─────────────────────────── */
 
-.moreGrid {
-  display: grid;
-  gap: clamp(14px, 2vw, 20px);
+.moreHead {
+  margin-bottom: clamp(24px, 3vw, 36px);
 }
 
-@media (min-width: 640px) {
-  .moreGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.moreList {
+  display: grid;
+  border-top: 1px solid var(--color-line);
+}
+
+.moreItem {
+  display: grid;
+  gap: 6px 24px;
+  padding-block: clamp(22px, 3vw, 30px);
+  border-bottom: 1px solid var(--color-line);
+}
+
+@media (min-width: 760px) {
+  .moreItem {
+    grid-template-columns: 3rem minmax(0, 1fr) minmax(0, 1.4fr);
+    align-items: baseline;
   }
 }
 
-.moreCard {
-  border: 1px solid var(--color-line);
-  border-radius: 20px;
-  background: var(--color-surface);
-  padding: clamp(22px, 3vw, 28px);
-}
-
-.moreCard h3 {
-  margin: 0;
-  font-size: 1.0625rem;
+.moreNum {
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
 }
 
-.moreCard p {
-  margin: 9px 0 0;
-  font-size: 14.5px;
-  line-height: 1.62;
+.moreTitle {
+  margin: 0;
+  font-size: clamp(1.0625rem, 1.9vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.moreBody {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--color-muted);
 }
 
 /* ──────────────────────────── цена ──────────────────────────── */
 
+/* Страница закрывается лаймом — вторым цветом марки во всю ширину.
+   Это единственное место, где он занимает целую полосу: тут им и
+   заканчивается разговор. */
 .price {
-  background: linear-gradient(160deg, var(--deep-2), var(--deep) 62%);
-  color: var(--on-deep);
+  background: var(--color-accent-fill);
+  color: var(--color-accent-on);
+  text-align: center;
+  padding-block: clamp(60px, 9vw, 108px);
 }
 
-.priceInner {
-  display: grid;
-  gap: clamp(28px, 5vw, 48px);
+.priceEyebrow {
+  display: inline-flex;
   align-items: center;
+  gap: 9px;
+  padding: 7px 15px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgb(46 16 101 / 22%);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
 }
 
-@media (min-width: 760px) {
-  .priceInner {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
+.priceDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-on);
+  flex: none;
 }
 
 .priceValue {
-  margin: 18px 0 0;
-  font-size: clamp(2.6rem, 7vw, 4rem);
+  margin: 22px 0 0;
+  font-size: clamp(3.4rem, 12vw, 7rem);
   font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
 }
 
 .pricePeriod {
-  margin: 10px 0 0;
-  font-size: 15px;
-  color: var(--on-deep-soft);
+  margin: 14px 0 0;
+  font-size: clamp(15px, 1.8vw, 17px);
+  opacity: 0.72;
 }
 
-.priceActions {
-  display: grid;
-  justify-items: start;
-  gap: 12px;
+/* Кнопка на лайме уходит в грейп: лайм по лайму — не кнопка. */
+.priceCta {
+  display: inline-block;
+  margin-top: 32px;
+  padding: 18px 34px;
+  border-radius: 999px;
+  background: var(--color-accent-on);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  text-decoration: none;
+  transition: transform 0.14s ease, filter 0.14s ease;
 }
-
-@media (min-width: 760px) {
-  .priceActions {
-    justify-items: end;
-    text-align: end;
-  }
+.priceCta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
 }
 
 .priceNote {
-  margin: 0;
+  margin: 16px auto 0;
+  max-width: 24rem;
   font-size: 13.5px;
   line-height: 1.55;
-  color: var(--on-deep-soft);
-  max-width: 18rem;
+  opacity: 0.72;
 }
 
 /* ─────────────────────────── подвал ─────────────────────────── */
 
 .footer {
-  border-top: 1px solid var(--color-hairline);
-  padding-block: 28px 40px;
+  padding-block: 30px 44px;
   font-size: 13px;
   color: var(--color-faint);
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -595,7 +634,8 @@
     animation: none;
   }
   .cta:hover,
-  .navCta:hover {
+  .navCta:hover,
+  .priceCta:hover {
     transform: none;
   }
 }
