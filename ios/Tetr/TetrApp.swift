@@ -5,6 +5,18 @@ struct TetrApp: App {
     @StateObject private var session = Session()
     @StateObject private var queue = OrderQueue()
 
+    init() {
+        #if DEBUG
+        /* Проверки чистой логики прогоняются запуском с флагом:
+           `xcrun simctl launch <udid> org.tetr.app --self-test`.
+           Отдельный тестовый таргет ради десятка проверок разбора номера
+           стоил бы дороже, чем даёт. */
+        if CommandLine.arguments.contains("--self-test") {
+            exit(Int32(PlateReaderTests.run()))
+        }
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

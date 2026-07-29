@@ -21,6 +21,7 @@ struct OrderFlowView: View {
     @State private var service: API.Service?
     @State private var known: API.KnownClient?
     @State private var saved = false
+    @State private var scanning = false
     @FocusState private var typing: Bool
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
@@ -84,15 +85,36 @@ struct OrderFlowView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(Brand.muted)
 
-            TextField("", text: $clientKey)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .default)
-                .focused($typing)
-                .padding(.horizontal, 16)
-                .frame(height: 62)
-                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+            HStack(spacing: 10) {
+                TextField("", text: $clientKey)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .default)
+                    .focused($typing)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 62)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
+
+                /* Камера — только для номеров и только там, где она есть.
+                   Ручной ввод остаётся рядом всегда: номер бывает грязный,
+                   гнутый или иностранный, и воевать с камерой вместо
+                   восьми символов человек не должен. */
+                if session.tenant?.clientIdType == "plate", PlateScannerView.isAvailable {
+                    Button {
+                        typing = false
+                        scanning = true
+                    } label: {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 22, weight: .medium))
+                            .frame(width: 62, height: 62)
+                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Brand.grape)
+                }
+            }
 
             // узнавание постоянного клиента прямо при вводе — то, ради
             // чего экран и существует
@@ -113,6 +135,25 @@ struct OrderFlowView: View {
         .onAppear { typing = true }
         .onChange(of: clientKey) { value in
             Task { await lookup(value) }
+        }
+        .fullScreenCover(isPresented: $scanning) {
+            NavigationStack {
+                PlateScannerView { plate in
+                    clientKey = plate
+                    scanning = false
+                    // сразу дальше: номер распознан, спрашивать
+                    // подтверждение незачем — он виден в поле
+                    step = 1
+                }
+                .ignoresSafeArea()
+                .navigationTitle(session.tenant?.clientIdLabel ?? "")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Փակել") { scanning = false }
+                    }
+                }
+            }
         }
     }
 
