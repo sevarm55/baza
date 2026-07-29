@@ -42,7 +42,7 @@ export function StaffRow({
   }, [state]);
 
   return (
-    <form action={action} className="card grid gap-3">
+    <form action={action} className="card grid gap-2.5 !p-3">
       <input type="hidden" name="id" value={id} />
 
       <div className="flex items-baseline justify-between gap-3">
@@ -50,46 +50,46 @@ export function StaffRow({
         <span className="label">{roleLabel}</span>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="grid min-w-[9rem] flex-1 gap-1.5">
-          <span className="label">{hy.settings.name}</span>
+      {/* Подписи полей — в aria-label: имя и число с процентом читаются
+          и без надписи сверху, а строк на экране много. */}
+      <div className="row-edit">
+        <input
+          className="field field-sm w-full sm:w-auto sm:min-w-[8rem] sm:flex-1"
+          name="name"
+          aria-label={hy.settings.name}
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          required
+        />
+
+        <div className="relative w-[6rem] shrink-0">
           <input
-            className="field !py-2.5 !text-[15px]"
-            name="name"
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
+            className="field field-sm num h-full !pe-7"
+            name="percent"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            aria-label={hy.settings.percent}
+            value={draftPercent}
+            onChange={(e) => setDraftPercent(e.target.value)}
             required
           />
-        </label>
+          <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13px] text-faint">
+            %
+          </span>
+        </div>
 
-        <label className="grid w-[6.5rem] gap-1.5">
-          <span className="label">{hy.settings.percent}</span>
-          <div className="relative">
-            <input
-              className="field num !py-2.5 !pe-7 !text-[15px]"
-              name="percent"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={100}
-              value={draftPercent}
-              onChange={(e) => setDraftPercent(e.target.value)}
-              required
-            />
-            <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-sm text-faint">
-              %
-            </span>
-          </div>
-        </label>
-
-        <div className="flex items-center gap-2 pb-0.5">
+        <div className="ms-auto flex gap-2">
           {dirty && (
             <button className="btn-inline btn-inline-primary" disabled={pending}>
               {pending ? hy.common.loading : hy.settings.save}
             </button>
           )}
           {saved && !dirty && (
-            <span className="text-[13px] font-semibold text-good">{hy.settings.saved}</span>
+            <span className="self-center text-[13px] font-semibold text-good">
+              {hy.settings.saved}
+            </span>
           )}
           {canRemove && (
             <button className="btn-inline btn-inline-danger" formAction={archiveStaff}>

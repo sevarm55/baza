@@ -20,7 +20,10 @@ export default async function SettingsPage() {
     <>
       <h2 className="h-section !mt-0">{hy.settings.services}</h2>
 
-      <div className="grid gap-2.5">
+      {/* Между услугами воздуха заметно больше, чем внутри строки:
+          на телефоне строка переносится, и без этого не видно, где
+          кончается одна услуга и начинается следующая. */}
+      <div className="grid gap-4">
         {services.map((s) => (
           <ServiceRow
             key={s.id}
