@@ -625,6 +625,13 @@ async function main() {
   const reused = await refreshRoute(post('/refresh', { refresh: tokens.refresh }));
   check('старый refresh больше не работает', reused.status === 401, reused.status);
 
+  // подделанный токен — отказ, а не 500: кривой uuid Postgres роняет
+  // на разборе, и клиенту это неотличимо от поломки сервера
+  const junk = await refreshRoute(post('/refresh', { refresh: 'aaa.bbb' }));
+  check('мусорный refresh — 401, а не 500', junk.status === 401, junk.status);
+  const noDot = await refreshRoute(post('/refresh', { refresh: 'вообще-не-токен' }));
+  check('и токен без разделителя тоже', noDot.status === 401, noDot.status);
+
   /* Идемпотентность записи — то, на чём держится офлайн-очередь. */
   const someService = b.services[0].id;
   const apiRef = "test-ref-0001";

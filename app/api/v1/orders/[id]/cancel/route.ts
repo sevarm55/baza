@@ -1,7 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { cancelOrder } from '@/lib/orders';
 import { authorize, denied } from '@/lib/api/guard';
-import { failFromError, ok } from '@/lib/api/respond';
+import { fail, failFromError, isUuid, ok } from '@/lib/api/respond';
 
 /**
  * Отмена записи.
@@ -19,6 +19,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (denied(ctx)) return ctx;
 
     const { id } = await params;
+    if (!isUuid(id)) return fail('ORDER_NOT_FOUND', 404);
+
     await cancelOrder({
       tenantId: ctx.tenant.id,
       orderId: id,

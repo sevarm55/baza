@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import { sessions, users } from '../db/schema';
 import { signAccess, type Role } from '../auth';
+import { isUuid } from './respond';
 
 /**
  * Токены для приложения.
@@ -103,6 +104,9 @@ export async function rotate(token: string): Promise<Issued> {
   const sid = token.slice(0, dot);
   const secret = token.slice(dot + 1);
 
+  // подделанный токен — это отказ, а не поломка сервера
+  if (!isUuid(sid) || !secret) throw new RefreshRejected();
+
   const [row] = await db
     .select({
       id: sessions.id,
@@ -139,8 +143,11 @@ export async function rotate(token: string): Promise<Issued> {
 export async function revokeByRefresh(token: string): Promise<void> {
   const dot = token.indexOf('.');
   if (dot < 1) return;
+  const sid = token.slice(0, dot);
+  if (!isUuid(sid)) return;
+
   await db
     .update(sessions)
     .set({ revokedAt: new Date(), refreshHash: null })
-    .where(eq(sessions.id, token.slice(0, dot)));
+    .where(eq(sessions.id, sid));
 }

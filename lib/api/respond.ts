@@ -82,3 +82,17 @@ export async function body<T>(request: Request): Promise<T | null> {
 export function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
+
+/**
+ * Похоже ли на uuid.
+ *
+ * Проверять обязательно ДО запроса: Postgres на разборе кривого uuid
+ * бросает свою ошибку, и наружу вместо честного «не найдено» уходит 500.
+ * Клиенту это неотличимо от поломки сервера, а в логи сыплется шум от
+ * любого, кто дёрнул адрес руками.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(v: string): boolean {
+  return UUID.test(v);
+}
