@@ -6,10 +6,11 @@ import { refresh, revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { services, tenants, users } from '@/lib/db/schema';
-import { findClient, getTenant, listServices } from '@/lib/queries';
+import { tenants, users } from '@/lib/db/schema';
+import { findClient, getTenant } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { settleStaff } from '@/lib/payroll';
+import * as catalog from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
@@ -22,7 +23,6 @@ import {
   startSession,
   verifyPin,
 } from '@/lib/auth';
-import { hashPin } from '@/lib/pin';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
@@ -137,17 +137,14 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
     return { error: hy.errors.badPercent };
   }
 
-  const taken = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone));
-  if (taken.length) return { error: hy.auth.phoneTaken };
-
-  await db.insert(users).values({
-    tenantId: session.tid,
-    phone,
-    pinHash: await hashPin(pin),
-    name,
-    role: 'staff',
-    percent,
-  });
+  try {
+    await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
+  } catch (e) {
+    if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
+      return { error: hy.auth.phoneTaken };
+    }
+    return { error: hy.errors.required };
+  }
 
   revalidatePath('/owner/staff');
   return { ok: true };
@@ -157,12 +154,12 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
 export async function deactivateStaff(staffId: string): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
-  if (staffId === session.uid) throw new Error('CANNOT_DEACTIVATE_SELF');
 
-  await db
-    .update(users)
-    .set({ active: false })
-    .where(and(eq(users.id, staffId), eq(users.tenantId, session.tid)));
+  await catalog.deactivateStaff({
+    tenantId: session.tid,
+    id: staffId,
+    actorId: session.uid,
+  });
 
   revalidatePath('/owner/staff');
 }
@@ -200,22 +197,10 @@ export async function saveService(
   const name = String(formData.get('name') ?? '').trim();
   const price = toMinor(Number(formData.get('price') ?? 0), tenant.currency);
 
-  if (name.length < 1) return { error: hy.errors.required };
-  if (!Number.isFinite(price) || price < 0) return { error: hy.errors.required };
-
-  if (id) {
-    await db
-      .update(services)
-      .set({ name, price })
-      .where(and(eq(services.id, id), eq(services.tenantId, session.tid)));
-  } else {
-    const existing = await listServices(session.tid);
-    await db.insert(services).values({
-      tenantId: session.tid,
-      name,
-      price,
-      sort: existing.length,
-    });
+  try {
+    await catalog.upsertService({ tenantId: session.tid, id: id || undefined, name, price });
+  } catch {
+    return { error: hy.errors.required };
   }
 
   revalidatePath('/owner/settings');
@@ -228,10 +213,7 @@ export async function archiveService(formData: FormData): Promise<void> {
   await ensureDb();
 
   const id = String(formData.get('id') ?? '');
-  await db
-    .update(services)
-    .set({ active: false })
-    .where(and(eq(services.id, id), eq(services.tenantId, session.tid)));
+  await catalog.archiveService({ tenantId: session.tid, id }).catch(() => {});
 
   revalidatePath('/owner/settings');
 }
@@ -244,15 +226,11 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const name = String(formData.get('name') ?? '').trim();
   const percent = Number(formData.get('percent') ?? 0);
 
-  if (name.length < 2) return { error: hy.errors.required };
-  if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+  try {
+    await catalog.saveStaff({ tenantId: session.tid, id, name, percent });
+  } catch {
     return { error: hy.errors.badPercent };
   }
-
-  await db
-    .update(users)
-    .set({ name, percent })
-    .where(and(eq(users.id, id), eq(users.tenantId, session.tid)));
 
   revalidatePath('/owner/staff');
   return { ok: true };
@@ -263,13 +241,11 @@ export async function archiveStaff(formData: FormData): Promise<void> {
   await ensureDb();
 
   const id = String(formData.get('id') ?? '');
-  // владелец не должен отключить сам себя и потерять доступ к кабинету
-  if (id === session.uid) return;
-
-  await db
-    .update(users)
-    .set({ active: false })
-    .where(and(eq(users.id, id), eq(users.tenantId, session.tid)));
+  // владелец не должен отключить сам себя и потерять доступ к кабинету —
+  // проверка внутри catalog, здесь просто гасим отказ
+  await catalog
+    .deactivateStaff({ tenantId: session.tid, id, actorId: session.uid })
+    .catch(() => {});
 
   revalidatePath('/owner/staff');
 }

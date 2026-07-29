@@ -692,6 +692,88 @@ async function main() {
   const ownShift = await shiftRoute(get('/shift', staffTokens.access));
   check('а свою смену — дают', ownShift.status === 200, ownShift.status);
 
+  /* ---------- прайс и люди через API ---------- */
+
+  const servicesRoute = await import('../app/api/v1/services/route');
+  const staffRoute = await import('../app/api/v1/staff/route');
+  const staffOne = await import('../app/api/v1/staff/[id]/route');
+
+  const made = await servicesRoute.POST(
+    post('/services', { name: 'Պոլիրովկա', price: 7000 }, rotated.access),
+  );
+  check('услуга заводится', made.status === 201, made.status);
+  const newService = (await made.json()).service;
+
+  const renamed = await servicesRoute.POST(
+    post('/services', { id: newService.id, name: 'Պոլիրովկա XL', price: 9000 }, rotated.access),
+  );
+  check('и правится тем же методом', (await renamed.json()).service.price === 9000);
+
+  const noName = await servicesRoute.POST(post('/services', { name: '  ' }, rotated.access));
+  check('пустое имя не проходит', noName.status === 400, noName.status);
+
+  const byStaff = await servicesRoute.POST(
+    post('/services', { name: 'X', price: 1 }, staffTokens.access),
+  );
+  check('сотруднику прайс править нельзя', byStaff.status === 403, byStaff.status);
+
+  const hired = await staffRoute.POST(
+    post('/staff', { name: 'Վարդան', phone: '077 777 000', pin: '1357', percent: 45 }, rotated.access),
+  );
+  check('сотрудник заводится', hired.status === 201, hired.status);
+  const hiredId = (await hired.json()).staff.id;
+
+  const dup = await staffRoute.POST(
+    post('/staff', { name: 'Другой', phone: '077 777 000', pin: '2468', percent: 10 }, rotated.access),
+  );
+  check('тот же телефон второй раз — отказ', dup.status === 409, dup.status);
+
+  const badPercent = await staffOne.PATCH(
+    post('/staff', { name: 'Վարդան', percent: 150 }, rotated.access),
+    { params: Promise.resolve({ id: hiredId }) },
+  );
+  check('процент больше ста не принимают', badPercent.status === 400, badPercent.status);
+
+  /* Уволенный теряет доступ СРАЗУ, а не через месяц. Раньше у него
+     оставался живой токен на весь его срок — это и проверяем. */
+  const hiredLogin = await login(post('/login', { phone: '077 777 000', pin: '1357' }));
+  const hiredTokens = await hiredLogin.json();
+  check('новый сотрудник входит', hiredLogin.status === 200, hiredLogin.status);
+
+  const worksBefore = await shiftRoute(get('/shift', hiredTokens.access));
+  check('и работает', worksBefore.status === 200, worksBefore.status);
+
+  const fireRes = await staffOne.DELETE(get('/staff', rotated.access), {
+    params: Promise.resolve({ id: hiredId }),
+  });
+  check('увольнение проходит', fireRes.status === 204, fireRes.status);
+
+  const worksAfter = await shiftRoute(get('/shift', hiredTokens.access));
+  check('уволенный отваливается тем же токеном', worksAfter.status === 401, worksAfter.status);
+
+  const suicide = await staffOne.DELETE(get('/staff', rotated.access), {
+    params: Promise.resolve({ id: owner.id }),
+  });
+  check('себя владелец уволить не может', suicide.status === 403, suicide.status);
+
+  /* ---------- выгрузка ---------- */
+
+  const exportRoute = await import('../app/api/v1/export/route');
+  const csvRes = await exportRoute.GET(get('/export?days=30', rotated.access));
+  check('выгрузка отдаётся', csvRes.status === 200, csvRes.status);
+
+  // именно байты: Response.text() по спецификации срезает BOM при
+  // декодировании, и проверка по строке всегда бы врала
+  const bytes = new Uint8Array(await csvRes.clone().arrayBuffer());
+  check(
+    'с BOM — иначе Excel съест армянский',
+    bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf,
+    [...bytes.slice(0, 3)],
+  );
+
+  const csv = await csvRes.text();
+  check('и с точкой с запятой в разделителях', csv.split('\r\n')[0].includes(';'));
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);
