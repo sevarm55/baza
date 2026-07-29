@@ -1,0 +1,154 @@
+import SwiftUI
+
+/// Смена мойщика — главный экран.
+///
+/// Заработок крупно и первым: ради него мойщик и вбивает сам, без
+/// надзора. Кнопка записи во всю ширину внизу — там, где до неё достаёт
+/// большой палец руки, которой держат телефон.
+struct ShiftView: View {
+    @EnvironmentObject private var session: Session
+    @EnvironmentObject private var queue: OrderQueue
+
+    @State private var shift: API.Shift?
+    @State private var recording = false
+    @State private var loading = false
+
+    private var currency: String { session.tenant?.currency ?? "AMD" }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                earnings
+
+                if !queue.items.isEmpty {
+                    pending
+                }
+
+                if let shift, !shift.orders.isEmpty {
+                    recent(shift.orders)
+                } else if !loading {
+                    empty
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 110)
+        }
+        .background(Brand.bg)
+        .safeAreaInset(edge: .bottom) {
+            Button("+ \(session.tenant?.unitOne ?? "")") {
+                recording = true
+            }
+            .buttonStyle(LimeButton())
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+            .background(.ultraThinMaterial)
+        }
+        .fullScreenCover(isPresented: $recording) {
+            OrderFlowView { await reload() }
+        }
+        .task { await reload() }
+        .refreshable { await reload() }
+    }
+
+    private var earnings: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Քո հերթափոխն այսօր")
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.7))
+
+            Text(money(shift?.earned ?? 0, currency))
+                .font(.system(size: 40, weight: .bold))
+                .foregroundStyle(.white)
+                .contentTransition(.numericText())
+
+            Text("\(shift?.count ?? 0) \(session.tenant?.unitOne ?? "") · \(money(shift?.revenue ?? 0, currency)) · քո \(shift?.percent ?? 0)%")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Brand.heroGradient, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.top, 8)
+    }
+
+    /// Несинхронизированное показываем честно, но не тревожно: запись
+    /// сделана и не пропадёт, просто ещё не ушла.
+    private var pending: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .foregroundStyle(Brand.grape)
+            Text("\(queue.items.count) գրանցում սպասում է կապի")
+                .font(.system(size: 13.5))
+                .foregroundStyle(Brand.muted)
+            Spacer()
+        }
+        .padding(14)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+
+    private func recent(_ orders: [API.ShiftOrder]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Վերջինները")
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundStyle(Brand.muted)
+                .padding(.bottom, 10)
+
+            VStack(spacing: 8) {
+                ForEach(orders) { order in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(order.serviceName)
+                                .font(.system(size: 14.5, weight: .semibold))
+                            Text(paymentLabel(order.payment))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Brand.muted)
+                        }
+                        Spacer()
+                        Text(money(order.price, currency))
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .monospacedDigit()
+                    }
+                    .padding(12)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 6)
+    }
+
+    private var empty: some View {
+        Text("Հերթափոխը դեռ չի սկսվել")
+            .font(.system(size: 14))
+            .foregroundStyle(Brand.muted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 44)
+    }
+
+    private func reload() async {
+        loading = true
+        defer { loading = false }
+
+        // сначала досылаем накопленное: иначе смена покажет вчерашние
+        // цифры, хотя записи уже сделаны
+        await queue.flush(using: session)
+
+        shift = try? await session.authed { token in
+            try await APIClient.shared.send("shift", token: token, as: API.Shift.self)
+        }
+    }
+}
+
+func paymentLabel(_ key: String) -> String {
+    switch key {
+    case "cash": return "Կանխիկ"
+    case "card": return "Քարտ"
+    case "transfer": return "Փոխանցում"
+    case "pass": return "Աբոնեմենտ"
+    default: return key
+    }
+}

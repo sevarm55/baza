@@ -1,0 +1,121 @@
+import Foundation
+import SwiftUI
+
+/// Состояние входа и всё, что зависит от сервера.
+///
+/// Один объект на приложение. Он же владеет токенами и он же умеет их
+/// обновлять: если access протух посреди запроса, повтор происходит здесь,
+/// а экраны об этом не знают вовсе — иначе обработка 401 расползлась бы
+/// по каждому месту, где что-то запрашивается.
+@MainActor
+final class Session: ObservableObject {
+    enum State {
+        case checking
+        case signedOut
+        case signedIn
+    }
+
+    @Published private(set) var state: State = .checking
+    @Published private(set) var tenant: API.Tenant?
+    @Published private(set) var me: API.Me?
+    @Published private(set) var access: API.Access?
+    @Published private(set) var services: [API.Service] = []
+
+    private var accessToken: String? {
+        didSet { Keychain.set(accessToken, for: "access") }
+    }
+    private var refreshToken: String? {
+        didSet { Keychain.set(refreshToken, for: "refresh") }
+    }
+
+    private let api = APIClient.shared
+
+    init() {
+        accessToken = Keychain.get("access")
+        refreshToken = Keychain.get("refresh")
+    }
+
+    /// Пуск: есть ли живой вход. Токен мог протухнуть, пока приложение
+    /// не открывали, — тогда молча обновляем и идём дальше.
+    func start() async {
+        guard refreshToken != nil else {
+            state = .signedOut
+            return
+        }
+        do {
+            try await loadBootstrap()
+            state = .signedIn
+        } catch {
+            state = .signedOut
+        }
+    }
+
+    func signIn(phone: String, pin: String) async throws {
+        let device = await UIDevice.current.name
+        let result: API.LoginResult = try await api.send(
+            "auth/login",
+            method: "POST",
+            body: ["phone": phone, "pin": pin, "device": device],
+            as: API.LoginResult.self
+        )
+        accessToken = result.access
+        refreshToken = result.refresh
+
+        try await loadBootstrap()
+        state = .signedIn
+    }
+
+    func signOut() async {
+        if let refreshToken {
+            _ = try? await api.raw("auth/logout", method: "POST", body: ["refresh": refreshToken])
+        }
+        accessToken = nil
+        refreshToken = nil
+        tenant = nil
+        me = nil
+        services = []
+        state = .signedOut
+    }
+
+    func loadBootstrap() async throws {
+        let boot: API.Bootstrap = try await authed { token in
+            try await self.api.send("bootstrap", token: token, as: API.Bootstrap.self)
+        }
+        tenant = boot.tenant
+        me = boot.me
+        access = boot.access
+        services = boot.services
+    }
+
+    /// Запрос с токеном и одной попыткой обновления.
+    ///
+    /// Повтор ровно один: если и после обновления 401, значит сессию
+    /// отозвали — крутить дальше бессмысленно, надо входить заново.
+    func authed<T>(_ work: (String) async throws -> T) async throws -> T {
+        guard let token = accessToken else { throw APIError(status: 401, code: nil, retryAfter: nil) }
+
+        do {
+            return try await work(token)
+        } catch let error as APIError where error.isUnauthorized {
+            guard let refreshed = try? await renew() else {
+                state = .signedOut
+                throw error
+            }
+            return try await work(refreshed)
+        }
+    }
+
+    private func renew() async throws -> String {
+        guard let refreshToken else { throw APIError(status: 401, code: nil, retryAfter: nil) }
+        let tokens: API.Tokens = try await api.send(
+            "auth/refresh",
+            method: "POST",
+            body: ["refresh": refreshToken],
+            as: API.Tokens.self
+        )
+        accessToken = tokens.access
+        // сервер ротирует refresh при каждом обмене: старый уже мёртв
+        self.refreshToken = tokens.refresh
+        return tokens.access
+    }
+}

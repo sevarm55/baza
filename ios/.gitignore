@@ -1,0 +1,9 @@
+# Проект собирается из project.yml командой `xcodegen generate`.
+# Держать его в git незачем: конфликт слияния в pbxproj читать невозможно.
+Tetr.xcodeproj/
+
+# Сборка
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
