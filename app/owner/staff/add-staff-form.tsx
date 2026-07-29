@@ -15,17 +15,19 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="card grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5">
+    /* Без карточки: рамка вокруг рамок полей только добавляла высоты.
+       Подписи здесь остаются — PIN и процент по одному полю не угадать. */
+    <form ref={formRef} action={action} className="grid gap-2.5">
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <label className="grid gap-1">
           <span className="label">{hy.settings.name}</span>
-          <input className="field !py-2.5 !text-[15px]" name="name" required autoComplete="off" />
+          <input className="field field-sm" name="name" required autoComplete="off" />
         </label>
 
-        <label className="grid gap-1.5">
+        <label className="grid gap-1">
           <span className="label">{hy.auth.phone}</span>
           <input
-            className="field !py-2.5 !text-[15px]"
+            className="field field-sm"
             name="phone"
             type="tel"
             inputMode="tel"
@@ -36,13 +38,13 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="grid gap-1.5">
+      <div className="grid grid-cols-2 gap-2.5">
+        <label className="grid gap-1">
           <span className="label">
             {hy.auth.pin} · {hy.auth.pinHint}
           </span>
           <input
-            className="field num !py-2.5 !text-center !text-[15px]"
+            className="field field-sm num !text-center"
             name="pin"
             inputMode="numeric"
             pattern="\d{4}"
@@ -52,13 +54,13 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
           />
         </label>
 
-        <label className="grid gap-1.5">
+        <label className="grid gap-1">
           <span className="label">
             {hy.settings.percent} · {staffRole}
           </span>
           <div className="relative">
             <input
-              className="field num !py-2.5 !pe-7 !text-center !text-[15px]"
+              className="field field-sm num !pe-7 !text-center"
               name="percent"
               type="number"
               inputMode="numeric"
@@ -67,7 +69,7 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
               defaultValue={40}
               required
             />
-            <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-sm text-faint">
+            <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13px] text-faint">
               %
             </span>
           </div>

@@ -42,10 +42,12 @@ export function StaffRow({
   }, [state]);
 
   return (
-    <form action={action} className="card grid gap-2.5 !p-3">
+    <form action={action} className="grid gap-1.5">
       <input type="hidden" name="id" value={id} />
 
-      <div className="flex items-baseline justify-between gap-3">
+      {/* Телефон и роль — подпись над строкой, а не содержимое карточки:
+          рамка вокруг рамок полей ничего не добавляла, кроме высоты. */}
+      <div className="flex items-baseline justify-between gap-3 px-1">
         <span className="num text-[12.5px] text-muted">{formatPhone(phone)}</span>
         <span className="label">{roleLabel}</span>
       </div>
@@ -80,7 +82,10 @@ export function StaffRow({
           </span>
         </div>
 
-        <div className="ms-auto flex gap-2">
+        {/* Место под кнопки держится всегда: у владельца кнопки удаления
+            нет — себя не отключишь, — и без запаса его поле процента
+            уезжало вправо мимо всех остальных строк. */}
+        <div className="ms-auto flex min-w-[5.25rem] justify-end gap-2">
           {dirty && (
             <button className="btn-inline btn-inline-primary" disabled={pending}>
               {pending ? hy.common.loading : hy.settings.save}

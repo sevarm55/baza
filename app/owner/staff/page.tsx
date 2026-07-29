@@ -14,7 +14,9 @@ export default async function StaffPage() {
 
   return (
     <>
-      <div className="grid gap-2.5">
+      {/* Сотрудники разведены заметнее, чем строки внутри одного: карточек
+          больше нет, и границу между людьми держит только воздух. */}
+      <div className="grid gap-4">
         {staff.map((s) => (
           <StaffRow
             key={s.id}

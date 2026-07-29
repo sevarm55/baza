@@ -33,11 +33,16 @@
   --muted: #57534e;
   --faint: #8b857e;
 
-  /* мандарин: заливка яркая, текст-акцент тёмный */
+  /* мандарин: яркий — для полос, графиков и рамок, глубокий — под кнопки */
   --accent: #c2410c;
   --accent-strong: #f97316;
-  /* текст, который ложится НА яркую заливку */
-  --accent-on: #1c1917;
+  /* Заливка кнопки. Отдельно от --accent-strong: по яркому мандарину
+     белый даёт контраст 2.9 и разваливается на солнце, по глубокому —
+     5.2 и читается. Полосам и графикам глубина ни к чему, им нужна
+     заметность, поэтому они остаются на --accent-strong. */
+  --accent-fill: #c2410c;
+  /* текст, который ложится НА заливку кнопки */
+  --accent-on: #ffffff;
 
   --good: #047857;
   --warn: #b45309;
@@ -103,7 +108,11 @@
   /* на угольном фоне яркий мандарин читается и текстом */
   --accent: #fb923c;
   --accent-strong: #f97316;
-  --accent-on: #1c1917;
+  /* Заливка кнопки та же, что в светлой: белый по ней читается одинаково,
+     а на угольном фоне глубокий мандарин и без того единственное
+     насыщенное пятно на экране. */
+  --accent-fill: #c2410c;
+  --accent-on: #ffffff;
 
   --good: #34d399;
   --warn: #fbbf24;
@@ -289,9 +298,9 @@ body {
 
   /* ───────────────────────── кнопки ───────────────────────── */
 
-  /* Главное действие — яркий мандарин под угольным текстом. Белый по
-     оранжевому дал бы контраст 2.9 и разваливался на солнце; уголь по
-     тому же оранжевому даёт 6.1 и остаётся таким же ярким. */
+  /* Главное действие — мандарин под белым текстом. Заливка глубокая:
+     по яркому мандарину белый даёт 2.9 и разваливается на солнце,
+     по этой — 5.2 и держится. */
   .btn {
     display: flex;
     align-items: center;
@@ -301,7 +310,7 @@ body {
     padding: 0.9rem 1.1rem;
     border: 1px solid transparent;
     border-radius: var(--radius-btn);
-    background: var(--accent-strong);
+    background: var(--accent-fill);
     color: var(--accent-on);
     font: inherit;
     font-weight: 700;
@@ -311,7 +320,7 @@ body {
   }
   .btn:hover:not(:disabled) {
     filter: brightness(1.05);
-    box-shadow: 0 8px 20px -8px var(--accent-strong);
+    box-shadow: 0 8px 20px -8px var(--accent-fill);
   }
   .btn:active:not(:disabled) {
     transform: translateY(1px);
@@ -371,8 +380,8 @@ body {
   }
 
   .btn-inline-primary {
-    background: var(--accent-strong);
-    border-color: var(--accent-strong);
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
     color: var(--accent-on);
   }
   .btn-inline-primary:hover:not(:disabled) {
