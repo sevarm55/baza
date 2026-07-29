@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { NICHES, type NicheKey } from '@/lib/niches';
 import { getSession } from '@/lib/auth';
 import { Modal } from '@/components/modal';
@@ -11,7 +11,10 @@ export default async function RegisterModal({
   params: Promise<{ niche: string }>;
 }) {
   const session = await getSession();
-  if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+  // Тот же случай, что и во входе: зарегистрировавшийся уходит отсюда
+  // редиректом, а слот остаётся занят регистрацией. Уводить из него нельзя —
+  // иначе каждый следующий переход возвращал бы на /owner. См. (.)login.
+  if (session) return null;
 
   const { niche: key } = await params;
   const niche = NICHES[key as NicheKey];

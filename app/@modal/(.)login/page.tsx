@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
 import { startHref } from '@/lib/niches';
@@ -17,7 +16,16 @@ import { LoginForm } from '@/app/login/login-form';
  */
 export default async function LoginModal() {
   const session = await getSession();
-  if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+  /* Вошедшего уводит отсюда страница /login в основном слоте — здесь
+     редиректа быть не должно.
+
+     Слот @modal не забывает содержимое: войдя через это окно, человек
+     уходит на /owner редиректом, а слот так и остаётся занят входом и
+     перерисовывается на КАЖДОМ следующем переходе. Редирект отсюда
+     возвращал бы на /owner при любом клике по вкладке — и так до полной
+     перезагрузки страницы. Пустой слот безвреден: окно всё равно снимает
+     себя, как только адрес перестал быть его. */
+  if (session) return null;
 
   return (
     <Modal path="/login">
