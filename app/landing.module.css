@@ -68,7 +68,7 @@
 .navCta {
   padding: 10px 16px;
   border-radius: 10px;
-  background: var(--color-accent-strong);
+  background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
   text-decoration: none;
@@ -196,7 +196,7 @@
   display: inline-block;
   padding: 17px 30px;
   border-radius: 14px;
-  background: var(--color-accent-strong);
+  background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
   font-size: 1.0625rem;
@@ -206,7 +206,7 @@
 .cta:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
-  box-shadow: 0 14px 30px -12px var(--color-accent-strong);
+  box-shadow: 0 14px 30px -12px var(--color-accent-fill);
 }
 
 .ctaNote {

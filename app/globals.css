@@ -167,6 +167,7 @@
 
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-fill: var(--accent-fill);
   --color-accent-on: var(--accent-on);
   --color-accent-bg: var(--accent-bg);
   --color-accent-ink: var(--accent-ink);

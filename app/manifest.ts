@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait',
     // фон заставки совпадает с фоном иконки — иначе при запуске
     // светлая плитка вспыхивает на тёмном поле
-    background_color: '#F5F3EF',
-    theme_color: '#0f1115',
+    background_color: '#2E1065',
+    theme_color: '#120f1a',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
