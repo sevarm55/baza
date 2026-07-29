@@ -23,9 +23,27 @@ const STEP_COLORS = [
   { bg: 'var(--color-brand-3)', ink: '#2e1065' },
 ];
 
-export default async function Home() {
+/**
+ * Композиции первого экрана. Живут одновременно, чтобы их можно было
+ * сравнить на живой странице, а не по описанию: `?v=2` показывает второй,
+ * `?v=3` — третий. Без параметра работает первый, то есть обычный лендинг
+ * ничем не отличается. Когда композиция выбрана, остальные удаляются
+ * вместе с этим переключателем.
+ */
+const VARIANTS = ['v1', 'v2', 'v3'] as const;
+type Variant = (typeof VARIANTS)[number];
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ v?: string }>;
+}) {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+
+  const { v } = await searchParams;
+  const variant: Variant = VARIANTS.find((x) => x === `v${v}`) ?? 'v1';
+  const comparing = v !== undefined;
 
   const L = hy.landing;
   const start = startHref();
@@ -52,29 +70,29 @@ export default async function Home() {
       </header>
 
       <main>
-        <section className={`${s.band} ${s.hero}`}>
+        <section className={`${s.band} ${s.hero} ${s[variant]}`}>
           <div className={s.container}>
-            <div className={s.heroText}>
-              <span className={s.eyebrow}>
-                <i className={s.eyebrowDot} />
-                {L.eyebrow}
-              </span>
-              <h1 className={s.headline}>
-                {L.headline}
-                <span className={s.headlineAccent}>{L.headlineAccent}</span>
-              </h1>
-              <p className={s.lead}>{L.lead}</p>
-              <div className={s.actions}>
-                <Link href={start} className={s.cta}>
-                  {L.ctaPrimary(TRIAL_DAYS)}
-                </Link>
-                <span className={s.ctaNote}>{L.ctaNote}</span>
+            <div className={s.heroInner}>
+              <div className={s.heroText}>
+                <span className={s.eyebrow}>
+                  <i className={s.eyebrowDot} />
+                  {L.eyebrow}
+                </span>
+                <h1 className={s.headline}>
+                  {L.headline}
+                  <span className={s.headlineAccent}>{L.headlineAccent}</span>
+                </h1>
+                <p className={s.lead}>{L.lead}</p>
+                <div className={s.actions}>
+                  <Link href={start} className={s.cta}>
+                    {L.ctaPrimary(TRIAL_DAYS)}
+                  </Link>
+                  <span className={s.ctaNote}>{L.ctaNote}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Свешивается на следующий раздел — отсюда взгляд идёт вниз
-                сам, без стрелок и подсказок. */}
-            <HeroDemo />
+              <HeroDemo />
+            </div>
           </div>
         </section>
 
@@ -172,6 +190,22 @@ export default async function Home() {
       <footer className={s.footer}>
         <div className={s.container}>{L.footer}</div>
       </footer>
+
+      {/* Переключатель композиций. Появляется только когда в адресе есть
+          `?v=` — на обычном лендинге его нет вовсе. */}
+      {comparing && (
+        <div className={s.switcher}>
+          {VARIANTS.map((x, i) => (
+            <a
+              key={x}
+              href={`/?v=${i + 1}`}
+              className={x === variant ? `${s.switchLink} ${s.switchOn}` : s.switchLink}
+            >
+              {i + 1}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -119,13 +119,88 @@
   position: relative;
   background: linear-gradient(168deg, var(--deep-2), var(--deep) 64%);
   color: var(--on-deep);
-  padding-block: clamp(104px, 15vw, 168px) clamp(52px, 7vw, 84px);
-  text-align: center;
+  padding-top: clamp(104px, 15vw, 168px);
+  padding-bottom: clamp(52px, 7vw, 84px);
 }
 
-.heroText {
+.heroInner {
+  display: grid;
+  gap: clamp(36px, 5vw, 60px);
+}
+
+/* ─────────────── композиция 1: афиша, демо свешивается ─────────────── */
+
+/* Текст по центру, демо под ним и свешивается на следующий раздел. */
+.v1 {
+  text-align: center;
+}
+.v1 .heroText {
   max-width: 42rem;
   margin-inline: auto;
+}
+.v1 .demo {
+  margin-bottom: calc(-1 * var(--overlap));
+}
+.v1 + .stats {
+  padding-top: calc(var(--overlap) + clamp(30px, 4vw, 48px));
+}
+
+/* ──────────── композиция 2: демо прижато к краю экрана ──────────── */
+
+/* Ничего не висит: демо стоит дном ровно на границе полосы и уходит за
+   правый край экрана. Две точки опоры вместо парения по центру. */
+.v2 {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+/* Текст прижат влево целиком: центрирование подзаголовка и кнопки
+   осталось бы от первой композиции и разъехалось с заголовком. */
+.v2 .lead,
+.v3 .lead {
+  margin-inline: 0;
+}
+.v2 .actions,
+.v3 .actions {
+  align-items: flex-start;
+}
+
+@media (min-width: 940px) {
+  .v2 .heroInner {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    align-items: center;
+    gap: clamp(28px, 4vw, 52px);
+  }
+
+  .v2 .demo {
+    align-self: end;
+    justify-content: start;
+    margin-top: 0;
+    margin-bottom: 0;
+    /* до правого края окна: поле контейнера плюс его наружный отступ */
+    margin-inline-end: calc(
+      -1 * (max(0px, (100vw - 1120px) / 2) + clamp(20px, 5vw, 32px))
+    );
+  }
+}
+
+/* ───────── композиция 3: демо стоит на дне полосы и обрезано ───────── */
+
+/* Экраны выходят из полосы снизу, а не лежат поверх неё. Край полосы
+   срезает их — оттого читается, что там продолжение, а не картинка. */
+.v3 {
+  /* Верх ниже, чем у остальных: экраны должны показаться из-под края
+     полосы ещё на первом экране, а не ждать прокрутки. */
+  padding-top: clamp(84px, 10vw, 124px);
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.v3 .heroText {
+  max-width: 46rem;
+}
+.v3 .demo {
+  margin-top: clamp(28px, 3.5vw, 50px);
+  margin-bottom: calc(-1 * clamp(150px, 26vw, 330px));
 }
 
 .eyebrow {
@@ -555,9 +630,10 @@
 
 /* ───────────────────── три обещания ───────────────────── */
 
-/* Верхний отступ добирает то, на что залез телефон. */
+/* Верхний отступ добирает то, на что залезло демо. Сколько именно —
+   решает композиция первого экрана, поэтому правило живёт рядом с ней. */
 .stats {
-  padding-top: calc(var(--overlap) + clamp(30px, 4vw, 48px));
+  padding-top: clamp(46px, 6vw, 72px);
   padding-bottom: clamp(56px, 8vw, 96px);
 }
 
@@ -811,6 +887,42 @@
   font-size: 13px;
   color: var(--color-faint);
   text-align: center;
+}
+
+/* ─────────────── переключатель композиций ─────────────── */
+
+/* Временный: живёт, пока композицию выбирают, и исчезает вместе с
+   лишними вариантами. */
+.switcher {
+  position: fixed;
+  z-index: 60;
+  inset-block-end: 18px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgb(26 22 38 / 88%);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px -12px rgb(10 0 30 / 60%);
+}
+
+.switchLink {
+  min-width: 34px;
+  padding: 8px 0;
+  border-radius: 999px;
+  text-align: center;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #c9b8f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.switchOn {
+  background: var(--color-accent-fill);
+  color: var(--color-accent-on);
 }
 
 @media (prefers-reduced-motion: reduce) {
