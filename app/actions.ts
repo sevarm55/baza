@@ -6,15 +6,10 @@ import { refresh, revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { audit, payouts, services, tenants, users } from '@/lib/db/schema';
-import {
-  findClient,
-  getSettledUntil,
-  getTenant,
-  getUnsettledPayroll,
-  listServices,
-} from '@/lib/queries';
+import { services, tenants, users } from '@/lib/db/schema';
+import { findClient, getTenant, listServices } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
+import { settleStaff } from '@/lib/payroll';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
@@ -306,34 +301,7 @@ export async function markPaid(staffId: string): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
 
-  const until = new Date();
-  const [rows, settled] = await Promise.all([
-    getUnsettledPayroll(session.tid, until),
-    getSettledUntil(session.tid),
-  ]);
-
-  const row = rows.find((r) => r.staffId === staffId);
-  if (!row || row.earned <= 0) return;
-
-  await db.transaction(async (tx) => {
-    await tx.insert(payouts).values({
-      tenantId: session.tid,
-      staffId,
-      periodFrom: settled.get(staffId) ?? new Date(0),
-      periodTo: until,
-      amount: row.earned,
-      paidBy: session.uid,
-    });
-
-    await tx.insert(audit).values({
-      tenantId: session.tid,
-      userId: session.uid,
-      action: 'payout',
-      entity: 'user',
-      entityId: staffId,
-      data: { amount: row.earned, orders: row.count },
-    });
-  });
+  await settleStaff({ tenantId: session.tid, staffId, byUserId: session.uid });
 
   revalidatePath('/owner/payroll');
 }

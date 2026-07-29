@@ -567,6 +567,124 @@ async function main() {
     .where(eq(users.id, owner.id));
   check('поколение сессий сдвинулось', bumped.ver === 1, bumped.ver);
 
+  /* ---------- API v1 ---------- */
+
+  // обработчики — обычные функции от Request, сервер для проверки не нужен
+  const login = (await import('../app/api/v1/auth/login/route')).POST;
+  const refreshRoute = (await import('../app/api/v1/auth/refresh/route')).POST;
+  const bootstrap = (await import('../app/api/v1/bootstrap/route')).GET;
+  const postOrder = (await import('../app/api/v1/orders/route')).POST;
+  const shiftRoute = (await import('../app/api/v1/shift/route')).GET;
+  const summary = (await import('../app/api/v1/summary/route')).GET;
+
+  const post = (url: string, json: unknown, token?: string) =>
+    new Request(`http://t${url}`, {
+      method: 'POST',
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify(json),
+    });
+  const get = (url: string, token?: string) =>
+    new Request(`http://t${url}`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+
+  // владелец бизнеса №1 заводился с PIN 1234
+  const bad = await login(post('/login', { phone: '077 111 222', pin: '9999' }));
+  check('неверный PIN — 401', bad.status === 401, bad.status);
+  check('и код, а не текст', (await bad.json()).error === 'WRONG_CREDENTIALS');
+
+  const good = await login(
+    post('/login', { phone: '077 111 222', pin: '1234', device: 'iPhone 13' }),
+  );
+  check('верный PIN — 200', good.status === 200, good.status);
+  const tokens = await good.json();
+  check('выдан access', typeof tokens.access === 'string' && tokens.access.length > 20);
+  check('выдан refresh', typeof tokens.refresh === 'string' && tokens.refresh.includes('.'));
+
+  const noAuth = await bootstrap(get('/bootstrap'));
+  check('без токена — 401', noAuth.status === 401, noAuth.status);
+
+  const boot = await bootstrap(get('/bootstrap', tokens.access));
+  check('с токеном — 200', boot.status === 200, boot.status);
+  const b = await boot.json();
+  check('термины бизнеса пришли', b.tenant.clientIdType === 'plate', b.tenant.clientIdType);
+  // сверяем с базой, а не с числом: выше по скрипту одну услугу убрали
+  // из прайса, и захардкоженная пятёрка проверяла бы не то
+  check(
+    'услуги пришли и только действующие',
+    b.services.length === (await q.listServices(tenant.id)).length,
+    b.services.length,
+  );
+  check('роль пришла', b.me.role === 'owner', b.me.role);
+
+  // ротация: старый refresh после обмена умирает
+  const rot = await refreshRoute(post('/refresh', { refresh: tokens.refresh }));
+  check('refresh меняется на новую пару', rot.status === 200, rot.status);
+  const rotated = await rot.json();
+  check('и сам refresh новый', rotated.refresh !== tokens.refresh);
+  const reused = await refreshRoute(post('/refresh', { refresh: tokens.refresh }));
+  check('старый refresh больше не работает', reused.status === 401, reused.status);
+
+  /* Идемпотентность записи — то, на чём держится офлайн-очередь. */
+  const someService = b.services[0].id;
+  const apiRef = "test-ref-0001";
+  const noToken = await postOrder(
+    post("/orders", { ref: apiRef, clientKey: '55 OO 555', serviceId: someService, payment: 'cash' }),
+    // токен из ротации: старый access ещё жив, но пользуемся свежим
+  );
+  check("запись без токена — 401", noToken.status === 401, noToken.status);
+
+  const created = await postOrder(
+    post(
+      '/orders',
+      { ref: apiRef, clientKey: "55 OO 555", serviceId: someService, payment: "cash" },
+      rotated.access,
+    ),
+  );
+  check('первая отправка — 201', created.status === 201, created.status);
+
+  const repeat = await postOrder(
+    post(
+      '/orders',
+      { ref: apiRef, clientKey: "55 OO 555", serviceId: someService, payment: "cash" },
+      rotated.access,
+    ),
+  );
+  const repeatBody = await repeat.json();
+  check('повторная досылка — 200, а не ошибка', repeat.status === 200, repeat.status);
+  check('и помечена как дубль', repeatBody.duplicate === true);
+
+  const sh = await shiftRoute(get('/shift', rotated.access));
+  const shiftBody = await sh.json();
+  check('в смене одна машина, а не две', shiftBody.count === 1, shiftBody.count);
+
+  const sum = await summary(get('/summary?period=today', rotated.access));
+  check('сводка владельца открыта', sum.status === 200, sum.status);
+
+  // уволенного не пускают: выше по скрипту мойщику сняли active
+  const fired = await login(post('/login', { phone: '077 333 444', pin: '5678' }));
+  check('уволенный сотрудник не входит', fired.status === 401, fired.status);
+
+  // сотрудник в кабинет владельца не ходит
+  await db.insert(users).values({
+    tenantId: tenant.id,
+    phone: '+37477555666',
+    pinHash: await hashPin('2468'),
+    name: 'Գագիկ',
+    role: 'staff',
+    percent: 35,
+  });
+
+  const staffLogin = await login(post('/login', { phone: '077 555 666', pin: '2468' }));
+  check('действующий сотрудник входит', staffLogin.status === 200, staffLogin.status);
+  const staffTokens = await staffLogin.json();
+
+  const forbidden = await summary(get('/summary?period=today', staffTokens.access));
+  check('но сводку владельца ему не дают', forbidden.status === 403, forbidden.status);
+
+  const ownShift = await shiftRoute(get('/shift', staffTokens.access));
+  check('а свою смену — дают', ownShift.status === 200, ownShift.status);
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);

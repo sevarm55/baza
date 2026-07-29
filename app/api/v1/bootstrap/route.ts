@@ -1,0 +1,52 @@
+import { ensureDb } from '@/lib/db/ready';
+import { listServices } from '@/lib/queries';
+import { passesEnabled } from '@/lib/features';
+import { authorize, denied } from '@/lib/api/guard';
+import { failFromError, ok } from '@/lib/api/respond';
+
+/**
+ * Всё, что нужно приложению на старте, одним запросом.
+ *
+ * Отдельными вызовами это было бы четыре round-trip на связи, которой во
+ * дворе мойки может и не быть. Ответ кэшируется на устройстве и работает
+ * офлайн: услуги и термины бизнеса меняются редко.
+ *
+ * Термины отдаются как есть из тенанта — `clientIdLabel`, `unitOne`,
+ * `staffRole`. Приложение не должно знать, что бывают ниши: для него это
+ * просто слова, которые прислал сервер.
+ */
+export async function GET(request: Request) {
+  try {
+    await ensureDb();
+    const ctx = await authorize(request);
+    if (denied(ctx)) return ctx;
+
+    const services = await listServices(ctx.tenant.id);
+
+    return ok({
+      tenant: {
+        id: ctx.tenant.id,
+        name: ctx.tenant.name,
+        currency: ctx.tenant.currency,
+        locale: ctx.tenant.locale,
+        timezone: ctx.tenant.timezone,
+        clientIdLabel: ctx.tenant.clientIdLabel,
+        clientIdType: ctx.tenant.clientIdType,
+        staffRole: ctx.tenant.staffRole,
+        unitOne: ctx.tenant.unitOne,
+      },
+      me: {
+        id: ctx.user.id,
+        name: ctx.user.name,
+        role: ctx.user.role,
+        percent: ctx.user.percent,
+      },
+      access: ctx.access,
+      services: services.map((s) => ({ id: s.id, name: s.name, price: s.price, sort: s.sort })),
+      features: { passes: passesEnabled() },
+      syncedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    return failFromError(e);
+  }
+}
