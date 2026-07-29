@@ -692,6 +692,65 @@ async function main() {
   const ownShift = await shiftRoute(get('/shift', staffTokens.access));
   check('а свою смену — дают', ownShift.status === 200, ownShift.status);
 
+  /* ---------- регистрация из приложения ---------- */
+
+  const nichesRoute = (await import('../app/api/v1/niches/route')).GET;
+  const registerRoute = (await import('../app/api/v1/auth/register/route')).POST;
+
+  const nichesRes = nichesRoute();
+  const nichesBody = await nichesRes.json();
+  check('ниши отдаются без токена', nichesRes.status === 200, nichesRes.status);
+  check(
+    'и только включённые',
+    nichesBody.niches.length > 0 && nichesBody.niches.every((n: { key: string }) => n.key),
+    nichesBody.niches.length,
+  );
+
+  const born = await registerRoute(
+    post('/register', {
+      niche: nichesBody.niches[0].key,
+      businessName: 'Նոր բիզնես',
+      ownerName: 'Կարեն',
+      phone: '077 654 321',
+      pin: '9876',
+      device: 'iPhone',
+    }),
+  );
+  check('бизнес регистрируется из приложения', born.status === 201, born.status);
+  const bornBody = await born.json();
+  check('и сразу выдаются токены', typeof bornBody.access === 'string' && bornBody.refresh);
+  check('владельцем', bornBody.user.role === 'owner', bornBody.user.role);
+
+  // прайс засеян конфигом ниши — приложение сразу может записывать
+  const bornBoot = await bootstrap(get('/bootstrap', bornBody.access));
+  const bornData = await bornBoot.json();
+  check('прайс засеян сразу', bornData.services.length > 0, bornData.services.length);
+  check('термины ниши на месте', bornData.tenant.clientIdLabel.length > 0);
+
+  const sameAgain = await registerRoute(
+    post('/register', {
+      niche: nichesBody.niches[0].key,
+      businessName: 'Другой',
+      ownerName: 'Другой',
+      phone: '077 654 321',
+      pin: '1111',
+    }),
+  );
+  check('тот же телефон второй раз — отказ', sameAgain.status === 409, sameAgain.status);
+
+  const offNiche = await registerRoute(
+    post('/register', {
+      niche: 'vet',
+      businessName: 'Кто-то',
+      ownerName: 'Кто-то',
+      phone: '077 654 999',
+      pin: '2222',
+    }),
+  );
+  // ниша выключена флагом; эндпоинт открыт наружу, и прямым запросом
+  // завести её тоже не должно получиться
+  check('выключенную нишу не завести', offNiche.status === 400, offNiche.status);
+
   /* ---------- прайс и люди через API ---------- */
 
   const servicesRoute = await import('../app/api/v1/services/route');

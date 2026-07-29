@@ -12,6 +12,7 @@ struct LoginView: View {
     @State private var pin = ""
     @State private var error: String?
     @State private var busy = false
+    @State private var registering = false
     @FocusState private var focus: Field?
 
     private enum Field { case phone, pin }
@@ -68,12 +69,24 @@ struct LoginView: View {
                 .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
                 .padding(.top, 28)
 
+                /* Экран входа не должен быть тупиком: у пришедшего впервые
+                   аккаунта ещё нет. Ровно та же оговорка стоит в окне
+                   входа на сайте — и по той же причине. */
+                Button("Ստեղծել բիզնես") { registering = true }
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(Brand.lime)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 18)
+
                 Spacer()
                 Spacer()
             }
             .padding(.horizontal, 24)
         }
         .onAppear { focus = .phone }
+        .fullScreenCover(isPresented: $registering) {
+            RegisterView()
+        }
     }
 
     @ViewBuilder

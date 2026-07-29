@@ -192,6 +192,21 @@ enum API {
         let services: [Service]
     }
 
+    /// Тип бизнеса. Приложение про ниши ничего не знает — список приходит
+    /// с сервера, из того же конфига, что и лендинг.
+    struct Niche: Decodable, Identifiable {
+        let key: String
+        let icon: String
+        let name: String
+        let tag: String
+        let defaultName: String
+        var id: String { key }
+    }
+
+    struct Niches: Decodable {
+        let niches: [Niche]
+    }
+
     struct CreatedOrder: Decodable {
         let duplicate: Bool
     }

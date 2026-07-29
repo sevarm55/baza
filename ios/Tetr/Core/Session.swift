@@ -65,6 +65,36 @@ final class Session: ObservableObject {
         state = .signedIn
     }
 
+    /// Регистрация — это и вход тоже: сервер сразу отдаёт токены, и
+    /// заставлять человека вводить те же телефон и PIN второй раз незачем.
+    func register(
+        niche: String,
+        businessName: String,
+        ownerName: String,
+        phone: String,
+        pin: String
+    ) async throws {
+        let device = await UIDevice.current.name
+        let result: API.LoginResult = try await api.send(
+            "auth/register",
+            method: "POST",
+            body: [
+                "niche": niche,
+                "businessName": businessName,
+                "ownerName": ownerName,
+                "phone": phone,
+                "pin": pin,
+                "device": device,
+            ],
+            as: API.LoginResult.self
+        )
+        accessToken = result.access
+        refreshToken = result.refresh
+
+        try await loadBootstrap()
+        state = .signedIn
+    }
+
     func signOut() async {
         if let refreshToken {
             _ = try? await api.raw("auth/logout", method: "POST", body: ["refresh": refreshToken])
