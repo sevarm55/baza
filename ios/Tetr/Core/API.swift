@@ -95,6 +95,28 @@ enum API {
         let count: Int
         let cash: Int
         let avgCheck: Int
+        /// Начислено исполнителям за период — не выплачено, а именно начислено.
+        let payroll: Int
+    }
+
+    struct Costs: Decodable {
+        let oneOff: Int
+        let monthlyShare: Int
+        let total: Int
+    }
+
+    struct Expense: Decodable, Identifiable {
+        let id: String
+        let amount: Int
+        let category: String
+        let note: String?
+        let monthly: Bool
+        let at: Date
+    }
+
+    struct Expenses: Decodable {
+        let hints: [String]
+        let expenses: [Expense]
     }
 
     struct FeedItem: Decodable, Identifiable {
@@ -135,6 +157,11 @@ enum API {
 
     struct Summary: Decodable {
         let stats: Stats
+        /* Прибыль считает сервер: формула одна на приложение и кабинет,
+           и разъехаться между ними она не должна — это та цифра, из-за
+           которой продукту верят. */
+        let costs: Costs
+        let profit: Int
         let series: [SeriesPoint]
         let split: [SplitSegment]
         let feed: [FeedItem]

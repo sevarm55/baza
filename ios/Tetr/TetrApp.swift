@@ -153,7 +153,8 @@ struct MainTabs: View {
             Button {
                 Task { await session.signOut() }
             } label: {
-                Image(systemName: "power")
+                // цвет явно: наследованный tint до символов доходит не везде
+                Image(systemName: "power").foregroundStyle(Brand.grape)
             }
         }
     }

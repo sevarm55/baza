@@ -29,6 +29,8 @@ struct OwnerView: View {
                 } else {
                     revenue
 
+                    if let summary { profit(summary) }
+
                     if let series = summary?.series, series.count > 1 {
                         chart(series)
                     }
@@ -119,6 +121,51 @@ struct OwnerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .background(Brand.heroGradient, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    /// Прибыль и из чего она сложилась.
+    ///
+    /// Одной цифры мало: «осталось 46 000» без разбора выглядит как
+    /// ошибка, особенно в первый раз. Владелец должен увидеть вычитание
+    /// целиком — тогда он либо соглашается, либо понимает, какой расход
+    /// забыл завести.
+    ///
+    /// Зарплата отдельной строкой от расходов, хотя формально тоже
+    /// расход: её считает продукт, а расходы заводит человек. Смешать их
+    /// значило бы скрыть, что именно можно поправить руками.
+    private func profit(_ s: API.Summary) -> some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Շահույթ")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Brand.muted)
+                Spacer()
+                Text(money(s.profit, currency))
+                    .font(.system(size: 26, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(s.profit >= 0 ? Brand.good : Brand.warn)
+            }
+
+            VStack(spacing: 5) {
+                breakdown("Հասույթ", s.stats.revenue)
+                breakdown("Աշխատավարձ", -s.stats.payroll)
+                breakdown("Ծախսեր", -s.costs.total)
+            }
+        }
+        .glassCard()
+    }
+
+    private func breakdown(_ label: String, _ value: Int) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value < 0 ? "− \(money(-value, currency))" : money(value, currency))
+                .monospacedDigit()
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(Brand.muted)
     }
 
     /// Форма дня столбиками.

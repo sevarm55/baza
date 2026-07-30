@@ -6,6 +6,7 @@ import {
   getRevenueSeries,
   startOfDay,
 } from '@/lib/queries';
+import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
 
@@ -36,17 +37,23 @@ export async function GET(request: Request) {
       ? startOfDay(ctx.tenant.timezone)
       : new Date(Date.now() - Number(period) * 86_400_000);
 
-    const [stats, series, split, feed] = await Promise.all([
+    const [stats, series, split, feed, costs] = await Promise.all([
       getPeriodStats(ctx.tenant.id, from),
       getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day'),
       getPaymentSplit(ctx.tenant.id, from),
       getFeed(ctx.tenant.id, from),
+      getPeriodCosts(ctx.tenant.id, from),
     ]);
 
     return ok({
       period,
       from: from.toISOString(),
       stats,
+      costs,
+      /* Прибыль считаем на сервере, а не в приложении: формула одна на
+         все клиенты, и разъехаться между телефоном и кабинетом она не
+         должна — это та цифра, из-за которой продукту верят. */
+      profit: profitOf(stats.revenue, stats.payroll, costs),
       series,
       split,
       feed: feed.map((o) => ({

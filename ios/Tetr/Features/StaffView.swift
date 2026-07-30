@@ -56,7 +56,9 @@ struct StaffView: View {
         .screenBackground()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { adding = true } label: { Image(systemName: "plus") }
+                Button { adding = true } label: {
+                    Image(systemName: "plus").foregroundStyle(Brand.grape)
+                }
             }
         }
         .sheet(item: $editing) { person in

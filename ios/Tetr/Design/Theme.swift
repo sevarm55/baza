@@ -58,6 +58,10 @@ enum Brand {
     static let bg = adaptive(light: 0xFAF9FC, dark: 0x120F1A)
     static let good = adaptive(light: 0x047857, dark: 0x34D399)
 
+    /* Убыток жёлтым, а не красным: красный в продукте значит «удалить»,
+       и путать эти два сигнала нельзя. Те же значения, что в вебе. */
+    static let warn = adaptive(light: 0xB45309, dark: 0xFBBF24)
+
     static let heroGradient = LinearGradient(
         colors: [grapeMid, grapeDeep],
         startPoint: .topLeading,

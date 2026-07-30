@@ -203,12 +203,28 @@ export const hy = {
     empty: 'Դեռ աբոնեմենտներ չկան',
   },
 
+  expenses: {
+    title: 'Ծախսեր',
+    add: 'Ավելացնել',
+    amount: 'Գումար',
+    category: 'Ինչի համար',
+    monthly: 'Ամսական',
+    oneOff: 'Միանվագ',
+    perMonth: 'ամսական',
+    empty: 'Ծախսեր դեռ չկան',
+    remove: 'Հեռացնել',
+    note: 'Ամսական ծախսերը (վարձ, հոսանք) բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։',
+  },
+
   owner: {
     tabToday: 'Այսօր',
     tabPayroll: 'Աշխատավարձեր',
     tabClients: 'Հաճախորդներ',
     tabSettings: 'Կարգավորումներ',
     revenue: 'Հասույթ',
+    profit: 'Շահույթ',
+    payrollAccrued: 'Աշխատավարձ',
+    expensesTotal: 'Ծախսեր',
     avgCheck: 'Միջին չեկ',
     cashShare: 'Կանխիկով',
     onShift: 'Հերթափոխին',

@@ -9,6 +9,7 @@ import { usePendingTab } from '@/components/use-pending-tab';
 const TABS = [
   { href: '/owner', label: hy.owner.tabToday },
   { href: '/owner/payroll', label: hy.owner.tabPayroll },
+  { href: '/owner/expenses', label: hy.expenses.title },
   { href: '/owner/clients', label: hy.owner.tabClients },
   { href: '/owner/passes', label: hy.passes.title, feature: 'passes' },
   { href: '/owner/staff', label: hy.settings.staff },

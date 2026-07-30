@@ -7,9 +7,10 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { tenants, users } from '@/lib/db/schema';
-import { findClient, getTenant } from '@/lib/queries';
+import { findClient, getTenant, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { settleStaff } from '@/lib/payroll';
+import { addExpense, removeExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
@@ -403,4 +404,58 @@ export async function revokeOrder(orderId: string): Promise<void> {
   });
 
   refresh();
+}
+
+/* ------------------------------------------------------------------ *
+ * Расходы
+ *
+ * Выручка отвечала на вопрос «сколько намыли», а владелец спрашивает
+ * «сколько осталось». Здесь появляется вторая половина ответа.
+ * ------------------------------------------------------------------ */
+
+export async function addExpenseAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return { error: hy.errors.generic };
+
+  const amount = toMinor(Number(formData.get('amount') ?? 0), tenant.currency);
+  const category = String(formData.get('category') ?? '').trim();
+  const monthly = formData.get('monthly') === 'on';
+
+  try {
+    await addExpense({
+      tenantId: session.tid,
+      userId: session.uid,
+      amount,
+      category,
+      monthly,
+      /* Постоянный расход считаем с начала сегодняшнего дня, а не с
+         минуты, когда его завели: иначе аренда, добавленная в обед,
+         принесёт в прибыль за сегодня половину дневной доли, и цифра
+         разойдётся с завтрашней без всякой причины. */
+      at: monthly ? startOfDay(tenant.timezone) : undefined,
+    });
+  } catch {
+    return { error: hy.errors.required };
+  }
+
+  revalidatePath('/owner/expenses');
+  // прибыль на главной считается из расходов и должна поменяться сразу
+  revalidatePath('/owner');
+  return { ok: true };
+}
+
+export async function removeExpenseAction(formData: FormData): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  await removeExpense(session.tid, String(formData.get('id') ?? ''));
+
+  revalidatePath('/owner/expenses');
+  revalidatePath('/owner');
 }

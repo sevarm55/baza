@@ -292,7 +292,58 @@ export const audit = pgTable(
   (t) => [index('audit_tenant_idx').on(t.tenantId, t.createdAt)],
 );
 
+/**
+ * Расходы.
+ *
+ * Без них продукт считает только приход, а владелец спрашивает не
+ * «сколько намыли», а «сколько осталось». Половина расходной части уже
+ * была в системе — зарплата считается из снимков процента в записях;
+ * здесь появляется вторая.
+ *
+ * Два вида, и разница между ними принципиальная.
+ *
+ *   разовый     — химия, ремонт, инструмент. Случился в конкретный день,
+ *                 в этот день и падает.
+ *
+ *   постоянный  — аренда, свет, интернет. Платится раз в месяц, но
+ *                 относится ко всем дням месяца сразу. Если положить его
+ *                 одним днём, прибыль за первое число уйдёт в минус на
+ *                 полгорода, а за второе будет враньём в другую сторону.
+ *                 Поэтому постоянный расход размазывается по дням.
+ */
+export const expenses = pgTable(
+  'expenses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    /** в минимальных единицах валюты — как и цены услуг */
+    amount: integer('amount').notNull(),
+    /** «Քիմիա», «Վարձ» — свободная строка, в интерфейсе есть подсказки */
+    category: text('category').notNull(),
+    note: text('note'),
+    /** ежемесячный (аренда) или разовый (канистра химии) */
+    monthly: boolean('monthly').notNull().default(false),
+    /** разовый: когда потрачено. постоянный: с какого дня действует */
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Когда постоянный расход перестал действовать.
+     *
+     * Постоянные не удаляются, а закрываются этой датой: аренда выросла —
+     * старую закрыли, новую завели. Иначе правка суммы задним числом
+     * переписала бы прибыль за все прошлые месяцы, и цифра, на которую
+     * владелец однажды посмотрел, перестала бы существовать.
+     */
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('expenses_tenant_idx').on(t.tenantId, t.at)],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
+export type Expense = typeof expenses.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Client = typeof clients.$inferSelect;

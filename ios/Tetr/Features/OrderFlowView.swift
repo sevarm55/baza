@@ -108,6 +108,7 @@ struct OrderFlowView: View {
                     } label: {
                         Image(systemName: "camera.viewfinder")
                             .font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(Brand.grape)
                             .frame(width: 62, height: 62)
                             .glassEffect(.regular, in: .rect(cornerRadius: 14))
                     }

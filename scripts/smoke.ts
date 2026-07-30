@@ -854,11 +854,13 @@ async function main() {
     (await csvAll.text()).split('\r\n').length >= csv.split('\r\n').length,
   );
 
-  /* ---------- удаление бизнеса ---------- */
+  /* ---------- расходы и прибыль ---------- */
 
-  const accountRoute = (await import('../app/api/v1/account/route')).DELETE;
-  const { orders, tenants: tenantTable, loginAttempts } = await import('../lib/db/schema');
-  const { normalizePhone } = await import('../lib/phone');
+  const { addExpense, getPeriodCosts, profitOf, removeExpense } = await import('../lib/expenses');
+  const expensesRoute = await import('../app/api/v1/expenses/route');
+  const expenseOne = await import('../app/api/v1/expenses/[id]/route');
+
+  const dayAgo = new Date(Date.now() - 86_400_000);
 
   const del = (url: string, json: unknown, token?: string) =>
     new Request(`http://t${url}`, {
@@ -866,6 +868,115 @@ async function main() {
       headers: token ? { authorization: `Bearer ${token}` } : {},
       body: JSON.stringify(json),
     });
+
+  await addExpense({
+    tenantId: tenant.id,
+    userId: owner.id,
+    amount: 25_000,
+    category: 'Քիմիա',
+  });
+  const oneOffCosts = await getPeriodCosts(tenant.id, dayAgo);
+  check('разовый расход попадает в период', oneOffCosts.oneOff === 25_000, oneOffCosts.oneOff);
+
+  /* 304 375 / 30.4375 = ровно 10 000 в день. Постоянный расход заведён
+     десятью днями раньше, поэтому на сутки периода приходится один день. */
+  await addExpense({
+    tenantId: tenant.id,
+    userId: owner.id,
+    amount: 304_375,
+    category: 'Վարձ',
+    monthly: true,
+    at: new Date(Date.now() - 10 * 86_400_000),
+  });
+  const spread = await getPeriodCosts(tenant.id, dayAgo);
+  check(
+    'постоянный расход размазан по дням, а не свален в один',
+    Math.abs(spread.monthlyShare - 10_000) <= 2,
+    spread.monthlyShare,
+  );
+  check('и складывается с разовым', spread.total === spread.oneOff + spread.monthlyShare);
+
+  /* Аренда, заведённая десять дней назад, не должна съедать прибыль
+     за позапрошлый месяц. */
+  const before = await getPeriodCosts(
+    tenant.id,
+    new Date(Date.now() - 60 * 86_400_000),
+    new Date(Date.now() - 30 * 86_400_000),
+  );
+  check('и не капает до дня, когда его завели', before.monthlyShare === 0, before.monthlyShare);
+
+  const dayStats = await q.getPeriodStats(tenant.id, dayAgo);
+  check(
+    'прибыль = выручка − зарплата − расходы',
+    profitOf(dayStats.revenue, dayStats.payroll, spread) ===
+      dayStats.revenue - dayStats.payroll - spread.total,
+  );
+
+  /* Изоляция. Проверяем не «у соседа записалось», а «у нас не
+     изменилось»: именно так эта ошибка и выглядела бы — тихой прибавкой
+     к чужим расходам. */
+  const mineBefore = await getPeriodCosts(tenant.id, dayAgo);
+  const neighbourSpent = await expensesRoute.POST(
+    post('/expenses', { amount: 999_999, category: 'Ուրիշի' }, bornBody.access),
+  );
+  check('сосед заводит свой расход', neighbourSpent.status === 201, neighbourSpent.status);
+  const mineAfter = await getPeriodCosts(tenant.id, dayAgo);
+  check('и в наш расчёт он не попадает', mineAfter.total === mineBefore.total, [
+    mineBefore.total,
+    mineAfter.total,
+  ]);
+
+  const staffSpend = await expensesRoute.POST(
+    post('/expenses', { amount: 100, category: 'X' }, staffTokens.access),
+  );
+  check('сотрудник расход завести не может', staffSpend.status === 403, staffSpend.status);
+
+  const staffSees = await expensesRoute.GET(get('/expenses', staffTokens.access));
+  check('и увидеть их тоже', staffSees.status === 403, staffSees.status);
+
+  const badAmount = await expensesRoute.POST(
+    post('/expenses', { amount: 0, category: 'Քիմիա' }, rotated.access),
+  );
+  check('ноль расходом не считается', badAmount.status === 400, badAmount.status);
+
+  const madeExpense = await expensesRoute.POST(
+    post('/expenses', { amount: 4_000, category: 'Ջուր' }, rotated.access),
+  );
+  check('владелец расход заводит', madeExpense.status === 201, madeExpense.status);
+  const madeId = (await madeExpense.json()).expense.id;
+
+  const junkExpense = await expenseOne.DELETE(del('/expenses/nope', {}, rotated.access), {
+    params: Promise.resolve({ id: 'not-a-uuid' }),
+  });
+  check('кривой id — 404, а не пятисотка', junkExpense.status === 404, junkExpense.status);
+
+  const dropped = await expenseOne.DELETE(del(`/expenses/${madeId}`, {}, rotated.access), {
+    params: Promise.resolve({ id: madeId }),
+  });
+  check('разовый расход удаляется', dropped.status === 204, dropped.status);
+
+  /* Постоянный не удаляется, а закрывается датой: иначе правка задним
+     числом переписала бы прибыль за все прошлые месяцы. */
+  const monthlyRows = (await listExpensesFor(tenant.id)).filter((e) => e.monthly);
+  const closed = await removeExpense(tenant.id, monthlyRows[0].id);
+  check('постоянный убирается', closed);
+  const afterClose = await getPeriodCosts(
+    tenant.id,
+    new Date(Date.now() + 86_400_000),
+    new Date(Date.now() + 2 * 86_400_000),
+  );
+  check('и перестаёт капать со следующего дня', afterClose.monthlyShare === 0, afterClose);
+
+  async function listExpensesFor(id: string) {
+    const { listExpenses } = await import('../lib/expenses');
+    return listExpenses(id, new Date(Date.now() - 90 * 86_400_000));
+  }
+
+  /* ---------- удаление бизнеса ---------- */
+
+  const accountRoute = (await import('../app/api/v1/account/route')).DELETE;
+  const { orders, tenants: tenantTable, loginAttempts } = await import('../lib/db/schema');
+  const { normalizePhone } = await import('../lib/phone');
 
   /* Удаляем бизнес, заведённый из приложения. Бизнес №1 при этом обязан
      остаться целым: удаление — самая опасная операция в продукте, и

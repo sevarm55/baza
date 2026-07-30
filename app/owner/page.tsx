@@ -11,6 +11,8 @@ import {
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
+import { getPeriodCosts, profitOf } from '@/lib/expenses';
+import { Profit } from '@/components/profit';
 import { Avatar, Hero } from '@/components/stat';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
@@ -47,11 +49,12 @@ export default async function TodayPage({
     ? startOfDay(tenant.timezone)
     : new Date(Date.now() - Number(period.key) * 86_400_000);
 
-  const [stats, feed, series, split] = await Promise.all([
+  const [stats, feed, series, split, costs] = await Promise.all([
     getPeriodStats(tenant.id, from),
     getFeed(tenant.id, from),
     getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day'),
     getPaymentSplit(tenant.id, from),
+    getPeriodCosts(tenant.id, from),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency);
@@ -76,6 +79,14 @@ export default async function TodayPage({
             )}
           </>
         }
+      />
+
+      <Profit
+        revenue={stats.revenue}
+        payroll={stats.payroll}
+        expenses={costs.total}
+        profit={profitOf(stats.revenue, stats.payroll, costs)}
+        money={money}
       />
 
       <DayChart

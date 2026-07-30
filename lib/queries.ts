@@ -121,6 +121,17 @@ export function startOfDay(timezone: string, at = new Date()): Date {
 const notCanceled = isNull(orders.canceledAt);
 
 /** Смена конкретного сотрудника: то, что он видит у себя на экране. */
+/**
+ * Начало дня, который был N дней назад, в часовом поясе бизнеса.
+ *
+ * Живёт здесь, а не в странице, намеренно: `Date.now()` в теле серверного
+ * компонента — обращение к изменчивому во время рендера, и правило чистоты
+ * React справедливо на него ругается.
+ */
+export function startOfDaysAgo(timezone: string, days: number): Date {
+  return startOfDay(timezone, new Date(Date.now() - days * 86_400_000));
+}
+
 export async function getShift(tenantId: string, staffId: string, from: Date) {
   const rows = await db
     .select()
@@ -193,6 +204,14 @@ export async function getPeriodStats(tenantId: string, from: Date, to?: Date) {
     passUses: totals?.passUses ?? 0,
     /** всего денег пришло в кассу */
     revenue: serviceRevenue + passSales.revenue,
+    /**
+     * Начислено исполнителям за период.
+     *
+     * Именно начислено, а не выплачено: работа сделана, деньги человеку
+     * причитаются. Считать их своими до расчёта — тот же самообман, что
+     * не считать аренду.
+     */
+    payroll: byStaff.reduce((sum, s) => sum + s.earned, 0),
     cash: totals?.cash ?? 0,
     // средний чек считаем только по оплаченным на месте: иначе один
     // проданный абонемент на 40 000 раздувает его до неузнаваемости

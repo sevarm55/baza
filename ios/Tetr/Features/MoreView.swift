@@ -33,6 +33,12 @@ struct MoreView: View {
                 } label: {
                     row("tag.fill", "Ծառայություններ և գներ")
                 }
+
+                NavigationLink {
+                    ExpensesView().navigationTitle("Ծախսեր")
+                } label: {
+                    row("cart.fill", "Ծախսեր")
+                }
             }
 
             Section {
@@ -49,8 +55,7 @@ struct MoreView: View {
             if lock.available {
                 Section {
                     Toggle(isOn: $lock.enabled) {
-                        Label("Բացել \(lock.kindName)-ով", systemImage: "faceid")
-                            .font(.system(size: 16))
+                        row("faceid", "Բացել \(lock.kindName)-ով")
                     }
                 } footer: {
                     Text("Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից։")
@@ -82,9 +87,22 @@ struct MoreView: View {
         }
     }
 
+    /// Строка списка со значком.
+    ///
+    /// Цвет значка задан явно, а не унаследован от `.tint` приложения.
+    /// Причина не косметическая: на устройстве значки в строках списка
+    /// выходили системными синими, хотя текст рядом оставался грейповым, —
+    /// то есть до символов общий tint не доходил, а до текста доходил.
+    /// В симуляторе того же не было, так что полагаться на наследование
+    /// здесь нельзя: оно зависит от версии системы. Явный цвет одинаков
+    /// везде.
     private func row(_ icon: String, _ title: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.system(size: 16))
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: icon).foregroundStyle(Brand.grape)
+        }
+        .font(.system(size: 16))
     }
 
     /// Выгрузка приходит файлом и отдаётся системе: дальше человек сам
