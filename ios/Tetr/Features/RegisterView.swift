@@ -51,6 +51,7 @@ struct RegisterView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
         }
+        .preferredColorScheme(.dark)
         .task { await loadNiches() }
     }
 

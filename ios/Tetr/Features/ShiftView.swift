@@ -43,7 +43,7 @@ struct ShiftView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 110)
         }
-        .background(Brand.bg)
+        .screenBackground()
         .safeAreaInset(edge: .bottom) {
             Button("+ \(session.tenant?.unitOne ?? "")") {
                 recording = true

@@ -44,7 +44,7 @@ struct OrderFlowView: View {
                     }
                 }
             }
-            .background(Brand.bg)
+            .screenBackground()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if !saved {

@@ -51,7 +51,7 @@ struct MoreView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Brand.bg)
+        .screenBackground()
         .sheet(item: $exported) { url in
             ShareSheet(url: url)
         }

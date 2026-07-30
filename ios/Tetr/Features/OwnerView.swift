@@ -49,7 +49,7 @@ struct OwnerView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
-        .background(Brand.bg)
+        .screenBackground()
         .task { await reload() }
         .refreshable { await reload() }
         .alert(
@@ -91,7 +91,7 @@ struct OwnerView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
-                    period == key ? Brand.grape : .clear,
+                    period == key ? Brand.grapeFill : .clear,
                     in: Capsule()
                 )
             }

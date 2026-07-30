@@ -39,7 +39,7 @@ struct ClientsView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(Brand.bg)
+        .screenBackground()
         .task { await reload() }
         .refreshable { await reload() }
     }

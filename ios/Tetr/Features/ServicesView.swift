@@ -52,7 +52,7 @@ struct ServicesView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(Brand.bg)
+        .screenBackground()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { adding = true } label: { Image(systemName: "plus") }

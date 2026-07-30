@@ -84,6 +84,9 @@ struct LoginView: View {
             .padding(.horizontal, 24)
         }
         .onAppear { focus = .phone }
+        // Экран стоит на грейпе, и он тёмный при любой теме телефона:
+        // иначе строка состояния становится чёрной на тёмно-фиолетовом
+        .preferredColorScheme(.dark)
         .fullScreenCover(isPresented: $registering) {
             RegisterView()
         }

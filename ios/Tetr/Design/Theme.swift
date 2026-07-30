@@ -6,24 +6,65 @@ import SwiftUI
 /// предел яркости, и по светлому фону даёт контраст 1.06 — линия или
 /// подпись этим цветом просто не видны. Поэтому лайм живёт только
 /// заливкой под тёмный текст, а всё структурное держит грейп.
+/// Цвет, который знает про тёмную тему.
+///
+/// Без этого экраны читались только днём: стекло и системные списки в
+/// тёмной адаптируются сами, а прибитый гвоздями тёмный текст остаётся
+/// тёмным — и ложится на тёмное. Ровно это и случилось в полночь.
+private func adaptive(light: UInt32, dark: UInt32) -> Color {
+    Color(uiColor: UIColor { traits in
+        UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+    })
+}
+
+private extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
 enum Brand {
-    static let grape = Color(red: 0x6D / 255, green: 0x28 / 255, blue: 0xD9 / 255)
+    /* Марка одинакова в обеих темах: грейп и лайм — это она и есть,
+       а не элемент интерфейса. Меняется только окружение. */
+    static let grapeFill = Color(red: 0x6D / 255, green: 0x28 / 255, blue: 0xD9 / 255)
     static let grapeDeep = Color(red: 0x2E / 255, green: 0x10 / 255, blue: 0x65 / 255)
     static let grapeMid = Color(red: 0x4C / 255, green: 0x1D / 255, blue: 0x95 / 255)
     static let lime = Color(red: 0xD7 / 255, green: 1, blue: 0)
     static let onLime = Color(red: 0x2E / 255, green: 0x10 / 255, blue: 0x65 / 255)
 
-    static let ink = Color(red: 0x1A / 255, green: 0x16 / 255, blue: 0x26 / 255)
-    static let muted = Color(red: 0x56 / 255, green: 0x50 / 255, blue: 0x6B / 255)
-    static let line = Color(red: 0xE5 / 255, green: 0xE2 / 255, blue: 0xEC / 255)
-    static let bg = Color(red: 0xFA / 255, green: 0xF9 / 255, blue: 0xFC / 255)
-    static let good = Color(red: 0x04 / 255, green: 0x78 / 255, blue: 0x57 / 255)
+    /* Грейп как ТЕКСТ на тёмном фоне тонет — там он светлеет.
+       Как заливка кнопки остаётся прежним: белый по нему читается
+       одинаково на любой теме. */
+    static let grape = adaptive(light: 0x6D28D9, dark: 0xA78BFA)
+
+    static let ink = adaptive(light: 0x1A1626, dark: 0xF7F5FB)
+    static let muted = adaptive(light: 0x56506B, dark: 0xA9A2BD)
+    static let line = adaptive(light: 0xE5E2EC, dark: 0x362F47)
+    static let bg = adaptive(light: 0xFAF9FC, dark: 0x120F1A)
+    static let good = adaptive(light: 0x047857, dark: 0x34D399)
 
     static let heroGradient = LinearGradient(
         colors: [grapeMid, grapeDeep],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+}
+
+extension View {
+    /// Фон на весь экран, а не по размеру содержимого.
+    ///
+    /// `.background` красит ровно то, к чему прицеплен. На экране зарплат
+    /// с одной строчкой «платить нечего» это давало белую полосу по ширине
+    /// текста и чёрные поля по бокам. Растягиваем явно.
+    func screenBackground() -> some View {
+        frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Brand.bg.ignoresSafeArea())
+    }
 }
 
 /// Деньги.
