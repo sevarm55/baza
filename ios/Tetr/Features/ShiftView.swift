@@ -24,6 +24,7 @@ struct ShiftView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                greeting
                 earnings
 
                 if !queue.waiting.isEmpty {
@@ -68,6 +69,30 @@ struct ShiftView: View {
     /// значит показывать пустоту: цифра верная, но смысла в ней никакого.
     /// Ему важна выручка смены, и она и становится главной.
     private var takesShare: Bool { (shift?.percent ?? 0) > 0 }
+
+    /// Приветствие по времени суток.
+    ///
+    /// Единственное место, где продукт обращается к человеку по имени.
+    /// Стоит десять строк, а экран перестаёт быть казённым — мойщик
+    /// открывает его сорок раз за смену, и каждый раз его встречала
+    /// таблица.
+    private var greeting: some View {
+        Text(session.me.map { "\(hello), \($0.name)" } ?? hello)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Brand.muted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
+    }
+
+    private var hello: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: return "Բարի լույս"
+        case 12..<18: return "Բարի օր"
+        case 18..<24: return "Բարի երեկո"
+        // ночью «доброй ночи» звучит прощанием, поэтому нейтральное
+        default: return "Բարև"
+        }
+    }
 
     private var earnings: some View {
         VStack(alignment: .leading, spacing: 6) {

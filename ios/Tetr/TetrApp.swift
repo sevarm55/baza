@@ -68,7 +68,25 @@ struct RootView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
 
+    @State private var onboarding = false
+
     var body: some View {
+        #if DEBUG
+        /* Посмотреть онбординг, не входя в аккаунт и не сбрасывая
+           состояние: `xcrun simctl launch <udid> org.tetr.app --onboarding`.
+           Тем же способом здесь запускаются проверки разбора номера. */
+        if CommandLine.arguments.contains("--onboarding") {
+            OnboardingView {}
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch session.state {
         case .checking:
             ZStack {
@@ -89,6 +107,21 @@ struct RootView: View {
                 LockView()
             } else {
                 MainTabs()
+                    /* Онбординг только владельцу и только один раз. Мойщик
+                       открывает приложение, чтобы записать машину, — у него
+                       на площадке стоит клиент, и объяснять ему устройство
+                       зарплаты и расходов значит задержать работу. */
+                    .fullScreenCover(isPresented: $onboarding) {
+                        OnboardingView {
+                            Onboarding.seen = true
+                            onboarding = false
+                        }
+                    }
+                    .task {
+                        if session.me?.isOwner == true && !Onboarding.seen {
+                            onboarding = true
+                        }
+                    }
             }
         }
     }
