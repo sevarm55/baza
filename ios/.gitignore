@@ -8,3 +8,12 @@ build/
 *.xcuserstate
 xcuserdata/
 Tetr/Info.plist
+
+# Слои иконки. Их делает `npm run icon:split` из AppIcon.src.png, а готовые
+# уже лежат внутри AppIcon.icon — держать в git третью копию незачем.
+#
+# Слэш в начале обязателен: без него правило прячет файлы с такими же
+# именами на любой глубине, включая те самые слои внутри AppIcon.icon,
+# и сборка на чистой машине осталась бы без иконки.
+/AppIcon.foreground.png
+/AppIcon.background.png

@@ -14,6 +14,7 @@ export function GET() {
     niches: ACTIVE_NICHES.map((n) => ({
       key: n.key,
       icon: n.icon,
+      symbol: n.symbol,
       name: n.name,
       tag: n.tag,
       defaultName: n.name,

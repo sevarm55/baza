@@ -11,10 +11,14 @@ import SwiftUI
 /// Без этого экраны читались только днём: стекло и системные списки в
 /// тёмной адаптируются сами, а прибитый гвоздями тёмный текст остаётся
 /// тёмным — и ложится на тёмное. Ровно это и случилось в полночь.
-private func adaptive(light: UInt32, dark: UInt32) -> Color {
-    Color(uiColor: UIColor { traits in
+private func adaptiveUI(light: UInt32, dark: UInt32) -> UIColor {
+    UIColor { traits in
         UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
-    })
+    }
+}
+
+private func adaptive(light: UInt32, dark: UInt32) -> Color {
+    Color(uiColor: adaptiveUI(light: light, dark: dark))
 }
 
 private extension UIColor {
@@ -40,7 +44,13 @@ enum Brand {
     /* Грейп как ТЕКСТ на тёмном фоне тонет — там он светлеет.
        Как заливка кнопки остаётся прежним: белый по нему читается
        одинаково на любой теме. */
-    static let grape = adaptive(light: 0x6D28D9, dark: 0xA78BFA)
+    static let grape = Color(uiColor: grapeUI)
+
+    /// Тот же грейп, но для UIKit.
+    ///
+    /// Нужен там, куда SwiftUI не дотягивается: спиннер обновления в
+    /// списке — это UIRefreshControl, и `.tint` его не красит.
+    static let grapeUI = adaptiveUI(light: 0x6D28D9, dark: 0xA78BFA)
 
     static let ink = adaptive(light: 0x1A1626, dark: 0xF7F5FB)
     static let muted = adaptive(light: 0x56506B, dark: 0xA9A2BD)

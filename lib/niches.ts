@@ -19,7 +19,19 @@ export type NicheKey =
 
 export type Niche = {
   key: NicheKey;
+  /** Значок для веба. Эмодзи рисуется в любом браузере и без ассетов. */
   icon: string;
+  /**
+   * То же самое для приложения — имя из SF Symbols.
+   *
+   * Эмодзи в нативной карточке выглядит чужим: он цветной, не подчиняется
+   * тёмной теме и не совпадает по весу с остальными значками экрана.
+   * Поэтому поля два, и каждое едет своему клиенту.
+   *
+   * Имена проверяются глазами и по системному списку: несуществующий
+   * символ не роняет сборку, он просто рисует пустоту.
+   */
+  symbol: string;
   /**
    * Показывать ли нишу при регистрации.
    *
@@ -56,7 +68,10 @@ export const NICHES: Record<NicheKey, Niche> = {
   carwash: {
     key: 'carwash',
     enabled: true,
-    icon: '🚿',
+    // Не душ: душ — это ванная. Учитывают здесь машины, и значок должен
+    // говорить об этом с первого взгляда.
+    icon: '🚗',
+    symbol: 'car.front.waves.up.fill',
     name: 'Ավտոլվացում',
     tag: 'Հերթափոխ, լվացողներ, տոկոս մեքենայից',
     clientIdLabel: 'Պետհամարանիշ',
@@ -82,6 +97,9 @@ export const NICHES: Record<NicheKey, Niche> = {
     key: 'dental',
     enabled: false,
     icon: '🦷',
+    // Зуба в SF Symbols нет; чемоданчик читается как медицина, а название
+    // рядом и так говорит, какая именно.
+    symbol: 'cross.case.fill',
     name: 'Ատամնաբուժարան',
     tag: 'Ընդունելություններ, բժիշկներ, հիվանդների բազա',
     clientIdLabel: 'Հիվանդի հեռախոս',
@@ -107,6 +125,7 @@ export const NICHES: Record<NicheKey, Niche> = {
     key: 'autoservice',
     enabled: false,
     icon: '🔧',
+    symbol: 'wrench.and.screwdriver.fill',
     name: 'Ավտոսերվիս',
     tag: 'Պատվերներ, վարպետներ, մեքենայի պատմություն',
     clientIdLabel: 'Պետհամարանիշ',
@@ -132,6 +151,7 @@ export const NICHES: Record<NicheKey, Niche> = {
     key: 'barber',
     enabled: false,
     icon: '💈',
+    symbol: 'scissors',
     name: 'Բարբերշոփ',
     tag: 'Հաճախորդներ, բարբերներ, տոկոս սանրվածքից',
     clientIdLabel: 'Հաճախորդի հեռախոս',
@@ -157,6 +177,7 @@ export const NICHES: Record<NicheKey, Niche> = {
     key: 'cleaning',
     enabled: false,
     icon: '🧹',
+    symbol: 'bubbles.and.sparkles.fill',
     name: 'Մաքրման ծառայություն',
     tag: 'Այցեր, բրիգադներ, տոկոս օբյեկտից',
     clientIdLabel: 'Պատվիրատուի հեռախոս',
@@ -182,6 +203,7 @@ export const NICHES: Record<NicheKey, Niche> = {
     key: 'vet',
     enabled: false,
     icon: '🐾',
+    symbol: 'pawprint.fill',
     name: 'Անասնաբուժարան',
     tag: 'Ընդունելություններ, բժիշկներ, կենդանու քարտ',
     clientIdLabel: 'Տիրոջ հեռախոս',

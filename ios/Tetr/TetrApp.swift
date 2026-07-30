@@ -10,6 +10,12 @@ struct TetrApp: App {
     @Environment(\.scenePhase) private var phase
 
     init() {
+        /* Спиннер «потяни, чтобы обновить» — это UIRefreshControl из UIKit,
+           и общий `.tint` приложения его не касается: он остаётся системным
+           серым. Красим через appearance, другого входа к нему SwiftUI не
+           даёт. Цвет адаптивный — иначе в тёмной теме он потонет. */
+        UIRefreshControl.appearance().tintColor = Brand.grapeUI
+
         #if DEBUG
         /* Проверки чистой логики прогоняются запуском с флагом:
            `xcrun simctl launch <udid> org.tetr.app --self-test`.
@@ -93,7 +99,12 @@ struct MainTabs: View {
 
     var body: some View {
         TabView {
-            Tab("Հերթափոխ", systemImage: "drop.fill") {
+            /* Планшет с записями, а не капля. Капля — это автомойка, а ниш
+               будет шесть: у стоматолога и барбера вода ни при чём. Экран
+               же во всех нишах один и тот же — журнал за смену, — и планшет
+               одинаково читается и как карта приёма, и как лист заказов.
+               Заодно это ровно то, что значит «Տետր». */
+            Tab("Հերթափոխ", systemImage: "list.clipboard.fill") {
                 NavigationStack {
                     ShiftView()
                         .navigationTitle(session.tenant?.name ?? "Տետր")

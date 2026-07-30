@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "icons": "tsx scripts/make-icons.ts",
+    "icon:split": "tsx scripts/split-icon.ts",
     "activate": "tsx scripts/activate.ts",
     "trial": "tsx scripts/set-trial.ts",
     "smoke": "tsx scripts/smoke.ts"

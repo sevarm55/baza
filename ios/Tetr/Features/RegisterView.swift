@@ -68,7 +68,13 @@ struct RegisterView: View {
                     businessName = niche.defaultName
                 } label: {
                     HStack(spacing: 14) {
-                        Text(niche.icon).font(.system(size: 26))
+                        /* Ширина фиксирована: значки разной ширины —
+                           ножницы узкие, машина широкая, — и без рамки
+                           названия ниш разъехались бы по строкам. */
+                        Image(systemName: niche.glyph)
+                            .font(.system(size: 22))
+                            .foregroundStyle(Brand.lime)
+                            .frame(width: 32)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(niche.name)
                                 .font(.system(size: 17, weight: .semibold))
