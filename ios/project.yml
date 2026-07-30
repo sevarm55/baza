@@ -37,17 +37,24 @@ targets:
     platform: iOS
     sources:
       - path: Tetr
+    # Info.plist генерируется отсюда. Не через INFOPLIST_KEY_*: фоновые
+    # режимы и список разрешённых фоновых задач в тот механизм не входят,
+    # а без них система задачу просто не запустит.
+    info:
+      path: Tetr/Info.plist
+      properties:
+        CFBundleDisplayName: Տետր
+        UILaunchScreen: {}
+        # Экран записи живёт вертикально: мойщик держит телефон одной рукой
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: Համարանիշը սկանավորելու համար
+        NSFaceIDUsageDescription: Որպեսզի PIN-ը ամեն անգամ չհավաքեք
+        # Досылка очереди, когда приложение закрыто
+        UIBackgroundModes: [processing]
+        BGTaskSchedulerPermittedIdentifiers: [org.tetr.app.flush]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.tetr.app
-        # Info.plist собирается из настроек ниже, отдельного файла нет:
-        # один источник вместо двух, которые разъезжаются
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Տետր
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        # Экран записи живёт вертикально: мойщик держит телефон одной рукой
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        # Камера понадобится для сканера номера — фаза 3
-        INFOPLIST_KEY_NSCameraUsageDescription: Համարանիշը սկանավորելու համար
+        GENERATE_INFOPLIST_FILE: NO
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         SWIFT_EMIT_LOC_STRINGS: YES

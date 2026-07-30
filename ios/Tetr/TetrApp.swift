@@ -4,6 +4,10 @@ import SwiftUI
 struct TetrApp: App {
     @StateObject private var session = Session()
     @StateObject private var queue = OrderQueue()
+    @StateObject private var lock = BiometricLock()
+    @StateObject private var net = Connectivity()
+
+    @Environment(\.scenePhase) private var phase
 
     init() {
         #if DEBUG
@@ -15,6 +19,9 @@ struct TetrApp: App {
             exit(Int32(PlateReaderTests.run()))
         }
         #endif
+
+        // до конца запуска, иначе система не знает идентификатора задачи
+        BackgroundSync.register()
     }
 
     var body: some Scene {
@@ -22,19 +29,38 @@ struct TetrApp: App {
             RootView()
                 .environmentObject(session)
                 .environmentObject(queue)
+                .environmentObject(lock)
+                .environmentObject(net)
                 .tint(Brand.grape)
+                .task {
+                    BackgroundSync.use(session: session, queue: queue)
+                    // связь вернулась — досылаем тут же, не дожидаясь,
+                    // пока человек снова откроет экран смены
+                    net.onReturn = {
+                        Task { await queue.flush(using: session) }
+                    }
+                }
+                .onChange(of: phase) { _, new in
+                    switch new {
+                    case .background:
+                        BackgroundSync.schedule()
+                        lock.lockIfNeeded(hasSession: session.state == .signedIn)
+                    default:
+                        break
+                    }
+                }
         }
     }
 }
 
-/// Что показывать: вход, кабинет или экран смены.
+/// Что показывать: замок, вход, кабинет или экран смены.
 ///
 /// Роль приходит с сервера в `/bootstrap`, и приложение не решает её само.
 /// Владелец, который сам моет машины, видит обе вкладки — на маленькой
 /// мойке это один и тот же человек.
 struct RootView: View {
     @EnvironmentObject private var session: Session
-    @EnvironmentObject private var queue: OrderQueue
+    @EnvironmentObject private var lock: BiometricLock
 
     var body: some View {
         switch session.state {
@@ -43,20 +69,27 @@ struct RootView: View {
                 Brand.heroGradient.ignoresSafeArea()
                 ProgressView().tint(.white)
             }
-            .task { await session.start() }
+            .preferredColorScheme(.dark)
+            .task {
+                await session.start()
+                lock.lockIfNeeded(hasSession: session.state == .signedIn)
+            }
 
         case .signedOut:
             LoginView()
 
         case .signedIn:
-            MainTabs()
+            if lock.locked {
+                LockView()
+            } else {
+                MainTabs()
+            }
         }
     }
 }
 
 struct MainTabs: View {
     @EnvironmentObject private var session: Session
-    @EnvironmentObject private var queue: OrderQueue
 
     var body: some View {
         TabView {

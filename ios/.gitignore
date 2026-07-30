@@ -7,3 +7,4 @@ DerivedData/
 build/
 *.xcuserstate
 xcuserdata/
+Tetr/Info.plist

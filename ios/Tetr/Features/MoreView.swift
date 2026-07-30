@@ -7,6 +7,7 @@ import SwiftUI
 /// месяц — ему там не место.
 struct MoreView: View {
     @EnvironmentObject private var session: Session
+    @EnvironmentObject private var lock: BiometricLock
 
     @State private var exporting = false
     @State private var exported: URL?
@@ -42,6 +43,17 @@ struct MoreView: View {
                 .disabled(exporting)
             } footer: {
                 Text("Ձեր տվյալները ձերն են՝ ցանկացած պահի։")
+            }
+
+            if lock.available {
+                Section {
+                    Toggle(isOn: $lock.enabled) {
+                        Label("Բացել \(lock.kindName)-ով", systemImage: "faceid")
+                            .font(.system(size: 16))
+                    }
+                } footer: {
+                    Text("Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից։")
+                }
             }
 
             Section {
