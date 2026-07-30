@@ -45,13 +45,16 @@ struct ShiftView: View {
         }
         .screenBackground()
         .safeAreaInset(edge: .bottom) {
+            /* Без подложки под кнопкой. Материал там был лишним: кнопка
+               непрозрачная, закрывать ей нечего, а на тёмной теме он
+               читался отдельной серой плитой от кнопки до самого низа.
+               Содержимое уезжает под кнопку — так и задумано. */
             Button("+ \(session.tenant?.unitOne ?? "")") {
                 recording = true
             }
             .buttonStyle(LimeButton())
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
-            .background(.ultraThinMaterial)
         }
         .fullScreenCover(isPresented: $recording) {
             OrderFlowView { await reload() }
