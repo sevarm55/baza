@@ -17,41 +17,63 @@ struct ServicesView: View {
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                ForEach(services) { service in
-                    Button {
-                        editing = service
-                    } label: {
-                        HStack {
-                            Text(service.name)
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            Text(money(service.price, currency))
-                                .font(.system(size: 15, weight: .semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(Brand.muted)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Brand.muted.opacity(0.5))
-                        }
-                        .padding(15)
-                        .frame(maxWidth: .infinity)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        /* Список, а не прокрутка со стопкой кнопок: свайп по строке
+           существует только в List. Плитки при этом остались стеклянными —
+           системная подложка и разделители убраны. */
+        List {
+            ForEach(services) { service in
+                Button {
+                    editing = service
+                } label: {
+                    HStack {
+                        Text(service.name)
+                            .font(.system(size: 16, weight: .semibold))
+                        Spacer()
+                        Text(money(service.price, currency))
+                            .font(.system(size: 15, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.muted)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Brand.muted.opacity(0.5))
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Brand.ink)
+                    .padding(15)
+                    .frame(maxWidth: .infinity)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
                 }
-
-                Text("Գնի փոփոխությունը չի ազդում արդեն կատարված գրանցումների վրա։")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Brand.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 6)
+                .buttonStyle(.plain)
+                .foregroundStyle(Brand.ink)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
+                /* Свайп — второй путь к тому же действию, что в редакторе.
+                   Подтверждения нет намеренно: система и так требует двух
+                   движений — смахнуть и нажать, — а услуга не удаляется,
+                   а уходит из прайса. История записей остаётся. */
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        Task { await archive(service) }
+                    } label: {
+                        Label("Հեռացնել", systemImage: "trash")
+                    }
+                    /* Красный явно: общий цвет приложения перекрывает
+                       системный, и «удалить» выходит грейповым — то есть
+                       неотличимым от обычного действия. Восстановить
+                       услугу из приложения нельзя, и предупредить об этом
+                       должен цвет, а не только текст. */
+                    .tint(.red)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+
+            Text("Գնի փոփոխությունը չի ազդում արդեն կատարված գրանցումների վրա։")
+                .font(.system(size: 12.5))
+                .foregroundStyle(Brand.muted)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 10, leading: 16, bottom: 5, trailing: 16))
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .screenBackground()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -66,6 +88,18 @@ struct ServicesView: View {
         }
         .task { await reload() }
         .refreshable { await reload() }
+    }
+
+    /// Убираем из прайса. Строка исчезает сразу, не дожидаясь сервера:
+    /// иначе после смахивания она секунду стоит на месте и кажется, что
+    /// не сработало. Не получилось — вернём при следующем обновлении.
+    private func archive(_ service: API.Service) async {
+        services.removeAll { $0.id == service.id }
+
+        _ = try? await session.authed { token in
+            try await APIClient.shared.raw("services/\(service.id)", method: "DELETE", token: token)
+        }
+        await reload()
     }
 
     private func reload() async {
