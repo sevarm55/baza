@@ -11,6 +11,7 @@ struct MoreView: View {
 
     @State private var exporting = false
     @State private var exported: URL?
+    @State private var deleting = false
 
     var body: some View {
         List {
@@ -61,11 +62,23 @@ struct MoreView: View {
                     Task { await session.signOut() }
                 }
             }
+
+            /* Отдельной секцией в самом низу, а не рядом с выходом:
+               «выйти» и «стереть всё» не должны стоять двумя соседними
+               красными строчками, где промах пальцем стоит бизнеса. */
+            Section {
+                Button("Ջնջել բիզնեսը", role: .destructive) { deleting = true }
+            } footer: {
+                Text("Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ։")
+            }
         }
         .scrollContentBackground(.hidden)
         .screenBackground()
         .sheet(item: $exported) { url in
             ShareSheet(url: url)
+        }
+        .sheet(isPresented: $deleting) {
+            DeleteBusinessView()
         }
     }
 
@@ -99,8 +112,17 @@ extension URL: @retroactive Identifiable {
 struct ShareSheet: UIViewControllerRepresentable {
     let url: URL
 
+    /// Сохранил файл или передумал.
+    ///
+    /// Нужно там, где за передачей файла следует необратимое действие:
+    /// закрытый крестиком лист обмена не должен считаться сохранением,
+    /// иначе человек лишится и данных, и копии.
+    var onFinish: ((Bool) -> Void)?
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in onFinish?(completed) }
+        return controller
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}

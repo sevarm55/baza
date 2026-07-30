@@ -99,10 +99,31 @@ final class Session: ObservableObject {
         if let refreshToken {
             _ = try? await api.raw("auth/logout", method: "POST", body: ["refresh": refreshToken])
         }
+        forget()
+    }
+
+    /// Удалить бизнес насовсем.
+    ///
+    /// Выходим через `forget`, а не через `signOut`: гасить сессию на
+    /// сервере уже некому и незачем — вместе с бизнесом удалились и она,
+    /// и сам пользователь. Запрос в `/auth/logout` ушёл бы в пустоту с
+    /// мёртвым токеном.
+    ///
+    /// Сотрудники отдельного действия не требуют: они удаляются там же,
+    /// на сервере, и теряют доступ в тот же момент.
+    func deleteBusiness(pin: String) async throws {
+        _ = try await authed { token in
+            try await self.api.raw("account", method: "DELETE", body: ["pin": pin], token: token)
+        }
+        forget()
+    }
+
+    private func forget() {
         accessToken = nil
         refreshToken = nil
         tenant = nil
         me = nil
+        access = nil
         services = []
         state = .signedOut
     }
@@ -126,7 +147,7 @@ final class Session: ObservableObject {
 
         do {
             return try await work(token)
-        } catch let error as APIError where error.isUnauthorized {
+        } catch let error as APIError where error.isStaleToken {
             guard let refreshed = try? await renew() else {
                 state = .signedOut
                 throw error

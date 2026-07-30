@@ -7,10 +7,26 @@ import { saveBusiness } from '@/app/actions';
 import { ServiceRow } from '@/components/service-row';
 import { AddServiceForm } from './add-service-form';
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ delete?: string }>;
+}) {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/session-ended');
+
+  /* Маршрут удаления возвращает сюда с причиной отказа: показать её
+     формой он не может — ответом уходит либо файл, либо редирект. */
+  const failure = (await searchParams).delete;
+  const deleteError =
+    failure === 'pin'
+      ? hy.settings.deleteWrongPin
+      : failure === 'throttled'
+        ? hy.settings.deleteThrottled
+        : failure
+          ? hy.settings.deleteFailed
+          : null;
 
   const services = await listServices(tenant.id);
   const symbol = currencySymbol(tenant.currency);
@@ -54,6 +70,48 @@ export default async function SettingsPage() {
         </label>
         <button className="btn">{hy.settings.save}</button>
       </form>
+
+      {/* Самым низом страницы и за раскрывающимся заголовком: действие
+          необратимое, и на глаза оно попадаться не должно — его ищут
+          осознанно. */}
+      <h2 className="h-section">{hy.settings.deleteTitle}</h2>
+      <details className="card">
+        <summary className="cursor-pointer text-sm font-semibold">
+          {hy.settings.deleteTitle}
+        </summary>
+
+        <p className="note mt-3">{hy.settings.deleteWhat}</p>
+        <p className="note mt-1.5 font-semibold text-red-600">{hy.settings.deleteNoWayBack}</p>
+
+        <form method="post" action="/owner/settings/delete" className="mt-3.5 grid gap-2.5">
+          <label className="grid gap-1.5">
+            <span className="label">{hy.settings.deletePin}</span>
+            <input
+              className="field"
+              name="pin"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              autoComplete="off"
+              required
+            />
+          </label>
+
+          {deleteError && <p className="note font-semibold text-red-600">{deleteError}</p>}
+
+          {/* Сохраняющий путь первым: по умолчанию человек уносит свои
+              данные с собой, а не теряет их молча. */}
+          <button className="btn" name="mode" value="keep">
+            {hy.settings.deleteKeep}
+          </button>
+          <button className="btn btn-ghost text-red-600" name="mode" value="wipe">
+            {hy.settings.deleteWipe}
+          </button>
+        </form>
+
+        <p className="note mt-2.5">{hy.settings.deleteHint}</p>
+      </details>
     </>
   );
 }

@@ -19,8 +19,8 @@ export async function GET(request: Request) {
   const tenant = await getTenant(session.tid);
   if (!tenant) return new Response('Not found', { status: 404 });
 
-  const days = Number(new URL(request.url).searchParams.get('days') ?? 30);
-  const csv = await buildOrdersCsv(tenant, days);
+  const raw = new URL(request.url).searchParams.get('days') ?? '30';
+  const csv = await buildOrdersCsv(tenant, raw === 'all' ? 'all' : Number(raw));
 
   return new Response(csv.content, {
     headers: {

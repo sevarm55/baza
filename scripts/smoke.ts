@@ -706,6 +706,20 @@ async function main() {
     nichesBody.niches.length,
   );
 
+  /* Значок для приложения — имя из SF Symbols. Неверное имя не роняет
+     сборку: iOS рисует на его месте пустоту, и в карточке ниши остаётся
+     дыра. Проверяем все ниши, а не только включённые: остальные включат
+     позже, и молчаливая дыра всплывёт уже у живого клиента. */
+  const { NICHE_LIST } = await import('../lib/niches');
+  const naming = /^[a-z0-9]+(\.[a-z0-9]+)*$/;
+  const badSymbol = NICHE_LIST.filter((n) => !naming.test(n.symbol ?? ''));
+  check('у каждой ниши есть символ SF Symbols', badSymbol.length === 0, badSymbol.map((n) => n.key));
+  check(
+    'и он доехал до приложения',
+    nichesBody.niches.every((n: { symbol?: string }) => naming.test(n.symbol ?? '')),
+    nichesBody.niches,
+  );
+
   const born = await registerRoute(
     post('/register', {
       niche: nichesBody.niches[0].key,
@@ -832,6 +846,117 @@ async function main() {
 
   const csv = await csvRes.text();
   check('и с точкой с запятой в разделителях', csv.split('\r\n')[0].includes(';'));
+
+  const csvAll = await exportRoute.GET(get('/export?days=all', rotated.access));
+  check('выгрузка за всё время отдаётся', csvAll.status === 200, csvAll.status);
+  check(
+    'и она не короче тридцатидневной',
+    (await csvAll.text()).split('\r\n').length >= csv.split('\r\n').length,
+  );
+
+  /* ---------- удаление бизнеса ---------- */
+
+  const accountRoute = (await import('../app/api/v1/account/route')).DELETE;
+  const { orders, tenants: tenantTable, loginAttempts } = await import('../lib/db/schema');
+  const { normalizePhone } = await import('../lib/phone');
+
+  const del = (url: string, json: unknown, token?: string) =>
+    new Request(`http://t${url}`, {
+      method: 'DELETE',
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify(json),
+    });
+
+  /* Удаляем бизнес, заведённый из приложения. Бизнес №1 при этом обязан
+     остаться целым: удаление — самая опасная операция в продукте, и
+     проверка изоляции здесь важнее всех остальных. */
+  const victimPhone = normalizePhone('077 654 321') as string;
+  const [victimOwner] = await db.select().from(users).where(eq(users.phone, victimPhone));
+  const victimId = victimOwner.tenantId;
+
+  await staffRoute.POST(
+    post(
+      '/staff',
+      { name: 'Հասմիկ', phone: '077 654 322', pin: '4321', percent: 30 },
+      bornBody.access,
+    ),
+  );
+  const helperRes = await login(post('/login', { phone: '077 654 322', pin: '4321' }));
+  const helper = await helperRes.json();
+  check('сотрудник удаляемого бизнеса входит', helperRes.status === 200, helperRes.status);
+
+  const wipeByStaff = await accountRoute(del('/account', { pin: '4321' }, helper.access));
+  check('сотрудник удалить бизнес не может', wipeByStaff.status === 403, wipeByStaff.status);
+
+  const wrongPin = await accountRoute(del('/account', { pin: '0000' }, bornBody.access));
+  check('с неверным PIN — отказ', wrongPin.status === 401, wrongPin.status);
+  check('и это WRONG_CREDENTIALS', (await wrongPin.json()).error === 'WRONG_CREDENTIALS');
+  const survived = await bootstrap(get('/bootstrap', bornBody.access));
+  check('после отказа бизнес на месте', survived.status === 200, survived.status);
+
+  const neighbourBefore = await db.select().from(orders).where(eq(orders.tenantId, tenant.id));
+
+  const wiped = await accountRoute(del('/account', { pin: '9876' }, bornBody.access));
+  check('владелец удаляет бизнес', wiped.status === 204, wiped.status);
+  check('204 приходит без тела', (await wiped.text()) === '');
+
+  const [ghost] = await db.select().from(tenantTable).where(eq(tenantTable.id, victimId));
+  check('тенант исчез', ghost === undefined);
+  for (const [what, rows] of [
+    ['люди', await db.select().from(users).where(eq(users.tenantId, victimId))],
+    ['услуги', await db.select().from(services).where(eq(services.tenantId, victimId))],
+    ['записи', await db.select().from(orders).where(eq(orders.tenantId, victimId))],
+  ] as const) {
+    check(`${what} удалены каскадом`, rows.length === 0, rows.length);
+  }
+
+  const ownerGone = await bootstrap(get('/bootstrap', bornBody.access));
+  check('токен владельца мёртв', ownerGone.status === 401, ownerGone.status);
+  const helperGone = await bootstrap(get('/bootstrap', helper.access));
+  check('сотрудник теряет доступ тем же мгновением', helperGone.status === 401, helperGone.status);
+
+  const leftAttempts = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.phone, victimPhone));
+  check('попытки входа по номеру очищены', leftAttempts.length === 0, leftAttempts.length);
+
+  const neighbourAfter = await db.select().from(orders).where(eq(orders.tenantId, tenant.id));
+  check(
+    'соседний бизнес не задет',
+    neighbourAfter.length === neighbourBefore.length,
+    [neighbourBefore.length, neighbourAfter.length],
+  );
+  const neighbourBoot = await bootstrap(get('/bootstrap', rotated.access));
+  check('и его владелец работает дальше', neighbourBoot.status === 200, neighbourBoot.status);
+
+  const reborn = await registerRoute(
+    post('/register', {
+      niche: nichesBody.niches[0].key,
+      businessName: 'Կրկին',
+      ownerName: 'Կարեն',
+      phone: '077 654 321',
+      pin: '5555',
+      device: 'iPhone',
+    }),
+  );
+  check('номер освободился — можно завестись заново', reborn.status === 201, reborn.status);
+
+  /* Отключённый за неуплату обязан иметь возможность уйти вместе со
+     своими данными: иначе блокировка удерживает чужое. */
+  const rebornBody = await reborn.json();
+  const [rebornOwner] = await db.select().from(users).where(eq(users.phone, victimPhone));
+  await db
+    .update(tenantTable)
+    .set({ plan: 'blocked' })
+    .where(eq(tenantTable.id, rebornOwner.tenantId));
+
+  const blockedBoot = await bootstrap(get('/bootstrap', rebornBody.access));
+  check('отключённого в приложение не пускают', blockedBoot.status === 403, blockedBoot.status);
+  const blockedExport = await exportRoute.GET(get('/export?days=all', rebornBody.access));
+  check('но выгрузку он получает', blockedExport.status === 200, blockedExport.status);
+  const blockedWipe = await accountRoute(del('/account', { pin: '5555' }, rebornBody.access));
+  check('и удалить себя может', blockedWipe.status === 204, blockedWipe.status);
 
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);

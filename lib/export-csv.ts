@@ -15,9 +15,15 @@ import { hy } from './i18n/hy';
  * владелец не должен обнаружить, что выгрузки с телефона и с компьютера
  * отличаются столбцами.
  */
-export async function buildOrdersCsv(tenant: Tenant, days: number) {
-  const safeDays = Number.isFinite(days) && days > 0 ? days : 30;
-  const from = new Date(Date.now() - safeDays * 86_400_000);
+export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
+  /* 'all' — с самого первого дня бизнеса. Нужно при удалении аккаунта:
+     прощальный архив за последние тридцать дней был бы обманом, человек
+     забирает всё или не забирает ничего. */
+  const from =
+    days === 'all'
+      ? tenant.createdAt
+      : new Date(Date.now() - (Number.isFinite(days) && days > 0 ? days : 30) * 86_400_000);
+
   const rows = await exportOrders(tenant.id, from);
 
   const header = [

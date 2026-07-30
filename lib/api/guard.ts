@@ -30,6 +30,15 @@ export type Need = {
   write?: boolean;
   /** только владелец */
   owner?: boolean;
+  /**
+   * Не смотреть на подписку.
+   *
+   * Нужно ровно одному действию — удалению аккаунта. Отключённый за
+   * неуплату владелец обязан иметь возможность уйти и забрать свои
+   * данные: иначе блокировка перестаёт быть напоминанием заплатить и
+   * становится удержанием чужого.
+   */
+  anyPlan?: boolean;
 };
 
 function bearer(request: Request): string | null {
@@ -55,8 +64,10 @@ export async function authorize(
   if (!tenant || !user || !user.active) return fail('UNAUTHORIZED', 401);
 
   const access = currentAccess(tenant);
-  if (!access.canRead) return fail('SUBSCRIPTION_BLOCKED', 403);
-  if (need.write && !access.canWrite) return fail('SUBSCRIPTION_EXPIRED', 402);
+  if (!need.anyPlan) {
+    if (!access.canRead) return fail('SUBSCRIPTION_BLOCKED', 403);
+    if (need.write && !access.canWrite) return fail('SUBSCRIPTION_EXPIRED', 402);
+  }
   if (need.owner && user.role !== 'owner') return fail('FORBIDDEN', 403);
 
   return { claims, tenant, user, access };
