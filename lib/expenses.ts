@@ -135,20 +135,28 @@ export async function getPeriodCosts(
   from: Date,
   to: Date = new Date(),
 ): Promise<PeriodCosts> {
+  /* Даты уходят строками с явным приведением, а не объектами Date.
+     Драйвер боевого Postgres (postgres-js) не умеет угадывать тип
+     параметра в сыром SQL и на объекте Date падает с ERR_INVALID_ARG_TYPE;
+     PGlite, на котором идут тесты, это прощает — поэтому ошибка вылезла
+     только на сервере. Строка плюс ::timestamptz однозначны для обоих. */
+  const fromAt = from.toISOString();
+  const toAt = to.toISOString();
+
   const [row] = await db
     .select({
       oneOff: sql<number>`coalesce(sum(${expenses.amount}) filter (
         where ${expenses.monthly} = false
-          and ${expenses.at} >= ${from}
-          and ${expenses.at} < ${to}
+          and ${expenses.at} >= ${fromAt}::timestamptz
+          and ${expenses.at} < ${toAt}::timestamptz
       ), 0)::int`,
 
       monthlyShare: sql<number>`coalesce(round(sum(
         case when ${expenses.monthly} then
           ${expenses.amount} * greatest(0, extract(epoch from (
-            least(coalesce(${expenses.endedAt}, ${to}::timestamptz), ${to}::timestamptz)
-            - greatest(${expenses.at}, ${from}::timestamptz)
-          )) / 86400.0) / ${DAYS_IN_MONTH}
+            least(coalesce(${expenses.endedAt}, ${toAt}::timestamptz), ${toAt}::timestamptz)
+            - greatest(${expenses.at}, ${fromAt}::timestamptz)
+          )) / 86400.0) / ${DAYS_IN_MONTH}::numeric
         else 0 end
       )), 0)::int`,
     })
