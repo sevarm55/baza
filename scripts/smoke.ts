@@ -26,7 +26,7 @@ async function main() {
   const { users, services } = await import('../lib/db/schema');
   const { hashPin } = await import('../lib/pin');
   const q = await import('../lib/queries');
-  const { eq } = await import('drizzle-orm');
+  const { and, eq, isNull, sql } = await import('drizzle-orm');
   const { formatMoney } = await import('../lib/money');
   const { TRIAL_DAYS } = await import('../lib/plan');
 
@@ -916,6 +916,60 @@ async function main() {
     'после ухода на смене пусто',
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
+
+  /* ---------- вечернее закрытие смен ---------- */
+
+  const { closeEvening, CLOSING_HOUR } = await import('../lib/shifts');
+  const { shifts: shiftTable } = await import('../lib/db/schema');
+
+  const evening = (hour: number) =>
+    new Date(q.startOfDay(tenant.timezone).getTime() + hour * 3_600_000);
+
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+
+  const tooEarly = await closeEvening(evening(CLOSING_HOUR - 1));
+  check('до восьми вечера ничего не закрывается', tooEarly.shifts === 0, tooEarly);
+
+  const atEight = await closeEvening(evening(CLOSING_HOUR));
+  check('в восемь закрывается', atEight.shifts === 1, atEight);
+
+  const [closedShift] = await db
+    .select()
+    .from(shiftTable)
+    .where(eq(shiftTable.tenantId, tenant.id))
+    .orderBy(sql`opened_at desc`)
+    .limit(1);
+  check(
+    'и закрывается временем 20:00, а не моментом запуска',
+    closedShift.closedAt?.getTime() === evening(CLOSING_HOUR).getTime(),
+    closedShift.closedAt?.toISOString(),
+  );
+
+  /* Повтор безвреден: cron перезапустится после сбоя и сходит второй раз,
+     и владельцу не должно прийти второе «смена закрыта». */
+  const twice = await closeEvening(evening(CLOSING_HOUR + 1));
+  check('повторный заход ничего не находит', twice.shifts === 0, twice);
+
+  /* Ночная смена — не забытый переключатель. Начатую после восьми не
+     трогаем, иначе человека выкидывало бы через минуту после выхода. */
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+  await db
+    .update(shiftTable)
+    .set({ openedAt: evening(CLOSING_HOUR + 1) })
+    .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
+
+  const night = await closeEvening(evening(CLOSING_HOUR + 2));
+  check('начатую после восьми не трогаем', night.shifts === 0, night);
+
+  // прибираем за собой: дальше по файлу смены проверяются заново
+  await db
+    .update(shiftTable)
+    .set({ closedAt: new Date() })
+    .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
+
+  const cronRoute = await import('../app/api/v1/cron/close-shifts/route');
+  const noSecret = await cronRoute.POST(new Request('http://t/cron', { method: 'POST' }));
+  check('без секрета маршрута как будто нет', noSecret.status === 404, noSecret.status);
 
   /* ---------- профиль и смена PIN ---------- */
 

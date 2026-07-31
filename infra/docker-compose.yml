@@ -59,6 +59,9 @@ services:
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
       APNS_TOPIC: ${APNS_TOPIC:-com.sevarm.tetr}
+      # Секрет для задач по расписанию. Пусто — маршрут отвечает 404, то
+      # есть его как будто нет.
+      CRON_SECRET: ${CRON_SECRET:-}
       # экземпляр один, поэтому миграции при старте безопасны
       MIGRATE_ON_START: '1'
     depends_on:

@@ -1,6 +1,7 @@
-import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
-import { shifts, users } from './db/schema';
+import { shifts, tenants, users } from './db/schema';
+import { startOfDay } from './queries';
 import { notifyOwnersInBackground } from './push';
 
 /**
@@ -77,6 +78,72 @@ export async function closeShift(tenantId: string, userId: string) {
     .update(shifts)
     .set({ closedAt: new Date() })
     .where(and(eq(shifts.tenantId, tenantId), eq(shifts.userId, userId), isNull(shifts.closedAt)));
+}
+
+/** Во сколько по местному времени смены закрываются сами. */
+export const CLOSING_HOUR = 20;
+
+/**
+ * Вечернее закрытие.
+ *
+ * Переключатель выключать забывают — смена кончилась, телефон убрали. До
+ * сих пор такая смена висела до следующего утра, и всю ночь у владельца
+ * горела зелёная точка, будто на мойке кто-то есть.
+ *
+ * Закрываем в 20:00 по времени бизнеса, а не сервера: он в Германии, а
+ * мойка в Ереване — разница четыре часа, и «вечер» у них разный.
+ *
+ * Закрываем временем 20:00, а не моментом запуска: задача ходит раз в
+ * час, и приписывать человеку лишние минуты только потому, что она
+ * сработала в 20:07, неправильно.
+ *
+ * Смены, начатые ПОСЛЕ 20:00, не трогаем — это ночная работа, а не
+ * забытый переключатель. Их подберёт `closeForgotten` на следующий день.
+ */
+export async function closeEvening(now = new Date()) {
+  const open = await db
+    .select({
+      shiftId: shifts.id,
+      tenantId: shifts.tenantId,
+      userId: shifts.userId,
+      name: users.name,
+      timezone: tenants.timezone,
+      openedAt: shifts.openedAt,
+    })
+    .from(shifts)
+    .innerJoin(users, eq(users.id, shifts.userId))
+    .innerJoin(tenants, eq(tenants.id, shifts.tenantId))
+    .where(isNull(shifts.closedAt));
+
+  const byTenant = new Map<string, { at: Date; names: string[]; ids: string[] }>();
+
+  for (const row of open) {
+    const closing = new Date(startOfDay(row.timezone, now).getTime() + CLOSING_HOUR * 3_600_000);
+    if (now < closing) continue;
+    if (row.openedAt >= closing) continue;
+
+    const bucket = byTenant.get(row.tenantId) ?? { at: closing, names: [], ids: [] };
+    bucket.names.push(row.name);
+    bucket.ids.push(row.shiftId);
+    byTenant.set(row.tenantId, bucket);
+  }
+
+  for (const [tenantId, bucket] of byTenant) {
+    await db.update(shifts).set({ closedAt: bucket.at }).where(inArray(shifts.id, bucket.ids));
+
+    /* Одно уведомление на бизнес, а не на человека: три закрытых смены —
+       это одно событие вечера, а не три новости. */
+    notifyOwnersInBackground(tenantId, null, {
+      title: 'Հերթափոխը փակվեց',
+      body: bucket.names.join(', '),
+      thread: 'shift',
+    });
+  }
+
+  return {
+    tenants: byTenant.size,
+    shifts: [...byTenant.values()].reduce((n, b) => n + b.ids.length, 0),
+  };
 }
 
 /**
