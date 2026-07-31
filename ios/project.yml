@@ -54,6 +54,10 @@ targets:
         UILaunchScreen: {}
         # Экран записи живёт вертикально: мойщик держит телефон одной рукой
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Шифрование только стандартное — HTTPS и Keychain. Без этого
+        # ключа Xcode спрашивает про экспортный контроль при каждой
+        # отправке сборки, и однажды на него ответят наугад.
+        ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Համարանիշը սկանավորելու համար
         NSFaceIDUsageDescription: Որպեսզի PIN-ը ամեն անգամ չհավաքեք
         # Досылка очереди, когда приложение закрыто
