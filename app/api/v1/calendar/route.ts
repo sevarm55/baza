@@ -1,5 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { getPeriodStats, getRevenueSeries } from '@/lib/queries';
+import { getPeriodStats, getRevenueSeries, startOfDay } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { isMonth, localDate, monthBounds } from '@/lib/history';
 import { authorize, denied } from '@/lib/api/guard';
@@ -29,10 +29,16 @@ export async function GET(request: Request) {
 
     const { from, to, days } = monthBounds(month, zone);
 
+    /* Аренда начисляется по прошедшие дни включительно, а не за месяц
+       вперёд: в середине месяца полная сумма показала бы убыток, которого
+       ещё нет. Прошедшие месяцы это не трогает — там граница уже позади. */
+    const tomorrow = new Date(startOfDay(zone).getTime() + 86_400_000);
+    const costsTo = to < tomorrow ? to : tomorrow;
+
     const [series, stats, costs] = await Promise.all([
       getRevenueSeries(ctx.tenant.id, from, zone, 'day'),
       getPeriodStats(ctx.tenant.id, from, to),
-      getPeriodCosts(ctx.tenant.id, from, to),
+      getPeriodCosts(ctx.tenant.id, from, costsTo),
     ]);
 
     /* Ряд приходит только за дни, в которые что-то было. Дополняем

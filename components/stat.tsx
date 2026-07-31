@@ -1,3 +1,5 @@
+import { personColor } from '@/lib/person-color';
+
 /**
  * Главное число экрана.
  *
@@ -64,8 +66,15 @@ export function Avatar({ text }: { text: string }) {
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  /* Плитка цветом самого человека: список сотрудников — это первое
+     место, где владелец связывает имя с цветом, и дальше по ленте он
+     узнаёт его уже без чтения. */
+  const color = personColor(text);
   return (
-    <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface2 text-[12.5px] font-semibold text-muted">
+    <div
+      className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[12.5px] font-semibold"
+      style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
+    >
       {initials}
     </div>
   );

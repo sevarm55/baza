@@ -917,6 +917,36 @@ async function main() {
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
 
+  /* Увольнение при открытой смене.
+     У уволенного человека продолжала гореть зелёная точка «на мойке»:
+     доступ отобрали, а присутствие осталось — и в списке он стоял рядом
+     со своим же преемником, как будто их двое. */
+  const { deactivateStaff, addStaff } = await import('../lib/catalog');
+  const quitting = await addStaff({
+    tenantId: tenant.id,
+    name: 'Ушедший',
+    phone: '+37455000191',
+    pin: '2244',
+    percent: 20,
+  });
+  await shiftState.openShift(tenant.id, quitting.id, dayStart);
+  check(
+    'новый работник виден на смене',
+    (await shiftState.whoIsOnShift(tenant.id, dayStart)).some((p) => p.userId === quitting.id),
+  );
+
+  await deactivateStaff({ tenantId: tenant.id, id: quitting.id, actorId: owner.id });
+  check(
+    'уволенный со смены исчезает',
+    (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
+  );
+  const { shifts: shiftRows } = await import('../lib/db/schema');
+  const leftover = await db
+    .select()
+    .from(shiftRows)
+    .where(and(eq(shiftRows.userId, quitting.id), isNull(shiftRows.closedAt)));
+  check('и его смена закрыта, а не висит открытой', leftover.length === 0);
+
   /* ---------- вечернее закрытие смен ---------- */
 
   const { closeEvening, CLOSING_HOUR } = await import('../lib/shifts');

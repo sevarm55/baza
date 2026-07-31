@@ -7,6 +7,7 @@ import {
   getRevenueSeries,
   getTenant,
   startOfDay,
+  startOfDaysAgo,
 } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
@@ -17,6 +18,7 @@ import { Profit } from '@/components/profit';
 import { Avatar, Hero } from '@/components/stat';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
+import { personColor } from '@/lib/person-color';
 import { getPeriod } from './periods';
 import { PeriodTabs } from './period-tabs';
 
@@ -46,16 +48,21 @@ export default async function TodayPage({
   const period = getPeriod(p);
   const byHour = period.key === 'today';
 
+  /* Периоды выровнены по суткам, а верхняя граница — начало завтра:
+     записей в будущем не бывает, зато аренда за сегодня начисляется
+     целым днём. Иначе прибыль за сегодня уменьшалась бы сама по себе
+     просто оттого, что идёт время. Те же границы у приложения. */
   const from = byHour
     ? startOfDay(tenant.timezone)
-    : new Date(Date.now() - Number(period.key) * 86_400_000);
+    : startOfDaysAgo(tenant.timezone, Number(period.key) - 1);
+  const to = new Date(startOfDay(tenant.timezone).getTime() + 86_400_000);
 
   const [stats, feed, series, split, costs] = await Promise.all([
-    getPeriodStats(tenant.id, from),
+    getPeriodStats(tenant.id, from, to),
     getFeed(tenant.id, from),
     getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day'),
     getPaymentSplit(tenant.id, from),
-    getPeriodCosts(tenant.id, from),
+    getPeriodCosts(tenant.id, from, to),
   ]);
 
   /* Кто на смене — всегда «сейчас», независимо от выбранного периода:
@@ -160,7 +167,12 @@ export default async function TodayPage({
                       aria-label={hy.owner.onShiftNow}
                     />
                   )}
-                  <span className="truncate text-[14.5px] font-semibold">{s.name ?? '—'}</span>
+                  <span
+                    className="truncate text-[14.5px] font-semibold"
+                    style={{ color: personColor(s.name) }}
+                  >
+                    {s.name ?? '—'}
+                  </span>
                 </div>
                 <div className="num text-[12.5px] text-muted">
                   {s.count} {tenant.unitOne}
@@ -195,7 +207,12 @@ export default async function TodayPage({
                   {o.clientKey ?? '—'}
                 </div>
                 <div className="truncate text-[12.5px] text-muted">
-                  {o.serviceName} · {o.staffName ?? '—'} · {paymentLabel(o.payment)}
+                  {/* имя цветом человека — «это помыл вот этот» читается
+                      по цвету, без вчитывания в строку */}
+                  <span className="font-semibold" style={{ color: personColor(o.staffName) }}>
+                    {o.staffName ?? '—'}
+                  </span>{' '}
+                  · {o.serviceName} · {paymentLabel(o.payment)}
                 </div>
               </div>
               <div className="shrink-0 text-right">

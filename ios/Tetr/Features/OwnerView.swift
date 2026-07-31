@@ -146,11 +146,12 @@ struct OwnerView: View {
             ForEach(present) { person in
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(Brand.good)
+                        .fill(Brand.person(person.name))
                         .frame(width: 9, height: 9)
 
                     Text(person.name)
                         .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.person(person.name))
 
                     Spacer()
 
@@ -227,19 +228,51 @@ struct OwnerView: View {
     /// У мойки день имеет рельеф — утренний заезд, дневной провал,
     /// вечерний наплыв. Владелец это чувствует, но не видит: список
     /// записей рельеф не показывает, а столбики показывают сразу.
+    /// Подпись столбика: все подряд, пока их немного, иначе каждый третий.
+    private func label(_ point: API.SeriesPoint, in series: [API.SeriesPoint]) -> String {
+        guard series.count > 12 else { return point.label }
+        let index = series.firstIndex(where: { $0.id == point.id }) ?? 0
+        return index % 3 == 0 ? point.label : ""
+    }
+
     private func chart(_ series: [API.SeriesPoint]) -> some View {
         let peak = max(1, series.map(\.revenue).max() ?? 1)
 
         return VStack(alignment: .leading, spacing: 8) {
+            /* Подпись обязательна: без неё столбики с числами 10, 11, 16
+               читались как что угодно — от дней до номеров боксов. */
+            HStack {
+                Text(period == "today" ? "Ժամերով" : "Օրերով")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Brand.muted)
+                Spacer()
+                // пик подписан цифрой: иначе высота — величина без масштаба
+                Text("առավելագույնը \(money(peak, currency))")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.muted)
+            }
+
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(series) { point in
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 3)
-                            // пик берёт полный цвет: график нужен ради
-                            // одного ответа — когда заезд
-                            .fill(point.revenue == peak ? Brand.grape : Brand.grape.opacity(0.28))
+                            /* Пик берёт полный цвет: график нужен ради
+                               одного ответа — когда заезд. Пустой час —
+                               еле заметная риска: это тоже факт, и часто
+                               более важный, чем полный столбик. */
+                            .fill(
+                                point.revenue == 0
+                                    ? Brand.line
+                                    : point.revenue == peak
+                                        ? Brand.grape
+                                        : Brand.grape.opacity(0.28)
+                            )
                             .frame(height: max(2, 90 * CGFloat(point.revenue) / CGFloat(peak)))
-                        Text(point.label)
+                        // на тридцати днях числа сливаются — подписываем реже
+                        Text(label(point, in: series))
                             .font(.system(size: 9))
                             .monospacedDigit()
                             .foregroundStyle(Brand.muted)
@@ -309,9 +342,20 @@ struct OwnerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.clientKey ?? "—")
                             .font(.system(size: 14.5, weight: .semibold, design: .rounded))
-                        Text("\(item.serviceName) · \(item.staffName ?? "—") · \(paymentLabel(item.payment))")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Brand.muted)
+                        HStack(spacing: 5) {
+                            /* Имя цветом самого человека: на мойке два-три
+                               работника, и «кто это помыл» читается по
+                               цвету, ещё до того как прочитано имя. */
+                            Circle()
+                                .fill(Brand.person(item.staffName ?? ""))
+                                .frame(width: 6, height: 6)
+                            Text(item.staffName ?? "—")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Brand.person(item.staffName ?? ""))
+                            Text("· \(item.serviceName) · \(paymentLabel(item.payment))")
+                                .foregroundStyle(Brand.muted)
+                        }
+                        .font(.system(size: 11.5))
                     }
                     Spacer()
                     Text(money(item.price, currency))

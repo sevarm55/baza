@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
-import { services, users } from './db/schema';
+import { services, shifts, users } from './db/schema';
 import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
@@ -156,5 +156,23 @@ export async function deactivateStaff(params: {
   if (!row) throw new ValidationError('NOT_FOUND');
 
   await revokeAllSessions(params.id);
+
+  /* Закрываем открытую смену. Без этого у уволенного человека вечно
+     горит зелёная точка «на мойке» — доступ отобрали, а присутствие
+     осталось. Ровно так это и выглядело в бою.
+
+     Закрываем «сейчас»: человек работал до момента увольнения, и
+     обнулять отработанное неправильно. */
+  await db
+    .update(shifts)
+    .set({ closedAt: new Date() })
+    .where(
+      and(
+        eq(shifts.tenantId, params.tenantId),
+        eq(shifts.userId, params.id),
+        isNull(shifts.closedAt),
+      ),
+    );
+
   return row;
 }

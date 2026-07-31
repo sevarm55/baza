@@ -21,6 +21,12 @@ private func adaptive(light: UInt32, dark: UInt32) -> Color {
     Color(uiColor: adaptiveUI(light: light, dark: dark))
 }
 
+/// То же самое для палитры людей — она живёт в расширении и до приватной
+/// функции не дотягивается.
+func adaptivePublic(light: UInt32, dark: UInt32) -> Color {
+    adaptive(light: light, dark: dark)
+}
+
 private extension UIColor {
     convenience init(hex: UInt32) {
         self.init(
@@ -128,5 +134,41 @@ struct GlassCard: ViewModifier {
 extension View {
     func glassCard(radius: CGFloat = 20) -> some View {
         modifier(GlassCard(radius: radius))
+    }
+}
+
+/**
+ * Цвет человека.
+ *
+ * Один и тот же работник всегда одного цвета — в ленте, в списке на
+ * смене, в истории дня. Тогда «кто это помыл» читается по цвету, без
+ * чтения имени: на мойке два-три человека, и глаз запоминает их за день.
+ *
+ * Цвет берётся из имени, а не назначается: не нужно ни хранить его, ни
+ * спрашивать, и он одинаков на всех устройствах.
+ *
+ * Оттенки подобраны различимыми и достаточно тёмными, чтобы читаться на
+ * светлом фоне; в тёмной теме каждый светлеет.
+ */
+extension Brand {
+    private static let people: [(light: UInt32, dark: UInt32)] = [
+        (0x0E7490, 0x22D3EE), // бирюзовый
+        (0xB45309, 0xFBBF24), // янтарный
+        (0xBE185D, 0xF472B6), // малиновый
+        (0x4D7C0F, 0xA3E635), // оливковый
+        (0x6D28D9, 0xA78BFA), // грейп
+        (0x0F766E, 0x2DD4BF), // морской
+    ]
+
+    static func person(_ name: String) -> Color {
+        guard !name.isEmpty else { return muted }
+        /* Простая устойчивая свёртка. Криптостойкость тут не нужна, нужна
+           одинаковость: имя всегда даёт один и тот же цвет. */
+        var hash = 0
+        for scalar in name.unicodeScalars {
+            hash = (hash &* 31 &+ Int(scalar.value)) & 0xFFFFFF
+        }
+        let pick = people[hash % people.count]
+        return adaptivePublic(light: pick.light, dark: pick.dark)
     }
 }

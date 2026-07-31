@@ -84,9 +84,13 @@ struct DayView: View {
 
             ForEach(shifts) { s in
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Brand.person(s.name))
+                            .frame(width: 9, height: 9)
                         Text(s.name)
                             .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.person(s.name))
                         Spacer()
                         Text(span(s))
                             .font(.system(size: 12.5))
@@ -120,9 +124,14 @@ struct DayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.clientKey ?? "—")
                             .font(.system(size: 14.5, weight: .semibold, design: .rounded))
-                        Text("\(item.serviceName) · \(item.staffName ?? "—") · \(paymentLabel(item.payment))")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Brand.muted)
+                        HStack(spacing: 5) {
+                            Text(item.staffName ?? "—")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Brand.person(item.staffName ?? ""))
+                            Text("· \(item.serviceName) · \(paymentLabel(item.payment))")
+                                .foregroundStyle(Brand.muted)
+                        }
+                        .font(.system(size: 11.5))
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {

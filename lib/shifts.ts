@@ -287,6 +287,10 @@ export async function whoIsOnShift(tenantId: string, dayStart: Date) {
     })
     .from(shifts)
     .innerJoin(users, eq(users.id, shifts.userId))
-    .where(and(eq(shifts.tenantId, tenantId), isNull(shifts.closedAt)))
+    /* Уволенных не показываем даже с открытой сменой: их смены теперь
+       закрываются при увольнении, но старые данные остались, и зелёная
+       точка у человека без доступа — худшее, что может показать этот
+       список. */
+    .where(and(eq(shifts.tenantId, tenantId), isNull(shifts.closedAt), eq(users.active, true)))
     .orderBy(sql`${shifts.openedAt} asc`);
 }
