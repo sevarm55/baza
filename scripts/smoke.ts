@@ -988,18 +988,29 @@ async function main() {
 
   await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
 
+  /* Отодвигаем начало смены в утро.
+     Проверяем «встал утром и забыл выключить», а смена заводится текущим
+     моментом — и после восьми вечера сценарий превращался в свою
+     противоположность: ночную смену закрывать нельзя, и тест падал
+     каждый раз, когда его запускали вечером. */
+  await db
+    .update(shiftTable)
+    .set({ openedAt: evening(9) })
+    .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
+
   const tooEarly = await closeEvening(evening(CLOSING_HOUR - 1));
   check('до восьми вечера ничего не закрывается', tooEarly.shifts === 0, tooEarly);
 
   const atEight = await closeEvening(evening(CLOSING_HOUR));
   check('в восемь закрывается', atEight.shifts === 1, atEight);
 
+  /* Ищем ровно ту смену, что подвинули в утро. «Последняя в бизнесе» не
+     годится: выше по скрипту заводится и тут же закрывается смена
+     уволенного, и она открыта позже — по этому порядку выбиралась она. */
   const [closedShift] = await db
     .select()
     .from(shiftTable)
-    .where(eq(shiftTable.tenantId, tenant.id))
-    .orderBy(sql`opened_at desc`)
-    .limit(1);
+    .where(and(eq(shiftTable.tenantId, tenant.id), eq(shiftTable.openedAt, evening(9))));
   check(
     'и закрывается временем 20:00, а не моментом запуска',
     closedShift.closedAt?.getTime() === evening(CLOSING_HOUR).getTime(),

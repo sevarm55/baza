@@ -16,15 +16,15 @@ import s from '../legal.module.css';
  * они не распространяются.
  */
 export const metadata: Metadata = {
-  title: 'Աջակցություն · Տետր',
-  description: 'Օգնություն Տետր հավելվածի հետ',
+  title: 'Աջակցություն · Tetr',
+  description: 'Օգնություն Tetr հավելվածի հետ',
 };
 
 export default function SupportPage() {
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
-        ← Տետր
+        ← Tetr
       </Link>
 
       <h1 className={s.title}>Աջակցություն</h1>
@@ -68,7 +68,7 @@ export default function SupportPage() {
 
       <h2 className={s.h2}>Ծանուցումները չեն գալիս</h2>
       <p className={s.p}>
-        Ստուգեք հեռախոսի կարգավորումները՝ Settings → Տետր → Notifications, և հավելվածում՝
+        Ստուգեք հեռախոսի կարգավորումները՝ Settings → Tetr → Notifications, և հավելվածում՝
         «Պրոֆիլ» → ծանուցումներ։ Ծանուցումները գալիս են սեփականատիրոջը՝ հերթափոխի բացման և նոր
         գրանցումների մասին։
       </p>

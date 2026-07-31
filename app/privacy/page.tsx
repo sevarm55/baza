@@ -19,8 +19,8 @@ import s from '../legal.module.css';
  * /work и /owner.
  */
 export const metadata: Metadata = {
-  title: 'Գաղտնիության քաղաքականություն · Տետր',
-  description: 'Ի՞նչ տվյալներ է պահում Տետրը և ինչի համար',
+  title: 'Գաղտնիության քաղաքականություն · Tetr',
+  description: 'Ի՞նչ տվյալներ է պահում Tetr-ը և ինչի համար',
 };
 
 const UPDATED = '31.07.2026';
@@ -29,14 +29,14 @@ export default function PrivacyPage() {
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
-        ← Տետր
+        ← Tetr
       </Link>
 
       <h1 className={s.title}>Գաղտնիության քաղաքականություն</h1>
       <p className={s.updated}>Թարմացվել է {UPDATED}</p>
 
       <p className={s.p}>
-        Տետրը հաշվառման գործիք է սպասարկման բիզնեսների համար։ Մենք պահում ենք միայն այն, ինչ
+        Tetr-ը հաշվառման գործիք է սպասարկման բիզնեսների համար։ Մենք պահում ենք միայն այն, ինչ
         անհրաժեշտ է ծառայությունն աշխատեցնելու համար, և չենք տալիս այն ոչ մեկին։
       </p>
 

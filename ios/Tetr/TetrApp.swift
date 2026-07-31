@@ -171,11 +171,11 @@ struct MainTabs: View {
                будет шесть: у стоматолога и барбера вода ни при чём. Экран
                же во всех нишах один и тот же — журнал за смену, — и планшет
                одинаково читается и как карта приёма, и как лист заказов.
-               Заодно это ровно то, что значит «Տետր». */
+               Заодно это ровно то, что значит армянское «տետր» — тетрадь. */
             Tab("Հերթափոխ", systemImage: "list.clipboard.fill") {
                 NavigationStack {
                     ShiftView()
-                        .navigationTitle(session.tenant?.name ?? "Տետր")
+                        .navigationTitle(session.tenant?.name ?? "Tetr")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar { signOut }
                 }

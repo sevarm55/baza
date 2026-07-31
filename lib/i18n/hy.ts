@@ -11,7 +11,7 @@ export const hy = {
   localeName: 'Հայերեն',
 
   app: {
-    name: 'Տետր',
+    name: 'Tetr',
     tagline: 'Հաշվառում, որն արդեն կարգավորված է ձեր բիզնեսի համար',
   },
 
@@ -101,7 +101,7 @@ export const hy = {
     priceTitle: 'Գինը',
     pricePeriod: 'ամսական, մեկ կետի համար',
     priceNote: (days: number) => `Առաջին ${days} օրը՝ անվճար։ Քարտ պետք չէ։`,
-    footer: 'Տետր — հաշվառում սպասարկման բիզնեսի համար',
+    footer: 'Tetr — հաշվառում սպասարկման բիզնեսի համար',
   },
 
   errors: {

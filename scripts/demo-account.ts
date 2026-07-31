@@ -84,7 +84,7 @@ async function main() {
   out.push(`
 -- Демо-бизнес для App Review. Отдельный tenant: ничего чужого он не видит.
 insert into tenants (id, name, niche, client_id_label, client_id_type, staff_role, unit_one, plan, paid_until)
-values (${q(tenantId)}, ${q('Տետր Դեմո')}, 'carwash', ${q('Պետհամարանիշ')}, 'plate', ${q('Լվացող')}, ${q('մեքենա')}, 'active', timestamptz '2099-01-01 00:00:00+04');`);
+values (${q(tenantId)}, ${q('Tetr Դեմո')}, 'carwash', ${q('Պետհամարանիշ')}, 'plate', ${q('Լվացող')}, ${q('մեքենա')}, 'active', timestamptz '2099-01-01 00:00:00+04');`);
 
   out.push(`
 insert into users (id, tenant_id, phone, pin_hash, name, role, percent) values
