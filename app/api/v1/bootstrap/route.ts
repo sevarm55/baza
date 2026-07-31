@@ -18,7 +18,11 @@ import { failFromError, ok } from '@/lib/api/respond';
 export async function GET(request: Request) {
   try {
     await ensureDb();
-    const ctx = await authorize(request);
+    /* anyPlan: bootstrap — это то, из чего приложение узнаёт своё
+       состояние, включая состояние счёта. Закрыть его на просрочке
+       значит оставить клиента без ответа на вопрос «что случилось»: он
+       увидел бы экран входа вместо объяснения. Всё остальное закрыто. */
+    const ctx = await authorize(request, { anyPlan: true });
     if (denied(ctx)) return ctx;
 
     const services = await listServices(ctx.tenant.id);

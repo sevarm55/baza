@@ -126,6 +126,12 @@ struct RootView: View {
         case .signedIn:
             if lock.locked {
                 LockView()
+            } else if session.access?.canRead == false {
+                /* Срок вышел — вместо всего продукта один экран. Стоит
+                   выше замка по смыслу, но ниже по порядку: сначала
+                   человек доказывает, что это его телефон, и только
+                   потом узнаёт про счёт. */
+                ExpiredView()
             } else {
                 MainTabs()
                     /* Онбординг только владельцу и только один раз. Мойщик

@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant } from '@/lib/queries';
@@ -7,11 +7,20 @@ import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
 
 /**
- * Экран отключённого бизнеса.
+ * Стена: срок вышел.
  *
- * Говорит главное: данные целы. Человек, которому закрыли доступ,
- * первым делом боится потерять свою историю — и если не ответить
- * на этот страх сразу, он не вернётся даже заплатив.
+ * Раньше просрочка была мягкой — разделы открывались, закрывалась только
+ * запись. Выглядело невнятно: продукт сообщал «время прошло» и тут же
+ * пускал ходить по экранам и заводить людей. Теперь вместо всего кабинета
+ * один экран.
+ *
+ * Порядок на нём неслучаен. Сначала — что данные целы: тот, кому закрыли
+ * доступ, первым делом боится потерять историю, и пока этот страх не снят,
+ * остальное он не читает. Потом — как продолжить. И только в конце —
+ * забрать данные или уйти совсем.
+ *
+ * Сотруднику показываем то же, но без кнопок: платит не он, и распоряжаться
+ * судьбой бизнеса ему нечем.
  */
 export default async function BlockedPage() {
   const session = await requireSession();
@@ -20,24 +29,110 @@ export default async function BlockedPage() {
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/session-ended');
 
-  // сюда попадают только отключённые: остальных возвращаем в приложение
-  if (currentAccess(tenant).canRead) {
+  const access = currentAccess(tenant);
+  // сюда попадают только закрытые: остальных возвращаем в продукт
+  if (access.canRead) {
     redirect(session.role === 'owner' ? '/owner' : '/work');
   }
 
-  return (
-    <main className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center px-4 py-16">
-      <div className="rounded-[14px] border border-bad-line bg-bad-bg p-5">
-        <h1 className="mb-2 text-[19px] font-semibold text-bad-ink">
-          {hy.billing.blockedTitle}
-        </h1>
-        <p className="text-[14px] leading-relaxed text-muted">{hy.billing.blockedText}</p>
-        <p className="mt-3 text-[14px] text-bad-ink">{hy.billing.renew}</p>
-      </div>
+  const isOwner = session.role === 'owner';
+  const blocked = access.state === 'blocked';
 
-      <div className="mt-5 flex items-center justify-between px-1">
-        <span className="text-[13px] text-faint">{tenant.name}</span>
-        <SignOutButton />
+  return (
+    <main className="relative flex min-h-dvh w-full flex-col justify-end overflow-hidden">
+      {/* Картинка фоном, а не элементом: она не должна влиять на разметку
+          и обязана обрезаться, а не растягивать страницу вбок. */}
+      <div
+        className="absolute inset-0 bg-[#2E1065] bg-cover bg-top"
+        style={{ backgroundImage: 'url(/expired.jpg)' }}
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 bg-gradient-to-b from-transparent via-[#2E1065]/90 to-[#2E1065]"
+        aria-hidden
+      />
+
+      <div className="relative mx-auto w-full max-w-[440px] px-6 pb-12">
+        <h1 className="text-[30px] leading-tight font-bold text-white">
+          {blocked ? hy.billing.blockedTitle : hy.billing.wallTitle}
+        </h1>
+
+        <p className="mt-3.5 text-[15.5px] leading-relaxed text-white/80">
+          {blocked ? hy.billing.blockedText : hy.billing.wallLead}
+        </p>
+
+        <p className="mt-5 text-[14px] text-white/70">{hy.billing.wallContinue}</p>
+        {/* Звонок — главное действие: продолжить пользоваться хотят обе стороны */}
+        {/* Цвета фирменные, а не тематические: экран всегда тёмный —
+            под ним картинка, — и переменные светлой темы дали бы здесь
+            невидимую кнопку. Тот же лайм, что у главной кнопки в
+            приложении. */}
+        <a
+          href="tel:+37499855546"
+          className="mt-2 block rounded-[22px] py-4 text-center text-[17px] font-bold no-underline"
+          style={{ backgroundColor: '#D7FF00', color: '#2E1065' }}
+        >
+          {hy.billing.wallPhone}
+        </a>
+
+        {isOwner && (
+          <>
+            <div className="mt-4 flex gap-3">
+              {/* За всё время: человек уходит, и отдать ему тридцать дней
+                  вместо всей истории было бы обманом */}
+              <a
+                href="/owner/export?days=all"
+                download
+                className="flex-1 rounded-[14px] border border-white/20 py-3 text-center text-[14px] font-semibold text-white no-underline"
+              >
+                {hy.billing.wallDownload}
+              </a>
+            </div>
+
+            {/* Форма прямо здесь, а не ссылкой в настройки: настройки
+                закрыты вместе со всем кабинетом, и ссылка вела бы обратно
+                на эту же стену. За раскрывающимся заголовком — удаление
+                необратимо и на глаза попадаться не должно. */}
+            <details className="mt-4">
+              <summary className="cursor-pointer text-[14px] font-semibold text-white/70">
+                {hy.billing.wallDelete}
+              </summary>
+
+              <p className="mt-2 text-[12.5px] text-white/45">{hy.billing.wallDeleteNote}</p>
+
+              <form
+                method="post"
+                action="/owner/settings/delete"
+                className="mt-3 flex items-center gap-2"
+              >
+                <input
+                  className="field field-sm min-w-0 flex-1"
+                  name="pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  autoComplete="off"
+                  aria-label={hy.settings.deletePin}
+                  placeholder={hy.settings.deletePin}
+                  required
+                />
+                <button
+                  className="shrink-0 rounded-[12px] border border-white/25 px-3 py-2 text-[13px] font-semibold text-white/80"
+                  name="mode"
+                  value="wipe"
+                >
+                  {hy.settings.deleteWipe}
+                </button>
+              </form>
+            </details>
+          </>
+        )}
+
+        <div className="mt-7 flex items-center justify-between">
+          <span className="text-[13px] text-white/45">{tenant.name}</span>
+          <SignOutButton />
+        </div>
       </div>
     </main>
   );

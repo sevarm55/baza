@@ -440,10 +440,13 @@ async function main() {
   const lapsed = accessOf({ plan: 'active', trialEndsAt: null, paidUntil: inDays(-1) });
   check('просроченная оплата закрывает запись', !lapsed.canWrite);
 
-  // просрочка мягкая: чтение и выгрузка остаются доступны
-  check('просрочка не закрывает чтение', over.canRead);
+  /* Просрочка закрывает доступ целиком, а не только запись. Мягкая
+     блокировка выглядела невнятно: продукт говорил «срок вышел» и при
+     этом пускал ходить по разделам. Данные при этом целы — забрать их
+     можно всегда, это проверяется ниже на живых эндпоинтах. */
+  check('просрочка закрывает и чтение', !over.canRead);
   check(
-    'и отчёты продолжают открываться',
+    'но сами данные на месте',
     (await q.getPeriodStats(tenant.id, today)).count > 0,
   );
 
@@ -467,7 +470,7 @@ async function main() {
     paidUntil: null,
   });
   check('просроченный триал закрывает запись', !expiredNow.canWrite);
-  check('но данные остаются видны', expiredNow.canRead);
+  check('и чтение тоже', !expiredNow.canRead);
 
   // ручное отключение действует независимо от оплаты
   const stillBlocked = currentAccess({
@@ -1284,8 +1287,22 @@ async function main() {
     .set({ plan: 'blocked' })
     .where(eq(tenantTable.id, rebornOwner.tenantId));
 
+  /* Bootstrap работает и на закрытом счёте — из него приложение узнаёт
+     своё состояние. Закрой его, и вместо объяснения человек увидел бы
+     экран входа: «меня что, разлогинило?». */
   const blockedBoot = await bootstrap(get('/bootstrap', rebornBody.access));
-  check('отключённого в приложение не пускают', blockedBoot.status === 403, blockedBoot.status);
+  check('состояние счёта приложение узнаёт всегда', blockedBoot.status === 200, blockedBoot.status);
+  check(
+    'и в нём видно, что доступ закрыт',
+    (await blockedBoot.json()).access.canRead === false,
+  );
+
+  // а вот работа закрыта вся
+  const blockedShift = await shiftApi.GET(get('/shift', rebornBody.access));
+  check('но смена уже недоступна', blockedShift.status === 403, blockedShift.status);
+  const blockedSummary = await summary(get('/summary?period=today', rebornBody.access));
+  check('и сводка тоже', blockedSummary.status === 403, blockedSummary.status);
+
   const blockedExport = await exportRoute.GET(get('/export?days=all', rebornBody.access));
   check('но выгрузку он получает', blockedExport.status === 200, blockedExport.status);
   const blockedWipe = await accountRoute(del('/account', { pin: '5555' }, rebornBody.access));
