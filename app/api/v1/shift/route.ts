@@ -1,6 +1,6 @@
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, startOfDay } from '@/lib/queries';
-import { closeShift, currentShift, openShift } from '@/lib/shifts';
+import { cashInShift, closeShift, currentShift, openShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, failFromError, ok } from '@/lib/api/respond';
 
@@ -24,10 +24,17 @@ export async function GET(request: Request) {
       currentShift(ctx.tenant.id, ctx.user.id, from),
     ]);
 
+    /* Сколько наличных набралось с начала смены — чтобы при закрытии
+       подставить сумму, а не заставлять человека считать в уме. */
+    const cashSoFar = open
+      ? await cashInShift(ctx.tenant.id, ctx.user.id, open.openedAt, new Date())
+      : 0;
+
     return ok({
       from: from.toISOString(),
       onShift: open !== null,
       openedAt: open?.openedAt ?? null,
+      cashSoFar,
       count: shift.count,
       revenue: shift.revenue,
       earned: shift.earned,
@@ -61,12 +68,25 @@ export async function POST(request: Request) {
     const ctx = await authorize(request, { write: true });
     if (denied(ctx)) return ctx;
 
-    const input = await body<{ open?: boolean }>(request);
+    const input = await body<{ open?: boolean; cash?: number | null }>(request);
     const from = startOfDay(ctx.tenant.timezone);
 
     if (input?.open === false) {
-      await closeShift(ctx.tenant.id, ctx.user.id);
-      return ok({ onShift: false, openedAt: null });
+      /* Сумму принимаем только целым и неотрицательным. Не число —
+         значит «не отметил», а не ноль: это разные вещи, и владелец
+         должен их различать. */
+      const declared =
+        typeof input.cash === 'number' && Number.isInteger(input.cash) && input.cash >= 0
+          ? input.cash
+          : null;
+
+      const closed = await closeShift(ctx.tenant.id, ctx.user.id, declared);
+      return ok({
+        onShift: false,
+        openedAt: null,
+        cashExpected: closed?.expected ?? 0,
+        cashDeclared: closed?.declared ?? null,
+      });
     }
 
     const shift = await openShift(ctx.tenant.id, ctx.user.id, from);

@@ -42,6 +42,9 @@ export async function GET(request: Request) {
         name: s.name,
         openedAt: s.openedAt,
         closedAt: s.closedAt,
+        // сколько наличных намыл и сколько сдал; null — не отмечал
+        cashExpected: s.cashExpected,
+        cashDeclared: s.cashDeclared,
       })),
       feed: feed.map((o) => ({
         id: o.id,

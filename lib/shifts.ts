@@ -1,6 +1,6 @@
-import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
-import { shifts, tenants, users } from './db/schema';
+import { orders, shifts, tenants, users } from './db/schema';
 import { startOfDay } from './queries';
 import { notifyOwnersInBackground } from './push';
 
@@ -73,11 +73,85 @@ export async function openShift(tenantId: string, userId: string, dayStart: Date
   return row;
 }
 
-export async function closeShift(tenantId: string, userId: string) {
+/**
+ * Сколько наличных намыл человек за отрезок смены.
+ *
+ * Только наличные: карта и перевод уходят мимо рук, сдавать их не нужно.
+ * Списания с абонемента тоже не в счёт — деньги за него пришли раньше.
+ */
+export async function cashInShift(
+  tenantId: string,
+  userId: string,
+  from: Date,
+  to: Date,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      cash: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} = 'cash'), 0)::int`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        eq(orders.staffId, userId),
+        gte(orders.createdAt, from),
+        lt(orders.createdAt, to),
+        isNull(orders.canceledAt),
+      ),
+    );
+
+  return row?.cash ?? 0;
+}
+
+/**
+ * Уйти со смены и сдать наличные.
+ *
+ * `declared` необязателен: заставить отметить сумму — значит запереть
+ * человека в приложении в конце смены, а закрыться он должен уметь
+ * всегда. Не отметил — владелец увидит именно «не отмечено», а не ноль:
+ * это разные вещи.
+ */
+export async function closeShift(tenantId: string, userId: string, declared?: number | null) {
+  const [open] = await db
+    .select()
+    .from(shifts)
+    .where(and(eq(shifts.tenantId, tenantId), eq(shifts.userId, userId), isNull(shifts.closedAt)));
+
+  if (!open) return null;
+
+  const at = new Date();
+  const expected = await cashInShift(tenantId, userId, open.openedAt, at);
+
   await db
     .update(shifts)
-    .set({ closedAt: new Date() })
-    .where(and(eq(shifts.tenantId, tenantId), eq(shifts.userId, userId), isNull(shifts.closedAt)));
+    .set({
+      closedAt: at,
+      cashExpected: expected,
+      cashDeclared: typeof declared === 'number' ? declared : null,
+    })
+    .where(eq(shifts.id, open.id));
+
+  /* Владельцу сообщаем сразу и с цифрами: смысл сдачи в том, чтобы
+     расхождение всплывало в тот же вечер, а не через месяц при сверке. */
+  const [who] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+  notifyOwnersInBackground(tenantId, userId, {
+    title: 'Հերթափոխը փակվեց',
+    body: cashLine(who?.name ?? '', expected, declared ?? null),
+    thread: 'shift',
+  });
+
+  return { expected, declared: declared ?? null };
+}
+
+/** «Աշոտ · կանխիկ 45 000 ֏ · հանձնեց 43 000 ֏ · −2 000 ֏» */
+function cashLine(name: string, expected: number, declared: number | null): string {
+  const money = (n: number) => `${n.toLocaleString('ru-RU').replace(/ /g, ' ')} ֏`;
+  if (expected === 0 && declared === null) return name;
+  if (declared === null) return `${name} · կանխիկ ${money(expected)} · չի նշել`;
+
+  const diff = declared - expected;
+  const tail = diff === 0 ? '' : ` · ${diff > 0 ? '+' : '−'}${money(Math.abs(diff))}`;
+  return `${name} · կանխիկ ${money(expected)} · հանձնեց ${money(declared)}${tail}`;
 }
 
 /** Во сколько по местному времени смены закрываются сами. */
@@ -115,34 +189,53 @@ export async function closeEvening(now = new Date()) {
     .innerJoin(tenants, eq(tenants.id, shifts.tenantId))
     .where(isNull(shifts.closedAt));
 
-  const byTenant = new Map<string, { at: Date; names: string[]; ids: string[] }>();
+  type Closing = {
+    at: Date;
+    rows: { shiftId: string; userId: string; name: string; openedAt: Date }[];
+  };
+  const byTenant = new Map<string, Closing>();
 
   for (const row of open) {
     const closing = new Date(startOfDay(row.timezone, now).getTime() + CLOSING_HOUR * 3_600_000);
     if (now < closing) continue;
     if (row.openedAt >= closing) continue;
 
-    const bucket = byTenant.get(row.tenantId) ?? { at: closing, names: [], ids: [] };
-    bucket.names.push(row.name);
-    bucket.ids.push(row.shiftId);
+    const bucket = byTenant.get(row.tenantId) ?? { at: closing, rows: [] };
+    bucket.rows.push({
+      shiftId: row.shiftId,
+      userId: row.userId,
+      name: row.name,
+      openedAt: row.openedAt,
+    });
     byTenant.set(row.tenantId, bucket);
   }
 
   for (const [tenantId, bucket] of byTenant) {
-    await db.update(shifts).set({ closedAt: bucket.at }).where(inArray(shifts.id, bucket.ids));
+    /* Ожидаемую наличность считаем и здесь. Человек не отметил, сколько
+       сдал, — но сколько он намыл наличными, владелец знать должен:
+       иначе автозакрытая смена превращается в дыру в кассовой сверке. */
+    const lines: string[] = [];
+    for (const row of bucket.rows) {
+      const expected = await cashInShift(tenantId, row.userId, row.openedAt, bucket.at);
+      await db
+        .update(shifts)
+        .set({ closedAt: bucket.at, cashExpected: expected })
+        .where(eq(shifts.id, row.shiftId));
+      lines.push(cashLine(row.name, expected, null));
+    }
 
     /* Одно уведомление на бизнес, а не на человека: три закрытых смены —
        это одно событие вечера, а не три новости. */
     notifyOwnersInBackground(tenantId, null, {
       title: 'Հերթափոխը փակվեց',
-      body: bucket.names.join(', '),
+      body: lines.join('\n'),
       thread: 'shift',
     });
   }
 
   return {
     tenants: byTenant.size,
-    shifts: [...byTenant.values()].reduce((n, b) => n + b.ids.length, 0),
+    shifts: [...byTenant.values()].reduce((n, b) => n + b.rows.length, 0),
   };
 }
 
@@ -161,6 +254,8 @@ export async function shiftsOnDay(tenantId: string, from: Date, to: Date) {
       name: users.name,
       openedAt: shifts.openedAt,
       closedAt: shifts.closedAt,
+      cashExpected: shifts.cashExpected,
+      cashDeclared: shifts.cashDeclared,
     })
     .from(shifts)
     .innerJoin(users, eq(users.id, shifts.userId))

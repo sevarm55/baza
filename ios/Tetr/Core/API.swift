@@ -84,12 +84,16 @@ enum API {
         /// Встал ли человек на смену переключателем.
         let onShift: Bool
         let openedAt: Date?
+        /// Сколько наличных набралось с начала смены — подставляется при сдаче.
+        let cashSoFar: Int
     }
 
     /// Ответ на включение и выключение переключателя.
     struct ShiftState: Decodable {
         let onShift: Bool
         let openedAt: Date?
+        let cashExpected: Int?
+        let cashDeclared: Int?
     }
 
     struct MonthDay: Decodable, Identifiable {
@@ -119,6 +123,9 @@ enum API {
         let name: String
         let openedAt: Date
         let closedAt: Date?
+        /// Сколько наличных намыл и сколько сдал. null — не отмечал.
+        let cashExpected: Int?
+        let cashDeclared: Int?
         // человек мог отстоять две смены за день — одного userId мало
         var id: String { "\(userId)-\(openedAt.timeIntervalSince1970)" }
     }

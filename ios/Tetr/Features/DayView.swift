@@ -83,17 +83,24 @@ struct DayView: View {
                 .foregroundStyle(Brand.muted)
 
             ForEach(shifts) { s in
-                HStack {
-                    Text(s.name)
-                        .font(.system(size: 15, weight: .semibold))
-                    Spacer()
-                    Text(span(s))
-                        .font(.system(size: 12.5))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.muted)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(s.name)
+                            .font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                        Text(span(s))
+                            .font(.system(size: 12.5))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.muted)
+                    }
+
+                    if let expected = s.cashExpected, expected > 0 || s.cashDeclared != nil {
+                        cash(expected: expected, declared: s.cashDeclared)
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .glassEffect(.regular, in: .rect(cornerRadius: 12))
             }
         }
@@ -133,6 +140,36 @@ struct DayView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Наличные: сколько намыл и сколько сдал.
+    ///
+    /// «Не отмечено» и «сдал ноль» показываются по-разному: первое значит,
+    /// что человек пропустил шаг, второе — что денег не было. Смешать их
+    /// значит превратить забывчивость в обвинение.
+    private func cash(expected: Int, declared: Int?) -> some View {
+        HStack(spacing: 6) {
+            Text("Կանխիկ \(Tetr.money(expected, currency))")
+                .foregroundStyle(Brand.muted)
+
+            if let declared {
+                Text("· հանձնեց \(Tetr.money(declared, currency))")
+                    .foregroundStyle(Brand.muted)
+
+                let diff = declared - expected
+                if diff != 0 {
+                    Text(diff < 0
+                         ? "· −\(Tetr.money(-diff, currency))"
+                         : "· +\(Tetr.money(diff, currency))")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Brand.warn)
+                }
+            } else {
+                Text("· չի նշել").foregroundStyle(Brand.warn.opacity(0.8))
+            }
+        }
+        .font(.system(size: 12))
+        .monospacedDigit()
     }
 
     /// «09:40 — 19:12» или «с 09:40», если смену не закрыли.

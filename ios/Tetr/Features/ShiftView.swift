@@ -13,6 +13,8 @@ struct ShiftView: View {
     /// Держим отдельно от `shift`: переключатель должен отзываться сразу,
     /// а не ждать, пока с сервера приедет вся смена целиком.
     @State private var onShift = false
+    /// Открыт лист сдачи наличных.
+    @State private var handingOver = false
     @State private var recording = false
     @State private var loading = false
     /// Номер обновления. Экран открывается и сразу тянут вниз — два
@@ -49,6 +51,11 @@ struct ShiftView: View {
             .padding(.bottom, 110)
         }
         .screenBackground()
+        .sheet(isPresented: $handingOver) {
+            HandoverView(expected: shift?.cashSoFar ?? 0) { cash in
+                Task { await leaveShift(cash: cash) }
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             /* Без подложки под кнопкой. Материал там был лишним: кнопка
                непрозрачная, закрывать ей нечего, а на тёмной теме он
@@ -127,17 +134,41 @@ struct ShiftView: View {
     }
 
     private func setOnShift(_ want: Bool) async {
+        /* Уходя со смены — спрашиваем про наличные. Это единственный
+           момент, когда деньги переходят из рук в руки, и другого места
+           спросить не будет. Встаём молча: на входе спрашивать нечего. */
+        if !want {
+            handingOver = true
+            return
+        }
+
         let previous = onShift
-        onShift = want
+        onShift = true
 
         let done: API.ShiftState? = try? await session.authed { token in
             try await APIClient.shared.send(
-                "shift", method: "POST", body: ["open": want], token: token,
+                "shift", method: "POST", body: ["open": true], token: token,
                 as: API.ShiftState.self
             )
         }
         // не прошло — честно откатываемся, а не делаем вид, что встали
         onShift = done?.onShift ?? previous
+    }
+
+    private func leaveShift(cash: Int?) async {
+        onShift = false
+
+        var payload: [String: Any] = ["open": false]
+        if let cash { payload["cash"] = cash }
+
+        let done: API.ShiftState? = try? await session.authed { token in
+            try await APIClient.shared.send(
+                "shift", method: "POST", body: payload, token: token,
+                as: API.ShiftState.self
+            )
+        }
+        if done == nil { onShift = true }
+        await reload()
     }
 
     private var earnings: some View {

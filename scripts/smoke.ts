@@ -967,6 +967,85 @@ async function main() {
     .set({ closedAt: new Date() })
     .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
 
+  /* ---------- сдача наличных ---------- */
+
+  const { cashInShift } = await import('../lib/shifts');
+
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+
+  // две наличных и одна картой: сдавать нужно только наличные
+  const onShiftId = staffTokens.user.id;
+  for (const [key, payment] of [
+    ['55 CASH 1', 'cash'],
+    ['55 CASH 2', 'cash'],
+    ['55 CARD 1', 'card'],
+  ] as const) {
+    await createOrder({
+      tenantId: tenant.id, staffId: onShiftId, serviceId: body.id,
+      clientKey: key, payment,
+    });
+  }
+
+  const beforeClose = await shiftApi.GET(get("/shift", staffTokens.access));
+  const beforeCloseBody = await beforeClose.json();
+  check(
+    "при закрытии сумма наличных уже посчитана",
+    beforeCloseBody.cashSoFar === 6000,
+    beforeCloseBody.cashSoFar,
+  );
+
+  // id ловим до закрытия: сортировка по времени здесь ненадёжна —
+  // выше в файле смены двигались искусственно
+  const [openNow] = await db
+    .select()
+    .from(shiftTable)
+    .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
+
+  const handed = await shiftApi.POST(
+    post('/shift', { open: false, cash: 5500 }, staffTokens.access),
+  );
+  const handedBody = await handed.json();
+  check('смена закрывается со сдачей', handed.status === 200, handed.status);
+  check('карта в сдачу не попала', handedBody.cashExpected === 6000, handedBody.cashExpected);
+  check('сдано записано', handedBody.cashDeclared === 5500, handedBody.cashDeclared);
+
+  const [withCash] = await db
+    .select()
+    .from(shiftTable)
+    .where(eq(shiftTable.id, openNow.id));
+  check(
+    'недостача видна как разница',
+    (withCash.cashDeclared ?? 0) - (withCash.cashExpected ?? 0) === -500,
+    [withCash.cashDeclared, withCash.cashExpected],
+  );
+
+  /* Ожидаемое — снимок. Отменённая назавтра запись не должна переписать
+     вчерашнюю недостачу: цифра, на которую владелец посмотрел, обязана
+     остаться той же. */
+  const toCancel = await q.getFeed(tenant.id, today, 5);
+  const cashOrder = toCancel.find((o) => o.payment === 'cash' && o.clientKey === '55 CASH 1');
+  if (cashOrder) {
+    await cancelOrder({ tenantId: tenant.id, orderId: cashOrder.id, byUserId: owner.id });
+  }
+  const [afterCancelShift] = await db
+    .select()
+    .from(shiftTable)
+    .where(eq(shiftTable.id, withCash.id));
+  check(
+    'отмена записи не переписала прошлую недостачу',
+    afterCancelShift.cashExpected === 6000,
+    afterCancelShift.cashExpected,
+  );
+
+  // не отметил — это не ноль, а «не отмечено»
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+  const silent = await shiftApi.POST(post('/shift', { open: false }, staffTokens.access));
+  check('без суммы закрыться можно', silent.status === 200, silent.status);
+  check('и это «не отмечено», а не ноль', (await silent.json()).cashDeclared === null);
+
+  const negative = await cashInShift(tenant.id, onShiftId, new Date(), new Date());
+  check('пустой отрезок даёт ноль, а не null', negative === 0, negative);
+
   const cronRoute = await import('../app/api/v1/cron/close-shifts/route');
   const noSecret = await cronRoute.POST(new Request('http://t/cron', { method: 'POST' }));
   check('без секрета маршрута как будто нет', noSecret.status === 404, noSecret.status);
