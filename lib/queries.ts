@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
-import { clients, orders, payouts, services, tenants, users } from './db/schema';
+import { clients, orderItems, orders, payouts, services, tenants, users } from './db/schema';
 import { getPassSales } from './passes';
 
 /* Все чтения идут отсюда и ВСЕГДА принимают tenantId первым аргументом.
@@ -454,4 +454,41 @@ export async function listClients(tenantId: string, limit = 500) {
     .where(and(eq(clients.tenantId, tenantId), realClient))
     .orderBy(desc(clients.lastSeenAt))
     .limit(limit);
+}
+
+/**
+ * На чём бизнес зарабатывает.
+ *
+ * Стало возможным только со строками услуг: пока услуга была одна на
+ * запись, «комплекс с химчисткой» распадался на две машины, и разрез по
+ * услугам считал бы то же самое враньё.
+ *
+ * Считаем по прайсовой цене строки, а не по взятой: скидка живёт на счёте
+ * целиком, и разносить её по услугам пришлось бы наугад. Владельцу здесь
+ * важно другое — что чаще заказывают и что дороже стоит.
+ */
+export async function getServiceBreakdown(tenantId: string, from: Date, to?: Date) {
+  return db
+    .select({
+      serviceId: orderItems.serviceId,
+      name: orderItems.serviceName,
+      count: sql<number>`count(*)::int`,
+      revenue: sql<number>`coalesce(sum(${orderItems.price}), 0)::int`,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .where(
+      and(
+        eq(orderItems.tenantId, tenantId),
+        gte(orders.createdAt, from),
+        to ? lt(orders.createdAt, to) : undefined,
+        // отменённая запись не должна попадать в разрез, как не попадает
+        // в выручку
+        isNull(orders.canceledAt),
+        // списание с абонемента деньгами в этот день не было
+        sql`${orders.payment} <> 'pass'`,
+      ),
+    )
+    .groupBy(orderItems.serviceId, orderItems.serviceName)
+    .orderBy(sql`3 desc`);
 }

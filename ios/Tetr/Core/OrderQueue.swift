@@ -18,7 +18,14 @@ final class OrderQueue: ObservableObject {
     struct Item: Codable, Identifiable {
         let ref: String
         let clientKey: String
+        /// Одна услуга — форма старых записей, уже лежащих в очереди.
         let serviceId: String
+        /**
+         * Несколько услуг за один заезд. Необязательное: записи,
+         * накопленные до этой версии, приедут со старым полем, и терять
+         * их из-за формата нельзя.
+         */
+        var serviceIds: [String]?
         let serviceName: String
         /// Сколько взяли — уже со скидкой, если она была.
         let price: Int
@@ -79,9 +86,13 @@ final class OrderQueue: ObservableObject {
                 var payload: [String: Any] = [
                     "ref": item.ref,
                     "clientKey": item.clientKey,
-                    "serviceId": item.serviceId,
                     "payment": item.payment,
                 ]
+                if let ids = item.serviceIds, !ids.isEmpty {
+                    payload["serviceIds"] = ids
+                } else {
+                    payload["serviceId"] = item.serviceId
+                }
                 /* Цену шлём только когда она отличается от прайса: в
                    обычной записи это лишнее поле, а в записи со скидкой —
                    единственное, что её сохраняет. */

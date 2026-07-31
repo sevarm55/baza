@@ -967,6 +967,135 @@ async function main() {
     .set({ closedAt: new Date() })
     .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
 
+  /* ---------- несколько услуг в одной записи ---------- */
+
+  const { orderItems } = await import('../lib/db/schema');
+  const menu = await q.listServices(tenant.id);
+  const kompleks = menu.find((s) => s.name === 'Կոմպլեքս')!;
+  const chem = menu.find((s) => s.name === 'Քիմմաքրում')!;
+
+  const beforeMulti = await q.getPeriodStats(tenant.id, today);
+
+  const multi = await createOrder({
+    tenantId: tenant.id, staffId: washer.id,
+    serviceIds: [kompleks.id, chem.id],
+    clientKey: '99 MULTI 1', payment: 'cash',
+  });
+
+  check(
+    'цена записи — сумма услуг',
+    multi.order.price === kompleks.price + chem.price,
+    multi.order.price,
+  );
+  check(
+    'название склеено в порядке выбора',
+    multi.order.serviceName === `${kompleks.name} + ${chem.name}`,
+    multi.order.serviceName,
+  );
+
+  const items = await db
+    .select()
+    .from(orderItems)
+    .where(eq(orderItems.orderId, multi.order.id))
+    .orderBy(sql`sort asc`);
+  check('строк услуг две', items.length === 2, items.length);
+  check('и порядок сохранён', items[0].serviceName === kompleks.name, items[0].serviceName);
+
+  /* Ради этого всё и делалось: комплекс с химчисткой — ОДНА машина, а не
+     две. Раньше врали и счётчик, и средний чек, и история клиента. */
+  const afterMulti = await q.getPeriodStats(tenant.id, today);
+  check(
+    'это одна машина, а не две',
+    afterMulti.count === beforeMulti.count + 1,
+    [beforeMulti.count, afterMulti.count],
+  );
+
+  const multiClient = await q.findClient(tenant.id, '99 MULTI 1');
+  check('и один визит у клиента', multiClient?.visits === 1, multiClient?.visits);
+  check(
+    'на всю сумму заезда',
+    multiClient?.total === kompleks.price + chem.price,
+    multiClient?.total,
+  );
+
+  // скидка живёт на счёте целиком, а не на строке
+  const multiDisc = await createOrder({
+    tenantId: tenant.id, staffId: washer.id,
+    serviceIds: [kompleks.id, chem.id],
+    clientKey: '99 MULTI 2', payment: 'cash',
+    price: kompleks.price + chem.price - 2000,
+  });
+  check(
+    'скидка считается от суммы всех услуг',
+    multiDisc.order.price === kompleks.price + chem.price - 2000,
+    multiDisc.order.price,
+  );
+  check(
+    'а прайсовая осталась полной',
+    multiDisc.order.listPrice === kompleks.price + chem.price,
+    multiDisc.order.listPrice,
+  );
+
+  let alienService = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id,
+      serviceIds: [kompleks.id, (await q.listServices(second.tenant.id))[0].id],
+      clientKey: '99 MULTI 3', payment: 'cash',
+    });
+  } catch {
+    alienService = true;
+  }
+  check('чужую услугу в список не подсунуть', alienService);
+
+  let emptyList = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id, serviceIds: [],
+      clientKey: '99 MULTI 4', payment: 'cash',
+    });
+  } catch {
+    emptyList = true;
+  }
+  check('пустой список услуг не проходит', emptyList);
+
+  /* Старая форма обязана работать: в очередях на телефонах со старой
+     версией лежат записи с одной услугой. */
+  const legacy = await postOrder(
+    post(
+      '/orders',
+      { clientKey: '99 OLD 1', serviceId: kompleks.id, payment: 'cash' },
+      staffTokens.access,
+    ),
+  );
+  check('запись со старого телефона доезжает', legacy.status === 201, legacy.status);
+  const legacyItems = await db
+    .select()
+    .from(orderItems)
+    .where(eq(orderItems.orderId, (await legacy.json()).order.id));
+  check('и у неё тоже появляется строка услуги', legacyItems.length === 1, legacyItems.length);
+
+  const multiApi = await postOrder(
+    post(
+      '/orders',
+      { clientKey: '99 NEW 1', serviceIds: [kompleks.id, chem.id], payment: 'card' },
+      staffTokens.access,
+    ),
+  );
+  check('через API список тоже принимается', multiApi.status === 201, multiApi.status);
+
+  /* Разрез по услугам — то, чего не было вовсе: пока услуга была одна на
+     запись, он считал бы то же самое враньё. */
+  const breakdown = await q.getServiceBreakdown(tenant.id, today);
+  const kompleksRow = breakdown.find((b) => b.name === kompleks.name);
+  const chemRow = breakdown.find((b) => b.name === chem.name);
+  check('в разрезе видно каждую услугу', !!kompleksRow && !!chemRow);
+  check(
+    'химчистку заказали трижды',
+    chemRow?.count === 3,
+    breakdown.map((b) => `${b.name}:${b.count}`),
+  );
+
   /* ---------- скидки ---------- */
 
   const priceList = await q.listServices(tenant.id);

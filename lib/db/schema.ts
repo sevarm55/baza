@@ -215,6 +215,46 @@ export const orders = pgTable(
   ],
 );
 
+/**
+ * Услуги внутри одной записи.
+ *
+ * За один заезд делают комплекс и химчистку салона. Пока услуга была
+ * одна, это записывали двумя машинами — и врали три числа из четырёх:
+ * машин «2» вместо одной, средний чек вдвое ниже, в истории клиента два
+ * визита. Верной оставалась только выручка.
+ *
+ * Итоги при этом остались на самой записи: `orders.price` — сколько
+ * взяли, `orders.listPrice` — сколько стоило по прайсу. Так выручка,
+ * зарплата и выгрузка считаются ровно как раньше, а строки добавляют
+ * подробность, которой не было.
+ *
+ * Скидка живёт на записи, а не на строке: на мойке торгуются за счёт
+ * целиком — «комплекс с химчисткой, отдам за пятнадцать», — а не за
+ * отдельную услугу в нём.
+ */
+export const orderItems = pgTable(
+  'order_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+    /** снимок: услугу могут переименовать или убрать из прайса */
+    serviceName: text('service_name').notNull(),
+    /** цена этой услуги по прайсу на момент записи */
+    price: integer('price').notNull(),
+    sort: integer('sort').notNull().default(0),
+  },
+  (t) => [
+    index('order_items_order_idx').on(t.orderId),
+    index('order_items_tenant_idx').on(t.tenantId, t.serviceId),
+  ],
+);
+
 export const payouts = pgTable(
   'payouts',
   {

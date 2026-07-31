@@ -1,6 +1,6 @@
-import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from './db';
-import { audit, clients, orders, passes, services, users } from './db/schema';
+import { audit, clients, orderItems, orders, passes, services, users } from './db/schema';
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
 
@@ -9,7 +9,14 @@ export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 export type CreateOrderInput = {
   tenantId: string;
   staffId: string;
-  serviceId: string;
+  /**
+   * Одна услуга. Оставлена ради телефонов со старой версией: в их
+   * офлайн-очереди лежат записи этого вида, и они обязаны доехать.
+   * Новые записи присылают `serviceIds`.
+   */
+  serviceId?: string;
+  /** Несколько услуг за один заезд: комплекс и химчистка салона. */
+  serviceIds?: string[];
   /** номер машины или телефон — то, что ввёл сотрудник */
   clientKey: string;
   payment: Payment;
@@ -69,11 +76,30 @@ export async function createOrder(input: CreateOrderInput) {
       }
     }
 
-    const [service] = await tx
+    /* Список услуг в порядке, в котором их выбрали: он же порядок строк
+       и порядок слов в названии записи. */
+    const wanted = input.serviceIds?.length
+      ? input.serviceIds
+      : input.serviceId
+        ? [input.serviceId]
+        : [];
+    if (wanted.length === 0) throw new NotFoundError('SERVICE_NOT_FOUND');
+
+    const found = await tx
       .select()
       .from(services)
-      .where(and(eq(services.id, input.serviceId), eq(services.tenantId, input.tenantId)));
-    if (!service) throw new NotFoundError('SERVICE_NOT_FOUND');
+      .where(and(inArray(services.id, wanted), eq(services.tenantId, input.tenantId)));
+
+    /* Порядок восстанавливаем по запросу, а не по тому, как их вернула
+       база: «комплекс + химчистка» и «химчистка + комплекс» — это одно и
+       то же для денег, но разное для человека, который перечитывает
+       список. */
+    const picked = wanted.map((id) => found.find((s) => s.id === id));
+    if (picked.some((s) => !s)) throw new NotFoundError('SERVICE_NOT_FOUND');
+    const chosen = picked as typeof found;
+
+    // первая услуга — та, по которой запись называют и ищут
+    const service = chosen[0];
 
     const [staff] = await tx
       .select()
@@ -86,7 +112,7 @@ export async function createOrder(input: CreateOrderInput) {
     /* Цену считаем ДО клиента: его итог обязан расти на взятую сумму, а
        не на прайсовую. Иначе скидка раздувала бы историю клиента, и
        «всего оставил 80 000» перестало бы быть правдой. */
-    const listPrice = service.price;
+    const listPrice = chosen.reduce((sum, s) => sum + s.price, 0);
     let price = listPrice;
 
     /* Скидка — только вниз и только в пределах прайса. Свободное поле
@@ -156,7 +182,7 @@ export async function createOrder(input: CreateOrderInput) {
         clientId: client.id,
         staffId: staff.id,
         serviceId: service.id,
-        serviceName: service.name,
+        serviceName: chosen.map((s) => s.name).join(' + '),
         price,
         listPrice,
         staffPercent: staff.percent,
@@ -173,13 +199,30 @@ export async function createOrder(input: CreateOrderInput) {
     // и счётчики клиента с абонементом не удвоятся
     if (!order) throw new DuplicateError('DUPLICATE_REF');
 
+    await tx.insert(orderItems).values(
+      chosen.map((s, i) => ({
+        tenantId: input.tenantId,
+        orderId: order.id,
+        serviceId: s.id,
+        serviceName: s.name,
+        price: s.price,
+        sort: i,
+      })),
+    );
+
     await tx.insert(audit).values({
       tenantId: input.tenantId,
       userId: staff.id,
       action: 'create',
       entity: 'order',
       entityId: order.id,
-      data: { key, service: service.name, price, listPrice, payment: input.payment },
+      data: {
+        key,
+        services: chosen.map((s) => s.name),
+        price,
+        listPrice,
+        payment: input.payment,
+      },
     });
 
     return { order, client, service, duplicate: false };

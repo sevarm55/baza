@@ -28,6 +28,8 @@ export async function POST(request: Request) {
       ref?: string;
       clientKey?: string;
       serviceId?: string;
+      /** несколько услуг за один заезд */
+      serviceIds?: string[];
       payment?: string;
       passId?: string;
       note?: string;
@@ -39,14 +41,22 @@ export async function POST(request: Request) {
     const payment = str(input.payment) as Payment;
     if (!PAYMENTS.includes(payment)) return fail('BAD_REQUEST', 400);
 
-    const serviceId = str(input.serviceId);
     const clientKey = str(input.clientKey);
-    if (!serviceId || !clientKey) return fail('BAD_REQUEST', 400);
+    /* Принимаем обе формы: телефоны со старой версией шлют одну услугу,
+       и их накопленная офлайн-очередь обязана доехать. */
+    const serviceIds = Array.isArray(input.serviceIds)
+      ? input.serviceIds.map(str).filter(Boolean)
+      : [];
+    const serviceId = str(input.serviceId);
+    if ((serviceIds.length === 0 && !serviceId) || !clientKey) {
+      return fail('BAD_REQUEST', 400);
+    }
 
     const result = await createOrder({
       tenantId: ctx.tenant.id,
       staffId: ctx.user.id,
-      serviceId,
+      serviceId: serviceId || undefined,
+      serviceIds: serviceIds.length > 0 ? serviceIds : undefined,
       clientKey,
       payment,
       passId: str(input.passId) || undefined,

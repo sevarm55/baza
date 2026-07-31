@@ -18,7 +18,16 @@ struct OrderFlowView: View {
 
     @State private var step = 0
     @State private var clientKey = ""
-    @State private var service: API.Service?
+    /**
+     * Выбранные услуги. За один заезд делают комплекс и химчистку салона,
+     * и до сих пор это записывали двумя машинами.
+     *
+     * Первое касание по услуге сразу ведёт к оплате — для одной услуги
+     * число касаний не выросло. Вторую добавляют уже оттуда: мойщик
+     * делает это по сорок раз в день, и лишнее подтверждение в обычном
+     * случае стоило бы сорока касаний в смену.
+     */
+    @State private var chosen: [API.Service] = []
     @State private var known: API.KnownClient?
     @State private var saved = false
     @State private var scanning = false
@@ -173,7 +182,9 @@ struct OrderFlowView: View {
                 VStack(spacing: 8) {
                     ForEach(session.services) { item in
                         Button {
-                            service = item
+                            if !chosen.contains(where: { $0.id == item.id }) {
+                                chosen.append(item)
+                            }
                             step = 2
                         } label: {
                             HStack {
@@ -195,7 +206,10 @@ struct OrderFlowView: View {
                 }
             }
 
-            Button("Հետ") { step = 0 }
+            /* Назад — туда, откуда пришли. Если услуга уже выбрана,
+               значит сюда вернулись за второй, и бросать человека на
+               экран клиента незачем. */
+            Button("Հետ") { step = chosen.isEmpty ? 0 : 2 }
                 .buttonStyle(.glass)
         }
         .padding(16)
@@ -203,6 +217,7 @@ struct OrderFlowView: View {
 
     private var paymentStep: some View {
         VStack(alignment: .leading, spacing: 12) {
+            chosenRow
             Text("Վճարում")
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.2)
@@ -242,6 +257,42 @@ struct OrderFlowView: View {
         .padding(16)
     }
 
+    /// Что выбрано и сколько всего.
+    ///
+    /// Вторая услуга добавляется отсюда: список открывается снова и
+    /// возвращает сюда же. Убрать лишнюю можно тем же касанием по ней.
+    private var chosenRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(chosen) { item in
+                HStack {
+                    Text(item.name)
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    Text(money(item.price, currency))
+                        .font(.system(size: 14))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.muted)
+                    if chosen.count > 1 {
+                        Button {
+                            chosen.removeAll { $0.id == item.id }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Brand.muted.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            Button("+ ևս մեկ ծառայություն") { step = 1 }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.grape)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+
     /// Скидка.
     ///
     /// Отдельной строкой под способами оплаты, а не полем цены в шапке:
@@ -258,15 +309,15 @@ struct OrderFlowView: View {
                     .font(.system(size: 14.5, weight: .semibold))
                     .foregroundStyle(Brand.muted)
 
-                TextField(String(service?.price ?? 0), text: $discountText)
+                TextField(String(listTotal), text: $discountText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
                     .font(.system(size: 16, weight: .semibold))
                     .onChange(of: discountText) { _, v in
                         // выше прайса не пускаем прямо в поле
-                        if let n = Int(v), let top = service?.price, n > top {
-                            discountText = String(top)
+                        if let n = Int(v), n > listTotal {
+                            discountText = String(listTotal)
                         }
                     }
 
@@ -285,12 +336,15 @@ struct OrderFlowView: View {
     }
 
     /// Сколько возьмём: введённая сумма или прайс.
+    /// Сколько стоит по прайсу всё выбранное.
+    private var listTotal: Int { chosen.reduce(0) { $0 + $1.price } }
+
     private var charged: Int {
-        guard showDiscount, let typed = Int(discountText) else { return service?.price ?? 0 }
-        return min(typed, service?.price ?? 0)
+        guard showDiscount, let typed = Int(discountText) else { return listTotal }
+        return min(typed, listTotal)
     }
 
-    private var discounted: Bool { charged < (service?.price ?? 0) }
+    private var discounted: Bool { charged < listTotal }
 
     private var currencySign: String { currency == "AMD" ? "֏" : currency }
 
@@ -340,16 +394,19 @@ struct OrderFlowView: View {
     /// Так у отправки один путь вместо двух, и офлайн перестаёт быть
     /// особым случаем, который проверяют отдельно и забывают починить.
     private func record(payment: String) {
-        guard let service else { return }
+        guard let first = chosen.first else { return }
 
         queue.add(
             .init(
                 ref: UUID().uuidString,
                 clientKey: clientKey.trimmingCharacters(in: .whitespaces).uppercased(),
-                serviceId: service.id,
-                serviceName: service.name,
+                // старое поле заполняем всегда: очередь могла быть записана
+                // этой версией, а отправлена — после отката на прежнюю
+                serviceId: first.id,
+                serviceIds: chosen.map(\.id),
+                serviceName: chosen.map(\.name).joined(separator: " + "),
                 price: charged,
-                listPrice: service.price,
+                listPrice: listTotal,
                 payment: payment,
                 at: Date()
             )

@@ -71,6 +71,13 @@
       "when": 1785497538483,
       "tag": "0009_typical_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785498194389,
+      "tag": "0010_common_wither",
+      "breakpoints": true
     }
   ]
 }
