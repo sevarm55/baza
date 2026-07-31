@@ -78,6 +78,8 @@ function sendOne(host: string, jwt: string, token: string, note: Note): Promise<
     const request = client.request({
       ':method': 'POST',
       ':path': `/3/device/${token}`,
+      // без него Apple отвечает 403 MissingProviderToken на любой запрос
+      authorization: `bearer ${jwt}`,
       'apns-topic': TOPIC,
       'apns-push-type': 'alert',
       'apns-priority': '10',
