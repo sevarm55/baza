@@ -677,6 +677,37 @@ async function main() {
   const sum = await summary(get('/summary?period=today', rotated.access));
   check('сводка владельца открыта', sum.status === 200, sum.status);
 
+  /* Простой в графике.
+     Postgres возвращает только те часы, в которые что-то было, и три
+     машины в 9, 14 и 19 вставали тремя соседними столбиками: день
+     выглядел сплошь загруженным, а пятичасовая дыра исчезала. */
+  const { orders: orderRows } = await import('../lib/db/schema');
+  const atHour = (h: number) =>
+    new Date(q.startOfDay(tenant.timezone).getTime() + h * 3_600_000 + 60_000);
+
+  /* Двигаем время у двух записей этого бизнеса и возвращаем как было:
+     дальше по скрипту на них считают выручку и выгрузку. */
+  const [early, late] = await db
+    .select({ id: orderRows.id, createdAt: orderRows.createdAt })
+    .from(orderRows)
+    .where(eq(orderRows.tenantId, tenant.id))
+    .limit(2);
+  await db.update(orderRows).set({ createdAt: atHour(9) }).where(eq(orderRows.id, early.id));
+  await db.update(orderRows).set({ createdAt: atHour(14) }).where(eq(orderRows.id, late.id));
+
+  const gapped = await (await summary(get('/summary?period=today', rotated.access))).json();
+  const hours: string[] = gapped.series.map((p: { key: string }) => p.key.slice(11));
+  check('график начинается с первой машины, а не с полуночи', hours[0] === '09', hours[0]);
+  check('и в нём видна дыра между 9 и 14', hours.includes('11'), hours.join(' '));
+  check(
+    'пустой час пустой, а не выдуманный',
+    gapped.series.find((p: { key: string }) => p.key.endsWith('11'))?.revenue === 0,
+  );
+
+  for (const o of [early, late]) {
+    await db.update(orderRows).set({ createdAt: o.createdAt }).where(eq(orderRows.id, o.id));
+  }
+
   // уволенного не пускают: выше по скрипту мойщику сняли active
   const fired = await login(post('/login', { phone: '077 333 444', pin: '5678' }));
   check('уволенный сотрудник не входит', fired.status === 401, fired.status);
