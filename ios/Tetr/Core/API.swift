@@ -90,6 +90,46 @@ enum API {
         let openedAt: Date?
     }
 
+    struct MonthDay: Decodable, Identifiable {
+        let date: String
+        let revenue: Int
+        let count: Int
+        var id: String { date }
+    }
+
+    struct MonthTotal: Decodable {
+        let revenue: Int
+        let serviceRevenue: Int
+        let count: Int
+        let payroll: Int
+        let expenses: Int
+        let profit: Int
+    }
+
+    struct Month: Decodable {
+        let month: String
+        let days: [MonthDay]
+        let total: MonthTotal
+    }
+
+    struct DayShift: Decodable, Identifiable {
+        let userId: String
+        let name: String
+        let openedAt: Date
+        let closedAt: Date?
+        // человек мог отстоять две смены за день — одного userId мало
+        var id: String { "\(userId)-\(openedAt.timeIntervalSince1970)" }
+    }
+
+    struct Day: Decodable {
+        let date: String
+        let stats: Stats
+        let costs: Costs
+        let profit: Int
+        let shifts: [DayShift]
+        let feed: [FeedItem]
+    }
+
     /// Кто сейчас на мойке — для экрана владельца.
     struct Present: Decodable, Identifiable {
         let userId: String

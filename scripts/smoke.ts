@@ -914,6 +914,71 @@ async function main() {
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
 
+  /* ---------- календарь и история ---------- */
+
+  const history = await import('../lib/history');
+  const calendarApi = await import('../app/api/v1/calendar/route');
+  const dayApi = await import('../app/api/v1/day/route');
+
+  const todayKey = history.localDate(tenant.timezone);
+  const bounds = history.dayBounds(todayKey, tenant.timezone);
+  check(
+    'сутки ровно 24 часа',
+    bounds.to.getTime() - bounds.from.getTime() === 86_400_000,
+    (bounds.to.getTime() - bounds.from.getTime()) / 3_600_000,
+  );
+  check(
+    'и начинаются там же, где startOfDay',
+    bounds.from.getTime() === q.startOfDay(tenant.timezone).getTime(),
+    [todayKey, bounds.from.toISOString(), q.startOfDay(tenant.timezone).toISOString()],
+  );
+
+  /* Ереван зону не переводит, но продукт продаётся по нишам, а не по
+     странам. Проверяем на зоне, где перевод есть: сутки перехода длятся
+     23 часа, и «плюс 24» здесь дало бы съехавший день. */
+  const spring = history.dayBounds('2026-03-29', 'Europe/Berlin');
+  check(
+    'в день перевода стрелок сутки короче',
+    spring.to.getTime() - spring.from.getTime() === 23 * 3_600_000,
+    (spring.to.getTime() - spring.from.getTime()) / 3_600_000,
+  );
+
+  const march = history.monthBounds('2026-03', 'Europe/Berlin');
+  check('в марте 31 день', march.days === 31, march.days);
+  check('в феврале 28', history.monthBounds('2026-02', tenant.timezone).days === 28);
+  check('в високосном 29', history.monthBounds('2028-02', tenant.timezone).days === 29);
+
+  const cal = await calendarApi.GET(get(`/calendar?month=${todayKey.slice(0, 7)}`, rotated.access));
+  const calBody = await cal.json();
+  check('календарь отдаётся', cal.status === 200, cal.status);
+  check(
+    'в нём столько дней, сколько в месяце',
+    calBody.days.length === history.monthBounds(todayKey.slice(0, 7), tenant.timezone).days,
+    calBody.days.length,
+  );
+  check(
+    'пустые дни тоже есть — иначе сетка съедет',
+    calBody.days.every((d: { date: string }) => /^\d{4}-\d{2}-\d{2}$/.test(d.date)),
+  );
+  check(
+    'сумма дней сходится с итогом месяца',
+    calBody.days.reduce((s: number, d: { revenue: number }) => s + d.revenue, 0) ===
+      calBody.total.serviceRevenue,
+    [calBody.days.reduce((s: number, d: { revenue: number }) => s + d.revenue, 0), calBody.total.serviceRevenue],
+  );
+
+  const oneDay = await dayApi.GET(get(`/day?date=${todayKey}`, rotated.access));
+  const dayBody = await oneDay.json();
+  check('день отдаётся', oneDay.status === 200, oneDay.status);
+  check('в нём видно, кто стоял на смене', Array.isArray(dayBody.shifts), dayBody.shifts);
+  check('и что помыли', Array.isArray(dayBody.feed) && dayBody.feed.length > 0, dayBody.feed?.length);
+
+  const badDate = await dayApi.GET(get('/day?date=вчера', rotated.access));
+  check('кривая дата — 400, а не пятисотка', badDate.status === 400, badDate.status);
+
+  const dayByStaff = await dayApi.GET(get(`/day?date=${todayKey}`, staffTokens.access));
+  check('сотруднику история недоступна', dayByStaff.status === 403, dayByStaff.status);
+
   /* ---------- уведомления ---------- */
 
   const pushToken = await import('../app/api/v1/push/token/route');

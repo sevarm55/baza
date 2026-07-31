@@ -94,7 +94,7 @@ export async function listServices(tenantId: string) {
 }
 
 /** Начало «сегодня» в часовом поясе бизнеса, а не сервера. */
-export function startOfDay(timezone: string, at = new Date()): Date {
+function zoneParts(timezone: string, at: Date) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
@@ -106,16 +106,42 @@ export function startOfDay(timezone: string, at = new Date()): Date {
     hour12: false,
   }).formatToParts(at);
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  const localMs = Date.UTC(
-    get('year'),
-    get('month') - 1,
-    get('day'),
-    get('hour') === 24 ? 0 : get('hour'),
-    get('minute'),
-    get('second'),
-  );
-  const offset = localMs - at.getTime();
-  return new Date(Date.UTC(get('year'), get('month') - 1, get('day')) - offset);
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour') === 24 ? 0 : get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  };
+}
+
+/**
+ * На сколько зона отстоит от UTC в этот конкретный момент.
+ *
+ * Момент округляем до секунды: разложение по зоне секундами и
+ * ограничивается, и без этого миллисекунды входного времени утекали в
+ * смещение, а оттуда — в границу суток. «Начало дня» получалось не
+ * полночью, а полночью плюс случайный остаток, и запись, сделанная в
+ * первую долю секунды после неё, в этот день не попадала.
+ */
+function zoneOffset(timezone: string, at: Date): number {
+  const p = zoneParts(timezone, at);
+  const whole = at.getTime() - at.getMilliseconds();
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - whole;
+}
+
+export function startOfDay(timezone: string, at = new Date()): Date {
+  const p = zoneParts(timezone, at);
+  const midnight = Date.UTC(p.year, p.month - 1, p.day);
+
+  /* Считаем дважды. Смещение зоны в полночь может отличаться от смещения
+     в момент `at` — ровно на час в день перевода стрелок. По одному
+     измерению сутки перехода получались длиной 24 часа вместо 23, и
+     граница дня уезжала. Второй проход берёт смещение уже у самой
+     полуночи. В Ереване стрелки не переводят, и обе итерации совпадают. */
+  const first = new Date(midnight - zoneOffset(timezone, at));
+  return new Date(midnight - zoneOffset(timezone, first));
 }
 
 const notCanceled = isNull(orders.canceledAt);
@@ -266,7 +292,7 @@ export async function getPaymentSplit(tenantId: string, from: Date) {
   return rows;
 }
 
-export async function getFeed(tenantId: string, from: Date, limit = 100) {
+export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Date) {
   return db
     .select({
       id: orders.id,
@@ -280,7 +306,15 @@ export async function getFeed(tenantId: string, from: Date, limit = 100) {
     .from(orders)
     .leftJoin(users, eq(users.id, orders.staffId))
     .leftJoin(clients, eq(clients.id, orders.clientId))
-    .where(and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), notCanceled))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        gte(orders.createdAt, from),
+        // верхняя граница нужна истории: у неё день закрытый, а не «с тех пор»
+        to ? lt(orders.createdAt, to) : undefined,
+        notCanceled,
+      ),
+    )
     .orderBy(desc(orders.createdAt))
     .limit(limit);
 }

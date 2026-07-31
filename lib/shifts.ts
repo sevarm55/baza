@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { shifts, users } from './db/schema';
 import { notifyOwnersInBackground } from './push';
@@ -77,6 +77,34 @@ export async function closeShift(tenantId: string, userId: string) {
     .update(shifts)
     .set({ closedAt: new Date() })
     .where(and(eq(shifts.tenantId, tenantId), eq(shifts.userId, userId), isNull(shifts.closedAt)));
+}
+
+/**
+ * Кто стоял на смене в этот день — для истории.
+ *
+ * Берём все смены, пересекающиеся с сутками, а не только открытые в них:
+ * смена может начаться до полуночи и кончиться после, и выкинуть её
+ * значило бы показать день, в котором на мойке не было никого, хотя
+ * машины в нём записаны.
+ */
+export async function shiftsOnDay(tenantId: string, from: Date, to: Date) {
+  return db
+    .select({
+      userId: shifts.userId,
+      name: users.name,
+      openedAt: shifts.openedAt,
+      closedAt: shifts.closedAt,
+    })
+    .from(shifts)
+    .innerJoin(users, eq(users.id, shifts.userId))
+    .where(
+      and(
+        eq(shifts.tenantId, tenantId),
+        lt(shifts.openedAt, to),
+        or(isNull(shifts.closedAt), gt(shifts.closedAt, from)),
+      ),
+    )
+    .orderBy(sql`${shifts.openedAt} asc`);
 }
 
 /**

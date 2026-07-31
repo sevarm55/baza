@@ -18,6 +18,12 @@ struct MoreView: View {
         List {
             Section {
                 NavigationLink {
+                    CalendarView().navigationTitle("Օրացույց")
+                } label: {
+                    row("calendar", "Օրացույց և պատմություն")
+                }
+
+                NavigationLink {
                     ClientsView().navigationTitle("Հաճախորդներ")
                 } label: {
                     row("person.2.fill", "Հաճախորդներ")
