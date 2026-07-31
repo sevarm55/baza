@@ -64,7 +64,11 @@ struct ProfileView: View {
 
             if let access = session.access {
                 Section {
-                    LabeledContent("Բաժանորդագրություն") {
+                    /* «Доступ», а не «подписка»: подписка — слово про
+                       оплату, а оплаты внутри приложения нет и по правилам
+                       App Store быть не должно. Человеку тут важен срок,
+                       а не название договора. */
+                    LabeledContent("Մուտք") {
                         Text(Self.plan(access))
                             .foregroundStyle(access.warn ? Brand.warn : Brand.good)
                     }
@@ -146,10 +150,29 @@ struct ProfileView: View {
         }
     }
 
+    /**
+     * Состояние доступа — датой, а не обратным отсчётом.
+     *
+     * Было «Փորձնական · 6 օր»: слово «пробный» и тающий счётчик вместе
+     * читаются как «скоро платить», то есть как начало платного пути
+     * внутри приложения. Правила App Store (3.1.3f) разрешают держать
+     * оплату вне приложения ровно при условии, что внутри нет ни покупки,
+     * ни подталкивания к ней.
+     *
+     * Дата отвечает на тот же вопрос — до какого числа работает, — и
+     * отвечает точнее: «6 дней» человек всё равно про себя переводит в
+     * число. Пробный от оплаченного при этом не отличается никак, и это
+     * честно: для того, кто пользуется, разницы и нет.
+     */
     static func plan(_ a: API.Access) -> String {
         switch a.state {
-        case "trial": return "Փորձնական · \(a.daysLeft) օր"
-        case "active": return "Ակտիվ · \(a.daysLeft) օր"
+        case "trial", "active":
+            let until = Calendar.current.date(byAdding: .day, value: a.daysLeft, to: Date())
+            guard let until else { return "Հասանելի է" }
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "hy_AM")
+            f.dateFormat = "d MMMM"
+            return "Հասանելի է մինչև \(f.string(from: until))"
         case "expired": return "Ժամկետը լրացել է"
         default: return "Փակ է"
         }

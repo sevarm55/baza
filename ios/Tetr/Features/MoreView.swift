@@ -63,7 +63,7 @@ struct MoreView: View {
                     row("person.crop.circle.fill", "Պրոֆիլ")
                 }
             } footer: {
-                Text("Անուն, PIN, ծանուցումներ, բաժանորդագրություն։")
+                Text("Անուն, PIN, ծանուցումներ։")
             }
         }
         .scrollContentBackground(.hidden)

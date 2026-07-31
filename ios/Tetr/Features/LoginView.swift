@@ -12,7 +12,6 @@ struct LoginView: View {
     @State private var pin = ""
     @State private var error: String?
     @State private var busy = false
-    @State private var registering = false
     @FocusState private var focus: Field?
 
     private enum Field { case phone, pin }
@@ -69,12 +68,23 @@ struct LoginView: View {
                 .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
                 .padding(.top, 28)
 
-                /* Экран входа не должен быть тупиком: у пришедшего впервые
-                   аккаунта ещё нет. Ровно та же оговорка стоит в окне
-                   входа на сайте — и по той же причине. */
-                Button("Ստեղծել բիզնես") { registering = true }
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(Brand.lime)
+                /* Заводить бизнес отсюда больше нельзя, и это не про
+                   удобство, а про правила App Store.
+
+                   Приложение раздаётся бесплатно, а сервис оплачивается вне
+                   его. Apple такое разрешает (3.1.3f) при условии, что
+                   внутри нет ни покупки, ни намёка на оплату снаружи.
+                   Самостоятельная регистрация с пробным сроком — это ровно
+                   начало платного пути, и держать её внутри значит спорить
+                   с этим условием на пустом месте.
+
+                   Экран при этом не должен быть тупиком: строка объясняет,
+                   откуда берётся вход. Без ссылки и без цен — по той же
+                   причине. */
+                Text("Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը")
+                    .font(.system(size: 13.5))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.6))
                     .frame(maxWidth: .infinity)
                     .padding(.top, 18)
 
@@ -87,9 +97,6 @@ struct LoginView: View {
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
-        .fullScreenCover(isPresented: $registering) {
-            RegisterView()
-        }
     }
 
     @ViewBuilder

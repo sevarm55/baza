@@ -65,35 +65,13 @@ final class Session: ObservableObject {
         state = .signedIn
     }
 
-    /// Регистрация — это и вход тоже: сервер сразу отдаёт токены, и
-    /// заставлять человека вводить те же телефон и PIN второй раз незачем.
-    func register(
-        niche: String,
-        businessName: String,
-        ownerName: String,
-        phone: String,
-        pin: String
-    ) async throws {
-        let device = await UIDevice.current.name
-        let result: API.LoginResult = try await api.send(
-            "auth/register",
-            method: "POST",
-            body: [
-                "niche": niche,
-                "businessName": businessName,
-                "ownerName": ownerName,
-                "phone": phone,
-                "pin": pin,
-                "device": device,
-            ],
-            as: API.LoginResult.self
-        )
-        accessToken = result.access
-        refreshToken = result.refresh
+    /* Регистрации из приложения больше нет — только вход. Бизнес
+       заводится на сайте: приложение раздаётся бесплатно, а сервис
+       оплачивается вне его, и правила App Store (3.1.3f) разрешают это
+       ровно при условии, что внутри нет ни покупки, ни начала платного
+       пути. Экран регистрации с пробным сроком был именно им.
 
-        try await loadBootstrap()
-        state = .signedIn
-    }
+       Серверный /auth/register никуда не делся: им пользуется веб. */
 
     /// Сменить PIN.
     ///
