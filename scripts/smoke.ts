@@ -1580,7 +1580,7 @@ async function main() {
   /* Постоянный не удаляется, а закрывается датой: иначе правка задним
      числом переписала бы прибыль за все прошлые месяцы. */
   const monthlyRows = (await listExpensesFor(tenant.id)).filter((e) => e.monthly);
-  const closed = await removeExpense(tenant.id, monthlyRows[0].id);
+  const closed = await removeExpense(tenant.id, monthlyRows[0].id, q.startOfDay(tenant.timezone));
   check('постоянный убирается', closed);
   const afterClose = await getPeriodCosts(
     tenant.id,
@@ -1588,6 +1588,105 @@ async function main() {
     new Date(Date.now() + 2 * 86_400_000),
   );
   check('и перестаёт капать со следующего дня', afterClose.monthlyShare === 0, afterClose);
+
+  /* ---------- изменение расхода ---------- */
+
+  const { editExpense } = await import('../lib/expenses');
+  const expenseDay = q.startOfDay(tenant.timezone);
+  const monthAgo = new Date(expenseDay.getTime() - 30 * 86_400_000);
+
+  /* Аренда, заведённая месяц назад: именно на ней и видно, что правка
+     не переписывает прошлое. */
+  const rent = await addExpense({
+    tenantId: tenant.id,
+    userId: null,
+    amount: 300_000,
+    category: 'Վարձ',
+    monthly: true,
+    at: monthAgo,
+  });
+
+  const beforeRaise = await getPeriodCosts(tenant.id, monthAgo, expenseDay);
+  check('старая аренда капала месяц', beforeRaise.monthlyShare > 290_000, beforeRaise);
+
+  const raised = await editExpense({
+    tenantId: tenant.id,
+    id: rent.id,
+    userId: null,
+    amount: 350_000,
+    category: 'Վարձ',
+    dayStart: expenseDay,
+  });
+  check('аренда дорожает', raised?.amount === 350_000, raised?.amount);
+  check('и это новая строка, а не переписанная старая', raised?.id !== rent.id);
+
+  const afterRaise = await getPeriodCosts(tenant.id, monthAgo, expenseDay);
+  check(
+    'прошлый месяц остался посчитан по старой сумме',
+    afterRaise.monthlyShare === beforeRaise.monthlyShare,
+    [beforeRaise.monthlyShare, afterRaise.monthlyShare],
+  );
+
+  const tomorrowStart = new Date(expenseDay.getTime() + 86_400_000);
+  const nowCosts = await getPeriodCosts(tenant.id, expenseDay, tomorrowStart);
+  check(
+    'а сегодня платим уже по новой',
+    nowCosts.monthlyShare === Math.round(350_000 / 30.4375),
+    nowCosts.monthlyShare,
+  );
+
+  const inForce = (await listExpensesFor(tenant.id)).filter((e) => e.monthly && !e.endedAt);
+  check(
+    'в списке одна аренда, а не две',
+    inForce.filter((e) => e.category === 'Վարձ').length === 1,
+    inForce.map((e) => e.amount),
+  );
+
+  /* Правка названия сумму не трогает — и раздваивать расход не должна:
+     иначе исправленная опечатка плодила бы строку на каждый заход. */
+  const renamedRent = await editExpense({
+    tenantId: tenant.id,
+    id: raised!.id,
+    userId: null,
+    amount: 350_000,
+    category: 'Վարձակալություն',
+    dayStart: expenseDay,
+  });
+  check('переименование правит на месте', renamedRent?.id === raised!.id);
+
+  /* Опечатка в сумме: завёл и в тот же день исправил. Дня по старой
+     цене быть не должно — иначе ошибка навсегда остаётся в истории. */
+  const typo = await addExpense({
+    tenantId: tenant.id,
+    userId: null,
+    amount: 999_999,
+    category: 'Հոսանք',
+    monthly: true,
+    at: new Date(expenseDay.getTime() + 3_600_000),
+  });
+  await editExpense({
+    tenantId: tenant.id,
+    id: typo.id,
+    userId: null,
+    amount: 20_000,
+    category: 'Հոսանք',
+    dayStart: expenseDay,
+  });
+  const power = (await listExpensesFor(tenant.id)).filter(
+    (e) => e.category === 'Հոսանք' && !e.endedAt,
+  );
+  check('опечатка в сумме исправляется без следа', power.length === 1, power.map((e) => e.amount));
+  check('и не стоит бизнесу ни дня', power[0].amount === 20_000);
+
+  const junkEdit = await editExpense({
+    tenantId: second.tenant.id,
+    id: raised!.id,
+    userId: null,
+    amount: 1,
+    category: 'Ուրիշի',
+    dayStart: expenseDay,
+  });
+  check('чужой расход не правится', junkEdit === null);
 
   async function listExpensesFor(id: string) {
     const { listExpenses } = await import('../lib/expenses');

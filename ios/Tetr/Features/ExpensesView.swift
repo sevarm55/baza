@@ -17,6 +17,7 @@ struct ExpensesView: View {
     @State private var items: [API.Expense] = []
     @State private var hints: [String] = []
     @State private var adding = false
+    @State private var editing: API.Expense?
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -49,6 +50,10 @@ struct ExpensesView: View {
                 .frame(maxWidth: .infinity)
                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
                 .foregroundStyle(Brand.ink)
+                // аренда дорожает — самое обычное событие; до сих пор её
+                // приходилось удалять и заводить заново
+                .contentShape(.rect)
+                .onTapGesture { editing = item }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
@@ -83,6 +88,9 @@ struct ExpensesView: View {
         .sheet(isPresented: $adding) {
             ExpenseEditor(hints: hints, currency: currency) { await reload() }
         }
+        .sheet(item: $editing) { item in
+            ExpenseEditor(editing: item, hints: hints, currency: currency) { await reload() }
+        }
         .task { await reload() }
         .refreshable { await reload() }
     }
@@ -115,8 +123,13 @@ struct ExpensesView: View {
     }
 }
 
-/// Новый расход.
+/// Расход: новый или правка существующего.
+///
+/// Форма одна на оба случая. Разница только в том, что у правки уже есть
+/// id и заполненные поля, — заводить ради этого второй экран значило бы
+/// держать две формы, которые обязаны расходиться только заголовком.
 struct ExpenseEditor: View {
+    var editing: API.Expense?
     let hints: [String]
     let currency: String
     let onSave: () async -> Void
@@ -129,6 +142,15 @@ struct ExpenseEditor: View {
     @State private var monthly = false
     @State private var busy = false
     @State private var error: String?
+
+    /* Сумма постоянного расхода не переписывает прошлое: старый
+       закрывается сегодняшним днём, новый с него же начинается. Сказать
+       это надо до нажатия «сохранить», а не после — иначе владелец ждёт,
+       что прошлый месяц пересчитается, и не понимает, почему нет. */
+    private var amountChanged: Bool {
+        guard let editing, editing.monthly else { return false }
+        return Int(amount) != editing.amount
+    }
 
     var body: some View {
         NavigationStack {
@@ -156,21 +178,32 @@ struct ExpenseEditor: View {
                     }
                 }
 
-                Section {
-                    Toggle(isOn: $monthly) {
-                        Text("Ամսական")
+                /* Вид расхода у существующего не меняется: превращать
+                   разовую канистру химии в аренду нечем — это другой
+                   расход, и заводится он заново. */
+                if editing == nil {
+                    Section {
+                        Toggle(isOn: $monthly) {
+                            Text("Ամսական")
+                        }
+                    } footer: {
+                        Text(monthly
+                             ? "Վարձ, հոսանք․ բաշխվում է ամսվա բոլոր օրերին։"
+                             : "Միանվագ ծախս՝ այսօրվա ամսաթվով։")
                     }
-                } footer: {
-                    Text(monthly
-                         ? "Վարձ, հոսանք․ բաշխվում է ամսվա բոլոր օրերին։"
-                         : "Միանվագ ծախս՝ այսօրվա ամսաթվով։")
+                } else if amountChanged {
+                    Section {
+                        Text("Հին գումարը մնում է անցած օրերին։ Նորը գործում է այսօրվանից։")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.muted)
+                    }
                 }
 
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
-            .navigationTitle("Նոր ծախս")
+            .navigationTitle(editing == nil ? "Նոր ծախս" : "Ծախս")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -182,6 +215,12 @@ struct ExpenseEditor: View {
                 }
             }
         }
+        .onAppear {
+            guard let editing else { return }
+            category = editing.category
+            amount = String(editing.amount)
+            monthly = editing.monthly
+        }
     }
 
     private func save() async {
@@ -191,7 +230,15 @@ struct ExpenseEditor: View {
 
         do {
             _ = try await session.authed { token in
-                try await APIClient.shared.raw(
+                if let editing {
+                    return try await APIClient.shared.raw(
+                        "expenses/\(editing.id)",
+                        method: "PATCH",
+                        body: ["amount": Int(amount) ?? 0, "category": category],
+                        token: token
+                    )
+                }
+                return try await APIClient.shared.raw(
                     "expenses",
                     method: "POST",
                     body: [

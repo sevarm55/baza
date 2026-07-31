@@ -84,20 +84,111 @@ export async function listExpenses(tenantId: string, from: Date) {
 }
 
 /**
+ * Изменить расход.
+ *
+ * Аренда дорожает, и это самое обычное событие в жизни мойки. Но
+ * переписать сумму на месте нельзя: доля постоянного расхода считается
+ * из его суммы за все дни, что он действует, — и новая цифра задним
+ * числом переписала бы прибыль за все прошлые месяцы. Владелец смотрел
+ * на те цифры, сверял с кассой, принимал по ним решения.
+ *
+ * Поэтому изменение суммы — это конец старого расхода и начало нового с
+ * того же дня. Ровно так же, как цена услуги не переписывает уже сделанные
+ * записи: прошлое зафиксировано, меняется только будущее.
+ *
+ * Название и заметку правим на месте — исправленная опечатка в слове
+ * «Վարձ» не меняет ни одной цифры.
+ *
+ * Разовый расход правится целиком: это не «стало столько», а «я ошибся
+ * при вводе», и прошлое здесь надо именно поправить.
+ *
+ * Границей берём начало дня, а не текущую минуту: постоянные расходы
+ * начисляются целыми днями, и день, разрезанный пополам старой и новой
+ * арендой, дал бы цифру, которую не проверить в уме.
+ */
+export async function editExpense(params: {
+  tenantId: string;
+  id: string;
+  userId: string | null;
+  amount: number;
+  category: string;
+  note?: string | null;
+  dayStart: Date;
+}) {
+  const category = params.category.trim();
+  if (!category) throw new BadExpenseError('EMPTY_CATEGORY');
+  if (!Number.isInteger(params.amount) || params.amount <= 0) {
+    throw new BadExpenseError('BAD_AMOUNT');
+  }
+
+  const [row] = await db
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
+
+  if (!row || row.endedAt) return null;
+
+  const note = params.note?.trim() || null;
+  const sameAmount = row.amount === params.amount;
+
+  if (!row.monthly || sameAmount) {
+    const [updated] = await db
+      .update(expenses)
+      .set({ amount: params.amount, category, note })
+      .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)))
+      .returning();
+    return updated;
+  }
+
+  /* Заведён сегодня и сегодня же исправлен — это опечатка, а не подорожание.
+     Старая строка закрывается тем же мгновением, с которого началась, и
+     не стоит бизнесу ни дня. */
+  const endedAt = row.at > params.dayStart ? row.at : params.dayStart;
+
+  await db
+    .update(expenses)
+    .set({ endedAt })
+    .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
+
+  const [fresh] = await db
+    .insert(expenses)
+    .values({
+      tenantId: params.tenantId,
+      createdBy: params.userId,
+      amount: params.amount,
+      category,
+      note,
+      monthly: true,
+      at: endedAt,
+    })
+    .returning();
+
+  return fresh;
+}
+
+/**
  * Убрать расход.
  *
  * Разовый удаляется совсем — это точка во времени, и удаление здесь
  * означает «ошибся, не было такого». Постоянный закрывается датой:
  * снести аренду значило бы переписать прибыль за все месяцы, когда её
  * платили, а на те цифры владелец уже смотрел.
+ *
+ * Закрываем началом дня, а не текущей минутой. Тогда аренда, заведённая
+ * по ошибке и убранная в тот же день, не стоит бизнесу ничего — а именно
+ * так удаление и понимают, когда жмут кнопку через минуту после ввода.
  */
-export async function removeExpense(tenantId: string, id: string): Promise<boolean> {
+export async function removeExpense(
+  tenantId: string,
+  id: string,
+  dayStart: Date,
+): Promise<boolean> {
   /* Кривой id до Postgres доводить нельзя: он бросит своё на разборе
      uuid, и наружу вместо «не найдено» уйдёт пятисотка. */
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return false;
 
   const [row] = await db
-    .select({ monthly: expenses.monthly })
+    .select({ monthly: expenses.monthly, at: expenses.at })
     .from(expenses)
     .where(and(eq(expenses.tenantId, tenantId), eq(expenses.id, id)));
 
@@ -106,7 +197,7 @@ export async function removeExpense(tenantId: string, id: string): Promise<boole
   if (row.monthly) {
     await db
       .update(expenses)
-      .set({ endedAt: new Date() })
+      .set({ endedAt: row.at > dayStart ? row.at : dayStart })
       .where(and(eq(expenses.tenantId, tenantId), eq(expenses.id, id)));
   } else {
     await db.delete(expenses).where(and(eq(expenses.tenantId, tenantId), eq(expenses.id, id)));

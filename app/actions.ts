@@ -10,7 +10,7 @@ import { tenants, users } from '@/lib/db/schema';
 import { findClient, getTenant, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { settleStaff } from '@/lib/payroll';
-import { addExpense, removeExpense } from '@/lib/expenses';
+import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
@@ -454,8 +454,51 @@ export async function removeExpenseAction(formData: FormData): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
 
-  await removeExpense(session.tid, String(formData.get('id') ?? ''));
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return;
+
+  await removeExpense(
+    session.tid,
+    String(formData.get('id') ?? ''),
+    startOfDay(tenant.timezone),
+  );
 
   revalidatePath('/owner/expenses');
   revalidatePath('/owner');
+}
+
+/**
+ * Изменить расход.
+ *
+ * Сумму постоянного расхода правка не переписывает: старый закрывается,
+ * новый начинается с сегодняшнего дня — причина в lib/expenses.ts.
+ */
+export async function saveExpenseAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return { error: hy.errors.generic };
+
+  try {
+    const row = await editExpense({
+      tenantId: session.tid,
+      id: String(formData.get('id') ?? ''),
+      userId: session.uid,
+      amount: toMinor(Number(formData.get('amount') ?? 0), tenant.currency),
+      category: String(formData.get('category') ?? ''),
+      note: null,
+      dayStart: startOfDay(tenant.timezone),
+    });
+    if (!row) return { error: hy.errors.generic };
+  } catch {
+    return { error: hy.errors.required };
+  }
+
+  revalidatePath('/owner/expenses');
+  revalidatePath('/owner');
+  return { ok: true };
 }
