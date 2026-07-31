@@ -121,7 +121,15 @@ export default async function Home() {
       </main>
 
       <footer className={s.footer}>
-        <div className={s.container}>{L.footer}</div>
+        <div className={s.container}>
+          {L.footer}
+          {/* Обе ссылки обязательны для App Store, но им же и место:
+              единственная страница, куда человек придёт сам, — эта. */}
+          <div className={s.footerLinks}>
+            <Link href="/privacy">{hy.legal.privacy}</Link>
+            <Link href="/support">{hy.legal.support}</Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

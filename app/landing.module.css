@@ -624,6 +624,21 @@
   text-align: center;
 }
 
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.footerLinks a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.footerLinks a:hover {
+  text-decoration: underline;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .caret,
   .record {
