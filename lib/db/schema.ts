@@ -61,6 +61,15 @@ export const users = pgTable(
      * своего срока. Без этого сменить PIN после кражи телефона бесполезно.
      */
     tokenVersion: integer('token_version').notNull().default(0),
+    /**
+     * Слать ли владельцу уведомление о каждой записи.
+     *
+     * Отдельно от уведомления об открытии смены: смен две в день, а машин
+     * сорок. Одним выключателем на всё человек убил бы и то, что хотел
+     * получать, — а выключают такое в настройках телефона целиком и
+     * навсегда.
+     */
+    notifyOrders: boolean('notify_orders').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -377,9 +386,41 @@ export const shifts = pgTable(
   ],
 );
 
+/**
+ * Токены устройств для пуш-уведомлений.
+ *
+ * Токен принадлежит паре «человек + устройство»: у владельца может быть
+ * телефон и планшет, и уведомление должно прийти на оба. Уникальность по
+ * самому токену, а не по пользователю, — иначе переустановка приложения
+ * оставила бы в базе мёртвую запись, а Apple на неё отвечает 410, и мы
+ * молча теряли бы доставку.
+ *
+ * `sandbox` не роскошь: сборка из Xcode получает токен тестового контура
+ * Apple, магазинная — боевого, и хосты у них разные. Отправить в не тот
+ * контур значит получить BadDeviceToken на исправном токене.
+ */
+export const pushTokens = pgTable(
+  'push_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    sandbox: boolean('sandbox').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('push_tokens_uniq').on(t.token), index('push_tokens_user_idx').on(t.userId)],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;
+export type PushToken = typeof pushTokens.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Client = typeof clients.$inferSelect;

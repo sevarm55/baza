@@ -96,6 +96,10 @@ final class Session: ObservableObject {
     }
 
     func signOut() async {
+        // сначала отзываем токен устройства: телефон на мойке переходит из
+        // рук в руки, и уведомления о чужой выручке приходить не должны
+        await Push.shared.revoke()
+
         if let refreshToken {
             _ = try? await api.raw("auth/logout", method: "POST", body: ["refresh": refreshToken])
         }

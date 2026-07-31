@@ -1,6 +1,7 @@
 import { and, eq, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
 import { shifts, users } from './db/schema';
+import { notifyOwnersInBackground } from './push';
 
 /**
  * Открытая смена.
@@ -57,6 +58,17 @@ export async function openShift(tenantId: string, userId: string, dayStart: Date
   if (open) return open;
 
   const [row] = await db.insert(shifts).values({ tenantId, userId }).returning();
+
+  /* Уведомляем только на самом деле новую смену. Повторное нажатие
+     возвращается выше, и владелец не получает второе «вышел на смену»
+     о том же человеке. */
+  const [who] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+  notifyOwnersInBackground(tenantId, userId, {
+    title: 'Հերթափոխ',
+    body: `${who?.name ?? 'Աշխատակից'} դուրս եկավ հերթափոխի`,
+    thread: 'shift',
+  });
+
   return row;
 }
 

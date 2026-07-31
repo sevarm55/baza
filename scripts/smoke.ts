@@ -587,6 +587,12 @@ async function main() {
     new Request(`http://t${url}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     });
+  const del = (url: string, json: unknown, token?: string) =>
+    new Request(`http://t${url}`, {
+      method: 'DELETE',
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify(json),
+    });
 
   // владелец бизнеса №1 заводился с PIN 1234
   const bad = await login(post('/login', { phone: '077 111 222', pin: '9999' }));
@@ -908,6 +914,52 @@ async function main() {
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
 
+  /* ---------- уведомления ---------- */
+
+  const pushToken = await import('../app/api/v1/push/token/route');
+  const pushSettings = await import('../app/api/v1/push/settings/route');
+  const { pushTokens } = await import('../lib/db/schema');
+
+  const saved = await pushToken.POST(
+    post('/push/token', { token: 'aabbcc11', sandbox: true }, staffTokens.access),
+  );
+  check('токен устройства принимается', saved.status === 204, saved.status);
+
+  /* Приложение шлёт токен при каждом запуске — повтор обязан быть тихим,
+     иначе он либо задвоится, либо начнёт возвращать ошибку на ровном месте. */
+  const sameAgainToken = await pushToken.POST(
+    post('/push/token', { token: 'aabbcc11', sandbox: true }, staffTokens.access),
+  );
+  check('повторная присылка того же токена не ошибка', sameAgainToken.status === 204, sameAgainToken.status);
+  check(
+    'и он в базе один',
+    (await db.select().from(pushTokens).where(eq(pushTokens.token, 'aabbcc11'))).length === 1,
+  );
+
+  const setting = await pushSettings.POST(post('/push/settings', { orders: false }, rotated.access));
+  check('владелец выключает уведомления о машинах', setting.status === 204, setting.status);
+  const [quiet] = await db.select().from(users).where(eq(users.id, owner.id));
+  check('и это записалось', quiet.notifyOrders === false, quiet.notifyOrders);
+
+  const byWorker = await pushSettings.POST(
+    post('/push/settings', { orders: true }, staffTokens.access),
+  );
+  check('сотруднику настройка недоступна', byWorker.status === 403, byWorker.status);
+
+  const tokenGone = await pushToken.DELETE(
+    del('/push/token', { token: 'aabbcc11' }, staffTokens.access),
+  );
+  check('при выходе токен отзывается', tokenGone.status === 204, tokenGone.status);
+  check(
+    'и в базе его больше нет',
+    (await db.select().from(pushTokens).where(eq(pushTokens.token, 'aabbcc11'))).length === 0,
+  );
+
+  /* Без ключа APNs отправка молчит, но ничего не ломает: запись машины
+     не должна зависеть от доступности Apple. */
+  const { pushEnabled } = await import('../lib/push');
+  check('без ключа уведомления просто выключены', pushEnabled() === false);
+
   /* ---------- расходы и прибыль ---------- */
 
   const { addExpense, getPeriodCosts, profitOf, removeExpense } = await import('../lib/expenses');
@@ -915,13 +967,6 @@ async function main() {
   const expenseOne = await import('../app/api/v1/expenses/[id]/route');
 
   const dayAgo = new Date(Date.now() - 86_400_000);
-
-  const del = (url: string, json: unknown, token?: string) =>
-    new Request(`http://t${url}`, {
-      method: 'DELETE',
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-      body: JSON.stringify(json),
-    });
 
   await addExpense({
     tenantId: tenant.id,

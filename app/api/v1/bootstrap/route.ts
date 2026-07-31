@@ -40,6 +40,7 @@ export async function GET(request: Request) {
         name: ctx.user.name,
         role: ctx.user.role,
         percent: ctx.user.percent,
+        notifyOrders: ctx.user.notifyOrders,
       },
       access: ctx.access,
       services: services.map((s) => ({ id: s.id, name: s.name, price: s.price, sort: s.sort })),

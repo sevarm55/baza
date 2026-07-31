@@ -1,7 +1,27 @@
 import SwiftUI
 
+/// Делегат нужен ровно ради одного: токен устройства система отдаёт
+/// только сюда, до SwiftUI он не доходит.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken token: Data
+    ) {
+        Task { @MainActor in Push.shared.store(token) }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        // без уведомлений приложение работает целиком, поэтому только след
+        print("[push] регистрация не прошла: \(error.localizedDescription)")
+    }
+}
+
 @main
 struct TetrApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var session = Session()
     @StateObject private var queue = OrderQueue()
     @StateObject private var lock = BiometricLock()
@@ -40,6 +60,7 @@ struct TetrApp: App {
                 .tint(Brand.grape)
                 .task {
                     BackgroundSync.use(session: session, queue: queue)
+                    Push.shared.use(session: session)
                     // связь вернулась — досылаем тут же, не дожидаясь,
                     // пока человек снова откроет экран смены
                     net.onReturn = {
@@ -120,6 +141,14 @@ struct RootView: View {
                     .task {
                         if session.me?.isOwner == true && !Onboarding.seen {
                             onboarding = true
+                        }
+                        /* Разрешение спрашиваем здесь, а не на запуске:
+                           только у владельца и только когда он уже внутри.
+                           Системный запрос без объяснения на первом экране
+                           отклоняют не глядя, а вернуть его потом можно
+                           лишь через настройки телефона. */
+                        if session.me?.isOwner == true {
+                            await Push.shared.askAndRegister()
                         }
                     }
             }

@@ -1,6 +1,8 @@
 import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { audit, clients, orders, passes, services, users } from './db/schema';
+import { formatMoney } from './money';
+import { notifyOwnersInBackground } from './push';
 
 export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 
@@ -42,7 +44,7 @@ export async function createOrder(input: CreateOrderInput) {
   if (!key) throw new NotFoundError('EMPTY_CLIENT_KEY');
   if (input.payment === 'pass' && !input.passId) throw new NotFoundError('PASS_REQUIRED');
 
-  return db.transaction(async (tx) => {
+  const made = await db.transaction(async (tx) => {
     /* Досылка из офлайн-очереди может прийти дважды: телефон не дождался
        ответа и повторил. Ту же запись просто возвращаем — счётчики
        клиента и абонемента при этом не трогаются вообще. */
@@ -155,6 +157,29 @@ export async function createOrder(input: CreateOrderInput) {
 
     return { order, client, service, duplicate: false };
   });
+
+  /* Уведомление шлём ПОСЛЕ транзакции и в фоне.
+     После — потому что внутри запись ещё может откатиться, и владелец
+     получил бы сообщение о машине, которой нет. В фоне — потому что
+     недоступность Apple не должна ронять запись: мойщик стоит с
+     телефоном у машины, и его дело важнее нашего уведомления.
+
+     Досылку из очереди не объявляем: `duplicate` означает, что запись
+     уже была, и второе сообщение о ней — шум. */
+  if (!made.duplicate) {
+    notifyOwnersInBackground(
+      input.tenantId,
+      made.order.staffId,
+      {
+        title: made.client?.key ?? made.order.serviceName,
+        body: `${made.order.serviceName} · ${formatMoney(made.order.price)}`,
+        thread: 'orders',
+      },
+      'orders',
+    );
+  }
+
+  return made;
 }
 
 /**

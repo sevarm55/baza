@@ -58,11 +58,15 @@ targets:
         NSFaceIDUsageDescription: Որպեսզի PIN-ը ամեն անգամ չհավաքեք
         # Досылка очереди, когда приложение закрыто
         UIBackgroundModes: [processing]
+        # Разрешение на уведомления спрашивается в приложении, но система
+        # хочет видеть право на них здесь
+        NSUserNotificationsUsageDescription: Որպեսզի իմանաք հերթափոխի և նոր գրանցումների մասին
         BGTaskSchedulerPermittedIdentifiers: [org.tetr.app.flush]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.tetr.app
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Tetr/Tetr.entitlements
         # Имя файла AppIcon.icon без расширения. Каталога ассетов у нас
         # нет и не нужно: цель — iOS 26, а там иконка живёт одним .icon,
         # из которого система сама делает светлую, тёмную и тонированную.

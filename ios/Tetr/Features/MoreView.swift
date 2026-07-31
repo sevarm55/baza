@@ -12,6 +12,7 @@ struct MoreView: View {
     @State private var exporting = false
     @State private var exported: URL?
     @State private var deleting = false
+    @State private var notifyOrders = true
 
     var body: some View {
         List {
@@ -52,6 +53,21 @@ struct MoreView: View {
                 Text("Ձեր տվյալները ձերն են՝ ցանկացած պահի։")
             }
 
+            /* Отдельно от «на смене»: смен две в день, а машин сорок.
+               Одним выключателем на всё человек убил бы и то, что хотел
+               получать, — а выключают такое в настройках телефона целиком
+               и навсегда. */
+            Section {
+                Toggle(isOn: $notifyOrders) {
+                    row("bell.badge.fill", "Ծանուցում ամեն մեքենայի մասին")
+                }
+                .onChange(of: notifyOrders) { _, on in
+                    Task { await saveNotify(on) }
+                }
+            } footer: {
+                Text("Հերթափոխի բացման մասին ծանուցումը գալիս է միշտ։")
+            }
+
             if lock.available {
                 Section {
                     Toggle(isOn: $lock.enabled) {
@@ -84,6 +100,18 @@ struct MoreView: View {
         }
         .sheet(isPresented: $deleting) {
             DeleteBusinessView()
+        }
+        .task { notifyOrders = session.me?.notifyOrders ?? true }
+    }
+
+    private func saveNotify(_ on: Bool) async {
+        _ = try? await session.authed { token in
+            try await APIClient.shared.raw(
+                "push/settings",
+                method: "POST",
+                body: ["orders": on],
+                token: token
+            )
         }
     }
 

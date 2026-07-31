@@ -52,6 +52,13 @@ services:
       # продукта работает всегда, если явно не выключить нулём
       PASSES_ENABLED: ${PASSES_ENABLED:-}
       BILLING_ENABLED: ${BILLING_ENABLED:-1}
+      # Пуш-уведомления. Ключ .p8 из кабинета Apple — целиком, вместе со
+      # строками BEGIN/END. В .env переносы строк записываются как \n.
+      # Пусто — уведомления просто не отправляются, всё остальное работает.
+      APNS_KEY: ${APNS_KEY:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_TOPIC: ${APNS_TOPIC:-org.tetr.app}
       # экземпляр один, поэтому миграции при старте безопасны
       MIGRATE_ON_START: '1'
     depends_on:

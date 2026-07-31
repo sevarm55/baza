@@ -25,6 +25,8 @@ enum API {
         let name: String
         let role: String
         let percent: Int
+        /// Слать ли владельцу уведомление о каждой записи.
+        let notifyOrders: Bool?
 
         var isOwner: Bool { role == "owner" }
     }
