@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /* ---------------------------------------------------------------------------
    Мультитенантность
@@ -342,8 +343,43 @@ export const expenses = pgTable(
   (t) => [index('expenses_tenant_idx').on(t.tenantId, t.at)],
 );
 
+/**
+ * Смены.
+ *
+ * До сих пор «смена» была не сущностью, а выборкой: записи сотрудника с
+ * начала дня. Этого хватало, чтобы посчитать заработок, и не хватало,
+ * чтобы ответить на вопрос владельца «кто сейчас на мойке» — по записям
+ * видно только тех, кто уже успел что-то намыть.
+ *
+ * Открывает и закрывает сам работник, переключателем на своём экране.
+ * Открытая смена — это `closedAt is null`, и такая у человека может быть
+ * только одна: частичный уникальный индекс не даст завести вторую даже
+ * при двойном нажатии или досылке из очереди.
+ */
+export const shifts = pgTable(
+  'shifts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('shifts_tenant_idx').on(t.tenantId, t.openedAt),
+    uniqueIndex('shifts_open_uniq')
+      .on(t.userId)
+      .where(sql`${t.closedAt} is null`),
+  ],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
+export type Shift = typeof shifts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Client = typeof clients.$inferSelect;

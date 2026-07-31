@@ -1,7 +1,8 @@
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, startOfDay } from '@/lib/queries';
+import { closeShift, currentShift, openShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
-import { failFromError, ok } from '@/lib/api/respond';
+import { body, failFromError, ok } from '@/lib/api/respond';
 
 /**
  * Смена сотрудника — главный экран приложения.
@@ -18,10 +19,15 @@ export async function GET(request: Request) {
     if (denied(ctx)) return ctx;
 
     const from = startOfDay(ctx.tenant.timezone);
-    const shift = await getShift(ctx.tenant.id, ctx.user.id, from);
+    const [shift, open] = await Promise.all([
+      getShift(ctx.tenant.id, ctx.user.id, from),
+      currentShift(ctx.tenant.id, ctx.user.id, from),
+    ]);
 
     return ok({
       from: from.toISOString(),
+      onShift: open !== null,
+      openedAt: open?.openedAt ?? null,
       count: shift.count,
       revenue: shift.revenue,
       earned: shift.earned,
@@ -34,6 +40,37 @@ export async function GET(request: Request) {
         createdAt: o.createdAt,
       })),
     });
+  } catch (e) {
+    return failFromError(e);
+  }
+}
+
+/**
+ * Встать на смену или уйти с неё.
+ *
+ * Владельцу тоже можно: на маленькой мойке он сам моет машины, и его
+ * присутствие такое же, как у остальных.
+ *
+ * `write: true` намеренно: встать на смену — это начать работу, и на
+ * просроченной подписке она закрыта так же, как запись машин. Иначе
+ * получилось бы, что смена идёт, а записывать в неё нечего.
+ */
+export async function POST(request: Request) {
+  try {
+    await ensureDb();
+    const ctx = await authorize(request, { write: true });
+    if (denied(ctx)) return ctx;
+
+    const input = await body<{ open?: boolean }>(request);
+    const from = startOfDay(ctx.tenant.timezone);
+
+    if (input?.open === false) {
+      await closeShift(ctx.tenant.id, ctx.user.id);
+      return ok({ onShift: false, openedAt: null });
+    }
+
+    const shift = await openShift(ctx.tenant.id, ctx.user.id, from);
+    return ok({ onShift: true, openedAt: shift.openedAt });
   } catch (e) {
     return failFromError(e);
   }

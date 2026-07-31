@@ -31,6 +31,10 @@ struct OwnerView: View {
 
                     if let summary { profit(summary) }
 
+                    if let present = summary?.onShift, !present.isEmpty {
+                        onShift(present)
+                    }
+
                     if let series = summary?.series, series.count > 1 {
                         chart(series)
                     }
@@ -121,6 +125,56 @@ struct OwnerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .background(Brand.heroGradient, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    /// Кто сейчас на мойке.
+    ///
+    /// Показывается только когда кто-то есть: пустой раздел «на смене
+    /// никого» занимал бы место каждую ночь и ничего не сообщал.
+    ///
+    /// Это не то же самое, что «работал сегодня»: человек мог встать час
+    /// назад и ещё ничего не намыть — по записям его не видно вовсе, а на
+    /// площадке он стоит.
+    private func onShift(_ present: [API.Present]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Հերթափոխին")
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundStyle(Brand.muted)
+
+            ForEach(present) { person in
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(Brand.good)
+                        .frame(width: 9, height: 9)
+
+                    Text(person.name)
+                        .font(.system(size: 15, weight: .semibold))
+
+                    Spacer()
+
+                    Text(since(person.openedAt))
+                        .font(.system(size: 12.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.muted)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .glassEffect(.regular, in: .rect(cornerRadius: 12))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// «с 09:40» — время выхода, а не длительность.
+    ///
+    /// Длительность пришлось бы пересчитывать каждую минуту, иначе она
+    /// врёт; время выхода верно всегда и отвечает на тот же вопрос.
+    private func since(_ at: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return "\(f.string(from: at))-ից"
     }
 
     /// Прибыль и из чего она сложилась.

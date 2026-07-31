@@ -10,6 +10,9 @@ struct ShiftView: View {
     @EnvironmentObject private var queue: OrderQueue
 
     @State private var shift: API.Shift?
+    /// Держим отдельно от `shift`: переключатель должен отзываться сразу,
+    /// а не ждать, пока с сервера приедет вся смена целиком.
+    @State private var onShift = false
     @State private var recording = false
     @State private var loading = false
     /// Номер обновления. Экран открывается и сразу тянут вниз — два
@@ -25,6 +28,7 @@ struct ShiftView: View {
         ScrollView {
             VStack(spacing: 14) {
                 greeting
+                onShiftToggle
                 earnings
 
                 if !queue.waiting.isEmpty {
@@ -92,6 +96,48 @@ struct ShiftView: View {
         // ночью «доброй ночи» звучит прощанием, поэтому нейтральное
         default: return "Բարև"
         }
+    }
+
+    /// Переключатель «на смене».
+    ///
+    /// Стоит выше заработка, потому что это первое действие дня: пришёл —
+    /// встал. Владельцу он показывает, кто на мойке, ещё до того как
+    /// появится первая запись, — по записям человека, который час назад
+    /// вышел и пока ничего не намыл, не видно вовсе.
+    ///
+    /// Состояние меняем сразу, не дожидаясь сервера: связь на мойке
+    /// пропадает, а переключатель, который «думает» секунду, жмут второй
+    /// раз. Не прошло — вернём обратно на следующем обновлении.
+    private var onShiftToggle: some View {
+        Toggle(isOn: Binding(
+            get: { onShift },
+            set: { want in Task { await setOnShift(want) } }
+        )) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(onShift ? Brand.good : Brand.muted.opacity(0.4))
+                    .frame(width: 9, height: 9)
+                Text(onShift ? "Հերթափոխին եմ" : "Հերթափոխից դուրս")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+        }
+        .tint(Brand.good)
+        .padding(15)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+
+    private func setOnShift(_ want: Bool) async {
+        let previous = onShift
+        onShift = want
+
+        let done: API.ShiftState? = try? await session.authed { token in
+            try await APIClient.shared.send(
+                "shift", method: "POST", body: ["open": want], token: token,
+                as: API.ShiftState.self
+            )
+        }
+        // не прошло — честно откатываемся, а не делаем вид, что встали
+        onShift = done?.onShift ?? previous
     }
 
     private var earnings: some View {
@@ -228,6 +274,7 @@ struct ShiftView: View {
         // применяем только если за это время не начали новое обновление
         guard id == loadID, let fresh else { return }
         shift = fresh
+        onShift = fresh.onShift
     }
 }
 

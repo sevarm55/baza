@@ -43,6 +43,13 @@
       "when": 1785439986057,
       "tag": "0005_puzzling_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785478899302,
+      "tag": "0006_useful_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

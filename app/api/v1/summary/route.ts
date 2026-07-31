@@ -7,6 +7,7 @@ import {
   startOfDay,
 } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
+import { whoIsOnShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
 
@@ -37,12 +38,18 @@ export async function GET(request: Request) {
       ? startOfDay(ctx.tenant.timezone)
       : new Date(Date.now() - Number(period) * 86_400_000);
 
-    const [stats, series, split, feed, costs] = await Promise.all([
+    /* Кто на смене — всегда «сейчас», независимо от выбранного периода:
+       вопрос «кто на мойке» к семи дням отношения не имеет. Поэтому
+       считаем от начала сегодняшнего дня, а не от `from`. */
+    const today = startOfDay(ctx.tenant.timezone);
+
+    const [stats, series, split, feed, costs, present] = await Promise.all([
       getPeriodStats(ctx.tenant.id, from),
       getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day'),
       getPaymentSplit(ctx.tenant.id, from),
       getFeed(ctx.tenant.id, from),
       getPeriodCosts(ctx.tenant.id, from),
+      whoIsOnShift(ctx.tenant.id, today),
     ]);
 
     return ok({
@@ -54,6 +61,11 @@ export async function GET(request: Request) {
          все клиенты, и разъехаться между телефоном и кабинетом она не
          должна — это та цифра, из-за которой продукту верят. */
       profit: profitOf(stats.revenue, stats.payroll, costs),
+      onShift: present.map((p) => ({
+        userId: p.userId,
+        name: p.name,
+        openedAt: p.openedAt,
+      })),
       series,
       split,
       feed: feed.map((o) => ({

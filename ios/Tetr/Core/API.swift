@@ -77,6 +77,23 @@ enum API {
         let earned: Int
         let percent: Int
         let orders: [ShiftOrder]
+        /// Встал ли человек на смену переключателем.
+        let onShift: Bool
+        let openedAt: Date?
+    }
+
+    /// Ответ на включение и выключение переключателя.
+    struct ShiftState: Decodable {
+        let onShift: Bool
+        let openedAt: Date?
+    }
+
+    /// Кто сейчас на мойке — для экрана владельца.
+    struct Present: Decodable, Identifiable {
+        let userId: String
+        let name: String
+        let openedAt: Date
+        var id: String { userId }
     }
 
     struct KnownClient: Decodable {
@@ -162,6 +179,7 @@ enum API {
            которой продукту верят. */
         let costs: Costs
         let profit: Int
+        let onShift: [Present]
         let series: [SeriesPoint]
         let split: [SplitSegment]
         let feed: [FeedItem]

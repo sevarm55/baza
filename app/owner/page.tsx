@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
+import { whoIsOnShift } from '@/lib/shifts';
 import { Profit } from '@/components/profit';
 import { Avatar, Hero } from '@/components/stat';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
@@ -56,6 +57,39 @@ export default async function TodayPage({
     getPaymentSplit(tenant.id, from),
     getPeriodCosts(tenant.id, from),
   ]);
+
+  /* Кто на смене — всегда «сейчас», независимо от выбранного периода:
+     вопрос «кто на мойке» к семи дням отношения не имеет.
+
+     Список объединяем, а не показываем два: человек, который встал час
+     назад и ещё ничего не намыл, в byStaff не попадает вовсе — по записям
+     его не видно, а на площадке он стоит. */
+  const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
+  const presentIds = new Set(present.map((p) => p.userId));
+
+  const crew = [
+    ...present.map((p) => {
+      const worked = stats.byStaff.find((s) => s.staffId === p.userId);
+      return {
+        staffId: p.userId,
+        name: p.name,
+        present: true,
+        count: worked?.count ?? 0,
+        revenue: worked?.revenue ?? 0,
+        earned: worked?.earned ?? 0,
+      };
+    }),
+    ...stats.byStaff
+      .filter((s) => !s.staffId || !presentIds.has(s.staffId))
+      .map((s) => ({
+        staffId: s.staffId,
+        name: s.name,
+        present: false,
+        count: s.count,
+        revenue: s.revenue,
+        earned: s.earned,
+      })),
+  ];
 
   const money = (n: number) => formatMoney(n, tenant.currency);
   const maxRevenue = Math.max(1, ...stats.byStaff.map((s) => s.revenue));
@@ -109,14 +143,25 @@ export default async function TodayPage({
 
       <h2 className="h-section">{hy.owner.onShift}</h2>
       <div className="list">
-        {stats.byStaff.length === 0 ? (
+        {crew.length === 0 ? (
           <Empty text={hy.common.empty} />
         ) : (
-          stats.byStaff.map((s) => (
+          crew.map((s) => (
             <div key={s.staffId ?? 'none'} className="li">
               <Avatar text={s.name ?? '—'} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[14.5px] font-semibold">{s.name ?? '—'}</div>
+                <div className="flex items-center gap-1.5">
+                  {/* зелёная точка — «стоит на мойке прямо сейчас», а не
+                      «работал сегодня»: человек мог встать час назад и
+                      ещё ничего не намыть */}
+                  {s.present && (
+                    <span
+                      className="size-2 shrink-0 rounded-full bg-good"
+                      aria-label={hy.owner.onShiftNow}
+                    />
+                  )}
+                  <span className="truncate text-[14.5px] font-semibold">{s.name ?? '—'}</span>
+                </div>
                 <div className="num text-[12.5px] text-muted">
                   {s.count} {tenant.unitOne}
                 </div>

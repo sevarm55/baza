@@ -854,6 +854,60 @@ async function main() {
     (await csvAll.text()).split('\r\n').length >= csv.split('\r\n').length,
   );
 
+  /* ---------- смена: кто на мойке ---------- */
+
+  const shiftState = await import('../lib/shifts');
+  const shiftApi = await import('../app/api/v1/shift/route');
+
+  const dayStart = q.startOfDay(tenant.timezone);
+
+  check(
+    'до переключателя на смене никого',
+    (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
+  );
+
+  const stood = await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+  check('сотрудник встаёт на смену', stood.status === 200, stood.status);
+  check('и это отражается в ответе', (await stood.json()).onShift === true);
+
+  const present = await shiftState.whoIsOnShift(tenant.id, dayStart);
+  check('владелец видит его на смене', present.length === 1, present.map((p) => p.name));
+
+  /* Кнопку жмут дважды, и запрос приходит из очереди повторно —
+     второй смены быть не должно. Это держит частичный уникальный
+     индекс, но проверить надо: без него в списке задвоится человек. */
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+  check(
+    'повторное нажатие не заводит вторую смену',
+    (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 1,
+  );
+
+  const mine = await shiftApi.GET(get('/shift', staffTokens.access));
+  check('в своей смене видно, что он встал', (await mine.json()).onShift === true);
+
+  // изоляция: чужая смена не должна светиться в соседнем бизнесе
+  check(
+    'смена соседнего бизнеса не видна',
+    (await shiftState.whoIsOnShift(second.tenant.id, dayStart)).length === 0,
+  );
+
+  /* Переключатель выключать забывают, и вечная зелёная точка перестала бы
+     что-либо значить. Смена, открытая до начала сегодняшнего дня,
+     закрывается сама. */
+  const tomorrow = new Date(dayStart.getTime() + 86_400_000);
+  check(
+    'забытая вчерашняя смена гаснет сама',
+    (await shiftState.whoIsOnShift(tenant.id, tomorrow)).length === 0,
+  );
+
+  await shiftApi.POST(post('/shift', { open: true }, staffTokens.access));
+  const left = await shiftApi.POST(post('/shift', { open: false }, staffTokens.access));
+  check('и уходит с неё сам', (await left.json()).onShift === false);
+  check(
+    'после ухода на смене пусто',
+    (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
+  );
+
   /* ---------- расходы и прибыль ---------- */
 
   const { addExpense, getPeriodCosts, profitOf, removeExpense } = await import('../lib/expenses');

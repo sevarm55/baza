@@ -228,6 +228,7 @@ export const hy = {
     avgCheck: 'Միջին չեկ',
     cashShare: 'Կանխիկով',
     onShift: 'Հերթափոխին',
+    onShiftNow: 'Հիմա հերթափոխին է',
     feed: 'Հոսք',
     earned: 'նրան',
     payrollDue: 'Վճարման ենթակա',
