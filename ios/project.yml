@@ -9,7 +9,7 @@
 
 name: Tetr
 options:
-  bundleIdPrefix: org.tetr
+  bundleIdPrefix: com.sevarm
   deploymentTarget:
     # 26, а не 16: Liquid Glass существует только здесь. Цена известна —
     # телефоны старше остаются без приложения, и для мойщиков это заметная
@@ -35,7 +35,7 @@ settings:
     # Команда разработчика. Здесь, а не в настройках Xcode: .xcodeproj
     # пересоздаётся из этого файла, и выставленное мышкой пропало бы при
     # первом же `xcodegen generate`.
-    DEVELOPMENT_TEAM: V4Z29FXT9P
+    DEVELOPMENT_TEAM: LA27673455
     CODE_SIGN_STYLE: Automatic
 
 targets:
@@ -61,10 +61,10 @@ targets:
         # Разрешение на уведомления спрашивается в приложении, но система
         # хочет видеть право на них здесь
         NSUserNotificationsUsageDescription: Որպեսզի իմանաք հերթափոխի և նոր գրանցումների մասին
-        BGTaskSchedulerPermittedIdentifiers: [org.tetr.app.flush]
+        BGTaskSchedulerPermittedIdentifiers: [com.sevarm.tetr.flush]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: org.tetr.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.sevarm.tetr
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Tetr/Tetr.entitlements
         # Имя файла AppIcon.icon без расширения. Каталога ассетов у нас

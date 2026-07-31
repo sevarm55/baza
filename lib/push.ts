@@ -23,7 +23,7 @@ import { pushTokens, users } from './db/schema';
 const KEY = process.env.APNS_KEY?.replace(/\\n/g, '\n');
 const KEY_ID = process.env.APNS_KEY_ID;
 const TEAM_ID = process.env.APNS_TEAM_ID;
-const TOPIC = process.env.APNS_TOPIC ?? 'org.tetr.app';
+const TOPIC = process.env.APNS_TOPIC ?? 'com.sevarm.tetr';
 
 export function pushEnabled(): boolean {
   return Boolean(KEY && KEY_ID && TEAM_ID);

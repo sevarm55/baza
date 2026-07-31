@@ -16,7 +16,7 @@ import Network
 ///
 /// Ни один из них не гарантирован сам по себе, поэтому оба.
 enum BackgroundSync {
-    static let taskId = "org.tetr.app.flush"
+    static let taskId = "com.sevarm.tetr.flush"
 
     @MainActor private static var session: Session?
     @MainActor private static var queue: OrderQueue?
@@ -93,6 +93,6 @@ final class Connectivity: ObservableObject {
                 if returned { self.onReturn?() }
             }
         }
-        monitor.start(queue: DispatchQueue(label: "org.tetr.app.net"))
+        monitor.start(queue: DispatchQueue(label: "com.sevarm.tetr.net"))
     }
 }

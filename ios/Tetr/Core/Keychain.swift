@@ -12,7 +12,7 @@ import Security
 /// копии на другой телефон. Человек войдёт заново — это три касания,
 /// а украденная копия бэкапа не даст доступа.
 enum Keychain {
-    private static let service = "org.tetr.app.tokens"
+    private static let service = "com.sevarm.tetr.tokens"
 
     static func set(_ value: String?, for key: String) {
         let query: [String: Any] = [

@@ -58,7 +58,7 @@ services:
       APNS_KEY: ${APNS_KEY:-}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_TOPIC: ${APNS_TOPIC:-org.tetr.app}
+      APNS_TOPIC: ${APNS_TOPIC:-com.sevarm.tetr}
       # экземпляр один, поэтому миграции при старте безопасны
       MIGRATE_ON_START: '1'
     depends_on:

@@ -38,7 +38,7 @@ struct TetrApp: App {
 
         #if DEBUG
         /* Проверки чистой логики прогоняются запуском с флагом:
-           `xcrun simctl launch <udid> org.tetr.app --self-test`.
+           `xcrun simctl launch <udid> com.sevarm.tetr --self-test`.
            Отдельный тестовый таргет ради десятка проверок разбора номера
            стоил бы дороже, чем даёт. */
         if CommandLine.arguments.contains("--self-test") {
@@ -94,7 +94,7 @@ struct RootView: View {
     var body: some View {
         #if DEBUG
         /* Посмотреть онбординг, не входя в аккаунт и не сбрасывая
-           состояние: `xcrun simctl launch <udid> org.tetr.app --onboarding`.
+           состояние: `xcrun simctl launch <udid> com.sevarm.tetr --onboarding`.
            Тем же способом здесь запускаются проверки разбора номера. */
         if CommandLine.arguments.contains("--onboarding") {
             OnboardingView {}
