@@ -17,6 +17,7 @@ import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness, PhoneTakenError } from '@/lib/tenant';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
+import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import {
   endSession,
   requireOwner,
@@ -302,6 +303,13 @@ export async function addOrder(input: {
     : ['cash', 'card', 'transfer'];
   if (!allowed.includes(input.payment)) throw new Error('BAD_PAYMENT');
 
+  // то же правило, что и в приложении: вне смены записывать нельзя
+  const tenantForShift = await getTenant(session.tid);
+  if (!tenantForShift) throw new Error('NOT_FOUND');
+  if (!(await canRecord(session.tid, session.uid, startOfDay(tenantForShift.timezone)))) {
+    throw new Error('SHIFT_REQUIRED');
+  }
+
   await createOrder({
     tenantId: session.tid,
     staffId: session.uid,
@@ -501,4 +509,35 @@ export async function saveExpenseAction(
   revalidatePath('/owner/expenses');
   revalidatePath('/owner');
   return { ok: true };
+}
+
+
+/**
+ * Встать на смену и уйти с неё — из веба.
+ *
+ * До сих пор смена жила только в приложении, и на вебе сотрудник
+ * записывал машины вообще вне её. С правилом «вне смены не записываешь»
+ * это оставило бы веб-версию неработоспособной, а дыру со сдачей
+ * наличных — открытой ровно там, где на неё никто не смотрит.
+ *
+ * Сдаваемую сумму здесь не спрашиваем: на телефоне для этого есть лист
+ * с подтверждением, а в вебе городить его ради второго по важности
+ * клиента незачем. Владелец увидит «не отмечено» — это честнее нуля.
+ */
+export async function toggleShiftAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  await ensureDb();
+  await requireWriteAccess(session.tid);
+
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return;
+
+  if (String(formData.get('open')) === 'true') {
+    await openShift(session.tid, session.uid, startOfDay(tenant.timezone));
+  } else {
+    await closeShift(session.tid, session.uid);
+  }
+
+  revalidatePath('/work');
+  revalidatePath('/owner');
 }

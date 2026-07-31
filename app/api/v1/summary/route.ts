@@ -124,18 +124,23 @@ function keyOf(at: Date, timezone: string, byHour: boolean): string {
  * с полуночи — это шестнадцать пустых столбиков перед единственным
  * полным, и рельеф в них теряется.
  */
-function padSeries(
+export function padSeries(
   points: { key: string; revenue: number; count: number }[],
   byHour: boolean,
   timezone: string,
   from: Date,
   to: Date,
+  /* Момент «сейчас» параметром, а не через Date.now() внутри: иначе
+     проверить эту функцию можно только в удачный час. Проверка, которая
+     зависит от того, когда её запустили, однажды покраснеет ночью и
+     научит не верить всему набору. */
+  now: Date = new Date(),
 ) {
   if (points.length === 0) return points;
 
   const known = new Map(points.map((p) => [p.key, p]));
   const step = byHour ? 3_600_000 : 86_400_000;
-  const last = Math.min(to.getTime(), Date.now());
+  const last = Math.min(to.getTime(), now.getTime());
 
   /* Идём по моментам времени и переводим каждый в местный ключ — так же,
      как это делает Postgres. Разбирать готовый ключ обратно нельзя: он

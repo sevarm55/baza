@@ -642,6 +642,12 @@ async function main() {
   check('и токен без разделителя тоже', noDot.status === 401, noDot.status);
 
   /* Идемпотентность записи — то, на чём держится офлайн-очередь. */
+
+  /* Сначала встаём на смену: вне её сервер записывать не даёт, и без
+     этой строки все проверки ниже упирались бы в 409. */
+  const shiftState0 = await import('../lib/shifts');
+  await shiftState0.openShift(tenant.id, owner.id, q.startOfDay(tenant.timezone));
+
   const someService = b.services[0].id;
   const apiRef = "test-ref-0001";
   const noToken = await postOrder(
@@ -681,32 +687,34 @@ async function main() {
      Postgres возвращает только те часы, в которые что-то было, и три
      машины в 9, 14 и 19 вставали тремя соседними столбиками: день
      выглядел сплошь загруженным, а пятичасовая дыра исчезала. */
-  const { orders: orderRows } = await import('../lib/db/schema');
-  const atHour = (h: number) =>
-    new Date(q.startOfDay(tenant.timezone).getTime() + h * 3_600_000 + 60_000);
+  /* Простой в графике проверяем на самой функции, а не через живые часы.
+     Она достраивает пустые промежутки: три машины в 9, 14 и 19 без этого
+     вставали тремя соседними столбиками, и пятичасовая дыра исчезала.
 
-  /* Двигаем время у двух записей этого бизнеса и возвращаем как было:
-     дальше по скрипту на них считают выручку и выгрузку. */
-  const [early, late] = await db
-    .select({ id: orderRows.id, createdAt: orderRows.createdAt })
-    .from(orderRows)
-    .where(eq(orderRows.tenantId, tenant.id))
-    .limit(2);
-  await db.update(orderRows).set({ createdAt: atHour(9) }).where(eq(orderRows.id, early.id));
-  await db.update(orderRows).set({ createdAt: atHour(14) }).where(eq(orderRows.id, late.id));
-
-  const gapped = await (await summary(get('/summary?period=today', rotated.access))).json();
-  const hours: string[] = gapped.series.map((p: { key: string }) => p.key.slice(11));
+     Через реальные записи это уже проверялось и падало сразу после
+     местной полуночи: девять утра и два часа дня оказывались в будущем,
+     а будущее график справедливо не рисует. */
+  const { padSeries } = await import('../app/api/v1/summary/route');
+  const dayFrom = new Date('2026-08-01T00:00:00+04:00');
+  const filled = padSeries(
+    [
+      { key: '2026-08-01 09', revenue: 5000, count: 1 },
+      { key: '2026-08-01 14', revenue: 3000, count: 1 },
+    ],
+    true,
+    'Asia/Yerevan',
+    dayFrom,
+    new Date(dayFrom.getTime() + 86_400_000),
+    new Date(dayFrom.getTime() + 20 * 3_600_000),
+  );
+  const hours = filled.map((p) => p.key.slice(11));
   check('график начинается с первой машины, а не с полуночи', hours[0] === '09', hours[0]);
   check('и в нём видна дыра между 9 и 14', hours.includes('11'), hours.join(' '));
   check(
     'пустой час пустой, а не выдуманный',
-    gapped.series.find((p: { key: string }) => p.key.endsWith('11'))?.revenue === 0,
+    filled.find((p) => p.key.endsWith('11'))?.revenue === 0,
   );
-
-  for (const o of [early, late]) {
-    await db.update(orderRows).set({ createdAt: o.createdAt }).where(eq(orderRows.id, o.id));
-  }
+  check('будущее не рисуется', hours[hours.length - 1] === '20', hours[hours.length - 1]);
 
   // уволенного не пускают: выше по скрипту мойщику сняли active
   const fired = await login(post('/login', { phone: '077 333 444', pin: '5678' }));
@@ -894,6 +902,10 @@ async function main() {
     (await csvAll.text()).split('\r\n').length >= csv.split('\r\n').length,
   );
 
+  /* Смену владельца, открытую ради проверок записи, закрываем: ниже
+     начинается раздел «кто на мойке», и она бы там светилась. */
+  await (await import('../lib/shifts')).closeShift(tenant.id, owner.id);
+
   /* ---------- смена: кто на мойке ---------- */
 
   const shiftState = await import('../lib/shifts');
@@ -948,35 +960,60 @@ async function main() {
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
 
-  /* Увольнение при открытой смене.
-     У уволенного человека продолжала гореть зелёная точка «на мойке»:
-     доступ отобрали, а присутствие осталось — и в списке он стоял рядом
-     со своим же преемником, как будто их двое. */
-  const { deactivateStaff, addStaff } = await import('../lib/catalog');
-  const quitting = await addStaff({
-    tenantId: tenant.id,
-    name: 'Ушедший',
-    phone: '+37455000191',
-    pin: '2244',
-    percent: 20,
-  });
-  await shiftState.openShift(tenant.id, quitting.id, dayStart);
-  check(
-    'новый работник виден на смене',
-    (await shiftState.whoIsOnShift(tenant.id, dayStart)).some((p) => p.userId === quitting.id),
-  );
+  /* ---------- вне смены записывать нельзя ---------- */
 
-  await deactivateStaff({ tenantId: tenant.id, id: quitting.id, actorId: owner.id });
-  check(
-    'уволенный со смены исчезает',
-    (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
+  /* Машина, записанная мимо смены, не попадает в сдачу наличных при
+     закрытии: работник уносит деньги, ничего не нарушив, а владелец
+     недосчитывается и не понимает почему.
+
+     Берём человека, который сегодня на смену не вставал ни разу, —
+     у остальных выше по скрипту смены уже были. */
+  const ordersRoute = await import('../app/api/v1/orders/route');
+  const [shiftService] = await (await import('../lib/queries')).listServices(tenant.id);
+
+  const { addStaff: hire } = await import('../lib/catalog');
+  const rookie = await hire({
+    tenantId: tenant.id,
+    name: 'Նորեկ',
+    phone: '+37455000192',
+    pin: '3355',
+    percent: 30,
+  });
+  const rookieLogin = await login(post('/login', { phone: '+37455000192', pin: '3355' }));
+  const rookieTokens = await rookieLogin.json();
+
+  const offShift = await ordersRoute.POST(
+    post(
+      '/orders',
+      { clientKey: '77 OF 001', serviceId: shiftService.id, payment: 'cash' },
+      rookieTokens.access,
+    ),
   );
-  const { shifts: shiftRows } = await import('../lib/db/schema');
-  const leftover = await db
-    .select()
-    .from(shiftRows)
-    .where(and(eq(shiftRows.userId, quitting.id), isNull(shiftRows.closedAt)));
-  check('и его смена закрыта, а не висит открытой', leftover.length === 0);
+  check('вне смены запись не принимается', offShift.status === 409, offShift.status);
+  check('и причина названа', (await offShift.json()).error === 'SHIFT_REQUIRED');
+
+  await shiftState.openShift(tenant.id, rookie.id, dayStart);
+  const onShiftOrder = await ordersRoute.POST(
+    post(
+      '/orders',
+      { clientKey: '77 ON 002', serviceId: shiftService.id, payment: 'cash' },
+      rookieTokens.access,
+    ),
+  );
+  check('на смене — принимается', onShiftOrder.status === 201, onShiftOrder.status);
+
+  /* Послабление для очереди: телефон копит записи офлайн и досылает их,
+     когда появится связь, — возможно, уже после того как смена закрылась
+     сама в восемь вечера. Объявлять настоящую работу ошибкой нельзя. */
+  await shiftState.closeShift(tenant.id, rookie.id);
+  const lateSend = await ordersRoute.POST(
+    post(
+      '/orders',
+      { clientKey: '77 LT 003', serviceId: shiftService.id, payment: 'cash' },
+      rookieTokens.access,
+    ),
+  );
+  check('досылка после закрытия смены проходит', lateSend.status === 201, lateSend.status);
 
   /* ---------- вечернее закрытие смен ---------- */
 

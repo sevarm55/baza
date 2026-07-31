@@ -2,11 +2,13 @@
 import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
+import { currentShift } from '@/lib/shifts';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
+import { ShiftToggle } from '@/components/shift-toggle';
 import { OrderFlow } from './order-flow';
 
 export default async function WorkPage() {
@@ -21,9 +23,10 @@ export default async function WorkPage() {
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift] = await Promise.all([
+  const [services, shift, open] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
+    currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
   ]);
 
   return (
@@ -56,8 +59,18 @@ export default async function WorkPage() {
           </div>
         </section>
 
+        <ShiftToggle open={Boolean(open)} />
+
+        {/* Вне смены записывать нельзя: машина, записанная мимо смены, не
+            попадает в сдачу наличных при закрытии. То же правило в
+            приложении и на сервере.
+
+            Отключённая кнопка без объяснения читается как поломка, а не
+            как правило, — поэтому строка над ней. */}
+        {!open && <p className="note mb-3">{hy.work.needShift}</p>}
+
         <OrderFlow
-          canWrite={access.canWrite}
+          canWrite={access.canWrite && Boolean(open)}
           services={services.map((s) => ({ id: s.id, name: s.name, price: s.price }))}
           currency={tenant.currency}
           clientIdLabel={tenant.clientIdLabel}

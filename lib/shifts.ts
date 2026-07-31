@@ -35,6 +35,42 @@ async function closeForgotten(tenantId: string, dayStart: Date) {
     );
 }
 
+/**
+ * Можно ли сейчас записывать работу.
+ *
+ * Машина, записанная вне смены, нигде не всплывает при закрытии: сдача
+ * наличных считается по записям внутри смены, и такая запись просто не
+ * попадает в неё. Деньги за неё работник уносит домой честным человеком,
+ * а владелец недосчитывается и не понимает почему. Это та же дыра, что
+ * была с забытым переключателем, только с другой стороны.
+ *
+ * Правило снаружи звучит просто: не встал на смену — не записываешь.
+ * Внутри оно мягче на один случай. Телефон копит записи офлайн и досылает
+ * их, когда появится связь, — и досылка может прийти уже после того, как
+ * смена закрылась сама в восемь вечера. Отвергнуть их значило бы объявить
+ * настоящую работу ошибкой, поэтому закрытая сегодня смена тоже считается
+ * основанием. Интерфейс при этом кнопку всё равно не даст.
+ */
+export async function canRecord(
+  tenantId: string,
+  userId: string,
+  dayStart: Date,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: shifts.id })
+    .from(shifts)
+    .where(
+      and(
+        eq(shifts.tenantId, tenantId),
+        eq(shifts.userId, userId),
+        or(isNull(shifts.closedAt), gte(shifts.openedAt, dayStart)),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(row);
+}
+
 export async function currentShift(tenantId: string, userId: string, dayStart: Date) {
   await closeForgotten(tenantId, dayStart);
 

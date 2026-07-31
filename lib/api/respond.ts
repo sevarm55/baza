@@ -27,6 +27,8 @@ export type ApiError =
   | 'BAD_PRICE'
   | 'SERVICE_NOT_FOUND'
   | 'STAFF_NOT_FOUND'
+  /** записывать можно только на смене — см. lib/shifts.ts */
+  | 'SHIFT_REQUIRED'
   | 'PASS_REQUIRED'
   | 'PASS_UNAVAILABLE'
   | 'ORDER_NOT_FOUND'

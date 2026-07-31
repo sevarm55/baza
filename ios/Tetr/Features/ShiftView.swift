@@ -61,10 +61,27 @@ struct ShiftView: View {
                непрозрачная, закрывать ей нечего, а на тёмной теме он
                читался отдельной серой плитой от кнопки до самого низа.
                Содержимое уезжает под кнопку — так и задумано. */
-            Button("+ \(session.tenant?.unitOne ?? "")") {
-                recording = true
+            /* Вне смены записывать нельзя, и кнопка это показывает
+               собой, а не окошком с отказом.
+
+               Причина не в дисциплине: машина, записанная вне смены, не
+               попадает в сдачу наличных при закрытии — деньги за неё
+               работник уносит, ничего не нарушив, а владелец
+               недосчитывается и не понимает почему. */
+            VStack(spacing: 8) {
+                if !onShift {
+                    Text("Գրանցելու համար միացրեք հերթափոխը")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.muted)
+                }
+
+                Button("+ \(session.tenant?.unitOne ?? "")") {
+                    recording = true
+                }
+                .buttonStyle(LimeButton())
+                .disabled(!onShift)
+                .opacity(onShift ? 1 : 0.45)
             }
-            .buttonStyle(LimeButton())
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
         }

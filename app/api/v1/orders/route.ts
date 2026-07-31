@@ -1,5 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { createOrder, type Payment } from '@/lib/orders';
+import { canRecord } from '@/lib/shifts';
+import { startOfDay } from '@/lib/queries';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
@@ -40,6 +42,14 @@ export async function POST(request: Request) {
 
     const payment = str(input.payment) as Payment;
     if (!PAYMENTS.includes(payment)) return fail('BAD_REQUEST', 400);
+
+    /* Не встал на смену — не записываешь. Иначе машина не попадает ни в
+       одну смену, и сдача наличных при закрытии её не считает: работник
+       уносит деньги, ничего не нарушив, а владелец недосчитывается.
+       Подробности и послабление для офлайн-очереди — в lib/shifts.ts. */
+    if (!(await canRecord(ctx.tenant.id, ctx.user.id, startOfDay(ctx.tenant.timezone)))) {
+      return fail('SHIFT_REQUIRED', 409);
+    }
 
     const clientKey = str(input.clientKey);
     /* Принимаем обе формы: телефоны со старой версией шлют одну услугу,
