@@ -967,6 +967,80 @@ async function main() {
     .set({ closedAt: new Date() })
     .where(and(eq(shiftTable.tenantId, tenant.id), isNull(shiftTable.closedAt)));
 
+  /* ---------- скидки ---------- */
+
+  const priceList = await q.listServices(tenant.id);
+  const wash = priceList.find((s) => s.name === 'Սալոն')!;
+
+  const beforeClient = await q.findClient(tenant.id, '77 DISC 1');
+  check('клиента ещё нет', beforeClient === null);
+
+  const discounted = await createOrder({
+    tenantId: tenant.id, staffId: washer.id, serviceId: wash.id,
+    clientKey: '77 DISC 1', payment: 'cash', price: wash.price - 500,
+  });
+  check(
+    'взята цена со скидкой',
+    discounted.order.price === wash.price - 500,
+    discounted.order.price,
+  );
+  check('прайсовая сохранена рядом', discounted.order.listPrice === wash.price);
+
+  /* Итог клиента обязан расти на взятую сумму. Считался он до применения
+     скидки и брал прайс — «всего оставил» врало бы в большую сторону. */
+  const discClient = await q.findClient(tenant.id, '77 DISC 1');
+  check(
+    'история клиента выросла на взятую сумму, не на прайсовую',
+    discClient?.total === wash.price - 500,
+    discClient?.total,
+  );
+
+  /* Процент считается от взятой цены. Иначе скидка стоила бы владельцу
+     дважды — и в выручке, и в зарплате. */
+  check(
+    'процент считается от взятой цены',
+    Math.floor((discounted.order.price * discounted.order.staffPercent) / 100) ===
+      Math.floor(((wash.price - 500) * discounted.order.staffPercent) / 100),
+  );
+
+  let tooMuch = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id, serviceId: wash.id,
+      clientKey: '77 DISC 2', payment: 'cash', price: wash.price + 1000,
+    });
+  } catch {
+    tooMuch = true;
+  }
+  check('дороже прайса записать нельзя', tooMuch);
+
+  let negativePrice = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id, serviceId: wash.id,
+      clientKey: '77 DISC 3', payment: 'cash', price: -100,
+    });
+  } catch {
+    negativePrice = true;
+  }
+  check('и отрицательную тоже', negativePrice);
+
+  const badPriceApi = await postOrder(
+    post(
+      '/orders',
+      { clientKey: '77 DISC 4', serviceId: wash.id, payment: 'cash', price: wash.price * 2 },
+      staffTokens.access,
+    ),
+  );
+  check('через API это 400, а не 404', badPriceApi.status === 400, badPriceApi.status);
+  check('и код BAD_PRICE', (await badPriceApi.json()).error === 'BAD_PRICE');
+
+  const freebie = await createOrder({
+    tenantId: tenant.id, staffId: washer.id, serviceId: wash.id,
+    clientKey: '77 DISC 5', payment: 'cash', price: 0,
+  });
+  check('бесплатно записать можно — это тоже скидка', freebie.order.price === 0);
+
   /* ---------- сдача наличных ---------- */
 
   const { cashInShift } = await import('../lib/shifts');

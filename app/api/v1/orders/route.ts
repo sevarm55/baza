@@ -31,6 +31,8 @@ export async function POST(request: Request) {
       payment?: string;
       passId?: string;
       note?: string;
+      /** сколько взяли, если меньше прайса */
+      price?: number;
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
       passId: str(input.passId) || undefined,
       clientRef: str(input.ref) || undefined,
       note: str(input.note) || undefined,
+      price: typeof input.price === 'number' ? input.price : undefined,
     });
 
     return ok(
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
           id: result.order.id,
           serviceName: result.order.serviceName,
           price: result.order.price,
+          listPrice: result.order.listPrice,
           staffPercent: result.order.staffPercent,
           payment: result.order.payment,
           createdAt: result.order.createdAt,

@@ -18,6 +18,15 @@ export type CreateOrderInput = {
   /** идентификатор с телефона: делает повторную отправку безопасной */
   clientRef?: string;
   note?: string;
+  /**
+   * Сколько взяли на самом деле, если меньше прайса.
+   *
+   * Скидки на мойке дают — постоянному клиенту, за брак, «по-соседски».
+   * Пока продукт этого не умел, мойщик выбирал услугу подешевле или не
+   * записывал вовсе, и цифры расходились с кассой. А как только они
+   * разошлись, продукту перестают верить.
+   */
+  price?: number;
 };
 
 export class NotFoundError extends Error {}
@@ -74,6 +83,24 @@ export async function createOrder(input: CreateOrderInput) {
 
     const now = new Date();
 
+    /* Цену считаем ДО клиента: его итог обязан расти на взятую сумму, а
+       не на прайсовую. Иначе скидка раздувала бы историю клиента, и
+       «всего оставил 80 000» перестало бы быть правдой. */
+    const listPrice = service.price;
+    let price = listPrice;
+
+    /* Скидка — только вниз и только в пределах прайса. Свободное поле
+       цены превратило бы запись в место, где сумму назначают, а не
+       фиксируют, и контроль, ради которого продукт стоит, исчез бы.
+       Наценка — отдельный разговор, здесь её намеренно нет. */
+    if (typeof input.price === 'number' && input.payment !== 'pass') {
+      const asked = Math.round(input.price);
+      if (!Number.isFinite(asked) || asked < 0 || asked > listPrice) {
+        throw new NotFoundError('BAD_PRICE');
+      }
+      price = asked;
+    }
+
     // upsert клиента одним запросом — счётчики не разъедутся при гонке
     const [client] = await tx
       .insert(clients)
@@ -81,7 +108,7 @@ export async function createOrder(input: CreateOrderInput) {
         tenantId: input.tenantId,
         key,
         visits: 1,
-        total: input.payment === 'pass' ? 0 : service.price,
+        total: input.payment === 'pass' ? 0 : price,
         firstSeenAt: now,
         lastSeenAt: now,
       })
@@ -89,7 +116,7 @@ export async function createOrder(input: CreateOrderInput) {
         target: [clients.tenantId, clients.key],
         set: {
           visits: sql`${clients.visits} + 1`,
-          total: sql`${clients.total} + ${input.payment === 'pass' ? 0 : service.price}`,
+          total: sql`${clients.total} + ${input.payment === 'pass' ? 0 : price}`,
           lastSeenAt: now,
         },
       })
@@ -98,7 +125,6 @@ export async function createOrder(input: CreateOrderInput) {
     /* Списание с абонемента. Условия проверяются прямо в UPDATE:
        два мойщика могут нажать «абонемент» одновременно, и только один
        из них должен списать последнюю мойку. */
-    let price = service.price;
     let passId: string | null = null;
 
     if (input.payment === 'pass') {
@@ -132,6 +158,7 @@ export async function createOrder(input: CreateOrderInput) {
         serviceId: service.id,
         serviceName: service.name,
         price,
+        listPrice,
         staffPercent: staff.percent,
         payment: input.payment,
         passId,
@@ -152,7 +179,7 @@ export async function createOrder(input: CreateOrderInput) {
       action: 'create',
       entity: 'order',
       entityId: order.id,
-      data: { key, service: service.name, price, payment: input.payment },
+      data: { key, service: service.name, price, listPrice, payment: input.payment },
     });
 
     return { order, client, service, duplicate: false };
@@ -172,7 +199,9 @@ export async function createOrder(input: CreateOrderInput) {
       made.order.staffId,
       {
         title: made.client?.key ?? made.order.serviceName,
-        body: `${made.order.serviceName} · ${formatMoney(made.order.price)}`,
+        // скидку показываем сразу: она всплывает в тот же вечер, а не
+        // через месяц при сверке
+        body: discountLine(made.order.serviceName, made.order.price, made.order.listPrice),
         thread: 'orders',
       },
       'orders',
@@ -180,6 +209,13 @@ export async function createOrder(input: CreateOrderInput) {
   }
 
   return made;
+}
+
+/** «Կոմպլեքս · 4 000 ֏» или «Կոմպլեքս · 4 000 ֏ (5 000-ի փոխարեն)» */
+function discountLine(service: string, price: number, listPrice: number | null): string {
+  const line = `${service} · ${formatMoney(price)}`;
+  if (listPrice === null || listPrice <= price) return line;
+  return `${line} (${formatMoney(listPrice)}-ի փոխարեն)`;
 }
 
 /**

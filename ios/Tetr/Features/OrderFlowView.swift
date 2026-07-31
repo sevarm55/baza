@@ -22,6 +22,9 @@ struct OrderFlowView: View {
     @State private var known: API.KnownClient?
     @State private var saved = false
     @State private var scanning = false
+    /// Скидка: развёрнута ли строка и что в ней набрано.
+    @State private var showDiscount = false
+    @State private var discountText = ""
     @FocusState private var typing: Bool
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
@@ -216,10 +219,10 @@ struct OrderFlowView: View {
                         Text(pay.label)
                             .font(.system(size: 16, weight: .semibold))
                         Spacer()
-                        Text(money(service?.price ?? 0, currency))
+                        Text(money(charged, currency))
                             .font(.system(size: 15, weight: .semibold))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.muted)
+                            .foregroundStyle(discounted ? Brand.warn : Brand.muted)
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity)
@@ -229,6 +232,8 @@ struct OrderFlowView: View {
                 .foregroundStyle(Brand.ink)
             }
 
+            discountRow
+
             Spacer()
 
             Button("Հետ") { step = 1 }
@@ -236,6 +241,58 @@ struct OrderFlowView: View {
         }
         .padding(16)
     }
+
+    /// Скидка.
+    ///
+    /// Отдельной строкой под способами оплаты, а не полем цены в шапке:
+    /// скидка — исключение, и вводить её должен тот, кто её действительно
+    /// даёт, а не каждый по дороге. По умолчанию свёрнута.
+    ///
+    /// Больше прайса ввести нельзя — сервер откажет, и поле это повторяет.
+    /// Запись должна фиксировать сумму, а не назначать её.
+    @ViewBuilder
+    private var discountRow: some View {
+        if showDiscount {
+            HStack(spacing: 10) {
+                Text("Զեղչով")
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(Brand.muted)
+
+                TextField(String(service?.price ?? 0), text: $discountText)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .font(.system(size: 16, weight: .semibold))
+                    .onChange(of: discountText) { _, v in
+                        // выше прайса не пускаем прямо в поле
+                        if let n = Int(v), let top = service?.price, n > top {
+                            discountText = String(top)
+                        }
+                    }
+
+                Text(currencySign)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.muted)
+            }
+            .padding(14)
+            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        } else {
+            Button("Զեղչ տալ") { showDiscount = true }
+                .font(.system(size: 14.5, weight: .semibold))
+                .foregroundStyle(Brand.grape)
+                .padding(.top, 2)
+        }
+    }
+
+    /// Сколько возьмём: введённая сумма или прайс.
+    private var charged: Int {
+        guard showDiscount, let typed = Int(discountText) else { return service?.price ?? 0 }
+        return min(typed, service?.price ?? 0)
+    }
+
+    private var discounted: Bool { charged < (service?.price ?? 0) }
+
+    private var currencySign: String { currency == "AMD" ? "֏" : currency }
 
     private var done: some View {
         VStack(spacing: 14) {
@@ -291,7 +348,8 @@ struct OrderFlowView: View {
                 clientKey: clientKey.trimmingCharacters(in: .whitespaces).uppercased(),
                 serviceId: service.id,
                 serviceName: service.name,
-                price: service.price,
+                price: charged,
+                listPrice: service.price,
                 payment: payment,
                 at: Date()
             )

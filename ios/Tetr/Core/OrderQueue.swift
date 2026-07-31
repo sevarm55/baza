@@ -20,7 +20,17 @@ final class OrderQueue: ObservableObject {
         let clientKey: String
         let serviceId: String
         let serviceName: String
+        /// Сколько взяли — уже со скидкой, если она была.
         let price: Int
+        /**
+         * Цена по прайсу. Нужна, чтобы скидка не потерялась в очереди:
+         * запись может пролежать в телефоне до вечера, и отправить её
+         * потом по прайсу значило бы молча отменить решение мойщика.
+         *
+         * Необязательная: в очереди могли остаться записи, сделанные до
+         * появления скидок.
+         */
+        var listPrice: Int?
         let payment: String
         let at: Date
         /// Код отказа сервера, если он был. Запись при этом остаётся:
@@ -66,18 +76,21 @@ final class OrderQueue: ObservableObject {
 
         for item in items where item.failure == nil {
             do {
+                var payload: [String: Any] = [
+                    "ref": item.ref,
+                    "clientKey": item.clientKey,
+                    "serviceId": item.serviceId,
+                    "payment": item.payment,
+                ]
+                /* Цену шлём только когда она отличается от прайса: в
+                   обычной записи это лишнее поле, а в записи со скидкой —
+                   единственное, что её сохраняет. */
+                if let list = item.listPrice, item.price < list {
+                    payload["price"] = item.price
+                }
+
                 _ = try await session.authed { token in
-                    try await self.api.raw(
-                        "orders",
-                        method: "POST",
-                        body: [
-                            "ref": item.ref,
-                            "clientKey": item.clientKey,
-                            "serviceId": item.serviceId,
-                            "payment": item.payment,
-                        ],
-                        token: token
-                    )
+                    try await self.api.raw("orders", method: "POST", body: payload, token: token)
                 }
                 remove(item.ref)
                 sent += 1

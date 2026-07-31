@@ -24,6 +24,7 @@ export type ApiError =
   | 'SUBSCRIPTION_EXPIRED'
   | 'SUBSCRIPTION_BLOCKED'
   | 'EMPTY_CLIENT_KEY'
+  | 'BAD_PRICE'
   | 'SERVICE_NOT_FOUND'
   | 'STAFF_NOT_FOUND'
   | 'PASS_REQUIRED'
@@ -74,8 +75,10 @@ export function failFromError(e: unknown): NextResponse {
 
   if (e instanceof NotFoundError) {
     const code = e.message as ApiError;
-    const status = code === 'PASS_UNAVAILABLE' || code === 'PASS_REQUIRED' ? 409 : 404;
-    return fail(code, code === 'EMPTY_CLIENT_KEY' ? 400 : status);
+    if (code === 'PASS_UNAVAILABLE' || code === 'PASS_REQUIRED') return fail(code, 409);
+    // неверный ввод, а не отсутствующая сущность
+    if (code === 'EMPTY_CLIENT_KEY' || code === 'BAD_PRICE') return fail(code, 400);
+    return fail(code, 404);
   }
 
   console.error('api:', e);

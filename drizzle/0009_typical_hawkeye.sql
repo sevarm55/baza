@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "list_price" integer;
