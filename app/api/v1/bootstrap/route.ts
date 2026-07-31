@@ -41,6 +41,8 @@ export async function GET(request: Request) {
         role: ctx.user.role,
         percent: ctx.user.percent,
         notifyOrders: ctx.user.notifyOrders,
+        // телефон — это логин, и человек должен видеть, каким он входит
+        phone: ctx.user.phone,
       },
       access: ctx.access,
       services: services.map((s) => ({ id: s.id, name: s.name, price: s.price, sort: s.sort })),

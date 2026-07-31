@@ -626,7 +626,7 @@ async function main() {
   // ротация: старый refresh после обмена умирает
   const rot = await refreshRoute(post('/refresh', { refresh: tokens.refresh }));
   check('refresh меняется на новую пару', rot.status === 200, rot.status);
-  const rotated = await rot.json();
+  let rotated = await rot.json();
   check('и сам refresh новый', rotated.refresh !== tokens.refresh);
   const reused = await refreshRoute(post('/refresh', { refresh: tokens.refresh }));
   check('старый refresh больше не работает', reused.status === 401, reused.status);
@@ -914,6 +914,60 @@ async function main() {
     (await shiftState.whoIsOnShift(tenant.id, dayStart)).length === 0,
   );
 
+  /* ---------- профиль и смена PIN ---------- */
+
+  const profileApi = await import('../app/api/v1/profile/route');
+  const pinApi = await import('../app/api/v1/profile/pin/route');
+
+  const named = await profileApi.PATCH(
+    post('/profile', { name: 'Արամ Մ.', businessName: 'Ավտոլվացում №1' }, rotated.access),
+  );
+  check('имя и название бизнеса правятся', named.status === 204, named.status);
+  const [ownerNow] = await db.select().from(users).where(eq(users.id, owner.id));
+  check("имя записалось", ownerNow.name === "Արամ Մ.", ownerNow.name);
+  check('и название бизнеса', (await q.getTenant(tenant.id))?.name === 'Ավտոլվացում №1');
+
+  const shortName = await profileApi.PATCH(post('/profile', { name: 'X' }, rotated.access));
+  check('однобуквенное имя не проходит', shortName.status === 400, shortName.status);
+
+  const byWorkerName = await profileApi.PATCH(
+    post('/profile', { businessName: 'Чужое' }, staffTokens.access),
+  );
+  check('сотрудник бизнес не переименует', byWorkerName.status === 403, byWorkerName.status);
+
+  /* Главная проверка: смена PIN обязана выкинуть всех остальных.
+     Ради этого поле tokenVersion и заводилось — если сессии переживут
+     смену, то тот, у кого старый PIN уже есть, продолжит работать. */
+  const wrongOld = await pinApi.POST(
+    post('/profile/pin', { current: '0000', next: '5555' }, rotated.access),
+  );
+  check('со старым неверным — отказ', wrongOld.status === 401, wrongOld.status);
+
+  const shortPin = await pinApi.POST(
+    post('/profile/pin', { current: '1234', next: '12' }, rotated.access),
+  );
+  check('короткий новый не проходит', shortPin.status === 400, shortPin.status);
+
+  const changed = await pinApi.POST(
+    post('/profile/pin', { current: '1234', next: '5555', device: 'iPhone' }, rotated.access),
+  );
+  check('PIN меняется', changed.status === 200, changed.status);
+  const fresh = await changed.json();
+  check('и сразу выдаётся новая пара токенов', typeof fresh.access === 'string' && fresh.refresh);
+
+  const oldToken = await bootstrap(get('/bootstrap', rotated.access));
+  check('старый токен мёртв', oldToken.status === 401, oldToken.status);
+  const newToken = await bootstrap(get('/bootstrap', fresh.access));
+  check('а новый работает', newToken.status === 200, newToken.status);
+
+  const oldPinLogin = await login(post('/login', { phone: '077 111 222', pin: '1234' }));
+  check('по старому PIN больше не войти', oldPinLogin.status === 401, oldPinLogin.status);
+  const newPinLogin = await login(post('/login', { phone: '077 111 222', pin: '5555' }));
+  check('по новому — входит', newPinLogin.status === 200, newPinLogin.status);
+
+  // дальше по файлу владелец ходит этим токеном
+  rotated = { ...rotated, access: fresh.access, refresh: fresh.refresh };
+
   /* ---------- календарь и история ---------- */
 
   const history = await import('../lib/history');
@@ -1033,11 +1087,15 @@ async function main() {
 
   const dayAgo = new Date(Date.now() - 86_400_000);
 
+  /* Дата явная, на минуту назад. С `at` по умолчанию тест зависел от
+     того, тикнут ли часы между вставкой и запросом: верхняя граница
+     периода строгая, и расход, попавший ровно в неё, не считался. */
   await addExpense({
     tenantId: tenant.id,
     userId: owner.id,
     amount: 25_000,
     category: 'Քիմիա',
+    at: new Date(Date.now() - 60_000),
   });
   const oneOffCosts = await getPeriodCosts(tenant.id, dayAgo);
   check('разовый расход попадает в период', oneOffCosts.oneOff === 25_000, oneOffCosts.oneOff);

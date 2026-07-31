@@ -95,6 +95,40 @@ final class Session: ObservableObject {
         state = .signedIn
     }
 
+    /// Сменить PIN.
+    ///
+    /// Сервер гасит все сессии — в этом смысл смены — и тут же выдаёт
+    /// новую пару на это устройство. Иначе человек, сменивший PIN, сам бы
+    /// и вылетел из приложения, а вышвырнуть надо было остальных.
+    func changePin(current: String, next: String) async throws {
+        let device = await UIDevice.current.name
+        let issued: API.Tokens = try await authed { token in
+            try await self.api.send(
+                "profile/pin",
+                method: "POST",
+                body: ["current": current, "next": next, "device": device],
+                token: token,
+                as: API.Tokens.self
+            )
+        }
+        accessToken = issued.access
+        refreshToken = issued.refresh
+    }
+
+    /// Имя человека и название бизнеса.
+    func saveProfile(name: String?, businessName: String?) async throws {
+        var payload: [String: Any] = [:]
+        if let name { payload["name"] = name }
+        if let businessName { payload["businessName"] = businessName }
+        guard !payload.isEmpty else { return }
+
+        _ = try await authed { token in
+            try await self.api.raw("profile", method: "PATCH", body: payload, token: token)
+        }
+        // название бизнеса стоит в заголовке экрана смены — перечитываем
+        try await loadBootstrap()
+    }
+
     func signOut() async {
         // сначала отзываем токен устройства: телефон на мойке переходит из
         // рук в руки, и уведомления о чужой выручке приходить не должны
