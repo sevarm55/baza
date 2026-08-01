@@ -155,9 +155,9 @@ struct OwnerView: View {
 
     private var revenueTitle: String {
         switch period {
-        case "7": return "7 օրվա հասույթ"
-        case "30": return "30 օրվա հասույթ"
-        default: return "Այսօրվա հասույթ"
+        case "7": return "7 օրվա շահույթ"
+        case "30": return "30 օրվա շահույթ"
+        default: return "Այսօրվա շահույթ"
         }
     }
 
@@ -202,7 +202,7 @@ struct OwnerView: View {
                     .background(Brand.lime, in: Capsule())
             }
 
-            Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Հասույթ \(money(summary?.stats.revenue ?? 0, currency))")
+            Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Միջին չեկ \(money(summary?.stats.avgCheck ?? 0, currency))")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
@@ -220,16 +220,22 @@ struct OwnerView: View {
      * плохо? Владелец помнит вчерашнюю выручку, но не вчерашнюю прибыль —
      * её никто в уме не считает.
      *
-     * Молчим в двух случаях. Когда прошлого нет вовсе — процент от нуля не
-     * бывает, а «+∞%» это не ответ. И когда разница меньше процента: «+0%»
-     * место занимает, а не сообщает.
+     * Молчим в трёх случаях.
+     *
+     * Когда в прошлом отрезке была не прибыль, а убыток или ноль. Процент
+     * от убытка арифметически считается, но означает бессмыслицу: рост с
+     * минус сорока трёх тысяч до плюс трёхсот даёт «+782%», и это не тот
+     * ответ, за которым сюда смотрят.
+     *
+     * И когда разница меньше процента: «+0%» место занимает, а не
+     * сообщает.
      */
     private var profitChange: String? {
         guard let s = summary else { return nil }
         let was = s.previous.profit
-        guard was != 0 else { return nil }
+        guard was > 0 else { return nil }
 
-        let percent = Int((Double(s.profit - was) / Double(abs(was)) * 100).rounded())
+        let percent = Int((Double(s.profit - was) / Double(was) * 100).rounded())
         guard percent != 0 else { return nil }
 
         let label = period == "today" ? "նախորդ օրվա համեմատ" : "նախորդ շրջանի համեմատ"
