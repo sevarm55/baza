@@ -348,7 +348,11 @@ actor APIClient {
 
     /// Косая черта на конце обязательна: без неё относительный путь
     /// заменяет последний сегмент, и `summary` уезжает в `/api/summary`.
-    private let base = URL(string: "https://baziss.duckdns.org/api/v1/")!
+    /* Свой домен. Прежний baziss.duckdns.org сервер обслуживает по-прежнему
+       и обрывать его нельзя: на телефонах стоят сборки, которые ходят
+       именно туда, и для них смена адреса означала бы мёртвое приложение
+       до следующего обновления. */
+    private let base = URL(string: "https://tetrin.pro/api/v1/")!
     private let session: URLSession
 
     private lazy var decoder: JSONDecoder = {
