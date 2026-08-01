@@ -135,6 +135,9 @@ enum API {
         let stats: Stats
         let costs: Costs
         let profit: Int
+        /// Тот же отрезок непосредственно перед текущим — не с чем иначе
+        /// сравнить: вчерашнюю прибыль владелец в уме не считает.
+        let previous: Previous
         let shifts: [DayShift]
         let feed: [FeedItem]
     }
@@ -238,10 +241,18 @@ enum API {
            которой продукту верят. */
         let costs: Costs
         let profit: Int
+        /// Тот же отрезок непосредственно перед текущим — не с чем иначе
+        /// сравнить: вчерашнюю прибыль владелец в уме не считает.
+        let previous: Previous
         let onShift: [Present]
         let series: [SeriesPoint]
         let split: [SplitSegment]
         let feed: [FeedItem]
+    }
+
+    struct Previous: Decodable {
+        let revenue: Int
+        let profit: Int
     }
 
     struct PayrollDue: Decodable, Identifiable {

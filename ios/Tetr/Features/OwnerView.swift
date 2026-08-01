@@ -183,18 +183,57 @@ struct OwnerView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(.white.opacity(0.7))
 
-            Text(money(summary?.stats.revenue ?? 0, currency))
+            /* Крупно — прибыль, а не выручка.
+               Владелец открывает приложение ради одной цифры, и это «сколько
+               осталось», а не «сколько прошло через кассу». Выручку он и так
+               примерно помнит: она равна числу машин на средний чек. Прибыль
+               не помнит никто — её нельзя посчитать в уме, потому что в ней
+               сидят проценты работников и доля аренды за день. */
+            Text(money(summary?.profit ?? 0, currency))
                 .font(.system(size: 38, weight: .bold))
                 .foregroundStyle(.white)
 
-            Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Միջին չեկ \(money(summary?.stats.avgCheck ?? 0, currency))")
+            if let change = profitChange {
+                Text(change)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Brand.onLime)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Brand.lime, in: Capsule())
+            }
+
+            Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Հասույթ \(money(summary?.stats.revenue ?? 0, currency))")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .background(Brand.heroGradient, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    /**
+     * «+18% ко вчерашнему».
+     *
+     * Число без опоры ничего не значит: «прибыль 11 144» — это хорошо или
+     * плохо? Владелец помнит вчерашнюю выручку, но не вчерашнюю прибыль —
+     * её никто в уме не считает.
+     *
+     * Молчим в двух случаях. Когда прошлого нет вовсе — процент от нуля не
+     * бывает, а «+∞%» это не ответ. И когда разница меньше процента: «+0%»
+     * место занимает, а не сообщает.
+     */
+    private var profitChange: String? {
+        guard let s = summary else { return nil }
+        let was = s.previous.profit
+        guard was != 0 else { return nil }
+
+        let percent = Int((Double(s.profit - was) / Double(abs(was)) * 100).rounded())
+        guard percent != 0 else { return nil }
+
+        let label = period == "today" ? "նախորդ օրվա համեմատ" : "նախորդ շրջանի համեմատ"
+        return "\(percent > 0 ? "+" : "−")\(abs(percent))% \(label)"
     }
 
     /// Кто сейчас на мойке.
@@ -254,28 +293,46 @@ struct OwnerView: View {
     /// Зарплата отдельной строкой от расходов, хотя формально тоже
     /// расход: её считает продукт, а расходы заводит человек. Смешать их
     /// значило бы скрыть, что именно можно поправить руками.
+    /**
+     * Из чего сложилась прибыль — тремя колонками, а не тремя строками.
+     *
+     * Строками этот блок занимал столько же места, сколько главный, хотя
+     * это пояснение к нему, а не второе главное число. Владелец сюда
+     * заглядывает, когда цифра сверху удивила, — остальное время блок
+     * просто есть.
+     */
     private func profit(_ s: API.Summary) -> some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Շահույթ")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(1.2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Brand.muted)
-                Spacer()
-                Text(money(s.profit, currency))
-                    .font(.system(size: 26, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(s.profit >= 0 ? Brand.good : Brand.warn)
-            }
-
-            VStack(spacing: 5) {
-                breakdown("Հասույթ", s.stats.revenue)
-                breakdown("Աշխատավարձ", -s.stats.payroll)
-                breakdown("Ծախսեր", -s.costs.total)
-            }
+        HStack(spacing: 0) {
+            breakdown("Հասույթ", s.stats.revenue, Brand.ink)
+            divider
+            breakdown("Աշխատավարձ", s.stats.payroll, Brand.muted)
+            divider
+            breakdown("Ծախսեր", s.costs.total, Brand.muted)
         }
-        .glassCard()
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Brand.line)
+            .frame(width: 1, height: 30)
+    }
+
+    private func breakdown(_ title: String, _ value: Int, _ color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(money(value, currency))
+                .font(.system(size: 16, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.system(size: 11.5))
+                .foregroundStyle(Brand.muted)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func breakdown(_ label: String, _ value: Int) -> some View {

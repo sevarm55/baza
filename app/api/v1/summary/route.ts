@@ -57,13 +57,26 @@ export async function GET(request: Request) {
        считаем от начала сегодняшнего дня, а не от `from`. */
     const today = startOfDay(ctx.tenant.timezone);
 
-    const [stats, series, split, feed, costs, present] = await Promise.all([
+    /* Ровно такой же отрезок непосредственно перед текущим: вчера для
+       «сегодня», предыдущая неделя для семи дней, предыдущий месяц для
+       тридцати.
+
+       Без него число висит без опоры. «Прибыль 11 144» — это хорошо или
+       плохо? Ответить нельзя, пока не с чем сравнить, а сравнивать
+       владельцу больше не с чем: он помнит вчерашнюю выручку, но не
+       вчерашнюю прибыль — её никто в уме не считает. */
+    const span = to.getTime() - from.getTime();
+    const prevFrom = new Date(from.getTime() - span);
+
+    const [stats, series, split, feed, costs, present, prevStats, prevCosts] = await Promise.all([
       getPeriodStats(ctx.tenant.id, from, to),
       getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day'),
       getPaymentSplit(ctx.tenant.id, from),
       getFeed(ctx.tenant.id, from),
       getPeriodCosts(ctx.tenant.id, from, to),
       whoIsOnShift(ctx.tenant.id, today),
+      getPeriodStats(ctx.tenant.id, prevFrom, from),
+      getPeriodCosts(ctx.tenant.id, prevFrom, from),
     ]);
 
     return ok({
@@ -75,6 +88,12 @@ export async function GET(request: Request) {
          все клиенты, и разъехаться между телефоном и кабинетом она не
          должна — это та цифра, из-за которой продукту верят. */
       profit: profitOf(stats.revenue, stats.payroll, costs),
+      /* Прошлый отрезок — только две цифры: больше на экране всё равно не
+         показать, а тащить целый второй набор ради этого незачем. */
+      previous: {
+        revenue: prevStats.revenue,
+        profit: profitOf(prevStats.revenue, prevStats.payroll, prevCosts),
+      },
       onShift: present.map((p) => ({
         userId: p.userId,
         name: p.name,
