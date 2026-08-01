@@ -204,8 +204,12 @@ enum API {
         let key: String
         let revenue: Int
         var id: String { key }
-        /// последние две цифры ключа — час или день
-        var label: String { String(key.suffix(2)) }
+
+        /* Ключ приходит в виде «2026-07-02 00» и ВСЕГДА кончается часом —
+           даже когда ряд дневной. Брать две последние цифры годилось только
+           для часов: на тридцати днях все подписи выходили «00». */
+        var hourLabel: String { String(key.suffix(2)) }
+        var dayLabel: String { String(key.dropFirst(8).prefix(2)) }
     }
 
     struct SplitSegment: Decodable, Identifiable {

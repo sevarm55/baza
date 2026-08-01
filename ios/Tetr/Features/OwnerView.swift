@@ -11,6 +11,7 @@ struct OwnerView: View {
     @State private var period = "today"
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
+    @Namespace private var pill
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -110,32 +111,48 @@ struct OwnerView: View {
             .padding(.top, 6)
     }
 
+    /**
+     * Период — сегментным переключателем, а не тремя кнопками.
+     *
+     * Раньше выбранный период был грейповой капсулой среди двух серых
+     * надписей. Грейп на этом экране означает другое — им набраны суммы и
+     * столбики, — и капсула читалась как ещё одно значимое пятно, а не как
+     * положение переключателя.
+     *
+     * Здесь выбор показан подсветкой: дорожка тёмная, выбранная плашка
+     * светлее. Это тот же язык, что у системного сегмента, и человек знает
+     * его до того, как открыл приложение.
+     */
     private var picker: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             ForEach(periods, id: \.0) { key, label in
-                Button(label) {
-                    period = key
+                Button {
+                    // упругость короткая: переключатель, а не переход экрана
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { period = key }
                     Task { await reload() }
+                } label: {
+                    Text(label)
+                        .font(.system(size: 14, weight: period == key ? .bold : .medium))
+                        .foregroundStyle(period == key ? Brand.ink : Brand.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background {
+                            if period == key {
+                                RoundedRectangle(cornerRadius: 11)
+                                    .fill(Brand.trackOn)
+                                    .shadow(color: .black.opacity(0.09), radius: 3, y: 1)
+                                    .matchedGeometryEffect(id: "period", in: pill)
+                            }
+                        }
                 }
-                .font(.system(size: 13, weight: period == key ? .bold : .regular))
-                .foregroundStyle(period == key ? .white : Brand.muted)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    period == key ? Brand.grapeFill : .clear,
-                    in: Capsule()
-                )
+                .buttonStyle(.plain)
             }
-            Spacer()
         }
+        .padding(3)
+        .background(Brand.track, in: RoundedRectangle(cornerRadius: 14))
         .padding(.top, 8)
     }
 
-    /// Заголовок с периодом внутри.
-    ///
-    /// Было просто «ՀԱՍՈՒՅԹ», и при переключении на 7 или 30 дней надпись
-    /// не менялась — только число. Что перед тобой, приходилось вспоминать
-    /// по нажатой кнопке.
     private var revenueTitle: String {
         switch period {
         case "7": return "7 օրվա հասույթ"
@@ -279,9 +296,10 @@ struct OwnerView: View {
     /// записей рельеф не показывает, а столбики показывают сразу.
     /// Подпись столбика: все подряд, пока их немного, иначе каждый третий.
     private func label(_ point: API.SeriesPoint, in series: [API.SeriesPoint]) -> String {
-        guard series.count > 12 else { return point.label }
+        let text = period == "today" ? point.hourLabel : point.dayLabel
+        guard series.count > 12 else { return text }
         let index = series.firstIndex(where: { $0.id == point.id }) ?? 0
-        return index % 3 == 0 ? point.label : ""
+        return index % 3 == 0 ? text : ""
     }
 
     private func chart(_ series: [API.SeriesPoint]) -> some View {
@@ -312,8 +330,12 @@ struct OwnerView: View {
                                         : Brand.grape.opacity(0.28)
                             )
                             .frame(height: max(2, 90 * CGFloat(point.revenue) / CGFloat(peak)))
-                        // на тридцати днях числа сливаются — подписываем реже
+                        /* На тридцати днях числа сливаются — подписываем реже.
+                           Строка одна: столбик уже подписи, и без ограничения
+                           «02» ломалось на два этажа. */
                         Text(label(point, in: series))
+                            .lineLimit(1)
+                            .fixedSize()
                             .font(.system(size: 9))
                             .monospacedDigit()
                             .foregroundStyle(Brand.muted)
