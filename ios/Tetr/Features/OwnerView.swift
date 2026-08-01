@@ -106,9 +106,36 @@ struct OwnerView: View {
         .padding(.top, 8)
     }
 
+    /// Заголовок с периодом внутри.
+    ///
+    /// Было просто «ՀԱՍՈՒՅԹ», и при переключении на 7 или 30 дней надпись
+    /// не менялась — только число. Что перед тобой, приходилось вспоминать
+    /// по нажатой кнопке.
+    private var revenueTitle: String {
+        switch period {
+        case "7": return "7 օրվա հասույթ"
+        case "30": return "30 օրվա հասույթ"
+        default: return "Այսօրվա հասույթ"
+        }
+    }
+
+    /// «1 օգոստոսի» или «3 հուլիսի — 1 օգոստոսի».
+    ///
+    /// Без даты сутки не видно вовсе, а они здесь считаются по времени
+    /// бизнеса и в полночь начинаются заново. Владелец, открывший приложение
+    /// в half past midnight, видел ноль и решал, что данные пропали.
+    private var periodDates: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hy_AM")
+        f.dateFormat = "d MMMM"
+        let today = f.string(from: Date())
+        guard let from = summary?.from, period != "today" else { return today }
+        return "\(f.string(from: from)) — \(today)"
+    }
+
     private var revenue: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Հասույթ")
+            Text(revenueTitle)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.2)
                 .textCase(.uppercase)
@@ -118,9 +145,10 @@ struct OwnerView: View {
                 .font(.system(size: 38, weight: .bold))
                 .foregroundStyle(.white)
 
-            Text("\(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Միջին չեկ \(money(summary?.stats.avgCheck ?? 0, currency))")
+            Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Միջին չեկ \(money(summary?.stats.avgCheck ?? 0, currency))")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.75))
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)

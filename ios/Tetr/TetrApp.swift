@@ -182,10 +182,10 @@ struct MainTabs: View {
             }
 
             if session.me?.isOwner == true {
-                Tab("Այսօր", systemImage: "chart.bar.fill") {
+                Tab("Ամփոփում", systemImage: "chart.bar.fill") {
                     NavigationStack {
                         OwnerView()
-                            .navigationTitle("Այսօր")
+                            .navigationTitle("Ամփոփում")
                             .navigationBarTitleDisplayMode(.inline)
                     }
                 }

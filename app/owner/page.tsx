@@ -107,11 +107,22 @@ export default async function TodayPage({
       <PeriodTabs current={period.key} />
 
       <Hero
-        label={hy.owner.revenue}
+        label={
+          byHour
+            ? hy.owner.revenueToday
+            : period.key === '7'
+              ? hy.owner.revenueWeek
+              : hy.owner.revenueMonth
+        }
         value={money(stats.revenue)}
         meta={
           <>
-            {stats.count} {tenant.unitOne} · {hy.owner.avgCheck} {money(stats.avgCheck)}
+            {/* Дата обязательна: сутки считаются по времени бизнеса и в
+                полночь начинаются заново. Без неё владелец, открывший
+                кабинет в половине первого, видит ноль и решает, что
+                данные пропали. */}
+            {periodDates(from, tenant.timezone, byHour)} · {stats.count} {tenant.unitOne} ·{' '}
+            {hy.owner.avgCheck} {money(stats.avgCheck)}
             {passesEnabled() && stats.passSales > 0 && (
               <>
                 {' · '}
@@ -226,6 +237,13 @@ export default async function TodayPage({
       </div>
     </>
   );
+}
+
+/** «1 օգոստոսի» или «3 հուլիսի — 1 օգոստոսի». */
+function periodDates(from: Date, timezone: string, single: boolean): string {
+  const f = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', month: 'long', timeZone: timezone });
+  const today = f.format(new Date());
+  return single ? today : `${f.format(from)} — ${today}`;
 }
 
 function Empty({ text }: { text: string }) {
