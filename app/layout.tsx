@@ -29,10 +29,10 @@ const sans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Tetr',
+  title: 'Tetrin',
   description: 'Հաշվառում սպասարկման բիզնեսի համար',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Tetr', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'Tetrin', statusBarStyle: 'black-translucent' },
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },

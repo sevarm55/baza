@@ -9,7 +9,7 @@ import { NICHES, type NicheKey } from '@/lib/niches';
 import { TenantActions } from './tenant-actions';
 import s from './admin.module.css';
 
-export const metadata = { title: 'Tetr · Админ' };
+export const metadata = { title: 'Tetrin · Админ' };
 
 const STATE_LABEL: Record<Access['state'], string> = {
   active: 'Оплачено',
@@ -35,7 +35,7 @@ export default async function AdminPage() {
       <div className={s.shell}>
         <header className={s.head}>
           <div className={s.title}>
-            <span>Tetr</span>
+            <span>Tetrin</span>
             <span style={{ color: 'var(--color-faint)' }}>админ</span>
           </div>
           <div className={s.who}>

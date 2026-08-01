@@ -19,8 +19,8 @@ import s from '../legal.module.css';
  * /work и /owner.
  */
 export const metadata: Metadata = {
-  title: 'Գաղտնիության քաղաքականություն · Tetr',
-  description: 'Ի՞նչ տվյալներ է պահում Tetr-ը և ինչի համար',
+  title: 'Գաղտնիության քաղաքականություն · Tetrin',
+  description: 'Ի՞նչ տվյալներ է պահում Tetrin-ը և ինչի համար',
 };
 
 const UPDATED = '31.07.2026';
@@ -29,14 +29,14 @@ export default function PrivacyPage() {
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
-        ← Tetr
+        ← Tetrin
       </Link>
 
       <h1 className={s.title}>Գաղտնիության քաղաքականություն</h1>
       <p className={s.updated}>Թարմացվել է {UPDATED}</p>
 
       <p className={s.p}>
-        Tetr-ը հաշվառման գործիք է սպասարկման բիզնեսների համար։ Մենք պահում ենք միայն այն, ինչ
+        Tetrin-ը հաշվառման գործիք է սպասարկման բիզնեսների համար։ Մենք պահում ենք միայն այն, ինչ
         անհրաժեշտ է ծառայությունն աշխատեցնելու համար, և չենք տալիս այն ոչ մեկին։
       </p>
 
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
       <div className={s.other}>
         <h2 className={s.h2}>Privacy Policy (English)</h2>
         <p className={s.p}>
-          Tetr is a bookkeeping tool for service businesses. We store only what is needed to run
+          Tetrin is a bookkeeping tool for service businesses. We store only what is needed to run
           the service, and we share it with no one.
         </p>
 

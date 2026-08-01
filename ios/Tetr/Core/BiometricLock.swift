@@ -59,7 +59,7 @@ final class BiometricLock: ObservableObject {
         do {
             locked = !(try await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: "Բացել Tetr-ը"
+                localizedReason: "Բացել Tetrin-ը"
             ))
         } catch {
             // отказались или не вышло — остаётся закрытым, попробуют снова
@@ -91,7 +91,7 @@ struct LockView: View {
                     .font(.system(size: 44))
                     .foregroundStyle(Brand.lime)
 
-                Text("TETR")
+                Text("TETRIN")
                     .font(.system(size: 15, weight: .bold))
                     .tracking(4)
                     .foregroundStyle(.white.opacity(0.7))

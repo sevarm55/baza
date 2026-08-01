@@ -16,15 +16,15 @@ import s from '../legal.module.css';
  * они не распространяются.
  */
 export const metadata: Metadata = {
-  title: 'Աջակցություն · Tetr',
-  description: 'Օգնություն Tetr հավելվածի հետ',
+  title: 'Աջակցություն · Tetrin',
+  description: 'Օգնություն Tetrin հավելվածի հետ',
 };
 
 export default function SupportPage() {
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
-        ← Tetr
+        ← Tetrin
       </Link>
 
       <h1 className={s.title}>Աջակցություն</h1>
@@ -68,7 +68,7 @@ export default function SupportPage() {
 
       <h2 className={s.h2}>Ծանուցումները չեն գալիս</h2>
       <p className={s.p}>
-        Ստուգեք հեռախոսի կարգավորումները՝ Settings → Tetr → Notifications, և հավելվածում՝
+        Ստուգեք հեռախոսի կարգավորումները՝ Settings → Tetrin → Notifications, և հավելվածում՝
         «Պրոֆիլ» → ծանուցումներ։ Ծանուցումները գալիս են սեփականատիրոջը՝ հերթափոխի բացման և նոր
         գրանցումների մասին։
       </p>
@@ -82,7 +82,7 @@ export default function SupportPage() {
       <div className={s.other}>
         <h2 className={s.h2}>Support (English)</h2>
         <p className={s.p}>
-          Tetr is a bookkeeping tool for service businesses in Armenia. For any question, call{' '}
+          Tetrin is a bookkeeping tool for service businesses in Armenia. For any question, call{' '}
           <a className={s.link} href="tel:+37499855546">
             {hy.billing.wallPhone}
           </a>{' '}

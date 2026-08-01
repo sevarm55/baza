@@ -23,7 +23,7 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
-                Text("TETR")
+                Text("TETRIN")
                     .font(.system(size: 15, weight: .bold))
                     .tracking(4)
                     .foregroundStyle(Brand.lime)

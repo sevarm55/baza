@@ -53,7 +53,7 @@ targets:
         # Латиницей, как и в App Store. Имя на устройстве и имя в витрине
         # должны совпадать — иначе человек не находит установленное
         # приложение, а Apple это отдельно проверяет.
-        CFBundleDisplayName: Tetr
+        CFBundleDisplayName: Tetrin
         UILaunchScreen: {}
         # Экран записи живёт вертикально: мойщик держит телефон одной рукой
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

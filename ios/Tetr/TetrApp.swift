@@ -175,7 +175,7 @@ struct MainTabs: View {
             Tab("Հերթափոխ", systemImage: "list.clipboard.fill") {
                 NavigationStack {
                     ShiftView()
-                        .navigationTitle(session.tenant?.name ?? "Tetr")
+                        .navigationTitle(session.tenant?.name ?? "Tetrin")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar { signOut }
                 }
