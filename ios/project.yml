@@ -80,6 +80,12 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sevarm.tetr
+        # Только iPhone. По умолчанию Xcode ставит iPhone+iPad, и тогда
+        # Apple требует все четыре ориентации ради многозадачности на
+        # планшете — сборка не проходит проверку. Добавлять их значило бы
+        # обещать то, чего нет: экран мойщика держат одной рукой, сканер
+        # номеров вертикальный, а таблицы на десяти дюймах никто не сверял.
+        TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Tetr/Tetr.entitlements
         # Имя файла AppIcon.icon без расширения. Каталога ассетов у нас
