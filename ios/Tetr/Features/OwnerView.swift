@@ -35,10 +35,16 @@ struct OwnerView: View {
                         onShift(present)
                     }
 
+                    /* Каждый блок назван. Раньше график и разбивка по
+                       оплате висели между двумя озаглавленными разделами
+                       безымянными карточками, и экран читался сплошной
+                       лентой белых прямоугольников. */
                     if let series = summary?.series, series.count > 1 {
+                        sectionHeader(period == "today" ? "Ժամերով" : "Օրերով")
                         chart(series)
                     }
                     if let split = summary?.split, !split.isEmpty {
+                        sectionHeader("Վճարումներ")
                         splitBar(split)
                     }
 
@@ -83,6 +89,25 @@ struct OwnerView: View {
             )
         }
         await reload()
+    }
+
+    /**
+     * Заголовок раздела.
+     *
+     * Был 11-м кеглем, приглушённым цветом и в разрядку — тише, чем всё,
+     * что под ним. На экране из шести белых карточек подряд структура от
+     * этого пропадала: непонятно, где кончается одно и начинается другое.
+     *
+     * Теперь это настоящий заголовок: крупнее содержимого карточек, полным
+     * цветом и с воздухом сверху. Мелкие подписи остались внутри карточек —
+     * там они и должны быть тише своего содержимого.
+     */
+    private func sectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(Brand.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 6)
     }
 
     private var picker: some View {
@@ -165,11 +190,7 @@ struct OwnerView: View {
     /// площадке он стоит.
     private func onShift(_ present: [API.Present]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Հերթափոխին")
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundStyle(Brand.muted)
+            sectionHeader("Հերթափոխին")
 
             ForEach(present) { person in
                 HStack(spacing: 10) {
@@ -267,21 +288,13 @@ struct OwnerView: View {
         let peak = max(1, series.map(\.revenue).max() ?? 1)
 
         return VStack(alignment: .leading, spacing: 8) {
-            /* Подпись обязательна: без неё столбики с числами 10, 11, 16
-               читались как что угодно — от дней до номеров боксов. */
-            HStack {
-                Text(period == "today" ? "Ժամերով" : "Օրերով")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(1.2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Brand.muted)
-                Spacer()
-                // пик подписан цифрой: иначе высота — величина без масштаба
-                Text("առավելագույնը \(money(peak, currency))")
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.muted)
-            }
+            /* Пик подписан цифрой: иначе высота — величина без масштаба.
+               Имя графика переехало в заголовок раздела над карточкой. */
+            Text("առավելագույնը \(money(peak, currency))")
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(Brand.muted)
+                .frame(maxWidth: .infinity, alignment: .trailing)
 
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(series) { point in
@@ -359,11 +372,7 @@ struct OwnerView: View {
 
     private func list(_ feed: [API.FeedItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Հոսք")
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundStyle(Brand.muted)
+            sectionHeader("Հոսք")
 
             ForEach(feed) { item in
                 HStack {
@@ -380,7 +389,10 @@ struct OwnerView: View {
                             Text(item.staffName ?? "—")
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Brand.person(item.staffName ?? ""))
-                            Text("· \(item.serviceName) · \(paymentLabel(item.payment))")
+                            Text("· \(item.serviceName) ·")
+                                .foregroundStyle(Brand.muted)
+                            Image(systemName: paymentSymbol(item.payment))
+                                .font(.system(size: 13))
                                 .foregroundStyle(Brand.muted)
                         }
                         .font(.system(size: 11.5))

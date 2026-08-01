@@ -326,6 +326,23 @@ struct ShiftView: View {
     }
 }
 
+/**
+ * Значок способа оплаты.
+ *
+ * В ленте способ стоял словом, и строка «Դավիթ · Թափք · Փոխանցում»
+ * читалась целиком — а нужен из неё один взгляд: наличные это были или
+ * карта. Значок отвечает на это мгновенно и занимает место одной буквы.
+ */
+func paymentSymbol(_ key: String) -> String {
+    switch key {
+    case "cash": return "banknote.fill"
+    case "card": return "creditcard.fill"
+    case "transfer": return "arrow.left.arrow.right"
+    case "pass": return "ticket.fill"
+    default: return "circle.fill"
+    }
+}
+
 func paymentLabel(_ key: String) -> String {
     switch key {
     case "cash": return "Կանխիկ"
