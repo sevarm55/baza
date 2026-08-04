@@ -5,11 +5,17 @@
 -- машин, «данных пока нет» и убыток размером с дневную долю аренды —
 -- ровно тот пустой экран, из-за которого отклоняют по Guideline 2.1.
 --
--- Скрипт добавляет сегодняшние записи до нужного числа и только в уже
--- прошедшие часы: запись из будущего не нарисуется на графике и будет
--- выглядеть ошибкой продукта.
+-- Заезды расставлены по всем суткам, а не по рабочему дню с девяти до
+-- семи. Причина не в правдоподобии, а в географии: ревьюер сидит в
+-- Купертино, и его рабочий день — это ночь и раннее утро в Ереване.
+-- Первая версия наполняла демо с 9:30, и всё время, пока в Калифорнии
+-- работают, приложение показывало нули. Круглосуточная мойка вопросов не
+-- вызывает, пустой экран — вызывает.
 --
--- Идемпотентен: сколько раз ни запусти за час, лишнего не добавит.
+-- Записи добавляются только в уже прошедшие часы: запись из будущего не
+-- рисуется на графике и выглядит поломкой продукта.
+--
+-- Идемпотентен: сколько раз ни запусти, лишнего не добавит.
 
 \set ON_ERROR_STOP on
 
@@ -19,44 +25,35 @@ with demo as (
 day_start as (
   select date_trunc('day', now() at time zone 'Asia/Yerevan') at time zone 'Asia/Yerevan' as at
 ),
--- Сколько машин должно быть к этому часу: примерно одна за два часа
--- работы, начиная с девяти утра. К вечеру набирается пять.
-target as (
-  select greatest(0, least(6, floor((extract(hour from now() at time zone 'Asia/Yerevan') - 9) / 2 + 1)::int)) as n
+-- Восемь заездов на сутки, первый через шесть минут после полуночи.
+--
+-- Шесть, а не двадцать: задача ходит в :17 каждого часа, и заезд,
+-- назначенный на 00:20, к запуску в 00:17 ещё не наступит — демо
+-- простояло бы пустым до 01:17. Теперь пустое окно только до первого
+-- запуска задачи.
+slots as (
+  select * from (values (0.1), (2.5), (5.0), (8.0), (11.0), (14.0), (17.0), (20.5)) as t(hour)
+),
+passed as (
+  select row_number() over (order by hour) as rn, hour
+  from slots
+  where hour * 60 <= extract(epoch from (now() - (select at from day_start))) / 60
 ),
 have as (
   select count(*)::int as n
   from orders o, demo d, day_start s
   where o.tenant_id = d.id and o.created_at >= s.at
 ),
--- Часы заездов: те же неровные, что и в основном наборе.
-slots as (
-  select * from (values (9.5), (11.25), (13.0), (15.5), (17.25), (19.0)) as t(hour)
-),
-missing as (
-  select row_number() over (order by hour) as rn, hour
-  from slots
-  where hour * 60 <= extract(epoch from (now() - (select at from day_start))) / 60
-),
 pick as (
-  select m.hour
-  from missing m, have h, target t
-  where m.rn > h.n and m.rn <= t.n
+  select p.hour from passed p, have h where p.rn > h.n
 )
 insert into orders (
   tenant_id, client_id, staff_id, service_id,
   service_name, price, list_price, staff_percent, payment, created_at
 )
 select
-  d.id,
-  c.id,
-  u.id,
-  sv.id,
-  sv.name,
-  sv.price,
-  sv.price,
-  u.percent,
-  (array['cash', 'cash', 'card', 'transfer'])[1 + (p.hour * 2)::int % 4],
+  d.id, c.id, u.id, sv.id, sv.name, sv.price, sv.price, u.percent,
+  (array['cash', 'cash', 'card', 'transfer'])[1 + (p.hour * 3)::int % 4],
   s.at + (p.hour * interval '1 hour')
 from pick p
 cross join demo d
@@ -81,8 +78,11 @@ join lateral (
 
 -- Смена на сегодня: без неё на «Ամփոփում» нет зелёной точки «на мойке»,
 -- а это один из разделов, ради которых продукт и открывают.
+--
+-- Открываем в 00:10, а не в девять утра: в девять утра смена, открытая
+-- «в будущем», показывала бы время, которое ещё не наступило.
 insert into shifts (tenant_id, user_id, opened_at)
-select d.id, u.id, s.at + interval '9 hours'
+select d.id, u.id, s.at + interval '10 minutes'
 from (select id from tenants where name = 'Tetrin Դեմո') d,
      (select date_trunc('day', now() at time zone 'Asia/Yerevan') at time zone 'Asia/Yerevan' as at) s,
      lateral (
