@@ -1852,6 +1852,61 @@ async function main() {
   const blockedWipe = await accountRoute(del('/account', { pin: '5555' }, rebornBody.access));
   check('и удалить себя может', blockedWipe.status === 204, blockedWipe.status);
 
+  /* ---------- наши деньги ----------
+     Учёт подписок — единственное место, где считается наша выручка, а не
+     клиентская. Ошибка здесь не всплывёт ни у кого: клиент своих цифр не
+     видит, а мы увидим неверную сумму и поверим ей. */
+  const billing = await import('../lib/admin-billing');
+  const audit = await import('../lib/admin-audit');
+
+  const now = new Date();
+  const thisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10));
+  const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 10));
+
+  await billing.recordPayment({ tenantId: tenant.id, amount: 40_000, months: 3, byUserId: owner.id });
+  await billing.recordPayment({ tenantId: tenant.id, amount: 0, months: 1, note: 'подарили', byUserId: owner.id });
+  const { platformPayments } = await import('../lib/db/schema');
+  await db
+    .update(platformPayments)
+    .set({ at: lastMonth })
+    .where(eq(platformPayments.amount, 0));
+
+  const totals = await billing.paymentTotals(thisMonth);
+  check('в этом месяце — только сегодняшний платёж', totals.month === 40_000, totals.month);
+  check('прошлый месяц отделён от текущего', totals.prevMonth === 0, totals.prevMonth);
+  check('за всё время — оба платежа', totals.count === 2, totals.count);
+  // ноль — это договорённость, а не отсутствие записи: подаренный месяц
+  // должен остаться в истории, иначе через год не вспомнить, почему срок
+  // сдвинулся без денег
+  const ours = await billing.paymentsOf(tenant.id);
+  check('подаренный месяц сохранён', ours.some((p) => p.amount === 0), ours.length);
+
+  /* ---------- журнал ----------
+     Мы смотрим в чужие книги, и на вопрос «кто открывал мои цифры»
+     нужен ответ. Он бесполезен, если состоит из сотни одинаковых строк
+     после каждого обновления страницы. */
+  const seen = await audit.logTenantView(tenant.id, owner.id);
+  const seenAgain = await audit.logTenantView(tenant.id, owner.id);
+  check('первый заход записан', seen === true);
+  check('повторный в те же полчаса — нет', seenAgain === false);
+  const later = await audit.logTenantView(
+    tenant.id,
+    owner.id,
+    new Date(Date.now() + 31 * 60 * 1000),
+  );
+  check('через полчаса — снова записан', later === true);
+
+  const journal = await audit.adminJournal();
+  check('в журнале только наши действия', journal.every((r) => r.action.startsWith('tenant_') || r.action === 'subscription_extend'), journal.map((r) => r.action));
+  // имя берём из тенанта, а не из снимка: бизнес переименовывают, и в
+  // журнале должно стоять то, как он называется сейчас, — иначе на звонок
+  // «это Комитас» в ленте не найдётся ничего похожего
+  check(
+    'строка журнала подписана бизнесом',
+    journal[0]?.tenantId === tenant.id && !!journal[0]?.tenantName,
+    journal[0],
+  );
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);

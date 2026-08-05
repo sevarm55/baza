@@ -37,6 +37,10 @@ export type NavItem = {
   label: string;
   icon: string;
   count?: number;
+  /** ещё один адрес, при котором пункт считается открытым: карточка
+      клиента живёт не под /admin/…, а сбоку, и без этого в ней не
+      подсвечен ни один пункт — кажется, что ушёл из админки */
+  also?: string;
 };
 
 export function Sidebar({ items, who }: { items: NavItem[]; who: string }) {
@@ -54,7 +58,9 @@ export function Sidebar({ items, who }: { items: NavItem[]; who: string }) {
 
       <nav className={s.nav}>
         {items.map((it) => {
-          const on = it.href === '/admin' ? path === '/admin' : path.startsWith(it.href);
+          const on =
+            (it.href === '/admin' ? path === '/admin' : path.startsWith(it.href)) ||
+            (it.also ? path.startsWith(it.also) : false);
           return (
             <Link
               key={it.href}

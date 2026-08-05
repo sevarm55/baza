@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ensureDb } from '@/lib/db/ready';
 import { allPayments, paymentTotals } from '@/lib/admin-billing';
 import { formatMoney } from '@/lib/money';
@@ -64,7 +65,9 @@ export default async function PaymentsPage() {
             <article key={p.id} className={s.row}>
               <div className={s.rowTop}>
                 <div className={s.name}>
-                  <span className="truncate">{p.tenantName}</span>
+                  <Link href={`/admin/t/${p.tenantId}`} className={`${s.open} truncate`}>
+                    {p.tenantName}
+                  </Link>
                 </div>
                 <span className={s.sumValue} style={{ fontSize: 17 }}>
                   {money(p.amount)}

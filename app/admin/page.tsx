@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ensureDb } from '@/lib/db/ready';
 import { listTenantsForAdmin } from '@/lib/queries';
 import { accessOf, billingEnabled, type Access } from '@/lib/subscription';
@@ -86,9 +87,11 @@ export default async function AdminPage() {
                 <div className={s.rowTop}>
                   <div className={s.name}>
                     <span className={`${s.dot} ${s[dotClass(state)]}`} />
-                    <span className="truncate">
+                    {/* имя — вход в карточку: «посмотреть его цифры» это
+                        первое, чего хочется во время звонка клиента */}
+                    <Link href={`/admin/t/${t.id}`} className={`${s.open} truncate`}>
                       {niche?.icon} {t.name}
-                    </span>
+                    </Link>
                   </div>
                   <span className={`${s.badge} ${s[badgeClass(state)]}`}>
                     {STATE_LABEL[state]}

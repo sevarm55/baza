@@ -171,6 +171,31 @@
   color: var(--muted);
 }
 
+/* Возврат к списку. Браузерная «назад» есть всегда, но карточку часто
+   открывают из журнала — и тогда «назад» уводит не туда, где хотелось. */
+.back {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--ink);
+}
+
+/* Карточка клиента — длинная страница из разнородных блоков. Без
+   подписей она читается как одна лента, в которой непонятно, где
+   кончились сотрудники и начались записи. */
+.sectionTitle {
+  margin: 28px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
 /* На узком экране колонка сворачивается сама: держать 232 пикселя
    навигации на телефоне значит отдать ей половину ширины. */
 @media (max-width: 720px) {

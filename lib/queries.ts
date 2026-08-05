@@ -75,6 +75,15 @@ export async function getTenant(tenantId: string) {
   return t ?? null;
 }
 
+/** Владелец бизнеса: тот, кому звонить. */
+export async function getOwner(tenantId: string) {
+  const [o] = await db
+    .select({ id: users.id, name: users.name, phone: users.phone })
+    .from(users)
+    .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')));
+  return o ?? null;
+}
+
 export async function getUser(tenantId: string, userId: string) {
   const [u] = await db
     .select()

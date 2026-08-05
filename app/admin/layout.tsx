@@ -27,9 +27,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const overdue = rows.filter((x) => x === 'expired' || x === 'blocked').length;
 
   const items: NavItem[] = [
-    { href: '/admin', label: 'Клиенты', icon: '◍', count: rows.length },
+    { href: '/admin', label: 'Клиенты', icon: '◍', count: rows.length, also: '/admin/t/' },
     { href: '/admin/payments', label: 'Платежи', icon: '֏' },
     { href: '/admin/attention', label: 'Внимание', icon: '!', count: overdue },
+    { href: '/admin/journal', label: 'Журнал', icon: '≡' },
   ];
 
   return (

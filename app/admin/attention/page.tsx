@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ensureDb } from '@/lib/db/ready';
 import { listTenantsForAdmin } from '@/lib/queries';
 import { accessOf } from '@/lib/subscription';
@@ -50,9 +51,9 @@ export default async function AttentionPage() {
               <article key={t.id} className={s.row}>
                 <div className={s.rowTop}>
                   <div className={s.name}>
-                    <span className="truncate">
+                    <Link href={`/admin/t/${t.id}`} className={`${s.open} truncate`}>
                       {niche?.icon} {t.name}
-                    </span>
+                    </Link>
                   </div>
                   <span className={`${s.badge} ${s.badgeExpired}`}>{reason.text}</span>
                 </div>

@@ -138,6 +138,18 @@
   min-width: 0;
 }
 
+/* Имя клиента — ссылка в его карточку, но выглядит как заголовок:
+   синий подчёркнутый текст посреди списка читался бы как «здесь что-то
+   не так», а не «сюда можно нажать». */
+.open {
+  color: inherit;
+  text-decoration: none;
+}
+.open:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .dot {
   width: 8px;
   height: 8px;
