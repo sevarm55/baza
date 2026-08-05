@@ -34,6 +34,11 @@ export async function listTenantsForAdmin() {
         orderCount: sql<number>`count(*)::int`,
         revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
         lastOrderAt: sql<string | null>`max(${orders.createdAt})`,
+        /* Простой считает база, а не страница. Причина не в скорости:
+           Date.now() в разметке — это чтение часов во время отрисовки, и
+           у сервера с браузером они разные. Заодно исчезает целый класс
+           расхождений «на экране 7 дней, в письме 8». */
+        idleDays: sql<number>`floor(extract(epoch from (now() - max(${orders.createdAt}))) / 86400)::int`,
       })
       .from(orders)
       .where(isNull(orders.canceledAt))
@@ -58,6 +63,7 @@ export async function listTenantsForAdmin() {
       ownerPhone: ownerBy.get(t.id)?.phone ?? null,
       staffCount: staffBy.get(t.id) ?? 0,
       orderCount: a?.orderCount ?? 0,
+      idleDays: a?.idleDays ?? null,
       revenue: a?.revenue ?? 0,
       lastOrderAt: a?.lastOrderAt ? new Date(a.lastOrderAt) : null,
     };

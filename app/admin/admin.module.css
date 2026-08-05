@@ -254,3 +254,71 @@
   text-align: center;
   color: var(--color-faint);
 }
+
+/* ─── приём платежа и заметка ─── */
+
+.btnOn {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-bg);
+}
+
+.pay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface2);
+}
+
+.payField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.payInput {
+  min-width: 0;
+  flex: 1 1 140px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+}
+.payInput:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Заметка выглядит подписью, пока её не тронули: рамка у каждого клиента
+   превратила бы список в анкету. */
+.noteRow {
+  margin-top: 8px;
+}
+.noteInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+}
+.noteInput:hover {
+  border-color: var(--hairline);
+}
+.noteInput:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}

@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import { requirePlatformAdmin } from '@/lib/admin';
 import { ensureDb } from '@/lib/db/ready';
 import { listTenantsForAdmin } from '@/lib/queries';
 import { accessOf, billingEnabled, type Access } from '@/lib/subscription';
@@ -8,8 +6,7 @@ import { formatPhone } from '@/lib/phone';
 import { NICHES, type NicheKey } from '@/lib/niches';
 import { TenantActions } from './tenant-actions';
 import s from './admin.module.css';
-
-export const metadata = { title: 'Tetrin · Админ' };
+import shell from './shell.module.css';
 
 const STATE_LABEL: Record<Access['state'], string> = {
   active: 'Оплачено',
@@ -19,7 +16,6 @@ const STATE_LABEL: Record<Access['state'], string> = {
 };
 
 export default async function AdminPage() {
-  const admin = await requirePlatformAdmin();
   await ensureDb();
 
   const tenants = await listTenantsForAdmin();
@@ -31,18 +27,13 @@ export default async function AdminPage() {
   const count = (state: Access['state']) => rows.filter((r) => r.access.state === state).length;
 
   return (
-    <div className={s.page}>
-      <div className={s.shell}>
-        <header className={s.head}>
-          <div className={s.title}>
-            <span>Tetrin</span>
-            <span style={{ color: 'var(--color-faint)' }}>админ</span>
-          </div>
-          <div className={s.who}>
-            {admin.name}
-            <Link href="/">к приложению</Link>
-          </div>
-        </header>
+    <>
+      <div className={shell.pageHead}>
+        <h1 className={shell.pageTitle}>Клиенты</h1>
+        <div className={shell.pageSub}>
+          {rows.length} {rows.length === 1 ? 'бизнес' : 'бизнесов'} · продление записывает платёж
+        </div>
+      </div>
 
         {!billingEnabled() && (
           <div className={s.billingOff}>
@@ -88,9 +79,7 @@ export default async function AdminPage() {
           {rows.map((t) => {
             const state = t.access.state;
             const niche = NICHES[t.niche as NicheKey];
-            const idleDays = t.lastOrderAt
-              ? Math.floor((Date.now() - new Date(t.lastOrderAt).getTime()) / 86_400_000)
-              : null;
+            const idleDays = t.idleDays;
 
             return (
               <article key={t.id} className={s.row}>
@@ -132,13 +121,17 @@ export default async function AdminPage() {
                   )}
                 </div>
 
-                <TenantActions tenantId={t.id} name={t.name} blocked={state === 'blocked'} />
+                <TenantActions
+                  tenantId={t.id}
+                  name={t.name}
+                  blocked={state === 'blocked'}
+                  note={t.adminNote}
+                />
               </article>
             );
           })}
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 

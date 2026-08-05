@@ -2,6 +2,7 @@ import { db } from './db';
 import { tenants, users, services } from './db/schema';
 import { getNiche, type NicheKey } from './niches';
 import { hashPin } from './pin';
+import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
 import { eq } from 'drizzle-orm';
 
@@ -71,6 +72,15 @@ export async function createBusiness(input: CreateBusinessInput) {
         sort: i,
       })),
     );
+
+    /* Владельцу платформы — сразу. Человек, который завёл бизнес и не
+       начал им пользоваться, отваливается молча и навсегда; звонок в
+       первый день решает больше, чем три письма на второй неделе. */
+    notifyPlatformInBackground({
+      title: 'Новый бизнес',
+      body: `${tenant.name} · ${owner.name} · ${niche.name}`,
+      thread: 'platform',
+    });
 
     return { tenant, owner };
   });

@@ -78,6 +78,13 @@
       "when": 1785498194389,
       "tag": "0010_common_wither",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785957092532,
+      "tag": "0011_romantic_true_believers",
+      "breakpoints": true
     }
   ]
 }

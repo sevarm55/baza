@@ -29,6 +29,10 @@ export const tenants = pgTable('tenants', {
 
   /** термины бизнеса — копируются из конфига ниши, дальше владелец правит */
   clientIdLabel: text('client_id_label').notNull(),
+  /* Заметка платформы о клиенте: «договорились на 12 000», «платит
+     пятого», «брат Ашота». Держать это в голове получается до десятка
+     клиентов, дальше нет. Владельцу бизнеса не видна — она наша. */
+  adminNote: text('admin_note'),
   clientIdType: text('client_id_type').notNull(), // plate | phone
   staffRole: text('staff_role').notNull(),
   unitOne: text('unit_one').notNull(),
@@ -287,6 +291,36 @@ export const payouts = pgTable(
  * отзывается ровно так же, поэтому «выйти на всех устройствах» работает
  * одинаково с обеих сторон.
  */
+/**
+ * Платежи за подписку — наши деньги, а не деньги мойки.
+ *
+ * До сих пор продление меняло дату и не оставляло следа: доступ
+ * продлевался, а сколько за это заплатили — нигде. Через полгода на
+ * вопрос «сколько я заработал в августе» ответить было нечем. Продукт,
+ * который наводит учёт у автомоек, свой не вёл вовсе.
+ *
+ * Сумма пишется отдельно от числа месяцев: договариваются по-разному, и
+ * «три месяца за 40 000 вместо 45 000» — обычное дело.
+ */
+export const platformPayments = pgTable(
+  'platform_payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    /** в минимальных единицах, как и все деньги в продукте */
+    amount: integer('amount').notNull(),
+    /** на сколько месяцев продлили этим платежом */
+    months: integer('months').notNull(),
+    note: text('note'),
+    /** кто принял платёж — админов может быть несколько */
+    byUserId: uuid('by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('platform_payments_at_idx').on(t.at)],
+);
+
 export const sessions = pgTable(
   'sessions',
   {

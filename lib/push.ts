@@ -178,6 +178,42 @@ export async function notifyOwners(
   await deliver(rows, note);
 }
 
+/**
+ * Уведомить владельца платформы — вас, а не клиента.
+ *
+ * Два события решают, станет зарегистрировавшийся платящим: он завёл
+ * бизнес, и у него кончается срок. Оба происходят в конкретный день, и
+ * позвонить надо именно тогда. Узнавать о них, зайдя в админку, — значит
+ * узнавать поздно.
+ *
+ * Получатели те же, что имеют доступ в админку: список телефонов лежит в
+ * настройках сервера, и второго места, где выдаются права, заводить не
+ * надо.
+ */
+export async function notifyPlatform(note: Note) {
+  if (!pushEnabled()) return;
+
+  const phones = (process.env.PLATFORM_ADMIN_PHONES ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (phones.length === 0) return;
+
+  const rows = await db
+    .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
+    .from(pushTokens)
+    .innerJoin(users, eq(users.id, pushTokens.userId))
+    .where(and(inArray(users.phone, phones), eq(users.active, true)));
+
+  await deliver(rows, note);
+}
+
+export function notifyPlatformInBackground(note: Note) {
+  void notifyPlatform(note).catch((e) => {
+    console.warn('[push] платформе не отправилось:', e);
+  });
+}
+
 /** То же, но никогда не бросает: зовётся из путей записи. */
 export function notifyOwnersInBackground(
   tenantId: string,

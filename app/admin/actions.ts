@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { audit, tenants } from '@/lib/db/schema';
 import { requirePlatformAdmin } from '@/lib/admin';
+import { recordPayment } from '@/lib/admin-billing';
 
 /**
  * Действия админки платформы.
@@ -31,12 +32,26 @@ async function logAdmin(
   });
 }
 
-/** Продлить подписку. Считаем от текущей даты окончания, если она ещё не прошла. */
-export async function extendSubscription(tenantId: string, months: number): Promise<void> {
+/**
+ * Продлить подписку и записать платёж.
+ *
+ * Сумма приходит отдельным числом, а не выводится из месяцев: договор
+ * бывает любым, и записывать надо то, что было, а не то, что должно было
+ * быть по прайсу. Ноль — тоже допустимая сумма: подарить месяц знакомому
+ * или закрыть претензию продлением это нормальный ход, и он тоже должен
+ * остаться в истории.
+ */
+export async function extendSubscription(
+  tenantId: string,
+  months: number,
+  amount: number,
+  note?: string,
+): Promise<void> {
   const admin = await requirePlatformAdmin();
   await ensureDb();
 
   if (!Number.isInteger(months) || months < 1 || months > 36) return;
+  if (!Number.isInteger(amount) || amount < 0) return;
 
   await db
     .update(tenants)
@@ -49,8 +64,11 @@ export async function extendSubscription(tenantId: string, months: number): Prom
     })
     .where(eq(tenants.id, tenantId));
 
-  await logAdmin(tenantId, admin.id, 'subscription_extend', { months });
+  await recordPayment({ tenantId, amount, months, note, byUserId: admin.id });
+
+  await logAdmin(tenantId, admin.id, 'subscription_extend', { months, amount });
   revalidatePath('/admin');
+  revalidatePath('/admin/payments');
 }
 
 /** Отключить доступ целиком. Данные остаются — включим обратно, всё на месте. */
@@ -81,5 +99,25 @@ export async function unblockTenant(tenantId: string): Promise<void> {
     .where(eq(tenants.id, tenantId));
 
   await logAdmin(tenantId, admin.id, 'tenant_unblock', {});
+  revalidatePath('/admin');
+}
+
+/**
+ * Заметка о клиенте.
+ *
+ * «Договорились на 12 000», «платит пятого», «брат Ашота». Владельцу
+ * бизнеса не видна — она наша, и живёт рядом с его карточкой, потому что
+ * вспоминается ровно в тот момент, когда на неё смотришь.
+ */
+export async function saveNote(tenantId: string, note: string): Promise<void> {
+  const admin = await requirePlatformAdmin();
+  await ensureDb();
+
+  await db
+    .update(tenants)
+    .set({ adminNote: note.trim() || null })
+    .where(eq(tenants.id, tenantId));
+
+  await logAdmin(tenantId, admin.id, 'tenant_note', {});
   revalidatePath('/admin');
 }
