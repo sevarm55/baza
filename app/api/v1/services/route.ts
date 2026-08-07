@@ -12,7 +12,14 @@ export async function GET(request: Request) {
     if (denied(ctx)) return ctx;
 
     const rows = await listServices(ctx.tenant.id);
-    return ok({ services: rows.map((s) => ({ id: s.id, name: s.name, price: s.price })) });
+    return ok({
+      services: rows.map((s) => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        tierPrices: s.tierPrices ?? null,
+      })),
+    });
   } catch (e) {
     return failFromError(e);
   }
@@ -31,7 +38,7 @@ export async function POST(request: Request) {
     const ctx = await authorize(request, { owner: true, write: true });
     if (denied(ctx)) return ctx;
 
-    const input = await body<{ id?: string; name?: string; price?: number }>(request);
+    const input = await body<{ id?: string; name?: string; price?: number; tierPrices?: number[] | null }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
     const service = await upsertService({
@@ -39,9 +46,21 @@ export async function POST(request: Request) {
       id: str(input.id) || undefined,
       name: str(input.name),
       price: Number(input.price),
+      // undefined — не трогать прежние; null — стереть
+      tierPrices: input.tierPrices === undefined ? undefined : input.tierPrices,
     });
 
-    return ok({ service: { id: service.id, name: service.name, price: service.price } }, 201);
+    return ok(
+      {
+        service: {
+          id: service.id,
+          name: service.name,
+          price: service.price,
+          tierPrices: service.tierPrices ?? null,
+        },
+      },
+      201,
+    );
   } catch (e) {
     if (e instanceof ValidationError) return fail('BAD_REQUEST', 400, { reason: e.message });
     return failFromError(e);

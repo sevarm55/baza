@@ -1,4 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
+import { tiersOf } from '@/lib/catalog';
 import { listServices } from '@/lib/queries';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
@@ -38,6 +39,12 @@ export async function GET(request: Request) {
         clientIdType: ctx.tenant.clientIdType,
         staffRole: ctx.tenant.staffRole,
         unitOne: ctx.tenant.unitOne,
+        /* Тарифы. Пустой список — свойства у бизнеса нет, и приложение не
+           показывает ни ряда классов, ни второй цены. Именно списком, а не
+           флагом: слова придумывает владелец, продукт про «седаны» ничего
+           не знает и знать не должен. */
+        tierLabel: ctx.tenant.tierLabel,
+        tiers: tiersOf(ctx.tenant),
       },
       me: {
         id: ctx.user.id,
@@ -49,7 +56,13 @@ export async function GET(request: Request) {
         phone: ctx.user.phone,
       },
       access: ctx.access,
-      services: services.map((s) => ({ id: s.id, name: s.name, price: s.price, sort: s.sort })),
+      services: services.map((s) => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        tierPrices: s.tierPrices ?? null,
+        sort: s.sort,
+      })),
       features: { passes: passesEnabled() },
       syncedAt: new Date().toISOString(),
     });

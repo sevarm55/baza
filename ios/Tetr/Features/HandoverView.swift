@@ -35,7 +35,7 @@ struct HandoverView: View {
                     LabeledContent("Կանխիկ հերթափոխում") {
                         Text(money(expected, currency))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.muted)
+                            .foregroundStyle(Brand.boardMuted)
                     }
                 } footer: {
                     Text("Քարտով և փոխանցումով վճարածը հանձնելու կարիք չկա։")
@@ -69,7 +69,7 @@ struct HandoverView: View {
                         onDone(nil)
                         dismiss()
                     }
-                    .foregroundStyle(Brand.muted)
+                    .foregroundStyle(Brand.boardMuted)
                 }
             }
             .navigationTitle("Հերթափոխի ավարտ")

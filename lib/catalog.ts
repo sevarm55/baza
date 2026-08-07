@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
-import { services, shifts, users } from './db/schema';
+import { services, shifts, tenants, users } from './db/schema';
 import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
@@ -33,6 +33,12 @@ export async function upsertService(params: {
   name: string;
   /** в минимальных единицах — так же, как в базе */
   price: number;
+  /**
+   * Цены по тарифам, в порядке `tenants.tiers`. Не передали — прежние
+   * остаются нетронутыми: правка названия услуги не должна стирать прайс
+   * по классам.
+   */
+  tierPrices?: number[] | null;
 }) {
   const name = params.name.trim();
   if (!name) throw new ValidationError('NAME_REQUIRED');
@@ -40,10 +46,25 @@ export async function upsertService(params: {
     throw new ValidationError('BAD_PRICE');
   }
 
+  let tierPrices: number[] | null | undefined;
+  if (params.tierPrices !== undefined) {
+    if (params.tierPrices === null) {
+      tierPrices = null;
+    } else {
+      tierPrices = params.tierPrices.map((n) => {
+        const v = Math.round(Number(n));
+        if (!Number.isFinite(v) || v < 0) throw new ValidationError('BAD_PRICE');
+        return v;
+      });
+      // всё пусто — то же самое, что тарифных цен нет вовсе
+      if (tierPrices.every((v) => v === 0)) tierPrices = null;
+    }
+  }
+
   if (params.id) {
     const [row] = await db
       .update(services)
-      .set({ name, price: params.price })
+      .set({ name, price: params.price, ...(tierPrices !== undefined ? { tierPrices } : {}) })
       .where(and(eq(services.id, params.id), eq(services.tenantId, params.tenantId)))
       .returning();
     if (!row) throw new ValidationError('NOT_FOUND');
@@ -53,7 +74,13 @@ export async function upsertService(params: {
   const existing = await listServices(params.tenantId);
   const [row] = await db
     .insert(services)
-    .values({ tenantId: params.tenantId, name, price: params.price, sort: existing.length })
+    .values({
+      tenantId: params.tenantId,
+      name,
+      price: params.price,
+      tierPrices: tierPrices ?? null,
+      sort: existing.length,
+    })
     .returning();
   return row;
 }
@@ -174,5 +201,75 @@ export async function deactivateStaff(params: {
       ),
     );
 
+  return row;
+}
+
+/* ------------------------------ тарифы ------------------------------ */
+
+/**
+ * Цена услуги по тарифу.
+ *
+ * Единственное место, где это считается, — и на сервере, и в вебе, и в
+ * ответах приложению. Правило одно: нет тарифа, нет цены для него или
+ * цена нулевая — берём базовую. Поэтому включение тарифов ничего не
+ * ломает, а добавление нового класса не требует немедленно проставить ему
+ * цены: он просто стоит как базовый, пока владелец не решит иначе.
+ */
+export function priceForTier(
+  service: { price: number; tierPrices?: number[] | null },
+  tierIndex: number | null | undefined,
+): number {
+  if (tierIndex == null || tierIndex < 0) return service.price;
+  const own = service.tierPrices?.[tierIndex];
+  return typeof own === 'number' && own > 0 ? own : service.price;
+}
+
+/**
+ * Список тарифов бизнеса.
+ *
+ * Пустой список и отсутствующий — одно и то же: свойства нет. Наружу
+ * всегда отдаём массив, чтобы вызывающим не приходилось помнить про null.
+ */
+export function tiersOf(tenant: { tiers?: string[] | null }): string[] {
+  return (tenant.tiers ?? []).map((t) => String(t).trim()).filter(Boolean);
+}
+
+/**
+ * Найти тариф по его НАЗВАНИЮ.
+ *
+ * Телефон присылает слово, а не номер: у него список тарифов мог устареть
+ * на одну правку прайса, и номер указал бы не туда. Слово либо совпадает,
+ * либо тарифа нет — и тогда работает базовая цена.
+ */
+export function tierIndexOf(tenant: { tiers?: string[] | null }, name?: string | null): number | null {
+  if (!name) return null;
+  const wanted = name.trim().toLowerCase();
+  if (!wanted) return null;
+  const i = tiersOf(tenant).findIndex((t) => t.toLowerCase() === wanted);
+  return i >= 0 ? i : null;
+}
+
+/**
+ * Сохранить список тарифов.
+ *
+ * Цены услуг не трогаются: если класс убрали, его цена остаётся лежать в
+ * массиве и вернётся, когда класс вернут. Стирать её значило бы наказывать
+ * за опечатку в названии потерей всего прайса.
+ */
+export async function saveTiers(params: {
+  tenantId: string;
+  label: string | null;
+  tiers: string[];
+}) {
+  const clean = params.tiers.map((t) => t.trim()).filter(Boolean).slice(0, 6);
+  const label = params.label?.trim() || null;
+  if (clean.length === 1) throw new ValidationError('TIERS_TOO_FEW');
+
+  const [row] = await db
+    .update(tenants)
+    .set({ tiers: clean.length ? clean : null, tierLabel: clean.length ? label : null })
+    .where(eq(tenants.id, params.tenantId))
+    .returning();
+  if (!row) throw new ValidationError('NOT_FOUND');
   return row;
 }

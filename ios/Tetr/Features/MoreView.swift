@@ -1,99 +1,173 @@
 import SwiftUI
 
-/// Разделы, в которые заходят редко: клиенты, люди, прайс, выгрузка.
-///
-/// Отдельной вкладкой, а не пунктами в панели: вкладок должно быть
-/// столько, сколько экранов открывают каждый день. Прайс правят раз в
-/// месяц — ему там не место.
+/**
+ * Разделы, в которые заходят редко.
+ *
+ * Не системный список строк, а сетка плиток — как на домашнем экране
+ * телефона. Список из шести одинаковых строк заставляет читать все шесть
+ * подряд; в сетке цвет и значок находят нужное раньше, чем прочитано
+ * название, а заходят сюда именно за конкретной вещью, а не «посмотреть,
+ * что есть».
+ *
+ * Отдельной вкладкой, а не пунктами в панели: вкладок должно быть столько,
+ * сколько экранов открывают каждый день. Прайс правят раз в месяц — ему там
+ * не место.
+ */
 struct MoreView: View {
     @EnvironmentObject private var session: Session
 
     @State private var exporting = false
     @State private var exported: URL?
 
+    private let gap: CGFloat = 10
+
     var body: some View {
-        List {
-            Section {
-                NavigationLink {
-                    CalendarView().navigationTitle("Օրացույց")
-                } label: {
-                    row("calendar", "Օրացույց և պատմություն")
+        ScrollView {
+            VStack(spacing: gap) {
+                HStack(spacing: gap) {
+                    tile(.violet, "Օրացույց", "պատմություն", sticker: "sticker-calendar.png") {
+                        CalendarView().toolbar(.hidden, for: .navigationBar)
+                    }
+                    tile(.teal, "Հաճախորդներ", "ովքեր են վերադառնում", sticker: "sticker-clients.png") {
+                        ClientsView().navigationTitle("Հաճախորդներ")
+                    }
                 }
 
-                NavigationLink {
-                    ClientsView().navigationTitle("Հաճախորդներ")
-                } label: {
-                    row("person.2.fill", "Հաճախորդներ")
+                HStack(spacing: gap) {
+                    tile(.amber, session.tenant?.staffRole ?? "Աշխատակիցներ", "և տոկոսները",
+                         sticker: "sticker-staff.png") {
+                        StaffView().navigationTitle(session.tenant?.staffRole ?? "Աշխատակիցներ")
+                    }
+                    tile(.lime, "Ծառայություններ", "և գները", sticker: "sticker-services.png") {
+                        ServicesView().navigationTitle("Ծառայություններ և գներ")
+                    }
                 }
 
-                NavigationLink {
-                    StaffView().navigationTitle(session.tenant?.staffRole ?? "Աշխատակիցներ")
-                } label: {
-                    row("person.badge.key.fill", session.tenant?.staffRole ?? "Աշխատակիցներ")
+                HStack(spacing: gap) {
+                    tile(.slate, "Ծախսեր", "վարձ, ջուր, քիմիա", sticker: "sticker-expenses.png") {
+                        ExpensesView().navigationTitle("Ծախսեր")
+                    }
+                    tile(.slate, "Պրոֆիլ", "անուն, PIN, մուտք", sticker: "sticker-profile.png") {
+                        ProfileView().toolbar(.hidden, for: .navigationBar)
+                    }
                 }
 
-                NavigationLink {
-                    ServicesView().navigationTitle("Ծառայություններ և գներ")
-                } label: {
-                    row("tag.fill", "Ծառայություններ և գներ")
-                }
-
-                NavigationLink {
-                    ExpensesView().navigationTitle("Ծախսեր")
-                } label: {
-                    row("cart.fill", "Ծախսեր")
-                }
+                exportRow
             }
-
-            Section {
-                Button {
-                    Task { await exportCsv() }
-                } label: {
-                    row("square.and.arrow.up.fill", exporting ? "…" : "Ներբեռնել 30 օրվա տվյալները")
-                }
-                .disabled(exporting)
-            } footer: {
-                Text("Ձեր տվյալները ձերն են՝ ցանկացած պահի։")
-            }
-
-            Section {
-                NavigationLink {
-                    ProfileView().navigationTitle("Պրոֆիլ")
-                } label: {
-                    row("person.crop.circle.fill", "Պրոֆիլ")
-                }
-            } footer: {
-                Text("Անուն, PIN, ծանուցումներ։")
-            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
-        .scrollContentBackground(.hidden)
-        .screenBackground()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Brand.board.ignoresSafeArea())
         .sheet(item: $exported) { url in
             ShareSheet(url: url)
         }
     }
 
-    /// Строка списка со значком.
-    ///
-    /// Цвет значка задан явно, а не унаследован от `.tint` приложения.
-    /// Причина не косметическая: на устройстве значки в строках списка
-    /// выходили системными синими, хотя текст рядом оставался грейповым, —
-    /// то есть до символов общий tint не доходил, а до текста доходил.
-    /// В симуляторе того же не было, так что полагаться на наследование
-    /// здесь нельзя: оно зависит от версии системы. Явный цвет одинаков
-    /// везде.
-    private func row(_ icon: String, _ title: String) -> some View {
-        Label {
-            Text(title)
-        } icon: {
-            Image(systemName: icon).foregroundStyle(Brand.grape)
+    /**
+     * Плитка раздела.
+     *
+     * Настоящее liquid glass, подкрашенное тоном раздела, а не сплошная
+     * заливка. Разница здесь не косметическая: стекло преломляет то, что под
+     * ним, поэтому шесть плиток подряд перестают быть шестью плоскими
+     * прямоугольниками и получают глубину, в которой картинка лежит, а не
+     * приклеена.
+     *
+     * Картинка садится в правый верхний угол и выходит за край. Обрезка
+     * углом — не небрежность: предмет, срезанный рамкой, читается лежащим в
+     * коробке, а вписанный целиком — наклейкой поверх неё.
+     */
+    private func tile<D: View>(
+        _ tone: Tone,
+        _ title: String,
+        _ note: String,
+        sticker: String,
+        @ViewBuilder destination: @escaping () -> D
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                if let art = UIImage(named: sticker) {
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 124, height: 124)
+                        /* Наружу только вправо. Вверх нельзя: `interactive()`
+                           на нажатии поджимает форму стекла, а она же
+                           обрезает содержимое — и у мойщика срезало голову.
+                           Правый срез так и задуман: предмет, обрезанный
+                           рамкой, читается лежащим в коробке. */
+                        .offset(x: 26, y: -2)
+                        .accessibilityHidden(true)
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text(title)
+                        .font(.system(size: 16, weight: .bold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .multilineTextAlignment(.leading)
+                    Text(note)
+                        .font(.system(size: 11.5))
+                        .opacity(0.72)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .foregroundStyle(tone.ink)
+                // текст не заходит под картинку: длинное «Ծառայություններ»
+                // упиралось прямо в ценники
+                .padding(.trailing, 34)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .frame(height: 148, alignment: .bottomLeading)
+            .frame(maxWidth: .infinity)
+            /* Стекло ставится ПОСЛЕ всех модификаторов вида и обрезает
+               содержимое само. Обрезать отдельно нельзя: `clipShape` над
+               стеклом растрирует задник, и преломление вырождается в
+               плоский фрост. */
+            .glassEffect(.regular.tint(tone.base.opacity(0.72)).interactive(),
+                         in: .rect(cornerRadius: 26))
         }
-        .font(.system(size: 16))
+        .buttonStyle(.press)
     }
 
     /// Выгрузка приходит файлом и отдаётся системе: дальше человек сам
     /// решает — отправить себе в почту, положить в «Файлы», открыть в
     /// Excel. Приложению не нужно знать, что он с ней сделает.
+    private var exportRow: some View {
+        Button {
+            Task { await exportCsv() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.up.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(exporting ? "Պատրաստվում է…" : "Ներբեռնել 30 օրվա տվյալները")
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text("Ձեր տվյալները ձերն են՝ ցանկացած պահի")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                Spacer(minLength: 0)
+                if exporting {
+                    TetrLoader(size: 20, tint: Brand.grape)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        }
+        .buttonStyle(.press)
+        .disabled(exporting)
+        .padding(.top, 4)
+    }
+
     private func exportCsv() async {
         exporting = true
         defer { exporting = false }

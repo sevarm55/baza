@@ -4,6 +4,7 @@ import { getTenant, startOfDay, startOfDaysAgo } from '@/lib/queries';
 import { currencySymbol, formatMoney, toMajor } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { EXPENSE_HINTS, getPeriodCosts, listExpenses } from '@/lib/expenses';
+import { daysInMonthOf } from '@/lib/time';
 import { ExpenseRow } from '@/components/expense-row';
 import { AddExpenseForm } from './add-expense-form';
 
@@ -28,7 +29,7 @@ export default async function ExpensesPage() {
 
   const [rows, costs] = await Promise.all([
     listExpenses(tenant.id, from),
-    getPeriodCosts(tenant.id, from, to),
+    getPeriodCosts(tenant.id, from, to, daysInMonthOf(tenant.timezone, new Date())),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency);

@@ -1,16 +1,22 @@
 import SwiftUI
 
-/// Профиль: кто я, какой бизнес, чем защищён вход.
-///
-/// Появился потому, что «Ավելին» делал две несовместимые работы: держал
-/// разделы, куда ходят работать, и переключатели, которые трогают раз в
-/// год. Десять пунктов, где «Հաճախորդներ» стоит рядом с «Բացել Face ID-ով»,
-/// читаются плохо — это разные вещи в одном ящике.
-///
-/// И потому, что смены PIN до сих пор не было нигде. Механизм под неё был
-/// построен с самого начала, а самой функции не существовало: PIN диктуют
-/// работнику вслух, работника однажды увольняют, и закрыть доступ было
-/// нечем.
+/**
+ * Профиль — то же табло: карточка человека наверху, дальше плитки.
+ *
+ * Появился потому, что «Ավելին» делал две несовместимые работы: держал
+ * разделы, куда ходят работать, и переключатели, которые трогают раз в год.
+ * Десять пунктов, где «Հաճախորդներ» стоит рядом с «Բացել Face ID-ով»,
+ * читаются плохо — это разные вещи в одном ящике.
+ *
+ * И потому, что смены PIN до сих пор не было нигде. Механизм под неё был
+ * построен с самого начала, а самой функции не существовало: PIN диктуют
+ * работнику вслух, работника однажды увольняют, и закрыть доступ было
+ * нечем.
+ *
+ * Форма заменена на карточки не ради вида. В системной `Form` кнопка
+ * «Պահպանել» была строкой среди строк и терялась; здесь она появляется
+ * только когда есть что сохранять, и появляется целой плашкой.
+ */
 struct ProfileView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
@@ -24,95 +30,30 @@ struct ProfileView: View {
     @State private var notifyOrders = true
     @State private var deleting = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isOwner: Bool { session.me?.isOwner == true }
 
+    private let gap: CGFloat = 10
+
     var body: some View {
-        Form {
-            Section {
-                if isOwner {
-                    LabeledContent("Բիզնես") {
-                        TextField("", text: $businessName)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-                LabeledContent("Անուն") {
-                    TextField("", text: $myName)
-                        .multilineTextAlignment(.trailing)
-                }
-                LabeledContent("Հեռախոս") {
-                    // не правится: телефон — это логин, и смена сломала бы вход
-                    Text(session.me?.phone ?? "—")
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.muted)
-                }
-            } footer: {
-                if saved {
-                    Text("Պահպանված է").foregroundStyle(Brand.good)
-                }
+        ScrollView {
+            VStack(spacing: gap) {
+                card
+                if let access = session.access { accessTile(access) }
+                fields
+                if changed || saved { saveRow }
+                switches
+                actions
             }
-
-            Section {
-                Button("Պահպանել") { Task { await save() } }
-                    .disabled(saving || !changed)
-            }
-
-            Section {
-                Button("Փոխել PIN-ը") { changingPin = true }
-            } footer: {
-                Text("PIN-ը փոխելուց հետո մյուս հեռախոսներից ելքը փակվում է։")
-            }
-
-            if let access = session.access {
-                Section {
-                    /* «Доступ», а не «подписка»: подписка — слово про
-                       оплату, а оплаты внутри приложения нет и по правилам
-                       App Store быть не должно. Человеку тут важен срок,
-                       а не название договора. */
-                    LabeledContent("Մուտք") {
-                        Text(Self.plan(access))
-                            .foregroundStyle(access.warn ? Brand.warn : Brand.good)
-                    }
-                }
-            }
-
-            if isOwner {
-                Section {
-                    Toggle("Ծանուցում ամեն մեքենայի մասին", isOn: $notifyOrders)
-                        .onChange(of: notifyOrders) { _, on in
-                            Task { await saveNotify(on) }
-                        }
-                } footer: {
-                    Text("Հերթափոխի բացման մասին ծանուցումը գալիս է միշտ։")
-                }
-            }
-
-            if lock.available {
-                Section {
-                    Toggle("Բացել \(lock.kindName)-ով", isOn: $lock.enabled)
-                } footer: {
-                    Text("Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից։")
-                }
-            }
-
-            Section {
-                Button("Դուրս գալ", role: .destructive) {
-                    Task { await session.signOut() }
-                }
-            }
-
-            if isOwner {
-                /* Отдельной секцией в самом низу, а не рядом с выходом:
-                   «выйти» и «стереть всё» не должны стоять двумя соседними
-                   красными строчками, где промах пальцем стоит бизнеса. */
-                Section {
-                    Button("Ջնջել բիզնեսը", role: .destructive) { deleting = true }
-                } footer: {
-                    Text("Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ։")
-                }
-            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
+            .animation(.easeOut(duration: 0.2), value: saved)
         }
-        .scrollContentBackground(.hidden)
-        .screenBackground()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Brand.board.ignoresSafeArea())
         .sheet(isPresented: $changingPin) { PinChangeView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
         .task {
@@ -121,6 +62,231 @@ struct ProfileView: View {
             notifyOrders = session.me?.notifyOrders ?? true
         }
     }
+
+    // ══════════════════════════ кто я ══════════════════════════
+
+    /// Карточка человека цветом самого человека — тем же, каким его имя
+    /// набрано в ленте и кружок на смене.
+    private var card: some View {
+        let name = session.me?.name ?? "—"
+        let tone = Brand.personTone(name)
+
+        return HStack(spacing: 14) {
+            Text(String(name.prefix(1)))
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(.white.opacity(0.22), in: .circle)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text(session.tenant?.name ?? "Tetrin")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                // телефон не правится: это логин, и смена сломала бы вход
+                Text(session.me?.phone ?? "—")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            Spacer(minLength: 0)
+        }
+        .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 18)
+        .accessibilityElement(children: .combine)
+    }
+
+    /**
+     * Состояние доступа — плиткой, а не строкой в списке.
+     *
+     * Янтарной, когда срок подходит: это единственное на экране, из-за чего
+     * приложение однажды перестанет работать, и оно не должно выглядеть как
+     * ещё одна настройка.
+     */
+    private func accessTile(_ access: API.Access) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: access.warn ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(access.warn ? Tone.amber.ink : Brand.goodOnBoard)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Մուտք")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(access.warn ? Tone.amber.ink.opacity(0.72) : Brand.boardMuted)
+                Text(Self.plan(access))
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(access.warn ? Tone.amber.ink : Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            Spacer(minLength: 0)
+        }
+        .modifier(AccessSkin(warn: access.warn))
+    }
+
+    // ══════════════════════════ поля ══════════════════════════
+
+    private var fields: some View {
+        VStack(spacing: 0) {
+            if isOwner {
+                field("Բիզնես", $businessName)
+                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+            }
+            field("Անուն", $myName)
+        }
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
+    private func field(_ title: String, _ value: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.boardMuted)
+            Spacer(minLength: 8)
+            TextField("", text: value)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+    }
+
+    /// Кнопка сохранения есть только когда есть что сохранять. В системной
+    /// форме она стояла строкой всегда — то есть большую часть времени
+    /// предлагала действие, которое ничего не делает.
+    private var saveRow: some View {
+        Button {
+            Task { await save() }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: saved && !changed ? "checkmark" : "arrow.down.to.line")
+                    .font(.system(size: 13, weight: .bold))
+                Text(saved && !changed ? "Պահպանված է" : "Պահպանել")
+                    .font(.system(size: 15, weight: .bold))
+            }
+            .foregroundStyle(Brand.onLime)
+            .loading(saving, tint: Brand.onLime, size: 20)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(Brand.lime, in: .rect(cornerRadius: 20))
+        }
+        .buttonStyle(.press)
+        .disabled(saving || !changed)
+        .opacity(changed || saving ? 1 : 0.6)
+        .transition(.scale(scale: 0.96).combined(with: .opacity))
+    }
+
+    // ══════════════════════════ переключатели ══════════════════════════
+
+    private var switches: some View {
+        VStack(spacing: 0) {
+            if isOwner {
+                toggleRow(
+                    "Ծանուցում ամեն մեքենայի մասին",
+                    "Հերթափոխի բացման մասին ծանուցումը գալիս է միշտ",
+                    isOn: Binding(get: { notifyOrders }, set: { on in
+                        notifyOrders = on
+                        Task { await saveNotify(on) }
+                    })
+                )
+            }
+
+            if lock.available {
+                if isOwner {
+                    Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                }
+                toggleRow(
+                    "Բացել \(lock.kindName)-ով",
+                    "Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից",
+                    isOn: $lock.enabled
+                )
+            }
+        }
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
+    private func toggleRow(_ title: String, _ note: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                Text(note)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Brand.boardMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .tint(Brand.good)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    // ══════════════════════════ действия ══════════════════════════
+
+    private var actions: some View {
+        VStack(spacing: gap) {
+            action("Փոխել PIN-ը", "PIN-ը փոխելուց հետո մյուս հեռախոսներից ելքը փակվում է",
+                   icon: "lock.rotation", danger: false) {
+                changingPin = true
+            }
+
+            action("Դուրս գալ", "", icon: "power", danger: false) {
+                Task { await session.signOut() }
+            }
+
+            if isOwner {
+                /* Отдельно и в самом низу, с воздухом сверху: «выйти» и
+                   «стереть всё» не должны стоять двумя соседними строчками,
+                   где промах пальцем стоит бизнеса. */
+                action("Ջնջել բիզնեսը", "Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ",
+                       icon: "trash", danger: true) {
+                    deleting = true
+                }
+                .padding(.top, 14)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func action(
+        _ title: String,
+        _ note: String,
+        icon: String,
+        danger: Bool,
+        run: @escaping () -> Void
+    ) -> some View {
+        Button(action: run) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(danger ? .red : Brand.grape)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(danger ? .red : Brand.onBoard)
+                    if !note.isEmpty {
+                        Text(note)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Brand.boardMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        }
+        .buttonStyle(.press)
+    }
+
+    // ══════════════════════════ данные ══════════════════════════
 
     private var changed: Bool {
         businessName != (session.tenant?.name ?? "") || myName != (session.me?.name ?? "")
@@ -154,10 +320,10 @@ struct ProfileView: View {
      * Состояние доступа — датой, а не обратным отсчётом.
      *
      * Было «Փորձնական · 6 օր»: слово «пробный» и тающий счётчик вместе
-     * читаются как «скоро платить», то есть как начало платного пути
-     * внутри приложения. Правила App Store (3.1.3f) разрешают держать
-     * оплату вне приложения ровно при условии, что внутри нет ни покупки,
-     * ни подталкивания к ней.
+     * читаются как «скоро платить», то есть как начало платного пути внутри
+     * приложения. Правила App Store (3.1.3f) разрешают держать оплату вне
+     * приложения ровно при условии, что внутри нет ни покупки, ни
+     * подталкивания к ней.
      *
      * Дата отвечает на тот же вопрос — до какого числа работает, — и
      * отвечает точнее: «6 дней» человек всё равно про себя переводит в
@@ -175,6 +341,24 @@ struct ProfileView: View {
             return "Հասանելի է մինչև \(f.string(from: until))"
         case "expired": return "Ժամկետը լրացել է"
         default: return "Փակ է"
+        }
+    }
+}
+
+/// Плитка доступа: янтарная, когда срок подходит, и обычная утопленная,
+/// когда всё в порядке. Вынесено в модификатор, потому что `tile(_:)` и
+/// `background(_:in:)` дают разные типы и в тернарнике не сходятся.
+private struct AccessSkin: ViewModifier {
+    let warn: Bool
+
+    func body(content: Content) -> some View {
+        if warn {
+            content.tile(.amber, radius: 22, pad: 16)
+        } else {
+            content
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
         }
     }
 }
@@ -216,7 +400,8 @@ struct PinChangeView: View {
                 }
 
                 Section {
-                    Button(busy ? "…" : "Փոխել") { Task { await change() } }
+                    Button("Փոխել") { Task { await change() } }
+                        .loading(busy, tint: Brand.grape, size: 18)
                         .disabled(!ready)
                 } footer: {
                     Text("Մյուս հեռախոսներից ելքը կփակվի։ Այս հեռախոսը կմնա բացված։")

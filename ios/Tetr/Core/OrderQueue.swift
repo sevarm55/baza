@@ -39,6 +39,16 @@ final class OrderQueue: ObservableObject {
          */
         var listPrice: Int?
         let payment: String
+        /**
+         * Тариф словом — «Ջիպ», как его видел мойщик.
+         *
+         * Словом, а не номером: запись может пролежать в телефоне до
+         * вечера, а владелец за это время переставит классы местами —
+         * номер указал бы на соседний, и джип уехал бы по цене седана.
+         *
+         * Необязательное: в очереди лежат записи, сделанные до тарифов.
+         */
+        var tier: String?
         let at: Date
         /// Код отказа сервера, если он был. Запись при этом остаётся:
         /// молча выбрасывать работу человека нельзя.
@@ -98,6 +108,9 @@ final class OrderQueue: ObservableObject {
                    единственное, что её сохраняет. */
                 if let list = item.listPrice, item.price < list {
                     payload["price"] = item.price
+                }
+                if let tier = item.tier, !tier.isEmpty {
+                    payload["tier"] = tier
                 }
 
                 _ = try await session.authed { token in

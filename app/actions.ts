@@ -200,6 +200,10 @@ export async function saveService(
   const price = toMinor(Number(formData.get('price') ?? 0), tenant.currency);
 
   try {
+    /* Цены по классам отсюда не передаются — и это не упущение.
+       В кабинете формы под них нет, а `undefined` означает «не трогать»:
+       правка названия или базовой цены из браузера не должна стирать
+       прайс по классам, выставленный с телефона. */
     await catalog.upsertService({ tenantId: session.tid, id: id || undefined, name, price });
   } catch {
     return { error: hy.errors.required };

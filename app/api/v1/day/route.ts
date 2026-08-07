@@ -1,6 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { getFeed, getPeriodStats } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
+import { daysInMonthOf } from '@/lib/time';
 import { shiftsOnDay } from '@/lib/shifts';
 import { dayBounds, isDate } from '@/lib/history';
 import { authorize, denied } from '@/lib/api/guard';
@@ -29,7 +30,9 @@ export async function GET(request: Request) {
       getPeriodStats(ctx.tenant.id, from, to),
       getFeed(ctx.tenant.id, from, 200, to),
       shiftsOnDay(ctx.tenant.id, from, to),
-      getPeriodCosts(ctx.tenant.id, from, to),
+      // тот же знаменатель, что у сводки и календаря: длина месяца, в
+      // котором стоит этот день
+      getPeriodCosts(ctx.tenant.id, from, to, daysInMonthOf(ctx.tenant.timezone, from)),
     ]);
 
     return ok({

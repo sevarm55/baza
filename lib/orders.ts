@@ -1,6 +1,7 @@
 import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
+import { priceForTier, tierIndexOf, tiersOf } from './catalog';
 import { db } from './db';
-import { audit, clients, orderItems, orders, passes, services, users } from './db/schema';
+import { audit, clients, orderItems, orders, passes, services, tenants, users } from './db/schema';
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
 
@@ -24,6 +25,14 @@ export type CreateOrderInput = {
   passId?: string;
   /** идентификатор с телефона: делает повторную отправку безопасной */
   clientRef?: string;
+  /**
+   * Тариф — СЛОВОМ, как его видел мойщик («Ջիպ»).
+   *
+   * Не номером: телефон мог не знать о вчерашней перестановке классов, и
+   * номер указал бы на соседний. Слово либо совпадает с одним из тарифов
+   * бизнеса, либо не совпадает ни с одним — и тогда цена базовая.
+   */
+  tier?: string;
   note?: string;
   /**
    * Сколько взяли на самом деле, если меньше прайса.
@@ -112,7 +121,14 @@ export async function createOrder(input: CreateOrderInput) {
     /* Цену считаем ДО клиента: его итог обязан расти на взятую сумму, а
        не на прайсовую. Иначе скидка раздувала бы историю клиента, и
        «всего оставил 80 000» перестало бы быть правдой. */
-    const listPrice = chosen.reduce((sum, s) => sum + s.price, 0);
+    /* Тариф разрешаем по названию и один раз на всю запись: класс машины
+       принадлежит машине, а не услуге, и «джип по комплексу, седан по
+       химчистке» — это не бизнес-случай, а способ ошибиться. */
+    const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, input.tenantId));
+    const tierIndex = tenant ? tierIndexOf(tenant, input.tier) : null;
+    const tierName = tierIndex == null ? null : tiersOf(tenant!)[tierIndex];
+
+    const listPrice = chosen.reduce((sum, s) => sum + priceForTier(s, tierIndex), 0);
     let price = listPrice;
 
     /* Скидка — только вниз и только в пределах прайса. Свободное поле
@@ -183,6 +199,7 @@ export async function createOrder(input: CreateOrderInput) {
         staffId: staff.id,
         serviceId: service.id,
         serviceName: chosen.map((s) => s.name).join(' + '),
+        tier: tierName,
         price,
         listPrice,
         staffPercent: staff.percent,
@@ -205,7 +222,7 @@ export async function createOrder(input: CreateOrderInput) {
         orderId: order.id,
         serviceId: s.id,
         serviceName: s.name,
-        price: s.price,
+        price: priceForTier(s, tierIndex),
         sort: i,
       })),
     );

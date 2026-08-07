@@ -40,7 +40,7 @@ struct DeleteBusinessView: View {
                         .font(.system(size: 14.5))
                     Text("Աշխատակիցների մուտքը փակվում է անմիջապես։")
                         .font(.system(size: 14.5))
-                        .foregroundStyle(Brand.muted)
+                        .foregroundStyle(Brand.boardMuted)
                 } header: {
                     Text(session.tenant?.name ?? "")
                 } footer: {

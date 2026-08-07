@@ -37,6 +37,8 @@ export async function POST(request: Request) {
       note?: string;
       /** сколько взяли, если меньше прайса */
       price?: number;
+      /** тариф словом, как его видел мойщик */
+      tier?: string;
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
@@ -73,6 +75,7 @@ export async function POST(request: Request) {
       clientRef: str(input.ref) || undefined,
       note: str(input.note) || undefined,
       price: typeof input.price === 'number' ? input.price : undefined,
+      tier: str(input.tier) || undefined,
     });
 
     return ok(

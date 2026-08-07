@@ -24,6 +24,10 @@ async function main() {
   const { createOrder, cancelOrder } = await import('../lib/orders');
   const { db } = await import('../lib/db');
   const { users, services } = await import('../lib/db/schema');
+  const { tenants: tenantsTable, orders: ordersTable } = await import('../lib/db/schema');
+  const rejects = async (fn: () => Promise<unknown>) => {
+    try { await fn(); return false; } catch { return true; }
+  };
   const { hashPin } = await import('../lib/pin');
   const q = await import('../lib/queries');
   const { and, eq, isNull, sql } = await import('drizzle-orm');
@@ -1961,12 +1965,121 @@ async function main() {
     wToday.prevTo.getTime() - wToday.prevFrom.getTime() === at.getTime() - wToday.from.getTime(),
   );
 
+
+  /* ---------- тарифы: класс машины ----------
+
+     На отдельном бизнесе намеренно. Заказы, которые нужны этой проверке,
+     иначе попали бы в смену основного сценария и сбили бы все суммы ниже —
+     а те проверяют совсем другое.                                        */
+
+  const catalog = await import('../lib/catalog');
+
+  // выключено по умолчанию: цена одна, как была
+  check(
+    'без тарифов цена базовая',
+    catalog.priceForTier({ price: 5000, tierPrices: [7000, 9000] }, null) === 5000,
+  );
+
+  const tierBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Դասերով լվացում',
+    ownerName: 'Տիգրան',
+    phone: '077 515 141',
+    pin: '1122',
+  });
+
+  const [tierWasher] = await db
+    .insert(users)
+    .values({
+      tenantId: tierBiz.tenant.id,
+      phone: '+37477515242',
+      pinHash: await hashPin('3344'),
+      name: 'Կարեն',
+      role: 'staff',
+      percent: 40,
+    })
+    .returning();
+
+  await catalog.saveTiers({
+    tenantId: tierBiz.tenant.id,
+    label: 'Դաս',
+    tiers: ['Սեդան', 'Կրոսովեր', 'Ջիպ'],
+  });
+
+  const tierService = await catalog.upsertService({
+    tenantId: tierBiz.tenant.id,
+    name: 'Դասով լվացում',
+    price: 5000,
+    tierPrices: [5000, 7000, 9000],
+  });
+
+  const [withTiers] = await db
+    .select()
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tierBiz.tenant.id));
+  check('тарифы сохранились', catalog.tiersOf(withTiers).length === 3);
+  check(
+    'один тариф запрещён',
+    await rejects(() =>
+      catalog.saveTiers({ tenantId: tierBiz.tenant.id, label: 'Դաս', tiers: ['Միակ'] }),
+    ),
+  );
+
+  check('джип дороже седана', catalog.priceForTier(tierService, 2) === 9000);
+  check(
+    'у класса без своей цены — базовая',
+    catalog.priceForTier({ price: 5000, tierPrices: [5000, 0] }, 1) === 5000,
+  );
+  check('тариф ищется по слову', catalog.tierIndexOf(withTiers, 'ջիպ') === 2);
+  check('чужое слово тарифом не считается', catalog.tierIndexOf(withTiers, 'Ավտոբուս') === null);
+
+  const jeep = await createOrder({
+    tenantId: tierBiz.tenant.id, staffId: tierWasher.id, serviceId: tierService.id,
+    clientKey: '55 JP 555', payment: 'cash', tier: 'Ջիպ',
+  });
+  check('заказ записан по цене джипа', jeep.order.price === 9000, jeep.order.price);
+  check('тариф лёг снимком словом', jeep.order.tier === 'Ջիպ', jeep.order.tier);
+
+  const sedan = await createOrder({
+    tenantId: tierBiz.tenant.id, staffId: tierWasher.id, serviceId: tierService.id,
+    clientKey: '56 SD 556', payment: 'cash',
+  });
+  check('без тарифа — базовая цена', sedan.order.price === 5000, sedan.order.price);
+
+  /* Переименование класса не переписывает историю: в заказе лежит слово,
+     а не номер. Ровно то же правило, что у цены и процента. */
+  await catalog.saveTiers({
+    tenantId: tierBiz.tenant.id, label: 'Դաս', tiers: ['Սեդան', 'Կրոսովեր', 'Մեծ ջիպ'],
+  });
+  const [stillJeep] = await db.select().from(ordersTable).where(eq(ordersTable.id, jeep.order.id));
+  check('переименование класса не тронуло прошлую запись', stillJeep.tier === 'Ջիպ', stillJeep.tier);
+
+  // правка названия услуги не должна стирать прайс по классам
+  const keptPrices = await catalog.upsertService({
+    tenantId: tierBiz.tenant.id, id: tierService.id, name: 'Լվացում', price: 5000,
+  });
+  check('правка названия сохранила цены классов', (keptPrices.tierPrices ?? []).length === 3);
+
+
   const wMonth = windowFor('month', tz, at);
   // 1 августа в Ереване это 31 июля 20:00 UTC — сравниваем по зоне бизнеса
   const monthStartLocal = new Intl.DateTimeFormat('en-CA', { timeZone: tz, day: '2-digit' })
     .format(wMonth.from);
   check('«этот месяц» начинается первого числа', monthStartLocal === '01', monthStartLocal);
   check('знаменатель — длина августа', wMonth.spread === 31, wMonth.spread);
+
+  /* Календарь и сводка обязаны делить месячные расходы одним и тем же
+     числом. Пока календарь звал `getPeriodCosts` без знаменателя, он делил
+     на среднюю 30.4375, а сводка — на 31, и за один и тот же август два
+     экрана показывали прибыль, расходящуюся на полтора процента аренды.
+     Проверка стоит здесь, а не в маршруте, потому что расходятся именно эти
+     два числа, а не HTTP. */
+  const monthDays = history.monthBounds('2026-08', tz).days;
+  check(
+    'календарь делит аренду тем же числом, что и сводка',
+    monthDays === wMonth.spread,
+    `${monthDays} vs ${wMonth.spread}`,
+  );
   check(
     'база месяца не залезает в текущий',
     wMonth.prevTo.getTime() <= wMonth.from.getTime(),

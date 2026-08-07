@@ -60,10 +60,10 @@ struct LoginView: View {
                         .padding(.top, 14)
                 }
 
-                Button(busy ? "…" : "Մուտք գործել") {
+                Button("Մուտք գործել") {
                     Task { await submit() }
                 }
-                .buttonStyle(LimeButton())
+                .buttonStyle(LimeButton(loading: busy))
                 .disabled(busy || phone.isEmpty || pin.count < 4)
                 .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
                 .padding(.top, 28)

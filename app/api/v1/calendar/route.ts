@@ -38,7 +38,11 @@ export async function GET(request: Request) {
     const [series, stats, costs] = await Promise.all([
       getRevenueSeries(ctx.tenant.id, from, zone, 'day'),
       getPeriodStats(ctx.tenant.id, from, to),
-      getPeriodCosts(ctx.tenant.id, from, costsTo),
+      /* Знаменатель для постоянных расходов — длина ЭТОГО месяца, а не
+         средняя 30.4375. Со средней календарь и сводка показывали за один
+         и тот же август разную прибыль: средняя делит аренду на меньшее
+         число дней и снимает лишние полпроцента в сутки. */
+      getPeriodCosts(ctx.tenant.id, from, costsTo, days),
     ]);
 
     /* Ряд приходит только за дни, в которые что-то было. Дополняем

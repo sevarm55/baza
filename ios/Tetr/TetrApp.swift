@@ -112,7 +112,7 @@ struct RootView: View {
         case .checking:
             ZStack {
                 Brand.heroGradient.ignoresSafeArea()
-                ProgressView().tint(.white)
+                TetrLoader(size: 34, tint: Brand.lime)
             }
             .preferredColorScheme(.dark)
             .task {
@@ -184,17 +184,23 @@ struct MainTabs: View {
             if session.me?.isOwner == true {
                 Tab("Ամփոփում", systemImage: "chart.bar.fill") {
                     NavigationStack {
+                        /* Без заголовка панели: на этом экране заголовок
+                           страницы — дата, и «Ամփոփում» над ней было бы
+                           второй шапкой над шапкой. Имя раздела уже
+                           написано во вкладке. */
                         OwnerView()
-                            .navigationTitle("Ամփոփում")
-                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar(.hidden, for: .navigationBar)
                     }
                 }
 
                 Tab("Աշխատավարձ", systemImage: "banknote.fill") {
                     NavigationStack {
+                        /* Без заголовка панели: показание «Վճարելու է» и
+                           есть заголовок страницы, а «Աշխատավարձեր» над ним
+                           было бы второй шапкой над шапкой. Имя раздела уже
+                           написано во вкладке. */
                         PayrollView()
-                            .navigationTitle("Աշխատավարձեր")
-                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar(.hidden, for: .navigationBar)
                     }
                 }
 
@@ -203,9 +209,11 @@ struct MainTabs: View {
                 // в месяц — ему в панели не место.
                 Tab("Ավելին", systemImage: "ellipsis.circle.fill") {
                     NavigationStack {
+                        /* Без заголовка панели: имя раздела уже написано во
+                           вкладке, а прозрачная панель поверх плиток давала
+                           «Ավելին», просвечивающее сквозь первый ряд. */
                         MoreView()
-                            .navigationTitle("Ավելին")
-                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar(.hidden, for: .navigationBar)
                     }
                 }
             }

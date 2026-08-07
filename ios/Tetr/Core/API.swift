@@ -18,6 +18,21 @@ enum API {
         let clientIdType: String
         let staffRole: String
         let unitOne: String
+
+        /**
+         * Тарифные варианты: у мойки это класс машины.
+         *
+         * Необязательные намеренно. Приложение стоит на чужих телефонах и
+         * обновляется само по себе — оно всегда может оказаться новее
+         * сервера. Обязательное поле в такой паре это экран с ошибкой
+         * разбора вместо смены у каждого, кто обновился первым.
+         *
+         * Пусто — свойства нет, и ни ряда классов, ни второй цены человек
+         * не увидит. Продукт мультинишевый: «седаны» приходят с сервера
+         * словами, которые придумал владелец.
+         */
+        let tierLabel: String?
+        let tiers: [String]?
     }
 
     struct Me: Decodable {
@@ -45,6 +60,15 @@ enum API {
         let id: String
         let name: String
         let price: Int
+        /// Цены по тарифам в порядке `tenant.tiers`. Нет своей — базовая.
+        let tierPrices: [Int]?
+
+        /// Цена для выбранного тарифа. Единственное место, где это
+        /// считается на клиенте, — и правило то же, что на сервере.
+        func price(tier: Int?) -> Int {
+            guard let tier, tier >= 0, let own = tierPrices?[safe: tier], own > 0 else { return price }
+            return own
+        }
     }
 
     struct Bootstrap: Decodable {
@@ -155,6 +179,9 @@ enum API {
         let visits: Int
         let total: Int
         let lastSeenAt: Date
+        /// Каким классом эту машину записывали в прошлый раз: джип не
+        /// станет седаном между мойками, поэтому выбор подставляется сам.
+        let lastTier: String?
     }
 
     struct Lookup: Decodable {
@@ -492,4 +519,15 @@ extension ISO8601DateFormatter {
     }()
 
     static let plain = ISO8601DateFormatter()
+}
+
+extension Array {
+    /// Обращение по номеру, которого может не быть.
+    ///
+    /// Нужно там, где список приходит с сервера и короче ожидаемого:
+    /// владелец добавил четвёртый класс, а цены в услуге пока на три.
+    /// Падение приложения из-за этого недопустимо.
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
 }

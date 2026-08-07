@@ -59,13 +59,21 @@ enum PlateReader {
     }
 }
 
-/// Экран сканера.
-///
-/// Ручной ввод остаётся рядом всегда: номер бывает грязный, гнутый или
-/// вовсе иностранный, и заставлять человека воевать с камерой вместо
-/// восьми символов — худшее, что можно сделать.
+/**
+ * Видоискатель.
+ *
+ * Он больше не решает за человека. Раньше первый же распознанный номер
+ * закрывал экран — камера срабатывала молча, и если она ошиблась, человек
+ * узнавал об этом уже в поле ввода. Теперь вид только сообщает наружу, что
+ * сейчас видит, а решение принимает экран поверх него.
+ *
+ * Ручной ввод остаётся рядом всегда: номер бывает грязный, гнутый или вовсе
+ * иностранный, и заставлять человека воевать с камерой вместо восьми
+ * символов — худшее, что можно сделать.
+ */
 struct PlateScannerView: UIViewControllerRepresentable {
-    let onFound: (String) -> Void
+    /// Что камера видит прямо сейчас. `nil` — ничего похожего на номер.
+    @Binding var candidate: String?
 
     static var isAvailable: Bool {
         DataScannerViewController.isSupported && DataScannerViewController.isAvailable
@@ -77,7 +85,10 @@ struct PlateScannerView: UIViewControllerRepresentable {
             qualityLevel: .accurate,
             recognizesMultipleItems: true,
             isHighFrameRateTrackingEnabled: false,
-            isHighlightingEnabled: true
+            // Подсветку системы выключили: рамка вокруг каждой строки текста
+            // в кадре спорит с собственной рамкой прицела и превращает
+            // видоискатель в кашу из прямоугольников.
+            isHighlightingEnabled: false
         )
         scanner.delegate = context.coordinator
         try? scanner.startScanning()
@@ -87,36 +98,208 @@ struct PlateScannerView: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onFound: onFound)
+        Coordinator { found in candidate = found }
     }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        private let onFound: (String) -> Void
-        private var done = false
+        private let report: (String?) -> Void
+        private var last: String?
 
-        init(onFound: @escaping (String) -> Void) {
-            self.onFound = onFound
+        init(report: @escaping (String?) -> Void) {
+            self.report = report
         }
 
-        /// Берём первое, что похоже на номер, и закрываемся.
+        /* Все три события ведут в одно место и пересчитывают кандидата из
+           полного списка. По одному `didAdd` этого не сделать: номер,
+           уехавший из кадра, приходит в `didRemove`, и без него на экране
+           навсегда оставался бы номер прошлой машины. */
+        func dataScanner(_ s: DataScannerViewController, didAdd a: [RecognizedItem], allItems all: [RecognizedItem]) {
+            recompute(all)
+        }
+
+        func dataScanner(_ s: DataScannerViewController, didUpdate u: [RecognizedItem], allItems all: [RecognizedItem]) {
+            recompute(all)
+        }
+
+        func dataScanner(_ s: DataScannerViewController, didRemove r: [RecognizedItem], allItems all: [RecognizedItem]) {
+            recompute(all)
+        }
+
+        /// Первое, что похоже на номер.
         ///
         /// В кадре почти всегда есть и другой текст — марка, реклама на
         /// стене, наклейка. Поэтому фильтр по формату, а не «самый крупный
         /// текст»: тот сплошь и рядом оказывается вывеской мойки.
-        func dataScanner(
-            _ scanner: DataScannerViewController,
-            didAdd added: [RecognizedItem],
-            allItems: [RecognizedItem]
-        ) {
-            guard !done else { return }
-            for item in allItems {
+        private func recompute(_ items: [RecognizedItem]) {
+            var found: String?
+            for item in items {
                 guard case let .text(text) = item else { continue }
                 if let plate = PlateReader.parse(text.transcript) {
-                    done = true
-                    onFound(plate)
-                    return
+                    found = plate
+                    break
                 }
             }
+            guard found != last else { return }
+            last = found
+            report(found)
         }
+    }
+}
+
+/**
+ * Встроенная камера.
+ *
+ * Не отдельный экран, а нижняя часть той же страницы: поле ввода остаётся
+ * на месте сверху, под ним раскрывается кадр. Полноэкранная камера уводила
+ * человека со страницы и возвращала обратно — два перехода там, где нужно
+ * было показать одну картинку, и на возврате страница успевала перекраситься
+ * в тёмное вслед за камерой.
+ *
+ * Тёмная здесь только сама панель. Тему приложения она не трогает: это
+ * чёрная карточка на светлой странице, а не тёмный экран.
+ *
+ * Главное решение — **затвор с обратным отсчётом**. Прежний сканер
+ * срабатывал молча на первом же распознанном номере: если он ошибался,
+ * человек узнавал об этом уже в поле ввода. Теперь узнанный номер сначала
+ * показывается, кольцо затвора заполняется за секунду с небольшим, и только
+ * потом номер принимается. Видно, ЧТО будет принято, и есть время
+ * остановить. Ждать не обязательно: касание затвора принимает сразу.
+ */
+struct PlateCameraPanel: View {
+    let onFound: (String) -> Void
+    let onManual: () -> Void
+    let onClose: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var candidate: String?
+    /// Заполнение кольца затвора: 0 — пусто, 1 — принято.
+    @State private var fill: CGFloat = 0
+
+    /// Сколько номер показывается, прежде чем будет принят.
+    private let hold: Double = 1.2
+
+    var body: some View {
+        VStack(spacing: 0) {
+            viewfinder
+            controls
+        }
+        .background(Color.black, in: .rect(cornerRadius: 26))
+        /* Отсчёт привязан к самому номеру, а не к таймеру: сменился
+           кандидат — задача снимается и заводится заново, пропал — не
+           остаётся висеть. Обратный отсчёт, переживший уход номера из
+           кадра, принял бы то, чего в кадре уже нет. */
+        .task(id: candidate) {
+            fill = 0
+            guard let plate = candidate else { return }
+            withAnimation(reduceMotion ? nil : .linear(duration: hold)) { fill = 1 }
+            try? await Task.sleep(nanoseconds: UInt64(hold * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            accept(plate)
+        }
+    }
+
+    private var viewfinder: some View {
+        ZStack {
+            if PlateScannerView.isAvailable {
+                PlateScannerView(candidate: $candidate)
+            } else {
+                // Камеры нет — панель всё равно не должна быть чёрной дырой.
+                VStack(spacing: 10) {
+                    Image(systemName: "camera.metering.unknown")
+                        .font(.system(size: 26))
+                    Text("Տեսախցիկը հասանելի չէ")
+                        .font(.system(size: 13))
+                }
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            // Прицел: рамка не по всему кадру, а по той полосе, куда кладут
+            // номер. Она не обрезает распознавание — она говорит, куда
+            // целиться, и этого достаточно.
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(.white.opacity(candidate == nil ? 0.5 : 0), lineWidth: 1.5)
+                .frame(height: 84)
+                .padding(.horizontal, 34)
+                .animation(.easeOut(duration: 0.2), value: candidate == nil)
+
+            if let candidate {
+                Text(candidate)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onLime)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Brand.lime, in: .capsule)
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipShape(.rect(cornerRadius: 26))
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: candidate)
+    }
+
+    private var controls: some View {
+        HStack {
+            round("xmark", label: "Փակել տեսախցիկը", action: onClose)
+            Spacer()
+            shutter
+            Spacer()
+            round("keyboard", label: "Ձեռքով") {
+                onManual()
+                onClose()
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 14)
+    }
+
+    /**
+     * Затвор. Кольцо вокруг него — это и есть обратный отсчёт: пока оно
+     * заполняется, номер ещё можно не принять, уведя камеру.
+     */
+    private var shutter: some View {
+        Button {
+            if let candidate { accept(candidate) }
+        } label: {
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.35), lineWidth: 3)
+                    .frame(width: 66, height: 66)
+                Circle()
+                    .trim(from: 0, to: fill)
+                    .stroke(Brand.lime, style: .init(lineWidth: 3, lineCap: .round))
+                    .frame(width: 66, height: 66)
+                    .rotationEffect(.degrees(-90))
+                Circle()
+                    .fill(candidate == nil ? Color.white.opacity(0.35) : Brand.lime)
+                    .frame(width: 54, height: 54)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(candidate == nil)
+        .accessibilityLabel("Ընդունել")
+        .accessibilityValue(candidate ?? "")
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: candidate == nil)
+    }
+
+    private func round(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.16), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private func accept(_ plate: String) {
+        // Толчок в руку: мокрыми руками экран смотрят вполглаза, и звука
+        // затвора у сканера нет.
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        onFound(plate)
     }
 }
