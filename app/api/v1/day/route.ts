@@ -51,6 +51,9 @@ export async function GET(request: Request) {
         clientKey: o.clientKey,
         serviceName: o.serviceName,
         staffName: o.staffName,
+        // снимок процента из самой записи: приложение считает долю
+        // исполнителя по нему, а не по текущей ставке человека
+        staffPercent: o.staffPercent,
         price: o.price,
         payment: o.payment,
         createdAt: o.createdAt,

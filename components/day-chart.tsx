@@ -12,10 +12,16 @@ export type ChartPoint = { label: string; value: number; peak?: boolean };
 export function DayChart({
   points,
   currency,
+  byHour,
   labelEvery = 3,
 }: {
   points: ChartPoint[];
   currency: string;
+  /* Раньше это угадывалось по числу столбиков: больше двадцати четырёх —
+     дни. Пока периоды были «7 дней» и «30 дней», догадка работала. С
+     календарным месяцем она ломается седьмого числа: семь столбиков, и
+     график объявляет их часами. */
+  byHour: boolean;
   labelEvery?: number;
 }) {
   if (points.length === 0) return null;
@@ -26,7 +32,7 @@ export function DayChart({
   return (
     <div className="tile mb-2.5">
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="label">{points.length > 24 ? 'ՕՐԵՐ' : 'ԺԱՄԵՐ'}</span>
+        <span className="label">{byHour ? 'ԺԱՄԵՐ' : 'ՕՐԵՐ'}</span>
         {max > 0 && (
           <span className="num text-[12px] text-faint">
             {points[peakIndex]?.label} · {formatMoney(max, currency)}

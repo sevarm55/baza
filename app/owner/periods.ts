@@ -1,17 +1,22 @@
 import { hy } from '@/lib/i18n/hy';
+import { PERIOD_KEYS, type PeriodKey } from '@/lib/summary-window';
 
 /**
- * Периоды сводки. Ключ — он же значение `?p=` в адресе, поэтому лежит
- * отдельно от вкладок: страница по нему считает выборку, вкладки его рисуют,
- * и обеим сторонам нужен один и тот же список.
+ * Вкладки сводки. Ключи и границы живут в `lib/summary-window.ts` — они
+ * общие с приложением, и разъехаться им нельзя: это те же деньги за тот же
+ * день, показанные с двух сторон.
+ *
+ * Здесь только подписи и адреса.
  */
-export const PERIODS = [
-  { key: 'today', label: hy.owner.periodToday },
-  { key: '7', label: hy.owner.periodWeek },
-  { key: '30', label: hy.owner.periodMonth },
-] as const;
+const LABELS: Record<PeriodKey, string> = {
+  today: hy.owner.periodToday,
+  month: hy.owner.periodMonth,
+  prevmonth: hy.owner.periodPrevMonth,
+};
 
-export type PeriodKey = (typeof PERIODS)[number]['key'];
+export const PERIODS = PERIOD_KEYS.map((key) => ({ key, label: LABELS[key] }));
+
+export type { PeriodKey };
 
 /** Чужое или пустое `?p=` молча читается как «сегодня». */
 export function getPeriod(p: string | undefined) {

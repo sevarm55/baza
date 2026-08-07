@@ -108,71 +108,13 @@ export async function listServices(tenantId: string) {
     .orderBy(services.sort);
 }
 
-/** Начало «сегодня» в часовом поясе бизнеса, а не сервера. */
-function zoneParts(timezone: string, at: Date) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  return {
-    year: get('year'),
-    month: get('month'),
-    day: get('day'),
-    hour: get('hour') === 24 ? 0 : get('hour'),
-    minute: get('minute'),
-    second: get('second'),
-  };
-}
-
-/**
- * На сколько зона отстоит от UTC в этот конкретный момент.
- *
- * Момент округляем до секунды: разложение по зоне секундами и
- * ограничивается, и без этого миллисекунды входного времени утекали в
- * смещение, а оттуда — в границу суток. «Начало дня» получалось не
- * полночью, а полночью плюс случайный остаток, и запись, сделанная в
- * первую долю секунды после неё, в этот день не попадала.
- */
-function zoneOffset(timezone: string, at: Date): number {
-  const p = zoneParts(timezone, at);
-  const whole = at.getTime() - at.getMilliseconds();
-  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - whole;
-}
-
-export function startOfDay(timezone: string, at = new Date()): Date {
-  const p = zoneParts(timezone, at);
-  const midnight = Date.UTC(p.year, p.month - 1, p.day);
-
-  /* Считаем дважды. Смещение зоны в полночь может отличаться от смещения
-     в момент `at` — ровно на час в день перевода стрелок. По одному
-     измерению сутки перехода получались длиной 24 часа вместо 23, и
-     граница дня уезжала. Второй проход берёт смещение уже у самой
-     полуночи. В Ереване стрелки не переводят, и обе итерации совпадают. */
-  const first = new Date(midnight - zoneOffset(timezone, at));
-  return new Date(midnight - zoneOffset(timezone, first));
-}
+/* Время живёт в `lib/time.ts`: оно нужно и браузеру, а здесь рядом с ним
+   лежит база. Реэкспорт — чтобы вызывающим было всё равно, где оно. */
+export { startOfDay, startOfDaysAgo, startOfMonth, startOfPrevMonth } from './time';
 
 const notCanceled = isNull(orders.canceledAt);
 
 /** Смена конкретного сотрудника: то, что он видит у себя на экране. */
-/**
- * Начало дня, который был N дней назад, в часовом поясе бизнеса.
- *
- * Живёт здесь, а не в странице, намеренно: `Date.now()` в теле серверного
- * компонента — обращение к изменчивому во время рендера, и правило чистоты
- * React справедливо на него ругается.
- */
-export function startOfDaysAgo(timezone: string, days: number): Date {
-  return startOfDay(timezone, new Date(Date.now() - days * 86_400_000));
-}
-
 export async function getShift(tenantId: string, staffId: string, from: Date) {
   const rows = await db
     .select()
@@ -273,6 +215,9 @@ export async function getRevenueSeries(
   from: Date,
   timezone: string,
   bucket: 'hour' | 'day',
+  /* Верхняя граница обязательна с появлением закрытых периодов: без неё
+     график «прошлого месяца» дорисовывал столбики уже наступившего. */
+  to?: Date,
 ) {
   const local = sql`(${orders.createdAt} at time zone ${timezone})`;
 
@@ -287,13 +232,20 @@ export async function getRevenueSeries(
       count: sql<number>`count(*)::int`,
     })
     .from(orders)
-    .where(and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), notCanceled))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        gte(orders.createdAt, from),
+        to ? lt(orders.createdAt, to) : undefined,
+        notCanceled,
+      ),
+    )
     .groupBy(sql`1`)
     .orderBy(sql`1`);
 }
 
 /** Разбивка прихода по способу оплаты — для полосы вместо четырёх плиток. */
-export async function getPaymentSplit(tenantId: string, from: Date) {
+export async function getPaymentSplit(tenantId: string, from: Date, to?: Date) {
   const rows = await db
     .select({
       payment: orders.payment,
@@ -301,7 +253,14 @@ export async function getPaymentSplit(tenantId: string, from: Date) {
       count: sql<number>`count(*)::int`,
     })
     .from(orders)
-    .where(and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), notCanceled))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        gte(orders.createdAt, from),
+        to ? lt(orders.createdAt, to) : undefined,
+        notCanceled,
+      ),
+    )
     .groupBy(orders.payment);
 
   return rows;
@@ -316,6 +275,9 @@ export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Da
       serviceName: orders.serviceName,
       payment: orders.payment,
       staffName: users.name,
+      /* Процент — снимок внутри записи, а не текущая ставка человека:
+         поменяли ставку сегодня — вчерашние записи остаются как были. */
+      staffPercent: orders.staffPercent,
       clientKey: clients.key,
     })
     .from(orders)

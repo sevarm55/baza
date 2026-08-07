@@ -13,9 +13,14 @@ struct OwnerView: View {
     @State private var cancelling: API.FeedItem?
     @Namespace private var pill
 
+    /* Прокрутку разрядов система сама по «Уменьшению движения» не гасит:
+       withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
+       которую человек включил не просто так, ничего не меняет. */
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
-    private let periods = [("today", "Այսօր"), ("7", "7 օր"), ("30", "30 օր")]
+    private let periods = [("today", "Այսօր"), ("month", "Այս ամիս"), ("prevmonth", "Անցյալ ամիս")]
 
     var body: some View {
         ScrollView {
@@ -153,11 +158,15 @@ struct OwnerView: View {
         .padding(.top, 8)
     }
 
-    private var revenueTitle: String {
+    /* Не «շահույթ»: от «հասույթ» в разборе ниже оно отличается одной
+       буквой и звучит почти так же. Два похожих слова с разными числами
+       на одном экране путают даже автора продукта. «Вам остаётся» ни на
+       что не похоже, потому что это не термин, а обычная речь. */
+    private var profitTitle: String {
         switch period {
-        case "7": return "7 օրվա շահույթ"
-        case "30": return "30 օրվա շահույթ"
-        default: return "Այսօրվա շահույթ"
+        case "month": return "Այս ամիս ձեզ մնում է"
+        case "prevmonth": return "Անցյալ ամիս ձեզ մնացել է"
+        default: return "Այսօր ձեզ մնում է"
         }
     }
 
@@ -170,14 +179,18 @@ struct OwnerView: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: "hy_AM")
         f.dateFormat = "d MMMM"
-        let today = f.string(from: Date())
-        guard let from = summary?.from, period != "today" else { return today }
-        return "\(f.string(from: from)) — \(today)"
+        guard let from = summary?.from, period != "today" else {
+            return f.string(from: summary?.from ?? Date())
+        }
+        /* Верхнюю границу берём из ответа, а не из «сегодня»: у закрытого
+           прошлого месяца период кончился, и подписывать его сегодняшним
+           числом — врать. Старый сервер её не пришлёт, тогда «по сейчас». */
+        return range(from, summary?.to ?? Date().addingTimeInterval(1))
     }
 
     private var revenue: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(revenueTitle)
+            Text(profitTitle)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.2)
                 .textCase(.uppercase)
@@ -192,18 +205,30 @@ struct OwnerView: View {
             Text(money(summary?.profit ?? 0, currency))
                 .font(.system(size: 38, weight: .bold))
                 .foregroundStyle(.white)
+                // значение передаётся внутрь: по нему система понимает, в
+                // какую сторону крутить разряды
+                .contentTransition(.numericText(value: Double(summary?.profit ?? 0)))
 
-            if let change = profitChange {
-                Text(change)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Brand.onLime)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Brand.lime, in: Capsule())
+            /* Три вещи в строке: с чем сравнили, сколько было тогда, на
+               сколько разошлось. Менее сенсационное первым — иначе разница
+               читается сама по себе и кажется больше, чем есть.
+
+               Знак обязателен: цвет на мокром телефоне под солнцем
+               пропадает первым, а WCAG прямо запрещает передавать смысл
+               одним оттенком. */
+            if let c = profitChange {
+                (Text(c.label)
+                    + Text(" \(c.base)").monospacedDigit()
+                    + Text(" · ")
+                    + Text(c.diff).monospacedDigit().fontWeight(.semibold))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Text("\(periodDates) · \(summary?.stats.count ?? 0) \(session.tenant?.unitOne ?? "") · Միջին չեկ \(money(summary?.stats.avgCheck ?? 0, currency))")
                 .font(.system(size: 13))
+                .contentTransition(.numericText(value: Double(summary?.stats.count ?? 0)))
                 .foregroundStyle(.white.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 2)
@@ -214,32 +239,68 @@ struct OwnerView: View {
     }
 
     /**
-     * «+18% ко вчерашнему».
+     * «На 6 500 ֏ больше, чем вчера к этому часу».
      *
      * Число без опоры ничего не значит: «прибыль 11 144» — это хорошо или
      * плохо? Владелец помнит вчерашнюю выручку, но не вчерашнюю прибыль —
      * её никто в уме не считает.
      *
-     * Молчим в трёх случаях.
+     * В драмах, а не в процентах. Процент от маленькой базы врёт: вчера
+     * 3 000, сегодня 9 500 — «+217%», а разница три помывки. Драмы можно
+     * потрогать, проценты нельзя, и владелец не считает свой бизнес в них.
      *
-     * Когда в прошлом отрезке была не прибыль, а убыток или ноль. Процент
-     * от убытка арифметически считается, но означает бессмыслицу: рост с
-     * минус сорока трёх тысяч до плюс трёхсот даёт «+782%», и это не тот
-     * ответ, за которым сюда смотрят.
+     * «К этому часу» сказано прямо, потому что сравнивается одинаково
+     * прожитое время: сегодня к полудню против вчера к полудню. Без этой
+     * оговорки человек решит, что сравнили с целым вчера, и не поверит.
      *
-     * И когда разница меньше процента: «+0%» место занимает, а не
+     * Молчим, когда сравнивать не с чем: в прошлом отрезке ноль, или
+     * разница меньше сотни драмов — такая строка занимает место, но не
      * сообщает.
      */
-    private var profitChange: String? {
+    private var profitChange: (label: String, base: String, diff: String, up: Bool)? {
         guard let s = summary else { return nil }
-        let was = s.previous.profit
-        guard was > 0 else { return nil }
 
-        let percent = Int((Double(s.profit - was) / Double(was) * 100).rounded())
-        guard percent != 0 else { return nil }
+        // Сравнивать не с чем: бизнес завёлся недавно, прошлого месяца у
+        // него не было. «+100 %» от пустоты — не новость, а деление на ноль
+        // в другой одежде.
+        guard (s.previous.count ?? 1) > 0 else { return nil }
 
-        let label = period == "today" ? "նախորդ օրվա համեմատ" : "նախորդ շրջանի համեմատ"
-        return "\(percent > 0 ? "+" : "−")\(abs(percent))% \(label)"
+        let diff = s.profit - s.previous.profit
+        guard abs(diff) >= 100 else { return nil }
+
+        let label: String
+        if period == "today" {
+            label = "Մեկ շաբաթ առաջ այս ժամին"
+        } else if let f = s.previous.from, let t = s.previous.to {
+            label = range(f, t)
+        } else {
+            label = "Նախորդ ամիս"
+        }
+
+        return (
+            label,
+            money(s.previous.profit, currency),
+            "\(diff > 0 ? "+" : "−")\(money(abs(diff), currency))",
+            diff > 0
+        )
+    }
+
+    /// «1 — 7 օգոստոսի». Месяц не повторяется дважды, когда он один.
+    private func range(_ from: Date, _ to: Date) -> String {
+        let full = DateFormatter()
+        full.locale = Locale(identifier: "hy_AM")
+        full.dateFormat = "d MMMM"
+        let dayOnly = DateFormatter()
+        dayOnly.locale = full.locale
+        dayOnly.dateFormat = "d"
+
+        // верхняя граница исключающая: последний показанный день — накануне
+        let last = to.addingTimeInterval(-1)
+        let cal = Calendar(identifier: .gregorian)
+        let sameMonth = cal.component(.month, from: from) == cal.component(.month, from: last)
+        return sameMonth
+            ? "\(dayOnly.string(from: from)) — \(full.string(from: last))"
+            : "\(full.string(from: from)) — \(full.string(from: last))"
     }
 
     /// Кто сейчас на мойке.
@@ -289,68 +350,121 @@ struct OwnerView: View {
         return "\(f.string(from: at))-ից"
     }
 
-    /// Прибыль и из чего она сложилась.
-    ///
-    /// Одной цифры мало: «осталось 46 000» без разбора выглядит как
-    /// ошибка, особенно в первый раз. Владелец должен увидеть вычитание
-    /// целиком — тогда он либо соглашается, либо понимает, какой расход
-    /// забыл завести.
-    ///
-    /// Зарплата отдельной строкой от расходов, хотя формально тоже
-    /// расход: её считает продукт, а расходы заводит человек. Смешать их
-    /// значило бы скрыть, что именно можно поправить руками.
     /**
-     * Из чего сложилась прибыль — тремя колонками, а не тремя строками.
+     * Лестница: из чего сложилась прибыль.
      *
-     * Строками этот блок занимал столько же места, сколько главный, хотя
-     * это пояснение к нему, а не второе главное число. Владелец сюда
-     * заглядывает, когда цифра сверху удивила, — остальное время блок
-     * просто есть.
+     * Тремя колонками этот блок был компактнее, но вычитания в нём не
+     * читалось: три числа рядом — это три факта, а не «минус, минус,
+     * осталось». Строка на каждый вычет, промежуточный итог и ответ под
+     * чертой — так устроен отчёт о прибылях у Wave, FreshBooks, Zoho, Xero
+     * и QuickBooks, у Lightspeed и у МоегоСклада.
+     *
+     * Водопад и составной столбик отброшены: у составного нет общего
+     * начала сегментов и он даёт наибольший процент ошибок чтения, водопад
+     * требует объяснения. Единственная количественная кодировка — длина
+     * полоски от общего левого края.
      */
     private func profit(_ s: API.Summary) -> some View {
-        HStack(spacing: 0) {
-            breakdown("Հասույթ", s.stats.revenue, Brand.ink)
-            divider
-            breakdown("Աշխատավարձ", s.stats.payroll, Brand.muted)
-            divider
-            breakdown("Ծախսեր", s.costs.total, Brand.muted)
+        let expenses = s.costs.total
+        let afterPayroll = s.stats.revenue - s.stats.payroll
+        let scale = { (v: Int) -> Double in
+            s.stats.revenue > 0 ? min(1, Double(v) / Double(s.stats.revenue)) : 0
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            ladderRow("Հասույթ", s.stats.revenue, scale(s.stats.revenue), strong: true)
+            ladderRow("Աշխատավարձ", s.stats.payroll, scale(s.stats.payroll), minus: true)
+
+            // Промежуточный итог — фраза, а не термин: третье
+            // существительное рядом с «Հասույթ» снова начнёт путаться.
+            HStack {
+                Text("Աշխատավարձից հետո")
+                Spacer()
+                Text(money(afterPayroll, currency)).monospacedDigit()
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Brand.muted.opacity(0.75))
+            .padding(.leading, 10)
+
+            ladderRow("Ծախսեր", expenses, scale(expenses), minus: true)
+
+            // Без этой строки владелец скажет «я столько сегодня не
+            // тратил» — и будет прав: в сумме сидит доля аренды.
+            if expenses > 0 {
+                HStack(spacing: 12) {
+                    if s.costs.oneOff > 0 {
+                        Text("Միանվագ \(money(s.costs.oneOff, currency))")
+                    }
+                    if s.costs.monthlyShare > 0 {
+                        Text(
+                            period == "today"
+                                ? "ամսականից օրվա բաժինը \(money(s.costs.monthlyShare, currency))"
+                                : "Ամսական \(money(s.costs.monthlyShare, currency))"
+                        )
+                    }
+                }
+                .font(.system(size: 11.5))
+                .foregroundStyle(Brand.muted.opacity(0.75))
+                .padding(.leading, 10)
+            }
+
+            Divider().overlay(Brand.line)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(s.profit >= 0 ? "Ձեզ մնում է" : "Մինուսի մեջ եք")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.1)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Brand.muted)
+                Spacer()
+                Text(money(abs(s.profit), currency))
+                    .font(.system(size: 26, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(s.profit >= 0 ? Brand.good : Brand.warn)
+                    .contentTransition(.numericText(value: Double(s.profit)))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(Brand.line)
-            .frame(width: 1, height: 30)
+    /// Строка лестницы. Знак «−» перед подписью, а не внутри числа:
+    /// «− Аренда 4 060» читается как вычитание, «Аренда −4 060» — как
+    /// свойство суммы.
+    private func ladderRow(
+        _ title: String,
+        _ value: Int,
+        _ fill: Double,
+        minus: Bool = false,
+        strong: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(minus ? "− \(title)" : title)
+                    .foregroundStyle(strong ? Brand.ink : Brand.muted)
+                Spacer()
+                Text(money(value, currency))
+                    .monospacedDigit()
+                    .foregroundStyle(strong ? Brand.ink : Brand.muted)
+                    .contentTransition(.numericText(value: Double(value)))
+            }
+            .font(.system(size: 13, weight: strong ? .semibold : .regular))
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Brand.line).frame(height: 3)
+                    Capsule()
+                        .fill(strong ? Brand.ink : Brand.muted.opacity(0.45))
+                        .frame(width: max(2, geo.size.width * fill), height: 3)
+                }
+            }
+            .frame(height: 3)
+        }
     }
 
-    private func breakdown(_ title: String, _ value: Int, _ color: Color) -> some View {
-        VStack(spacing: 3) {
-            Text(money(value, currency))
-                .font(.system(size: 16, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.system(size: 11.5))
-                .foregroundStyle(Brand.muted)
-        }
-        .frame(maxWidth: .infinity)
-    }
 
-    private func breakdown(_ label: String, _ value: Int) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Text(value < 0 ? "− \(money(-value, currency))" : money(value, currency))
-                .monospacedDigit()
-        }
-        .font(.system(size: 13))
-        .foregroundStyle(Brand.muted)
-    }
+
 
     /// Форма дня столбиками.
     ///
@@ -483,9 +597,23 @@ struct OwnerView: View {
                         .font(.system(size: 11.5))
                     }
                     Spacer()
-                    Text(money(item.price, currency))
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .monospacedDigit()
+                    /* Цена и сразу под ней доля исполнителя: владелец
+                       видит, сколько с этой машины ушло, не считая в уме
+                       и не уходя в зарплатную ведомость. */
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(money(item.price, currency))
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .monospacedDigit()
+                        // При нулевой ставке строка не показывается: у
+                        // владельца, который записывает сам, процента нет,
+                        // и «ему 0 ֏» под каждой записью — шум.
+                        if (item.staffPercent ?? 0) > 0 {
+                            Text("նրան \(money(item.earned, currency))")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Brand.muted)
+                                .monospacedDigit()
+                        }
+                    }
                 }
                 .padding(12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 12))
@@ -519,12 +647,24 @@ struct OwnerView: View {
 
     private func reload() async {
         do {
-            summary = try await session.authed { token in
+            let fresh = try await session.authed { token in
                 try await APIClient.shared.send(
                     "summary?period=\(period)",
                     token: token,
                     as: API.Summary.self
                 )
+            }
+
+            /* Числа перекручиваются разрядами при смене периода — так видно,
+               что это то же число за другой срок, а не другой экран.
+
+               Первая загрузка идёт без анимации: прокрутка от нуля к сумме
+               на старте читается как индикатор загрузки, а не как смысл, и
+               заставляет ждать там, где ждать нечего. */
+            if summary == nil || reduceMotion {
+                summary = fresh
+            } else {
+                withAnimation(.snappy(duration: 0.45)) { summary = fresh }
             }
             failure = nil
         } catch let error as APIError {

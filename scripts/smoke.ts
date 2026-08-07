@@ -1907,6 +1907,82 @@ async function main() {
     journal[0],
   );
 
+  /* ---------- аренда в календарном месяце ----------
+     Постоянный расход делился на 30,4375 всегда. Для месяца из 31 дня это
+     давало 101,8 % аренды — расход, которого не было. Проверяем оба режима
+     на одной и той же аренде. */
+  const { getPeriodCosts: costsOf, addExpense: addCost } = await import('../lib/expenses');
+  const rentTenant = (
+    await createBusiness({
+      niche: 'carwash',
+      businessName: 'Վարձի ստուգում',
+      ownerName: 'Տ',
+      phone: '077 555 111',
+      pin: '1234',
+    })
+  ).tenant;
+
+  const RENT = 300_000;
+  // аренда действует с начала прошлого месяца, чтобы покрыть весь период
+  const rentSince = new Date(Date.UTC(2025, 11, 1));
+  await addCost({
+    tenantId: rentTenant.id,
+    amount: RENT,
+    category: 'Վարձ',
+    monthly: true,
+    at: rentSince,
+    userId: null,
+  });
+
+  const jan = new Date(Date.UTC(2026, 0, 1));
+  const feb = new Date(Date.UTC(2026, 1, 1));
+  const mar = new Date(Date.UTC(2026, 2, 1));
+
+  const janWhole = await costsOf(rentTenant.id, jan, feb, 31);
+  const febWhole = await costsOf(rentTenant.id, feb, mar, 28);
+  check('в январе (31 день) аренда ровно месячная', janWhole.total === RENT, janWhole.total);
+  check('в феврале (28 дней) она же', febWhole.total === RENT, febWhole.total);
+
+  // а внутри суток — доля, иначе прибыль за день завышена
+  const rentDay = await costsOf(rentTenant.id, jan, new Date(jan.getTime() + 86_400_000), 31);
+  const perDay = Math.round(RENT / 31);
+  check('за одни сутки — дневная доля', Math.abs(rentDay.total - perDay) <= 1, rentDay.total);
+
+  /* ---------- границы периодов и база сравнения ---------- */
+  const { windowFor } = await import('../lib/summary-window');
+  const at = new Date('2026-08-07T12:00:00+04:00');
+  const tz = 'Asia/Yerevan';
+
+  const wToday = windowFor('today', tz, at);
+  const backDays = Math.round((wToday.from.getTime() - wToday.prevFrom.getTime()) / 86_400_000);
+  check('«сегодня» сравнивается с тем же днём недели неделю назад', backDays === 7, backDays);
+  check(
+    'база обрезана по прожитому времени',
+    wToday.prevTo.getTime() - wToday.prevFrom.getTime() === at.getTime() - wToday.from.getTime(),
+  );
+
+  const wMonth = windowFor('month', tz, at);
+  // 1 августа в Ереване это 31 июля 20:00 UTC — сравниваем по зоне бизнеса
+  const monthStartLocal = new Intl.DateTimeFormat('en-CA', { timeZone: tz, day: '2-digit' })
+    .format(wMonth.from);
+  check('«этот месяц» начинается первого числа', monthStartLocal === '01', monthStartLocal);
+  check('знаменатель — длина августа', wMonth.spread === 31, wMonth.spread);
+  check(
+    'база месяца не залезает в текущий',
+    wMonth.prevTo.getTime() <= wMonth.from.getTime(),
+  );
+
+  const wPrev = windowFor('prevmonth', tz, at);
+  check('«прошлый месяц» закрыт сверху началом текущего', wPrev.to.getTime() === wMonth.from.getTime());
+  check('и сравнивается с позапрошлым целиком', wPrev.prevTo.getTime() === wPrev.from.getTime());
+  /* Проверяем именно ДЛИНУ базы: раньше здесь стояло только совпадение
+     верхней границы, и то, что нижняя уехала на месяц глубже, проверка
+     не заметила — сравнивались два месяца против одного. */
+  const baseDays = Math.round((wPrev.prevTo.getTime() - wPrev.prevFrom.getTime()) / 86_400_000);
+  const periodDays = Math.round((wPrev.to.getTime() - wPrev.from.getTime()) / 86_400_000);
+  check('база ровно в один месяц, а не в два', baseDays >= 28 && baseDays <= 31, baseDays);
+  check('и сопоставима с самим периодом', Math.abs(baseDays - periodDays) <= 3, [baseDays, periodDays]);
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);

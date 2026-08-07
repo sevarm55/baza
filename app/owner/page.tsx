@@ -7,15 +7,16 @@ import {
   getRevenueSeries,
   getTenant,
   startOfDay,
-  startOfDaysAgo,
 } from '@/lib/queries';
-import { formatMoney } from '@/lib/money';
+import { windowFor } from '@/lib/summary-window';
+import { formatMoney, staffShare } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { Profit } from '@/components/profit';
 import { Avatar, Hero } from '@/components/stat';
+import { Compare } from '@/components/compare';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
 import { personColor } from '@/lib/person-color';
@@ -46,23 +47,22 @@ export default async function TodayPage({
 
   const { p } = await searchParams;
   const period = getPeriod(p);
-  const byHour = period.key === 'today';
 
-  /* Периоды выровнены по суткам, а верхняя граница — начало завтра:
-     записей в будущем не бывает, зато аренда за сегодня начисляется
-     целым днём. Иначе прибыль за сегодня уменьшалась бы сама по себе
-     просто оттого, что идёт время. Те же границы у приложения. */
-  const from = byHour
-    ? startOfDay(tenant.timezone)
-    : startOfDaysAgo(tenant.timezone, Number(period.key) - 1);
-  const to = new Date(startOfDay(tenant.timezone).getTime() + 86_400_000);
+  /* Границы и база сравнения считаются там же, где для приложения: у сайта
+     и телефона должны быть одни и те же деньги за один и тот же день. */
+  const w = windowFor(period.key, tenant.timezone);
+  const { byHour, from, to, prevFrom, prevTo } = w;
 
-  const [stats, feed, series, split, costs] = await Promise.all([
+  const [stats, feed, series, split, costs, prevStats, prevCosts] = await Promise.all([
     getPeriodStats(tenant.id, from, to),
-    getFeed(tenant.id, from),
-    getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day'),
-    getPaymentSplit(tenant.id, from),
-    getPeriodCosts(tenant.id, from, to),
+    // лента ограничена сверху: у «прошлого месяца» она не должна
+    // прихватывать записи из текущего
+    getFeed(tenant.id, from, 100, to),
+    getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day', to),
+    getPaymentSplit(tenant.id, from, to),
+    getPeriodCosts(tenant.id, from, to, w.spread),
+    getPeriodStats(tenant.id, prevFrom, prevTo),
+    getPeriodCosts(tenant.id, prevFrom, prevTo, w.spread),
   ]);
 
   /* Кто на смене — всегда «сейчас», независимо от выбранного периода:
@@ -99,8 +99,10 @@ export default async function TodayPage({
   ];
 
   const money = (n: number) => formatMoney(n, tenant.currency);
+  const profit = profitOf(stats.revenue, stats.payroll, costs);
+  const prevProfit = profitOf(prevStats.revenue, prevStats.payroll, prevCosts);
   const maxRevenue = Math.max(1, ...stats.byStaff.map((s) => s.revenue));
-  const points = buildPoints(series, byHour, Number(period.key));
+  const points = buildPoints(series, byHour, from, w.days, tenant.timezone);
 
   return (
     <>
@@ -108,11 +110,11 @@ export default async function TodayPage({
 
       <Hero
         label={
-          byHour
+          period.key === 'today'
             ? hy.owner.revenueToday
-            : period.key === '7'
-              ? hy.owner.revenueWeek
-              : hy.owner.revenueMonth
+            : period.key === 'month'
+              ? hy.owner.revenueMonth
+              : hy.owner.revenuePrevMonth
         }
         value={money(stats.revenue)}
         meta={
@@ -121,7 +123,7 @@ export default async function TodayPage({
                 полночь начинаются заново. Без неё владелец, открывший
                 кабинет в половине первого, видит ноль и решает, что
                 данные пропали. */}
-            {periodDates(from, tenant.timezone, byHour)} · {stats.count} {tenant.unitOne} ·{' '}
+            {periodDates(from, to, tenant.timezone, byHour)} · {stats.count} {tenant.unitOne} ·{' '}
             {hy.owner.avgCheck} {money(stats.avgCheck)}
             {passesEnabled() && stats.passSales > 0 && (
               <>
@@ -133,17 +135,32 @@ export default async function TodayPage({
         }
       />
 
+      <Compare
+        label={
+          period.key === 'today'
+            ? hy.owner.vsLastWeek
+            : periodDates(prevFrom, prevTo, tenant.timezone, false)
+        }
+        base={prevProfit}
+        diff={profit - prevProfit}
+        baseCount={prevStats.count}
+        money={money}
+      />
+
       <Profit
         revenue={stats.revenue}
         payroll={stats.payroll}
-        expenses={costs.total}
-        profit={profitOf(stats.revenue, stats.payroll, costs)}
+        oneOff={costs.oneOff}
+        monthlyShare={costs.monthlyShare}
+        profit={profit}
+        daily={period.key === 'today'}
         money={money}
       />
 
       <DayChart
         points={points}
         currency={tenant.currency}
+        byHour={byHour}
         labelEvery={byHour ? 3 : points.length > 14 ? 5 : 1}
       />
 
@@ -197,9 +214,13 @@ export default async function TodayPage({
               </div>
               <div className="shrink-0 text-right">
                 <div className="num text-[14.5px] font-semibold">{money(s.revenue)}</div>
-                <div className="num text-xs text-muted">
-                  {hy.owner.earned} {money(s.earned)}
-                </div>
+                {/* Ноль не показываем: у владельца ставки нет, и «ему 0 ֏»
+                    рядом с его выработкой — шум, а не сведение. */}
+                {s.earned > 0 && (
+                  <div className="num text-xs text-muted">
+                    {hy.owner.earned} {money(s.earned)}
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -228,7 +249,20 @@ export default async function TodayPage({
               </div>
               <div className="shrink-0 text-right">
                 <div className="num text-[14.5px] font-semibold">{money(o.price)}</div>
-                <div className="num text-xs text-muted">{hhmm(o.createdAt)}</div>
+                {/* Сколько с этой машины ушло исполнителю. Владелец видит
+                    цену и тут же — свою долю от неё, не считая в уме и не
+                    уходя в зарплатную ведомость. Процент — снимок записи,
+                    поэтому вчерашние строки не меняются от новой ставки.
+
+                    При нулевом проценте строка не показывается: у владельца,
+                    который записывает сам, ставки нет, и «ему 0 ֏» под каждой
+                    его записью — шум, а не сведение. */}
+                {o.staffPercent > 0 && (
+                  <div className="num text-xs text-muted">
+                    {hy.owner.earned} {money(staffShare(o.price, o.staffPercent))}
+                  </div>
+                )}
+                <div className="num text-xs text-faint">{hhmm(o.createdAt)}</div>
               </div>
               <CancelOrderButton orderId={o.id} />
             </div>
@@ -239,11 +273,26 @@ export default async function TodayPage({
   );
 }
 
-/** «1 օգոստոսի» или «3 հուլիսի — 1 օգոստոսի». */
-function periodDates(from: Date, timezone: string, single: boolean): string {
+/**
+ * «1 օգոստոսի» или «1 — 7 օգոստոսի».
+ *
+ * Верхняя граница берётся из окна, а не из «сегодня»: у прошлого месяца
+ * период закончился, и подписывать его сегодняшним числом — врать.
+ */
+function periodDates(from: Date, to: Date, timezone: string, single: boolean): string {
   const f = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', month: 'long', timeZone: timezone });
-  const today = f.format(new Date());
-  return single ? today : `${f.format(from)} — ${today}`;
+  if (single) return f.format(from);
+
+  // верхняя граница — начало следующих суток, поэтому день назад
+  const last = new Date(Math.min(to.getTime(), Date.now()) - 1);
+  const day = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', timeZone: timezone });
+  const sameMonth =
+    new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(from) ===
+    new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(last);
+
+  // «1 — 7 օգոստոսի» вместо «1 օգոստոսի — 7 օգոստոսի»: месяц один, и
+  // повторять его дважды значит забрать место у цифр
+  return sameMonth ? `${day.format(from)} — ${f.format(last)}` : `${f.format(from)} — ${f.format(last)}`;
 }
 
 function Empty({ text }: { text: string }) {
@@ -260,7 +309,9 @@ function Empty({ text }: { text: string }) {
 function buildPoints(
   series: { key: string; revenue: number }[],
   byHour: boolean,
+  from: Date,
   days: number,
+  timezone: string,
 ): ChartPoint[] {
   const found = new Map(series.map((s) => [s.key, s.revenue]));
 
@@ -278,11 +329,25 @@ function buildPoints(
     return points;
   }
 
+  /* Идём ВПЕРЁД от начала периода, а не назад от «сейчас». Пока все
+     периоды заканчивались сегодняшним днём, разницы не было; с закрытым
+     прошлым месяцем отсчёт от текущей минуты рисовал чужие дни.
+
+     Ключ собирается в часовом поясе бизнеса, потому что база группирует
+     именно по нему. Собранный в зоне сервера, он совпадал бы только пока
+     сервер и мойка стоят в одном поясе. */
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
   const points: ChartPoint[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86_400_000);
-    const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00`;
-    points.push({ label: pad(d.getDate()), value: found.get(key) ?? 0 });
+  for (let i = 0; i < days; i++) {
+    const d = new Date(from.getTime() + i * 86_400_000);
+    const iso = ymd.format(d);
+    points.push({ label: iso.slice(8, 10), value: found.get(`${iso} 00`) ?? 0 });
   }
   return points;
 }

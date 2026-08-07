@@ -5,12 +5,12 @@ import {
   getPeriodStats,
   getRevenueSeries,
   startOfDay,
-  startOfDaysAgo,
 } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
+import { asPeriod, windowFor } from '@/lib/summary-window';
 
 /**
  * Сводка владельца за период — весь экран одним запросом.
@@ -20,10 +20,12 @@ import { failFromError, ok } from '@/lib/api/respond';
  * round-trip по мобильной сети складываются в заметную паузу, а часть из
  * них ещё и оборвётся.
  *
- * Период задаётся теми же ключами, что и вкладки в кабинете: today, 7, 30.
- * Чужое или пустое значение молча читается как «сегодня».
+ * Период задаётся теми же ключами, что и вкладки в кабинете: today,
+ * month, prevmonth. Чужое или пустое значение молча читается как «сегодня».
+ * Границы и база сравнения считаются в `lib/summary-window.ts` — теми же,
+ * что и в вебе, иначе сайт и приложение показали бы разные деньги за один
+ * и тот же день.
  */
-const PERIODS = new Set(['today', '7', '30']);
 
 export async function GET(request: Request) {
   try {
@@ -31,57 +33,38 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
-    const raw = new URL(request.url).searchParams.get('period') ?? 'today';
-    const period = PERIODS.has(raw) ? raw : 'today';
-    const byHour = period === 'today';
-
-    /* Периоды выровнены по суткам: «7 дней» — это семь календарных дней,
-       включая сегодняшний, а не 168 часов назад от текущей минуты.
-       Так понятнее человеку и, главное, так постоянные расходы можно
-       начислять целыми днями. */
-    const from = byHour
-      ? startOfDay(ctx.tenant.timezone)
-      : startOfDaysAgo(ctx.tenant.timezone, Number(period) - 1);
-
-    /* Верхняя граница — начало завтрашнего дня. Записей в будущем не
-       бывает, поэтому на выручку это не влияет, зато аренда за сегодня
-       начисляется целым днём.
-
-       Иначе она копилась по часам, и прибыль за сегодня уменьшалась сама
-       по себе просто оттого, что идёт время: посмотрел в обед — одно
-       число, вечером без единой новой машины — другое. */
-    const to = new Date(startOfDay(ctx.tenant.timezone).getTime() + 86_400_000);
+    const period = asPeriod(new URL(request.url).searchParams.get('period'));
+    const w = windowFor(period, ctx.tenant.timezone);
+    const { byHour, from, to, prevFrom, prevTo } = w;
 
     /* Кто на смене — всегда «сейчас», независимо от выбранного периода:
        вопрос «кто на мойке» к семи дням отношения не имеет. Поэтому
        считаем от начала сегодняшнего дня, а не от `from`. */
     const today = startOfDay(ctx.tenant.timezone);
 
-    /* Ровно такой же отрезок непосредственно перед текущим: вчера для
-       «сегодня», предыдущая неделя для семи дней, предыдущий месяц для
-       тридцати.
-
-       Без него число висит без опоры. «Прибыль 11 144» — это хорошо или
-       плохо? Ответить нельзя, пока не с чем сравнить, а сравнивать
-       владельцу больше не с чем: он помнит вчерашнюю выручку, но не
-       вчерашнюю прибыль — её никто в уме не считает. */
-    const span = to.getTime() - from.getTime();
-    const prevFrom = new Date(from.getTime() - span);
+    /* Число без опоры ничего не значит: «прибыль 11 144» — это хорошо
+       или плохо? Владелец помнит вчерашнюю выручку, но не вчерашнюю
+       прибыль, её никто в уме не считает. С чем именно сравнивать каждый
+       период — решено в `windowFor`. */
 
     const [stats, series, split, feed, costs, present, prevStats, prevCosts] = await Promise.all([
       getPeriodStats(ctx.tenant.id, from, to),
-      getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day'),
-      getPaymentSplit(ctx.tenant.id, from),
+      getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day', to),
+      getPaymentSplit(ctx.tenant.id, from, to),
       getFeed(ctx.tenant.id, from),
-      getPeriodCosts(ctx.tenant.id, from, to),
+      getPeriodCosts(ctx.tenant.id, from, to, w.spread),
       whoIsOnShift(ctx.tenant.id, today),
-      getPeriodStats(ctx.tenant.id, prevFrom, from),
-      getPeriodCosts(ctx.tenant.id, prevFrom, from),
+      getPeriodStats(ctx.tenant.id, prevFrom, prevTo),
+      getPeriodCosts(ctx.tenant.id, prevFrom, prevTo, w.spread),
     ]);
 
     return ok({
       period,
       from: from.toISOString(),
+      /* Границы отдаются обеими сторонами: подпись под вкладкой должна
+         называть даты. «К прошлому периоду» без дат не сообщает ничего —
+         человеку надо видеть, что сравнили 1–7 августа с 1–7 июля. */
+      to: to.toISOString(),
       stats,
       costs,
       /* Прибыль считаем на сервере, а не в приложении: формула одна на
@@ -91,8 +74,14 @@ export async function GET(request: Request) {
       /* Прошлый отрезок — только две цифры: больше на экране всё равно не
          показать, а тащить целый второй набор ради этого незачем. */
       previous: {
+        from: prevFrom.toISOString(),
+        to: prevTo.toISOString(),
         revenue: prevStats.revenue,
         profit: profitOf(prevStats.revenue, prevStats.payroll, prevCosts),
+        /* Пусто — значит сравнивать не с чем: бизнес завёлся на этой
+           неделе, прошлого месяца у него не было. Клиент в этом случае
+           молчит, а не рисует «+100%» от нуля. */
+        count: prevStats.count,
       },
       onShift: present.map((p) => ({
         userId: p.userId,
@@ -106,6 +95,9 @@ export async function GET(request: Request) {
         clientKey: o.clientKey,
         serviceName: o.serviceName,
         staffName: o.staffName,
+        // снимок процента из самой записи: приложение считает долю
+        // исполнителя по нему, а не по текущей ставке человека
+        staffPercent: o.staffPercent,
         price: o.price,
         payment: o.payment,
         createdAt: o.createdAt,
