@@ -3,6 +3,8 @@ import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Logo } from '@/components/logo';
+import { PointSwitcher } from '@/components/point-switcher';
+import type { Point } from '@/lib/accounts';
 import type { Role } from '@/lib/auth';
 
 export function TopBar({
@@ -10,12 +12,23 @@ export function TopBar({
   subtitle,
   role,
   active,
+  points,
+  currentTid,
 }: {
   tenantName: string;
   subtitle: string;
   role: Role;
   active?: 'work' | 'owner';
+  /** точки человека; одна или ни одной — переключателя нет */
+  points?: Point[];
+  currentTid?: string;
 }) {
+  /* У кого одна мойка, тот не должен узнать, что бывают вторые: ни
+     стрелки, ни лишнего элемента, ни изменившейся разметки. Условие
+     стоит здесь, а не внутри переключателя, именно поэтому — ветка
+     возвращает ровно тот же div, что был до всей этой работы. */
+  const many = !!points && points.length > 1 && !!currentTid;
+
   return (
     <header className="sticky top-0 z-20 mb-4 border-b border-line bg-bg/90 px-4 py-3 backdrop-blur">
       {/* На телефоне переключатель ролей уходит на вторую строку.
@@ -24,10 +37,14 @@ export function TopBar({
       <div className="mx-auto flex max-w-[760px] flex-wrap items-center gap-x-3 gap-y-2">
         <div className="order-1 flex min-w-0 flex-1 items-center gap-2.5">
           <Logo size={26} withName={false} />
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold">{tenantName}</div>
-            <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
-          </div>
+          {many ? (
+            <PointSwitcher points={points!} currentId={currentTid!} subtitle={subtitle} />
+          ) : (
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-semibold">{tenantName}</div>
+              <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
+            </div>
+          )}
         </div>
 
         <div className="order-2 flex shrink-0 items-center gap-1">

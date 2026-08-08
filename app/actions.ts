@@ -7,7 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { tenants, users } from '@/lib/db/schema';
-import { findClient, getTenant, startOfDay } from '@/lib/queries';
+import { findClient, getTenant, getUser, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { settleStaff } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
@@ -23,10 +23,11 @@ import {
   requireOwner,
   requireSession,
   startSession,
+  switchSession,
   verifyPin,
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone } from '@/lib/accounts';
+import { accountByPhone, listPoints, markPointUsed } from '@/lib/accounts';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
@@ -125,6 +126,41 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 export async function signOut() {
   await endSession();
   redirect('/login');
+}
+
+/**
+ * Перейти на другую свою точку.
+ *
+ * Точка живёт в подписанной cookie, а не в адресе, поэтому подменить её
+ * запросом нельзя: сервер сам находит участие человека в запрошенном
+ * бизнесе и отказывает, если участия нет. Чужой uuid при этом не
+ * подтверждается — ответ один и тот же и для «не ваша точка», и для
+ * «такой точки нет».
+ */
+export async function switchPoint(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  await ensureDb();
+
+  const target = String(formData.get('tid') ?? '');
+  const me = await getUser(session.tid, session.uid);
+  if (!me?.accountId) redirect('/session-ended');
+
+  const points = await listPoints(me.accountId);
+  const point = points.find((p) => p.id === target);
+  if (!point) redirect(session.role === 'owner' ? '/owner' : '/work');
+
+  await switchSession({
+    membershipId: point.membershipId,
+    tenantId: point.id,
+    role: point.role,
+  });
+  await markPointUsed(point.membershipId);
+
+  /* Обновляем всё дерево: на страницах лежат цифры прошлой мойки, и
+     оставить их значило бы показать выручку одной точки под названием
+     другой. */
+  revalidatePath('/', 'layout');
+  redirect(point.canRead ? (point.role === 'owner' ? '/owner' : '/work') : '/blocked');
 }
 
 /* -------------------------- сотрудники -------------------------- */

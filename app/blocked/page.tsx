@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
-import { getTenant } from '@/lib/queries';
+import { getTenant, getUser } from '@/lib/queries';
+import { listPoints } from '@/lib/accounts';
+import { PointForm } from '@/components/point-form';
 import { currentAccess } from '@/lib/subscription';
 import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -38,6 +40,11 @@ export default async function BlockedPage() {
   const isOwner = session.role === 'owner';
   const blocked = access.state === 'blocked';
 
+  const me = await getUser(session.tid, session.uid);
+  const others = me?.accountId
+    ? (await listPoints(me.accountId)).filter((p) => p.id !== session.tid)
+    : [];
+
   return (
     <main className="relative flex min-h-dvh w-full flex-col justify-end overflow-hidden">
       {/* Картинка фоном, а не элементом: она не должна влиять на разметку
@@ -60,6 +67,35 @@ export default async function BlockedPage() {
         <p className="mt-3.5 text-[15.5px] leading-relaxed text-white/80">
           {blocked ? hy.billing.blockedText : hy.billing.wallLead}
         </p>
+
+        {/* Одна закрытая точка не имеет права запирать открытую. Без этого
+            владелец, заведший вторую мойку, упирался бы в стену и терял
+            доступ к первой — работающей и оплаченной. */}
+        {others.length > 0 && (
+          <div className="mt-5 rounded-[14px] border border-white/15 p-1">
+            {others.map((point) => (
+              <PointForm key={point.id} tid={point.id}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-2.5 rounded-[11px] px-3 py-2.5 text-left text-white"
+                >
+                  <span
+                    className={`size-2 shrink-0 rounded-full ${
+                      point.canRead ? 'bg-emerald-400' : 'bg-amber-400'
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
+                    {point.name}
+                  </span>
+                  <span className="shrink-0 text-[12px] text-white/50">
+                    {point.canRead ? hy.points.go : hy.points.needsPayment}
+                  </span>
+                </button>
+              </PointForm>
+            ))}
+          </div>
+        )}
 
         <p className="mt-5 text-[14px] text-white/70">{hy.billing.wallContinue}</p>
         {/* Звонок — главное действие: продолжить пользоваться хотят обе стороны */}

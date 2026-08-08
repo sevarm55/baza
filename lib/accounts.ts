@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from './db';
-import { accounts, users, type Account } from './db/schema';
+import { accounts, tenants, users, type Account } from './db/schema';
+import { currentAccess, type Access } from './subscription';
 
 /**
  * Человек.
@@ -74,6 +75,81 @@ export async function accountOf(user: {
 
   await db.update(users).set({ accountId: account.id }).where(eq(users.id, user.id));
   return account;
+}
+
+/** Точка, где человек работает. */
+export type Point = {
+  id: string;
+  name: string;
+  role: 'owner' | 'staff';
+  /** id участия на этой точке — им подписывается токен */
+  membershipId: string;
+  state: Access['state'];
+  canRead: boolean;
+};
+
+/**
+ * Точки человека — то, между чем он переключается.
+ *
+ * Порядок не алфавитный и не по дате: сначала те, куда вообще пускают.
+ * Владельца с неоплаченной второй мойкой нельзя высаживать на стену,
+ * когда рядом работает первая. Внутри — по последнему заходу: человек
+ * возвращается туда, где вчера работал.
+ *
+ * Отключённые участия не показываются вовсе: уволенному на одной точке
+ * незачем видеть её в списке.
+ */
+export async function listPoints(accountId: string): Promise<Point[]> {
+  const rows = await db
+    .select({
+      id: tenants.id,
+      name: tenants.name,
+      role: users.role,
+      membershipId: users.id,
+      lastUsedAt: users.lastUsedAt,
+      createdAt: tenants.createdAt,
+      plan: tenants.plan,
+      trialEndsAt: tenants.trialEndsAt,
+      paidUntil: tenants.paidUntil,
+    })
+    .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
+    .where(and(eq(users.accountId, accountId), eq(users.active, true)));
+
+  return rows
+    .map((r) => {
+      const access = currentAccess(r);
+      return {
+        id: r.id,
+        name: r.name,
+        role: r.role === 'owner' ? ('owner' as const) : ('staff' as const),
+        membershipId: r.membershipId,
+        state: access.state,
+        canRead: access.canRead,
+        lastUsedAt: r.lastUsedAt,
+        createdAt: r.createdAt,
+      };
+    })
+    .sort((a, b) => {
+      if (a.canRead !== b.canRead) return a.canRead ? -1 : 1;
+      const at = a.lastUsedAt?.getTime() ?? 0;
+      const bt = b.lastUsedAt?.getTime() ?? 0;
+      if (at !== bt) return bt - at;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    })
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      role: r.role,
+      membershipId: r.membershipId,
+      state: r.state,
+      canRead: r.canRead,
+    }));
+}
+
+/** Отметить, что человек только что работал здесь. */
+export async function markPointUsed(membershipId: string): Promise<void> {
+  await db.update(users).set({ lastUsedAt: new Date() }).where(eq(users.id, membershipId));
 }
 
 /** Номер уже принадлежит человеку. */

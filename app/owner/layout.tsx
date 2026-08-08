@@ -2,6 +2,7 @@
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
+import { listPoints } from '@/lib/accounts';
 import { TopBar } from '@/components/top-bar';
 import { OwnerTabs } from '@/components/owner-tabs';
 import { BillingBanner } from '@/components/billing-banner';
@@ -20,9 +21,18 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   // отключённый бизнес не пускаем внутрь вообще
   if (!currentAccess(tenant).canRead) redirect('/blocked');
 
+  const points = me.accountId ? await listPoints(me.accountId) : [];
+
   return (
     <>
-      <TopBar tenantName={tenant.name} subtitle={me.name} role="owner" active="owner" />
+      <TopBar
+        tenantName={tenant.name}
+        subtitle={me.name}
+        role="owner"
+        active="owner"
+        points={points}
+        currentTid={tenant.id}
+      />
       <main className="mx-auto w-full max-w-[760px] px-4 pb-24">
         <OwnerTabs passes={passesEnabled()} />
         <BillingBanner access={currentAccess(tenant)} role="owner" />

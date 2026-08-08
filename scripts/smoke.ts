@@ -600,6 +600,62 @@ async function main() {
     .where(eq(accountsTable.id, ownerAccountId));
   check('и код прежнего владельца цел', untouched.pinHash === ownerAccount.pinHash);
 
+  /* ---------- точки человека ---------- */
+
+  const { listPoints } = await import('../lib/accounts');
+  const { tenants: tenantsTbl } = await import('../lib/db/schema');
+
+  const one = await listPoints(ownerAccountId);
+  check('у владельца одной мойки одна точка', one.length === 1, one.length);
+  check('и она его', one[0].id === tenant.id && one[0].role === 'owner');
+
+  /* Вторая точка того же человека сегодня невозможна: её не пускает
+     users_phone_uniq. Снимаем индекс ровно так, как это сделает этап,
+     где вторые точки включатся, — иначе порядок и отбор в переключателе
+     остались бы непроверенными до самого боя. */
+  await db.execute(sql`drop index users_phone_uniq`);
+  const [away] = await db
+    .insert(users)
+    .values({
+      tenantId: second.tenant.id,
+      accountId: ownerAccountId,
+      phone: ownerRow.phone,
+      pinHash: ownerRow.pinHash,
+      name: ownerRow.name,
+      role: 'staff',
+      percent: 20,
+    })
+    .returning();
+
+  const two = await listPoints(ownerAccountId);
+  check('две мойки — две точки', two.length === 2, two.length);
+  check(
+    'роль у каждой своя',
+    two.find((p) => p.id === tenant.id)?.role === 'owner' &&
+      two.find((p) => p.id === second.tenant.id)?.role === 'staff',
+  );
+
+  /* Открытая мойка идёт первой. Иначе владельца с неоплаченной второй
+     точкой после входа высаживало бы на стену при работающей первой. */
+  await db
+    .update(tenantsTbl)
+    .set({ plan: 'blocked' })
+    .where(eq(tenantsTbl.id, second.tenant.id));
+  const ordered = await listPoints(ownerAccountId);
+  check('закрытая точка уходит вниз', ordered[0].id === tenant.id, ordered[0].name);
+  check('и видно, что она закрыта', ordered[1].canRead === false && ordered[1].state === 'blocked');
+  await db
+    .update(tenantsTbl)
+    .set({ plan: 'trial' })
+    .where(eq(tenantsTbl.id, second.tenant.id));
+
+  // уволенное участие из списка пропадает: показывать его незачем
+  await db.update(users).set({ active: false }).where(eq(users.id, away.id));
+  check('уволенная точка не показывается', (await listPoints(ownerAccountId)).length === 1);
+
+  await db.delete(users).where(eq(users.id, away.id));
+  await db.execute(sql`create unique index users_phone_uniq on users (phone)`);
+
   const [live] = await db
     .insert(sessions)
     .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'iPhone' })

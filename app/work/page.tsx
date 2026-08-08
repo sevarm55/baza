@@ -3,6 +3,7 @@ import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
 import { currentShift } from '@/lib/shifts';
+import { listPoints } from '@/lib/accounts';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
@@ -23,10 +24,11 @@ export default async function WorkPage() {
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift, open] = await Promise.all([
+  const [services, shift, open, points] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
+    me.accountId ? listPoints(me.accountId) : Promise.resolve([]),
   ]);
 
   return (
@@ -36,6 +38,8 @@ export default async function WorkPage() {
         subtitle={me.name}
         role={session.role}
         active="work"
+        points={points}
+        currentTid={tenant.id}
       />
 
       <main className="mx-auto w-full max-w-[520px] px-4 pb-24">

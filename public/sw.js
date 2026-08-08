@@ -34,8 +34,10 @@ self.addEventListener('activate', (event) => {
 
 // при выходе кэш чистим: иначе следующий сотрудник на том же телефоне
 // увидит офлайн чужую смену
+// то же при переходе на другую точку: адрес страницы не меняется, а
+// бизнес за ним — уже другой, и офлайн человек увидел бы чужие цифры
 self.addEventListener('message', (event) => {
-  if (event.data === 'bazis:signout') {
+  if (event.data === 'bazis:signout' || event.data === 'bazis:switch') {
     event.waitUntil(caches.delete(CACHE));
   }
 });

@@ -254,6 +254,56 @@ async function aliveWithoutSession(claims: Claims): Promise<boolean> {
 }
 
 /**
+ * Перевести текущую сессию на другую точку.
+ *
+ * Переиспользуем ту же строку, а не заводим новую: устройство осталось
+ * тем же устройством. Заводи мы новую, список «мои устройства» рос бы от
+ * каждого нажатия, и человек не смог бы отличить свой браузер от чужого.
+ *
+ * Побочный эффект правильный: устройство, ушедшее на вторую мойку,
+ * пропадает из списка устройств первой. Оно там больше и не работает.
+ */
+export async function switchSession(next: {
+  membershipId: string;
+  tenantId: string;
+  role: Role;
+}): Promise<void> {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  if (!claims) redirect('/login');
+
+  const [ver] = await db
+    .select({ n: accounts.tokenVersion })
+    .from(users)
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
+    .where(eq(users.id, next.membershipId));
+
+  if (claims.sid) {
+    await db
+      .update(sessions)
+      .set({ tenantId: next.tenantId, userId: next.membershipId, lastSeenAt: new Date() })
+      .where(eq(sessions.id, claims.sid));
+  }
+
+  const fresh = await signAccess({
+    uid: next.membershipId,
+    tid: next.tenantId,
+    role: next.role,
+    sid: claims.sid,
+    ver: ver?.n ?? 0,
+  });
+
+  jar.set(COOKIE, fresh, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: MAX_AGE,
+  });
+}
+
+/**
  * Сессия с проверкой отзыва — там, где решается доступ, но редирект не
  * годится: маршруты, которые отдают файл или собственный ответ.
  *
