@@ -177,13 +177,13 @@ export const users = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    /* Пока жив старый код, этот индекс — последняя защита от двух
-       регистраций на один номер: проверка перед вставкой её не даёт,
-       между SELECT и INSERT помещается второй запрос. Снимется вместе с
-       кодом, который заменит его на accounts_phone_uniq. */
-    uniqueIndex('users_phone_uniq').on(t.phone),
     /* Дважды в одном бизнесе человека быть не может. Это и есть новый
-       смысл «номер занят»: занят он не глобально, а в этой точке. */
+       смысл «номер занят»: занят он не глобально, а в этой точке.
+
+       Прежний users_phone_uniq снят: он и был тем, из-за чего владелец
+       двух моек не мог вести обе. Защиту от двух регистраций на один
+       номер он больше не держит — её держит accounts_phone_uniq, там,
+       где ей и место: на человеке. */
     uniqueIndex('users_tenant_account_uniq').on(t.tenantId, t.accountId),
     index('users_tenant_idx').on(t.tenantId),
     index('users_account_idx').on(t.accountId),
@@ -655,7 +655,19 @@ export const pushTokens = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('push_tokens_uniq').on(t.token), index('push_tokens_user_idx').on(t.userId)],
+  /* Токен уникален В ПАРЕ С УЧАСТИЕМ, а не сам по себе.
+
+     У владельца двух моек один телефон и одно устройство, но два
+     участия — и уведомления он обязан получать с обеих. Прежний индекс
+     на одном токене этого не позволял: вторая мойка перезаписывала
+     строку первой, и первая замолкала.
+
+     Чистка по 410 от APNs по-прежнему идёт по токену: он ведущая
+     колонка пары, отдельный индекс для этого не нужен. */
+  (t) => [
+    uniqueIndex('push_tokens_token_user_uniq').on(t.token, t.userId),
+    index('push_tokens_user_idx').on(t.userId),
+  ],
 );
 
 export type Tenant = typeof tenants.$inferSelect;

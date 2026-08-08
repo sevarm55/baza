@@ -57,6 +57,11 @@ export default async function SettingsPage({
 
       <p className="note mt-3.5">{hy.settings.priceNote}</p>
 
+      <h2 className="h-section">{hy.points.title}</h2>
+      <a className="btn btn-ghost inline-block text-center no-underline" href="/owner/points">
+        {hy.points.title}
+      </a>
+
       <h2 className="h-section">{hy.settings.export}</h2>
       <a className="btn btn-ghost text-center no-underline" href="/owner/export?days=30" download>
         {hy.settings.exportCsv}

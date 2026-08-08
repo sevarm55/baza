@@ -89,9 +89,13 @@ function reasonFor(
   idle: number | null,
 ): Reason | null {
   if (state === 'blocked') return { text: 'отключён', rank: 0 };
-  if (state === 'expired') return { text: 'срок вышел', rank: 1 };
-  if (orders === 0) return { text: 'ни одной записи', rank: 2 };
-  if (daysLeft <= 3) return { text: `осталось ${daysLeft} дн`, rank: 3 };
-  if (idle !== null && idle > 7) return { text: `тишина ${idle} дн`, rank: 4 };
+  /* Выше просрочки: человек только что завёл вторую точку и прямо сейчас
+     сидит перед стеной «начнём после оплаты». Он ждёт нашего звонка, а
+     не мы его. У просрочки такой срочности нет — там работали месяцами. */
+  if (state === 'unpaid') return { text: 'ждёт оплаты', rank: 1 };
+  if (state === 'expired') return { text: 'срок вышел', rank: 2 };
+  if (orders === 0) return { text: 'ни одной записи', rank: 3 };
+  if (daysLeft <= 3) return { text: `осталось ${daysLeft} дн`, rank: 4 };
+  if (idle !== null && idle > 7) return { text: `тишина ${idle} дн`, rank: 5 };
   return null;
 }

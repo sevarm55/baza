@@ -168,6 +168,11 @@
 .dotBlocked {
   background: var(--color-bad);
 }
+/* Ждёт оплаты — не беда и не норма: точку завели, деньги ещё не взяли.
+   Тот же цвет, что у просрочки: в обоих случаях надо звонить. */
+.dotUnpaid {
+  background: var(--color-warn);
+}
 
 .badge {
   font-size: 11px;
@@ -193,6 +198,10 @@
 .badgeBlocked {
   background: var(--color-bad-bg);
   color: var(--color-bad-ink);
+}
+.badgeUnpaid {
+  background: var(--color-warn-bg);
+  color: var(--color-warn-ink);
 }
 
 .meta {

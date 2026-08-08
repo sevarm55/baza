@@ -1,8 +1,8 @@
 import http2 from 'node:http2';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, ne, notInArray } from 'drizzle-orm';
 import { SignJWT, importPKCS8 } from 'jose';
 import { db } from './db';
-import { pushTokens, users } from './db/schema';
+import { accounts, pushTokens, users } from './db/schema';
 
 /**
  * Пуш-уведомления через APNs.
@@ -199,13 +199,19 @@ export async function notifyPlatform(note: Note) {
     .filter(Boolean);
   if (phones.length === 0) return;
 
+  /* Номер ищем у человека, а не в копии на участии: копия доживает свой
+     век и однажды исчезнет. */
   const rows = await db
     .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
     .from(pushTokens)
     .innerJoin(users, eq(users.id, pushTokens.userId))
-    .where(and(inArray(users.phone, phones), eq(users.active, true)));
+    .innerJoin(accounts, eq(accounts.id, users.accountId))
+    .where(and(inArray(accounts.phone, phones), eq(users.active, true)));
 
-  await deliver(rows, note);
+  /* По строке на каждое участие — значит у админа с двумя точками один и
+     тот же телефон встретится дважды, и уведомление придёт двойным. */
+  const once = new Map(rows.map((r) => [r.token, r]));
+  await deliver([...once.values()], note);
 }
 
 export function notifyPlatformInBackground(note: Note) {
@@ -230,21 +236,39 @@ export function notifyOwnersInBackground(
 export async function rememberToken(input: {
   tenantId: string;
   userId: string;
+  /** чей это человек: по нему отличаем «его вторая точка» от «чужой телефон» */
+  accountId: string;
   token: string;
   sandbox: boolean;
 }) {
+  /* Телефон мог перейти к другому человеку — тогда все чужие строки с
+     этим токеном надо снять, иначе прежний владелец продолжит получать
+     уведомления о чужой мойке. Своих строк это не касается: у человека с
+     двумя точками их две, по одной на участие, и обе нужны.
+
+     Это единственное место во всей затее, где ошибка отправляет данные
+     наружу, а не просто отказывает. */
+  await db.delete(pushTokens).where(
+    and(
+      eq(pushTokens.token, input.token),
+      notInArray(
+        pushTokens.userId,
+        db.select({ id: users.id }).from(users).where(eq(users.accountId, input.accountId)),
+      ),
+    ),
+  );
+
   await db
     .insert(pushTokens)
-    .values(input)
+    .values({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      token: input.token,
+      sandbox: input.sandbox,
+    })
     .onConflictDoUpdate({
-      target: pushTokens.token,
-      // токен мог переехать к другому человеку на том же телефоне
-      set: {
-        userId: input.userId,
-        tenantId: input.tenantId,
-        sandbox: input.sandbox,
-        seenAt: new Date(),
-      },
+      target: [pushTokens.token, pushTokens.userId],
+      set: { tenantId: input.tenantId, sandbox: input.sandbox, seenAt: new Date() },
     });
 }
 

@@ -94,7 +94,14 @@ export async function unblockTenant(tenantId: string): Promise<void> {
   await db
     .update(tenants)
     .set({
-      plan: sql`case when ${tenants.paidUntil} > now() then 'active' else 'trial' end`,
+      /* У точки, заведённой второй, trial_ends_at пуст: пробный срок
+         человек уже израсходовал. Верни мы ей 'trial', она молча стала бы
+         'expired' — «срок вышел» у бизнеса, который ни дня не работал. */
+      plan: sql`case
+        when ${tenants.paidUntil} > now() then 'active'
+        when ${tenants.trialEndsAt} is null then 'unpaid'
+        else 'trial'
+      end`,
     })
     .where(eq(tenants.id, tenantId));
 

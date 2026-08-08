@@ -14,6 +14,8 @@ const STATE_LABEL: Record<Access['state'], string> = {
   trial: 'Триал',
   expired: 'Просрочено',
   blocked: 'Отключён',
+  // заведена владельцем и ждёт первой оплаты: пробный срок уже израсходован
+  unpaid: 'Ждёт оплаты',
 };
 
 export default async function AdminPage() {
@@ -140,7 +142,13 @@ export default async function AdminPage() {
 
 function dotClass(state: Access['state']) {
   return (
-    { active: 'dotActive', trial: 'dotTrial', expired: 'dotExpired', blocked: 'dotBlocked' } as const
+    {
+      active: 'dotActive',
+      trial: 'dotTrial',
+      expired: 'dotExpired',
+      blocked: 'dotBlocked',
+      unpaid: 'dotUnpaid',
+    } as const
   )[state];
 }
 
@@ -151,6 +159,7 @@ function badgeClass(state: Access['state']) {
       trial: 'badgeTrial',
       expired: 'badgeExpired',
       blocked: 'badgeBlocked',
+      unpaid: 'badgeUnpaid',
     } as const
   )[state];
 }

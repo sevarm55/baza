@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     await rememberToken({
       tenantId: ctx.tenant.id,
       userId: ctx.user.id,
+      accountId: ctx.account.id,
       token,
       sandbox: input?.sandbox === true,
     });

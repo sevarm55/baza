@@ -163,6 +163,56 @@ export async function switchPoint(formData: FormData): Promise<void> {
   redirect(point.canRead ? (point.role === 'owner' ? '/owner' : '/work') : '/blocked');
 }
 
+/**
+ * Завести ещё одну точку.
+ *
+ * Только из кабинета и только владельцем. Кода не спрашиваем: человек
+ * только что вошёл, и второй вопрос про тот же код ничего не проверяет.
+ *
+ * Точка создаётся сразу закрытой — пробный срок даётся человеку один раз,
+ * и он его уже получил. Про это написано в форме ДО кнопки, а не после:
+ * узнать, что бесплатно не будет, человек должен до нажатия.
+ */
+export async function createPoint(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  const niche = String(formData.get('niche') ?? '');
+  const businessName = String(formData.get('businessName') ?? '').trim();
+
+  if (!isNicheAvailable(niche)) return { error: hy.errors.generic };
+  if (businessName.length < 2) return { error: hy.errors.required };
+
+  const me = await getUser(session.tid, session.uid);
+  if (!me?.accountId) redirect('/session-ended');
+
+  /* Открытое действие не должно быть фабрикой бизнесов: без потолка сюда
+     можно послать сто запросов подряд. Десять точек — это больше, чем
+     бывает у настоящей сети, и меньше, чем нужно для вреда. */
+  const mine = await listPoints(me.accountId);
+  if (mine.length >= 10) return { error: hy.errors.generic };
+
+  const made = await createBusiness({
+    niche: niche as NicheKey,
+    businessName,
+    ownerName: me.name,
+    accountId: me.accountId,
+  });
+
+  /* Сразу переводим туда: человек только что её завёл, и оставить его на
+     прежней точке значило бы заставить искать новую в списке. */
+  const [membership] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.tenantId, made.tenant.id), eq(users.accountId, me.accountId)));
+
+  await switchSession({ membershipId: membership.id, tenantId: made.tenant.id, role: 'owner' });
+  await markPointUsed(membership.id);
+
+  revalidatePath('/', 'layout');
+  redirect('/blocked');
+}
+
 /* -------------------------- сотрудники -------------------------- */
 
 export async function addStaff(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -184,6 +234,9 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   try {
     await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
   } catch (e) {
+    if (e instanceof catalog.ValidationError && e.message === 'ALREADY_IN_BUSINESS') {
+      return { error: hy.auth.alreadyInBusiness };
+    }
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
       return { error: hy.auth.phoneTaken };
     }

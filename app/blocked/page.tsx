@@ -39,6 +39,9 @@ export default async function BlockedPage() {
 
   const isOwner = session.role === 'owner';
   const blocked = access.state === 'blocked';
+  /* Точку завели минуту назад, и «Ժամկետը լրացել է» здесь было бы прямой
+     неправдой: ничего не истекло, оплаты просто ещё не было. */
+  const fresh = access.state === 'unpaid';
 
   const me = await getUser(session.tid, session.uid);
   const others = me?.accountId
@@ -61,11 +64,11 @@ export default async function BlockedPage() {
 
       <div className="relative mx-auto w-full max-w-[440px] px-6 pb-12">
         <h1 className="text-[30px] leading-tight font-bold text-white">
-          {blocked ? hy.billing.blockedTitle : hy.billing.wallTitle}
+          {fresh ? hy.points.freshTitle : blocked ? hy.billing.blockedTitle : hy.billing.wallTitle}
         </h1>
 
         <p className="mt-3.5 text-[15.5px] leading-relaxed text-white/80">
-          {blocked ? hy.billing.blockedText : hy.billing.wallLead}
+          {fresh ? hy.points.freshText : blocked ? hy.billing.blockedText : hy.billing.wallLead}
         </p>
 
         {/* Одна закрытая точка не имеет права запирать открытую. Без этого
@@ -111,7 +114,7 @@ export default async function BlockedPage() {
           {hy.billing.wallPhone}
         </a>
 
-        {isOwner && (
+        {isOwner && !fresh && (
           <>
             <div className="mt-4 flex gap-3">
               {/* За всё время: человек уходит, и отдать ему тридцать дней

@@ -609,11 +609,7 @@ async function main() {
   check('у владельца одной мойки одна точка', one.length === 1, one.length);
   check('и она его', one[0].id === tenant.id && one[0].role === 'owner');
 
-  /* Вторая точка того же человека сегодня невозможна: её не пускает
-     users_phone_uniq. Снимаем индекс ровно так, как это сделает этап,
-     где вторые точки включатся, — иначе порядок и отбор в переключателе
-     остались бы непроверенными до самого боя. */
-  await db.execute(sql`drop index users_phone_uniq`);
+  // вторая точка того же человека: то, ради чего всё и затевалось
   const [away] = await db
     .insert(users)
     .values({
@@ -654,7 +650,6 @@ async function main() {
   check('уволенная точка не показывается', (await listPoints(ownerAccountId)).length === 1);
 
   await db.delete(users).where(eq(users.id, away.id));
-  await db.execute(sql`create unique index users_phone_uniq on users (phone)`);
 
   const [live] = await db
     .insert(sessions)
@@ -1160,7 +1155,7 @@ async function main() {
   const [shiftService] = await (await import('../lib/queries')).listServices(tenant.id);
 
   const { addStaff: hire } = await import('../lib/catalog');
-  const rookie = await hire({
+  const { row: rookie } = await hire({
     tenantId: tenant.id,
     name: 'Նորեկ',
     phone: '+37455000192',
@@ -2324,6 +2319,105 @@ async function main() {
   const periodDays = Math.round((wPrev.to.getTime() - wPrev.from.getTime()) / 86_400_000);
   check('база ровно в один месяц, а не в два', baseDays >= 28 && baseDays <= 31, baseDays);
   check('и сопоставима с самим периодом', Math.abs(baseDays - periodDays) <= 3, [baseDays, periodDays]);
+
+  /* ---------- вторая точка ----------
+     Отдельный бизнес и отдельные номера: всё это заводит новых людей и
+     новые мойки, и попади оно в основной сценарий — поехали бы суммы,
+     которые проверяют совсем другое.                                    */
+
+  const { accountByPhone: findPerson, listPoints: pointsOf } = await import('../lib/accounts');
+
+  const net1 = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Ցանց 1',
+    ownerName: 'Սուրեն',
+    phone: '077 313 001',
+    pin: '7711',
+  });
+  check('первая точка получает пробный срок', net1.trialGranted);
+  check('и она открыта', currentAccess(net1.tenant).canRead, currentAccess(net1.tenant).state);
+
+  const human = await findPerson('+37477313001');
+  check('пробный срок отмечен у человека', human!.trialUsedAt !== null);
+
+  const net2 = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Ցանց 2',
+    ownerName: 'Սուրեն',
+    accountId: human!.id,
+  });
+  check('вторая точка пробного срока не получает', !net2.trialGranted);
+  check('у неё нет даты окончания пробного', net2.tenant.trialEndsAt === null);
+
+  const waiting = currentAccess(net2.tenant);
+  check('и она закрыта до оплаты', !waiting.canRead && !waiting.canWrite);
+  check(
+    'состояние именно «ждёт оплаты», а не «срок вышел»',
+    waiting.state === 'unpaid',
+    waiting.state,
+  );
+
+  const bothPoints = await pointsOf(human!.id);
+  check('у человека две точки', bothPoints.length === 2, bothPoints.length);
+  check('открытая идёт первой', bothPoints[0].id === net1.tenant.id);
+
+  /* Оплата закрывает вопрос обычным путём, без отдельной ветки. */
+  await db
+    .update(tenantTable)
+    .set({ plan: 'active', paidUntil: new Date(Date.now() + 30 * 86_400_000) })
+    .where(eq(tenantTable.id, net2.tenant.id));
+  const [paidPoint] = await db
+    .select()
+    .from(tenantTable)
+    .where(eq(tenantTable.id, net2.tenant.id));
+  check('после оплаты точка открывается', currentAccess(paidPoint).canRead);
+
+  /* Наём человека, который уже пользуется Tetrin: код у него свой, и
+     переписать его наймом нельзя — иначе это захват чужого доступа. */
+  const hired2 = await catalog.addStaff({
+    tenantId: net2.tenant.id,
+    name: 'Սուրեն',
+    phone: '077 313 002',
+    pin: '2200',
+    percent: 30,
+  });
+  check('новый человек нанимается с кодом', !hired2.attached);
+
+  const pinBefore = (await findPerson('+37477313002'))!;
+  const reHired = await catalog.addStaff({
+    tenantId: net1.tenant.id,
+    name: 'Սուրեն',
+    phone: '077 313 002',
+    pin: '9999',
+    percent: 40,
+  });
+  check('его же на вторую мойку берут без кода', reHired.attached);
+  const pinAfter = (await findPerson('+37477313002'))!;
+  check('и код ему НЕ переписывают', pinAfter.pinHash === pinBefore.pinHash);
+  check('процент на каждой точке свой', reHired.row.percent === 40 && hired2.row.percent === 30);
+
+  let refusal = '';
+  await catalog
+    .addStaff({
+      tenantId: net1.tenant.id,
+      name: 'Սուրեն',
+      phone: '077 313 002',
+      pin: '9999',
+      percent: 40,
+    })
+    .catch((e) => {
+      refusal = (e as Error).message;
+    });
+  check('дважды в один бизнес — отказ', refusal === 'ALREADY_IN_BUSINESS', refusal);
+
+  /* Удаление одной точки не трогает человека, если ему есть где
+     остаться: код, устройства и израсходованный пробный срок при нём. */
+  const { deleteBusiness: wipe } = await import('../lib/account');
+  await wipe(net2.tenant.id);
+  const survivor = await findPerson('+37477313001');
+  check('человек пережил удаление своей точки', survivor !== undefined);
+  check('и пробный срок остался израсходованным', survivor!.trialUsedAt !== null);
+  check('вторая точка у него осталась', (await pointsOf(survivor!.id)).length === 1);
 
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);

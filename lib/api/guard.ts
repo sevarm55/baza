@@ -1,7 +1,8 @@
 import type { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { tenants, users, type Tenant, type User } from '../db/schema';
+import { tenants, users, type Account, type Tenant, type User } from '../db/schema';
+import { accountOf } from '../accounts';
 import { readToken, sessionAlive, type Claims } from '../auth';
 import { currentAccess, type Access } from '../subscription';
 import { fail } from './respond';
@@ -21,7 +22,10 @@ import { fail } from './respond';
 export type ApiContext = {
   claims: Claims;
   tenant: Tenant;
+  /** участие: роль и процент на ЭТОЙ точке */
   user: User;
+  /** человек: телефон, код, его точки */
+  account: Account;
   access: Access;
 };
 
@@ -70,6 +74,11 @@ export async function authorize(
      которой человек ушёл. */
   if (user.tenantId !== claims.tid) return fail('UNAUTHORIZED', 401);
 
+  /* Человек, а не участие. Нужен там, где речь о нём самом: его точки,
+     его код, его устройство. `ctx.user` остаётся участием — иначе
+     пришлось бы править все маршруты разом. */
+  const account = await accountOf(user);
+
   const access = currentAccess(tenant);
   if (!need.anyPlan) {
     if (!access.canRead) return fail('SUBSCRIPTION_BLOCKED', 403);
@@ -77,7 +86,7 @@ export async function authorize(
   }
   if (need.owner && user.role !== 'owner') return fail('FORBIDDEN', 403);
 
-  return { claims, tenant, user, access };
+  return { claims, tenant, user, account, access };
 }
 
 /** Отличить контекст от готового ответа с ошибкой. */

@@ -29,8 +29,8 @@ export async function deleteBusiness(tenantId: string): Promise<{ people: number
       .from(users)
       .where(eq(users.tenantId, tenantId));
 
-    const phones = staff.map((s) => s.phone);
     const accountIds = [...new Set(staff.map((s) => s.accountId).filter(Boolean))] as string[];
+    let phones: string[] = [];
 
     await tx.delete(tenants).where(eq(tenants.id, tenantId));
 
@@ -38,7 +38,12 @@ export async function deleteBusiness(tenantId: string): Promise<{ people: number
        Тот, у кого не осталось ни одного участия, уходит вместе с
        последним: иначе его номер числился бы занятым навсегда, а
        завестись заново стало бы нечем. Именно этим номер и
-       освобождается. */
+       освобождается.
+
+       У кого осталась вторая мойка — остаётся и он сам, со своим кодом,
+       своими устройствами и своим израсходованным пробным сроком.
+       Удаление одной точки не имеет права выкидывать человека из
+       другой. */
     if (accountIds.length > 0) {
       const left = await tx
         .select({ accountId: users.accountId })
@@ -48,16 +53,26 @@ export async function deleteBusiness(tenantId: string): Promise<{ people: number
       const staying = new Set(left.map((r) => r.accountId));
       const gone = accountIds.filter((id) => !staying.has(id));
       if (gone.length > 0) {
+        const leaving = await tx
+          .select({ phone: accounts.phone })
+          .from(accounts)
+          .where(inArray(accounts.id, gone));
+        phones = leaving.map((r) => r.phone);
         await tx.delete(accounts).where(inArray(accounts.id, gone));
       }
     }
 
-    /* Номер уникален глобально (users_phone_uniq), так что здесь не
-       может оказаться чужих попыток входа. */
+    /* Только у тех, кто ушёл совсем. У кого осталась вторая мойка,
+       счётчик неудачных входов трогать нельзя: обнулять его удалением
+       соседней точки значило бы дать способ снимать защиту от перебора
+       с собственного номера. */
     if (phones.length > 0) {
       await tx.delete(loginAttempts).where(inArray(loginAttempts.phone, phones));
     }
 
-    return { people: phones.length };
+    /* Считаем участия, а не ушедших совсем: в логе интересно, сколько
+       человек лишились этой мойки, а не сколько из них попрощались с
+       продуктом целиком. */
+    return { people: staff.length };
   });
 }

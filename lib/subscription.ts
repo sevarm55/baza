@@ -18,7 +18,7 @@ import type { Tenant } from './db/schema';
  */
 
 export type Access = {
-  state: 'trial' | 'active' | 'expired' | 'blocked';
+  state: 'trial' | 'active' | 'expired' | 'blocked' | 'unpaid';
   /** сколько дней осталось; 0 если срок вышел */
   daysLeft: number;
   /** пускать ли в приложение вообще */
@@ -64,6 +64,18 @@ export function accessOf(
 ): Access {
   if (tenant.plan === 'blocked') {
     return { state: 'blocked', daysLeft: 0, canRead: false, canWrite: false, warn: true };
+  }
+
+  /* Вторая точка заводится сразу платной: пробный срок даётся человеку
+     один раз, а не каждой его мойке. Без отдельного состояния пустой
+     trial_ends_at читался бы как «expired», и продукт говорил бы «срок
+     лрацел» через секунду после создания точки — то есть врал бы.
+
+     Условие с paidUntil обязательно: точка, которую однажды оплатили и
+     которая потом просрочилась, обязана читаться именно как expired.
+     План к тому моменту уже 'active', но подстраховка дешевле разбора. */
+  if (tenant.plan === 'unpaid' && !tenant.paidUntil) {
+    return { state: 'unpaid', daysLeft: 0, canRead: false, canWrite: false, warn: true };
   }
 
   const paidLeft = daysBetween(now, tenant.paidUntil);
