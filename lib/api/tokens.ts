@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { sessions, users } from '../db/schema';
+import { accounts, sessions, users } from '../db/schema';
 import { signAccess, type Role } from '../auth';
 import { isUuid } from './respond';
 
@@ -72,16 +72,26 @@ export async function issueForDevice(params: {
     })
     .returning();
 
+  /* Поколение сессий живёт у человека, а не у его работы на точке:
+     сменил код — вышел из всех своих моек разом. legacyVer нужен, пока
+     встречаются участия, не привязанные к человеку. */
   const [user] = await db
-    .select({ ver: users.tokenVersion })
+    .select({ ver: accounts.tokenVersion, legacyVer: users.tokenVersion })
     .from(users)
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(eq(users.id, params.userId));
 
   const { token, hash: refreshHash } = mint(row.id);
   await db.update(sessions).set({ refreshHash }).where(eq(sessions.id, row.id));
 
   const access = await signAccess(
-    { uid: params.userId, tid: params.tenantId, role: params.role, sid: row.id, ver: user?.ver ?? 0 },
+    {
+      uid: params.userId,
+      tid: params.tenantId,
+      role: params.role,
+      sid: row.id,
+      ver: user?.ver ?? user?.legacyVer ?? 0,
+    },
     ACCESS_TTL,
   );
 
@@ -114,11 +124,13 @@ export async function rotate(token: string): Promise<Issued> {
       userId: sessions.userId,
       refreshHash: sessions.refreshHash,
       role: users.role,
-      ver: users.tokenVersion,
+      ver: accounts.tokenVersion,
+      legacyVer: users.tokenVersion,
       active: users.active,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(and(eq(sessions.id, sid), isNull(sessions.revokedAt)));
 
   if (!row || !row.refreshHash || !row.active) throw new RefreshRejected();
@@ -132,7 +144,7 @@ export async function rotate(token: string): Promise<Issued> {
 
   const role: Role = row.role === 'owner' ? 'owner' : 'staff';
   const access = await signAccess(
-    { uid: row.userId, tid: row.tenantId, role, sid: row.id, ver: row.ver },
+    { uid: row.userId, tid: row.tenantId, role, sid: row.id, ver: row.ver ?? row.legacyVer },
     ACCESS_TTL,
   );
 

@@ -543,8 +543,20 @@ async function main() {
 
   /* ---------- отзыв сессии ---------- */
 
-  const { sessions } = await import('../lib/db/schema');
+  const { sessions, accounts: accountsTable } = await import('../lib/db/schema');
   const auth = await import('../lib/auth');
+
+  /* Человек и его участие — разные строки. Проверки ниже про это и есть:
+     что гасится у участия, а что у человека. */
+  const [ownerRow] = await db.select().from(users).where(eq(users.id, owner.id));
+  check('у владельца есть человек', !!ownerRow.accountId, ownerRow.accountId);
+  const ownerAccountId = ownerRow.accountId!;
+  const [ownerAccount] = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.id, ownerAccountId));
+  check('код лежит у человека', ownerAccount.pinHash === ownerRow.pinHash);
+  check('и телефон тот же', ownerAccount.phone === ownerRow.phone, ownerAccount.phone);
 
   const [live] = await db
     .insert(sessions)
@@ -565,14 +577,38 @@ async function main() {
   const otherClaims = { ...claims, sid: other.id };
   check('второе устройство пока живо', await auth.sessionAlive(otherClaims));
 
-  await auth.revokeAllSessions(owner.id);
+  /* Увольнение на точке гасит сессии этого участия и НЕ трогает
+     поколение: человек может работать на второй мойке, и оттуда его
+     никто не выгонял. */
+  const [onPoint] = await db
+    .insert(sessions)
+    .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'iPad mini' })
+    .returning();
+  await auth.revokeMembershipSessions(owner.id);
+  check(
+    'увольнение гасит сессии участия',
+    !(await auth.sessionAlive({ ...claims, sid: onPoint.id })),
+  );
+  const [notBumped] = await db
+    .select({ ver: accountsTable.tokenVersion })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, ownerAccountId));
+  check('но поколение человека не двигает', notBumped.ver === 0, notBumped.ver);
+
+  // «выйти везде»: поколение сдвигается, и старые токены отпадают все разом
+  await auth.revokeAccountSessions(ownerAccountId);
   check('выход везде гасит и его', !(await auth.sessionAlive(otherClaims)));
 
   const [bumped] = await db
+    .select({ ver: accountsTable.tokenVersion })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, ownerAccountId));
+  check('поколение сессий сдвинулось у человека', bumped.ver === 1, bumped.ver);
+  const [legacyVer] = await db
     .select({ ver: users.tokenVersion })
     .from(users)
     .where(eq(users.id, owner.id));
-  check('поколение сессий сдвинулось', bumped.ver === 1, bumped.ver);
+  check('и в копии для старого кода тоже', legacyVer.ver === 1, legacyVer.ver);
 
   /* ---------- API v1 ---------- */
 
@@ -619,6 +655,33 @@ async function main() {
 
   const boot = await bootstrap(get('/bootstrap', tokens.access));
   check('с токеном — 200', boot.status === 200, boot.status);
+
+  /* Токен, где точка не та, в которой человек состоит. Подписан нами,
+     не просрочен, сессия жива — и всё равно отказ. Без этой проверки
+     токен, выписанный на одну мойку, открывал бы соседнюю: сегодня
+     мойка у человека одна и разницы нет, с двумя это дыра. */
+  const [probe] = await db
+    .insert(sessions)
+    .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'подмена' })
+    .returning();
+  const [ver] = await db
+    .select({ n: accountsTable.tokenVersion })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, ownerAccountId));
+
+  // сессия живая и поколение верное — единственное, что не так, это точка
+  const honest = await auth.signAccess(
+    { uid: owner.id, tid: tenant.id, role: 'owner', sid: probe.id, ver: ver.n },
+    '15m',
+  );
+  check('свежая сессия сама по себе работает', (await bootstrap(get('/bootstrap', honest))).status === 200);
+
+  const wrongPoint = await auth.signAccess(
+    { uid: owner.id, tid: second.tenant.id, role: 'owner', sid: probe.id, ver: ver.n },
+    '15m',
+  );
+  const trespass = await bootstrap(get('/bootstrap', wrongPoint));
+  check('но с чужой точкой — 401', trespass.status === 401, trespass.status);
   const b = await boot.json();
   check('термины бизнеса пришли', b.tenant.clientIdType === 'plate', b.tenant.clientIdType);
   // сверяем с базой, а не с числом: выше по скрипту одну услугу убрали

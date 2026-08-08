@@ -4,6 +4,7 @@ import { getNiche, type NicheKey } from './niches';
 import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
+import { claimAccount } from './accounts';
 import { eq } from 'drizzle-orm';
 
 import { TRIAL_DAYS } from './plan';
@@ -38,6 +39,11 @@ export async function createBusiness(input: CreateBusinessInput) {
 
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000);
 
+  /* Человек заводится до транзакции: он переживает бизнес и не должен
+     исчезать вместе с откатом. Осиротевший — без единого участия — не
+     мешает: следующая регистрация тем же номером его подберёт. */
+  const account = await claimAccount({ phone, pinHash: await hashPin(input.pin) });
+
   return db.transaction(async (tx) => {
     const [tenant] = await tx
       .insert(tenants)
@@ -56,8 +62,9 @@ export async function createBusiness(input: CreateBusinessInput) {
       .insert(users)
       .values({
         tenantId: tenant.id,
+        accountId: account.id,
         phone,
-        pinHash: await hashPin(input.pin),
+        pinHash: account.pinHash,
         name: input.ownerName.trim(),
         role: 'owner',
         percent: 0,

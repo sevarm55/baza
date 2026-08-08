@@ -26,6 +26,7 @@ import {
   verifyPin,
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
+import { accountByPhone } from '@/lib/accounts';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
@@ -98,9 +99,14 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
     .from(users)
     .where(and(eq(users.phone, phone), eq(users.active, true)));
 
+  /* Код принадлежит человеку, а не его работе на точке. Пока участие не
+     привязано к человеку — сверяем по его собственной копии. */
+  const account = user?.accountId ? await accountByPhone(phone) : undefined;
+  const secret = account?.pinHash ?? user?.pinHash;
+
   // одна и та же ошибка на неверный телефон и на неверный PIN —
   // иначе форма превращается в способ узнать, кто зарегистрирован
-  const ok = user ? await verifyPin(pin, user.pinHash) : false;
+  const ok = secret ? await verifyPin(pin, secret) : false;
   await noteLogin(phone, ip, ok);
   if (!user || !ok) return { error: hy.auth.wrongCredentials };
 

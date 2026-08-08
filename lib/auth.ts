@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { SignJWT, jwtVerify } from 'jose';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from './db';
-import { sessions, users } from './db/schema';
+import { accounts, sessions, users } from './db/schema';
 
 export { hashPin, verifyPin } from './pin';
 
@@ -114,17 +114,56 @@ export async function revokeSession(sid: string): Promise<void> {
     .where(and(eq(sessions.id, sid), isNull(sessions.revokedAt)));
 }
 
-/** Выйти на всех устройствах: и строки погасить, и поколение сдвинуть. */
-export async function revokeAllSessions(userId: string): Promise<void> {
+/**
+ * Закрыть человеку доступ к ОДНОЙ точке.
+ *
+ * Гасит сессии этого участия и не трогает поколение: поколение живёт у
+ * человека, а человек может работать и на другой мойке. Увольнение на
+ * одной точке не имеет права выкидывать его из второй — там его никто
+ * не увольнял.
+ */
+export async function revokeMembershipSessions(membershipId: string): Promise<void> {
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessions.userId, membershipId), isNull(sessions.revokedAt)));
+}
+
+/**
+ * Выйти везде: погасить все сессии человека и сдвинуть его поколение.
+ *
+ * Это про человека целиком, поэтому берёт все его участия разом. Смена
+ * PIN — единственное, что сюда попадает: код общий, значит и выход
+ * общий.
+ */
+export async function revokeAccountSessions(accountId: string): Promise<void> {
   await db.transaction(async (tx) => {
+    const memberships = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.accountId, accountId));
+
+    const ids = memberships.map((m) => m.id);
+    if (ids.length > 0) {
+      await tx
+        .update(sessions)
+        .set({ revokedAt: new Date() })
+        .where(and(inArray(sessions.userId, ids), isNull(sessions.revokedAt)));
+    }
+
     await tx
-      .update(sessions)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
-    await tx
-      .update(users)
-      .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
-      .where(eq(users.id, userId));
+      .update(accounts)
+      .set({ tokenVersion: sql`${accounts.tokenVersion} + 1` })
+      .where(eq(accounts.id, accountId));
+
+    /* Копия в users, пока она есть: схема обязана оставаться
+       совместимой со старым кодом, чтобы откат делался откатом кода. */
+    if (ids.length > 0) {
+      await tx
+        .update(users)
+        .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+        .where(inArray(users.id, ids));
+    }
   });
 }
 
@@ -151,17 +190,56 @@ export async function getSession(): Promise<Session | null> {
  * Один запрос по первичному ключу — дешевле, чем страница, которая её зовёт.
  */
 export async function sessionAlive(claims: Claims): Promise<boolean> {
-  // токены, выпущенные до появления таблицы, sid не имеют — пусть доживают
-  if (!claims.sid) return true;
+  /* Токены, выпущенные до появления таблицы сессий, sid не имеют. Их
+     нельзя ни найти, ни отозвать — но выкинуть их владельцев без
+     объяснения тоже нельзя, поэтому проверяем всё, что можно проверить
+     без строки сессии. Ветка уйдёт, когда истекут последние такие
+     cookie. */
+  if (!claims.sid) return aliveWithoutSession(claims);
 
   const [row] = await db
-    .select({ revokedAt: sessions.revokedAt, ver: users.tokenVersion, active: users.active })
+    .select({
+      revokedAt: sessions.revokedAt,
+      sessionUserId: sessions.userId,
+      membershipTenantId: users.tenantId,
+      active: users.active,
+      ver: accounts.tokenVersion,
+      legacyVer: users.tokenVersion,
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(eq(sessions.id, claims.sid));
 
   if (!row || row.revokedAt || !row.active) return false;
-  return row.ver === claims.ver;
+
+  /* Токен обязан говорить о той же сессии, том же участии и той же
+     точке, что и строка в базе. Раньше это не сверялось вообще: доступ
+     держался на том, что токен когда-то выписали правильно. Пока у
+     человека была одна мойка, разницы не было. С двумя старый токен
+     стал бы вечным пропуском в покинутую точку. */
+  if (row.sessionUserId !== claims.uid) return false;
+  if (row.membershipTenantId !== claims.tid) return false;
+
+  // ver у человека; legacy — для строк, которые ещё не привязаны
+  return (row.ver ?? row.legacyVer) === claims.ver;
+}
+
+async function aliveWithoutSession(claims: Claims): Promise<boolean> {
+  const [row] = await db
+    .select({
+      tenantId: users.tenantId,
+      active: users.active,
+      ver: accounts.tokenVersion,
+      legacyVer: users.tokenVersion,
+    })
+    .from(users)
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
+    .where(eq(users.id, claims.uid));
+
+  if (!row || !row.active) return false;
+  if (row.tenantId !== claims.tid) return false;
+  return (row.ver ?? row.legacyVer) === claims.ver;
 }
 
 /**

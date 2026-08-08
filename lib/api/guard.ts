@@ -63,6 +63,13 @@ export async function authorize(
   const [user] = await db.select().from(users).where(eq(users.id, claims.uid));
   if (!tenant || !user || !user.active) return fail('UNAUTHORIZED', 401);
 
+  /* Участие обязано принадлежать той точке, о которой говорит токен.
+     Проверки не было вовсе: доступ держался на том, что токен когда-то
+     выписали правильно. Пока у человека была одна мойка, разницы не
+     было — теперь старый токен стал бы вечным пропуском в точку, из
+     которой человек ушёл. */
+  if (user.tenantId !== claims.tid) return fail('UNAUTHORIZED', 401);
+
   const access = currentAccess(tenant);
   if (!need.anyPlan) {
     if (!access.canRead) return fail('SUBSCRIPTION_BLOCKED', 403);

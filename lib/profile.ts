@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { tenants, users } from './db/schema';
+import { accounts, tenants, users } from './db/schema';
 import { hashPin, verifyPin } from './pin';
 import { isValidPin } from './phone';
-import { revokeAllSessions } from './auth';
+import { revokeAccountSessions } from './auth';
+import { accountOf } from './accounts';
 
 /**
  * Профиль: имя, название бизнеса, PIN.
@@ -41,10 +42,20 @@ export async function changePin(userId: string, current: string, next: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new ProfileError('WRONG_PIN');
 
-  if (!(await verifyPin(current, user.pinHash))) throw new ProfileError('WRONG_PIN');
+  /* Код принадлежит человеку, а не его работе на точке. У кого две
+     мойки, тот входит одним кодом в обе — и меняет его один раз. */
+  const account = await accountOf(user);
+  if (!(await verifyPin(current, account.pinHash))) throw new ProfileError('WRONG_PIN');
 
-  await db.update(users).set({ pinHash: await hashPin(next) }).where(eq(users.id, userId));
-  await revokeAllSessions(userId);
+  const pinHash = await hashPin(next);
+  await db.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
+  // копия, пока схема обязана оставаться совместимой со старым кодом
+  await db.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
+
+  /* Выходим везде и на всех точках: смысл смены кода в том, что тот, у
+     кого старый уже есть, перестаёт работать. Оставь мы вторую мойку
+     открытой — смена кода стала бы наполовину бесполезной. */
+  await revokeAccountSessions(account.id);
 
   return user;
 }

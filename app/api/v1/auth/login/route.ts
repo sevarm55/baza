@@ -5,6 +5,7 @@ import { users } from '@/lib/db/schema';
 import { verifyPin } from '@/lib/pin';
 import { normalizePhone } from '@/lib/phone';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
+import { accountByPhone } from '@/lib/accounts';
 import { issueForDevice } from '@/lib/api/tokens';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
@@ -34,12 +35,18 @@ export async function POST(request: Request) {
       return fail('TOO_MANY_TRIES', 429, { retryAfter: guard.retryAfter });
     }
 
+    /* Код спрашиваем у человека, а не у его работы на точке: у кого две
+       мойки, тот входит одним кодом в обе. Пока участие не привязано к
+       человеку — сверяем по его собственной копии. */
     const [user] = await db
       .select()
       .from(users)
       .where(and(eq(users.phone, phone), eq(users.active, true)));
 
-    const good = user ? await verifyPin(pin, user.pinHash) : false;
+    const account = user?.accountId ? await accountByPhone(phone) : undefined;
+    const secret = account?.pinHash ?? user?.pinHash;
+
+    const good = secret ? await verifyPin(pin, secret) : false;
     await noteLogin(phone, ip, good);
     if (!user || !good) return fail('WRONG_CREDENTIALS', 401);
 

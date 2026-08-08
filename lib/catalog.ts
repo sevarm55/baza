@@ -4,7 +4,8 @@ import { services, shifts, tenants, users } from './db/schema';
 import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
-import { revokeAllSessions } from './auth';
+import { revokeMembershipSessions } from './auth';
+import { claimAccount } from './accounts';
 
 /**
  * Прайс и люди — то, что владелец правит из кабинета.
@@ -119,12 +120,16 @@ export async function addStaff(params: {
   const taken = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone));
   if (taken.length) throw new ValidationError('PHONE_TAKEN');
 
+  const pinHash = await hashPin(params.pin);
+  const account = await claimAccount({ phone, pinHash });
+
   const [row] = await db
     .insert(users)
     .values({
       tenantId: params.tenantId,
+      accountId: account.id,
       phone,
-      pinHash: await hashPin(params.pin),
+      pinHash,
       name,
       role: 'staff',
       percent: params.percent,
@@ -182,7 +187,10 @@ export async function deactivateStaff(params: {
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
 
-  await revokeAllSessions(params.id);
+  /* Только сессии этого участия. Поколение человека не двигаем: он
+     может работать на второй точке, и увольнение здесь не имеет права
+     выкидывать его оттуда. */
+  await revokeMembershipSessions(params.id);
 
   /* Закрываем открытую смену. Без этого у уволенного человека вечно
      горит зелёная точка «на мойке» — доступ отобрали, а присутствие

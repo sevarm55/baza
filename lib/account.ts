@@ -1,6 +1,6 @@
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './db';
-import { loginAttempts, tenants, users } from './db/schema';
+import { accounts, loginAttempts, tenants, users } from './db/schema';
 
 /**
  * Удаление бизнеса.
@@ -25,13 +25,32 @@ import { loginAttempts, tenants, users } from './db/schema';
 export async function deleteBusiness(tenantId: string): Promise<{ people: number }> {
   return db.transaction(async (tx) => {
     const staff = await tx
-      .select({ phone: users.phone })
+      .select({ phone: users.phone, accountId: users.accountId })
       .from(users)
       .where(eq(users.tenantId, tenantId));
 
     const phones = staff.map((s) => s.phone);
+    const accountIds = [...new Set(staff.map((s) => s.accountId).filter(Boolean))] as string[];
 
     await tx.delete(tenants).where(eq(tenants.id, tenantId));
+
+    /* Человек переживает бизнес — но только если ему есть где остаться.
+       Тот, у кого не осталось ни одного участия, уходит вместе с
+       последним: иначе его номер числился бы занятым навсегда, а
+       завестись заново стало бы нечем. Именно этим номер и
+       освобождается. */
+    if (accountIds.length > 0) {
+      const left = await tx
+        .select({ accountId: users.accountId })
+        .from(users)
+        .where(inArray(users.accountId, accountIds));
+
+      const staying = new Set(left.map((r) => r.accountId));
+      const gone = accountIds.filter((id) => !staying.has(id));
+      if (gone.length > 0) {
+        await tx.delete(accounts).where(inArray(accounts.id, gone));
+      }
+    }
 
     /* Номер уникален глобально (users_phone_uniq), так что здесь не
        может оказаться чужих попыток входа. */
