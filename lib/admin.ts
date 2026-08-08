@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSession } from './auth';
+import { getLiveSession } from './auth';
 import { getUser } from './queries';
 import { normalizePhone } from './phone';
 
@@ -22,7 +22,9 @@ function adminPhones(): string[] {
 }
 
 export async function getPlatformAdmin() {
-  const session = await getSession();
+  /* Живая сессия: отсюда блокируют бизнесы и правят наши платежи, и
+     отозванный доступ обязан закрывать админку раньше всего остального. */
+  const session = await getLiveSession();
   if (!session) return null;
 
   const user = await getUser(session.tid, session.uid);

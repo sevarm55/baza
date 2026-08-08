@@ -139,12 +139,32 @@ export async function rotate(token: string): Promise<Issued> {
   return { access, refresh: next.token, sessionId: row.id, expiresIn: 15 * 60 };
 }
 
-/** Погасить сессию по refresh-токену — выход из приложения. */
+/**
+ * Погасить сессию по refresh-токену — выход из приложения.
+ *
+ * Секрет сверяется так же, как при ротации, и это не формальность:
+ * идентификатор сессии не секрет — он лежит в токене целиком и виден в
+ * списке устройств. Без сверки любой, кто его узнал, гасил бы чужую
+ * сессию, ничего больше не зная. Гасить нужно предъявившему токен, а не
+ * назвавшему номер.
+ */
 export async function revokeByRefresh(token: string): Promise<void> {
   const dot = token.indexOf('.');
   if (dot < 1) return;
   const sid = token.slice(0, dot);
-  if (!isUuid(sid)) return;
+  const secret = token.slice(dot + 1);
+  if (!isUuid(sid) || !secret) return;
+
+  const [row] = await db
+    .select({ refreshHash: sessions.refreshHash })
+    .from(sessions)
+    .where(eq(sessions.id, sid));
+
+  /* Уже погашенная сессия хранит null — выход второй раз подряд просто
+     ничего не делает, и это не ошибка: приложение шлёт выход и при
+     потере ответа повторяет. */
+  if (!row?.refreshHash) return;
+  if (!same(row.refreshHash, hash(secret))) return;
 
   await db
     .update(sessions)

@@ -165,6 +165,25 @@ export async function sessionAlive(claims: Claims): Promise<boolean> {
 }
 
 /**
+ * Сессия с проверкой отзыва — там, где решается доступ, но редирект не
+ * годится: маршруты, которые отдают файл или собственный ответ.
+ *
+ * `getSession` для этого не подходит и никогда не подходил: он только
+ * разбирает cookie. Cookie живёт тридцать дней, и всё, что решало доступ
+ * по нему, продолжало работать месяц после «выйти везде» и после смены
+ * PIN — то есть ровно тогда, когда доступ и отбирают.
+ */
+export async function getLiveSession(): Promise<Session | null> {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  if (!claims) return null;
+  if (!(await sessionAlive(claims))) return null;
+
+  return { uid: claims.uid, tid: claims.tid, role: claims.role };
+}
+
+/**
  * Единственный способ получить сессию в защищённом коде.
  *
  * Server Actions доступны прямым POST-запросом, а не только из нашего UI,

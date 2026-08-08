@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getLiveSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant } from '@/lib/queries';
 import { buildOrdersCsv } from '@/lib/export-csv';
@@ -10,7 +10,10 @@ import { buildOrdersCsv } from '@/lib/export-csv';
  * Здесь остаётся только проверка прав и заголовки скачивания.
  */
 export async function GET(request: Request) {
-  const session = await getSession();
+  /* Живая сессия, а не просто разобранная cookie: здесь уезжает вся база
+     записей целиком, и отозванный доступ обязан закрывать именно это в
+     первую очередь. */
+  const session = await getLiveSession();
   if (!session || session.role !== 'owner') {
     return new Response('Unauthorized', { status: 401 });
   }

@@ -645,6 +645,29 @@ async function main() {
   const noDot = await refreshRoute(post('/refresh', { refresh: 'вообще-не-токен' }));
   check('и токен без разделителя тоже', noDot.status === 401, noDot.status);
 
+  /* Выход гасит сессию тому, кто предъявил токен, а не тому, кто назвал
+     её номер. Номер сессии не секрет: он лежит в токене открытым текстом
+     до точки и виден в списке устройств. Без сверки секрета знание
+     номера гасило бы чужую сессию. */
+  const logoutRoute = (await import('../app/api/v1/auth/logout/route')).POST;
+  const sid = rotated.refresh.slice(0, rotated.refresh.indexOf('.'));
+
+  const forged = await logoutRoute(post('/logout', { refresh: `${sid}.не-тот-секрет` }));
+  check('выход по чужому номеру отвечает 204', forged.status === 204, forged.status);
+  const stillAlive = await refreshRoute(post('/refresh', { refresh: rotated.refresh }));
+  check('но сессию не гасит', stillAlive.status === 200, stillAlive.status);
+  rotated = await stillAlive.json();
+
+  const bye = await logoutRoute(post('/logout', { refresh: rotated.refresh }));
+  check('свой токен выход принимает', bye.status === 204, bye.status);
+  const afterBye = await refreshRoute(post('/refresh', { refresh: rotated.refresh }));
+  check('и сессия умирает', afterBye.status === 401, afterBye.status);
+
+  // входим заново: дальше по файлу нужна живая пара
+  const backIn = await login(post('/login', { phone: '077 111 222', pin: '1234' }));
+  check('после выхода можно войти снова', backIn.status === 200, backIn.status);
+  rotated = await backIn.json();
+
   /* Идемпотентность записи — то, на чём держится офлайн-очередь. */
 
   /* Сначала встаём на смену: вне её сервер записывать не даёт, и без
@@ -1830,6 +1853,21 @@ async function main() {
      своими данными: иначе блокировка удерживает чужое. */
   const rebornBody = await reborn.json();
   const [rebornOwner] = await db.select().from(users).where(eq(users.phone, victimPhone));
+
+  /* Нанимаем до отключения: на закрытом счёте запись уже недоступна, а
+     проверить надо именно того, кто вошёл раньше и остался с живым
+     токеном в кармане. */
+  await staffRoute.POST(
+    post(
+      '/staff',
+      { name: 'Սամվել', phone: '077 654 323', pin: '4343', percent: 35 },
+      rebornBody.access,
+    ),
+  );
+  const workerRes = await login(post('/login', { phone: '077 654 323', pin: '4343' }));
+  const worker = await workerRes.json();
+  check('мойщик входит, пока счёт открыт', workerRes.status === 200, workerRes.status);
+
   await db
     .update(tenantTable)
     .set({ plan: 'blocked' })
@@ -1850,6 +1888,36 @@ async function main() {
   check('но смена уже недоступна', blockedShift.status === 403, blockedShift.status);
   const blockedSummary = await summary(get('/summary?period=today', rebornBody.access));
   check('и сводка тоже', blockedSummary.status === 403, blockedSummary.status);
+
+  /* Отключение бизнеса — не про владельца, а про бизнес: флаг лежит в
+     тенанте, и `authorize` смотрит на него раньше роли. Значит мойщик с
+     живым токеном закрывается тем же мгновением — иначе отключённый
+     бизнес продолжал бы работать чужими руками. */
+  const workerBoot = await bootstrap(get('/bootstrap', worker.access));
+  check('мойщик тоже узнаёт своё состояние', workerBoot.status === 200, workerBoot.status);
+  check('и у него доступ закрыт', (await workerBoot.json()).access.canRead === false);
+
+  const workerShift = await shiftApi.GET(get('/shift', worker.access));
+  check('мойщику смена закрыта', workerShift.status === 403, workerShift.status);
+  const workerOrder = await ordersRoute.POST(
+    post('/orders', { plate: '11 QQ 111', serviceIds: [], price: 3000 }, worker.access),
+  );
+  check('и записать машину он не может', workerOrder.status === 403, workerOrder.status);
+
+  /* Вход остаётся открытым намеренно — иначе мойщик упёрся бы в «неверный
+     номер или код» и решил, что его уволили. Пускаем внутрь и там
+     объясняем; работать всё равно нечем. */
+  const workerLogin = await login(post('/login', { phone: '077 654 323', pin: '4343' }));
+  check('войти заново он может', workerLogin.status === 200, workerLogin.status);
+  const freshShift = await shiftApi.GET(get('/shift', (await workerLogin.json()).access));
+  check('но свежий токен так же пуст', freshShift.status === 403, freshShift.status);
+
+  /* А вот забрать чужое ему нельзя и на закрытом счёте: выгрузка и
+     удаление открыты владельцу, а не всякому, кто остался в бизнесе. */
+  const workerExport = await exportRoute.GET(get('/export?days=all', worker.access));
+  check('выгрузка мойщику закрыта', workerExport.status === 403, workerExport.status);
+  const workerWipe = await accountRoute(del('/account', { pin: '4343' }, worker.access));
+  check('и удалить бизнес он не может', workerWipe.status === 403, workerWipe.status);
 
   const blockedExport = await exportRoute.GET(get('/export?days=all', rebornBody.access));
   check('но выгрузку он получает', blockedExport.status === 200, blockedExport.status);

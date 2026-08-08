@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { users } from '@/lib/db/schema';
 import { getTenant } from '@/lib/queries';
-import { endSession, getSession } from '@/lib/auth';
+import { endSession, getLiveSession } from '@/lib/auth';
 import { verifyPin } from '@/lib/pin';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { deleteBusiness } from '@/lib/account';
@@ -29,7 +29,7 @@ import { buildOrdersCsv } from '@/lib/export-csv';
 export async function POST(request: Request) {
   await ensureDb();
 
-  const session = await getSession();
+  const session = await getLiveSession();
   if (!session || session.role !== 'owner') {
     return new Response('Unauthorized', { status: 401 });
   }
