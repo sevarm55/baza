@@ -5,7 +5,7 @@ import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
 import { revokeMembershipSessions } from './auth';
-import { claimAccount } from './accounts';
+import { claimAccount, PhoneTakenError } from './accounts';
 
 /**
  * Прайс и люди — то, что владелец правит из кабинета.
@@ -121,7 +121,12 @@ export async function addStaff(params: {
   if (taken.length) throw new ValidationError('PHONE_TAKEN');
 
   const pinHash = await hashPin(params.pin);
-  const account = await claimAccount({ phone, pinHash });
+  /* Занятый номер ловится индексом, а не проверкой выше: та читает
+     users и между чтением и вставкой пропускает второй такой же наём. */
+  const account = await claimAccount({ phone, pinHash }).catch((e) => {
+    if (e instanceof PhoneTakenError) throw new ValidationError('PHONE_TAKEN');
+    throw e;
+  });
 
   const [row] = await db
     .insert(users)

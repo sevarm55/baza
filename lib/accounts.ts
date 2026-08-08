@@ -45,79 +45,71 @@ export async function accountOf(user: {
     if (row) return row;
   }
 
-  const account = await ensureAccount({
-    phone: user.phone,
-    pinHash: user.pinHash,
-    tokenVersion: user.tokenVersion,
-    createdAt: user.createdAt,
-  });
+  /* Одним запросом, и при совпадении по номеру — ПЕРЕЗАПИСЫВАЕМ чужую
+     строку своей копией, а не усыновляем её.
+
+     Разница тут не косметическая. Найденный по номеру человек может
+     оказаться осиротевшим от удалённого бизнеса, с чужим кодом внутри;
+     усынови мы его — и код входа в это участие молча стал бы чужим:
+     хозяин перестал бы входить своим, а тот, кто знает старый, начал бы
+     входить.
+
+     Перезапись безопасна, пока жив users_phone_uniq: он гарантирует, что
+     строка users с этим номером в базе одна — вот эта. Значит найденный
+     человек участий не имеет, и терять в нём нечего. Когда индекс
+     снимется, этот путь должен уйти вместе с ним. */
+  const [account] = await db
+    .insert(accounts)
+    .values({
+      phone: user.phone,
+      pinHash: user.pinHash,
+      tokenVersion: user.tokenVersion,
+      createdAt: user.createdAt,
+    })
+    .onConflictDoUpdate({
+      target: accounts.phone,
+      set: { pinHash: user.pinHash, tokenVersion: user.tokenVersion },
+    })
+    .returning();
 
   await db.update(users).set({ accountId: account.id }).where(eq(users.id, user.id));
   return account;
 }
 
-/**
- * Найти человека по номеру или завести.
- *
- * Гонку ловит уникальный индекс, а не проверка перед вставкой: между
- * SELECT и INSERT помещается второй такой же запрос, и два одновременных
- * входа завели бы двух людей с одним номером. `onConflictDoNothing`
- * плюс повторное чтение — единственный способ, который этого не
- * допускает.
- */
-export async function ensureAccount(input: {
-  phone: string;
-  pinHash: string;
-  tokenVersion?: number;
-  createdAt?: Date;
-}): Promise<Account> {
-  const [created] = await db
-    .insert(accounts)
-    .values({
-      phone: input.phone,
-      pinHash: input.pinHash,
-      tokenVersion: input.tokenVersion ?? 0,
-      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
-    })
-    .onConflictDoNothing({ target: accounts.phone })
-    .returning();
-
-  if (created) return created;
-
-  const [existing] = await db.select().from(accounts).where(eq(accounts.phone, input.phone));
-  return existing;
+/** Номер уже принадлежит человеку. */
+export class PhoneTakenError extends Error {
+  constructor() {
+    super('PHONE_TAKEN');
+  }
 }
 
 /**
  * Завести человека под новое участие: регистрация бизнеса или наём.
  *
- * Код назначается ТОЛЬКО при создании человека. Это правило, а не
- * деталь: если бы наём умел назначать код тому, кто уже есть, владелец
- * одной мойки вводил бы номер владельца другой, ставил свой код и
- * заходил в чужой бизнес. Здесь такой вход закрыт тем, что переписать
- * код существующему человеку эта функция не умеет вовсе.
+ * Код назначается ТОЛЬКО при создании человека, и переписать его эта
+ * функция не умеет вовсе. Это правило, а не деталь: умей она ставить
+ * код тому, кто уже есть, владелец одной мойки ввёл бы номер владельца
+ * другой, назначил свой код и вошёл бы в чужой бизнес.
  *
- * Осиротевший человек — исключение, и оно безопасное: если участий у
- * него не осталось ни одного, войти под ним некуда, и код можно ставить
- * заново. Так номер и освобождается после удаления бизнеса.
+ * Номер занят — отказ, и не «наверное занят», а по уникальному индексу.
+ * Проверка перед вставкой такой гарантии не даёт: между SELECT и INSERT
+ * помещается второй такой же запрос. Первая версия этой функции как раз
+ * читала `users`, чтобы решить «человек осиротел, код можно заменить», —
+ * и решала это по строке, которую соседняя незакоммиченная транзакция
+ * ещё не вставила. Две одновременные регистрации на свободный номер
+ * заканчивались тем, что код второго ложился на бизнес первого: хозяин
+ * не входил своим, а чужой входил владельцем.
+ *
+ * Номер после удаления бизнеса освобождается не здесь, а тем, что
+ * `deleteBusiness` уносит человека без единого участия.
  */
 export async function claimAccount(input: { phone: string; pinHash: string }): Promise<Account> {
-  const account = await ensureAccount(input);
+  const [created] = await db
+    .insert(accounts)
+    .values({ phone: input.phone, pinHash: input.pinHash })
+    .onConflictDoNothing({ target: accounts.phone })
+    .returning();
 
-  const [membership] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.accountId, account.id))
-    .limit(1);
-
-  if (!membership && account.pinHash !== input.pinHash) {
-    const [reset] = await db
-      .update(accounts)
-      .set({ pinHash: input.pinHash })
-      .where(eq(accounts.id, account.id))
-      .returning();
-    return reset;
-  }
-
-  return account;
+  if (!created) throw new PhoneTakenError();
+  return created;
 }

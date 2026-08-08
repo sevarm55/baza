@@ -48,9 +48,14 @@ export async function changePin(userId: string, current: string, next: string) {
   if (!(await verifyPin(current, account.pinHash))) throw new ProfileError('WRONG_PIN');
 
   const pinHash = await hashPin(next);
-  await db.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
-  // копия, пока схема обязана оставаться совместимой со старым кодом
-  await db.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
+  /* Одной транзакцией: оборвись она между двумя записями, у человека
+     остался бы новый код на входе и старый в подтверждении удаления
+     бизнеса — и он не смог бы ни то, ни другое объяснить. */
+  await db.transaction(async (tx) => {
+    await tx.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
+    // копия, пока схема обязана оставаться совместимой со старым кодом
+    await tx.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
+  });
 
   /* Выходим везде и на всех точках: смысл смены кода в том, что тот, у
      кого старый уже есть, перестаёт работать. Оставь мы вторую мойку

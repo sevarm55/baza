@@ -39,6 +39,8 @@ const out: string[] = [];
 const tenantId = randomUUID();
 const ownerId = randomUUID();
 const staffId = randomUUID();
+const ownerAccountId = randomUUID();
+const staffAccountId = randomUUID();
 
 const services = [
   { id: randomUUID(), name: 'Կոմպլեքս', price: 5000, sort: 0 },
@@ -86,10 +88,19 @@ async function main() {
 insert into tenants (id, name, niche, client_id_label, client_id_type, staff_role, unit_one, plan, paid_until)
 values (${q(tenantId)}, ${q('Tetrin Դեմո')}, 'carwash', ${q('Պետհամարանիշ')}, 'plate', ${q('Լվացող')}, ${q('մեքենա')}, 'active', timestamptz '2099-01-01 00:00:00+04');`);
 
+  /* Человек заводится раньше участия: телефон и код принадлежат ему, а
+     строка users — только его работе на этой мойке. Без этого демо
+     осталось бы единственным местом в продукте, где участие висит без
+     человека. */
   out.push(`
-insert into users (id, tenant_id, phone, pin_hash, name, role, percent) values
-  (${q(ownerId)}, ${q(tenantId)}, ${q(OWNER_PHONE)}, ${q(ownerHash)}, ${q('Արամ')}, 'owner', 0),
-  (${q(staffId)}, ${q(tenantId)}, ${q(STAFF_PHONE)}, ${q(staffHash)}, ${q('Դավիթ')}, 'staff', 40);`);
+insert into accounts (id, phone, pin_hash) values
+  (${q(ownerAccountId)}, ${q(OWNER_PHONE)}, ${q(ownerHash)}),
+  (${q(staffAccountId)}, ${q(STAFF_PHONE)}, ${q(staffHash)});`);
+
+  out.push(`
+insert into users (id, tenant_id, account_id, phone, pin_hash, name, role, percent) values
+  (${q(ownerId)}, ${q(tenantId)}, ${q(ownerAccountId)}, ${q(OWNER_PHONE)}, ${q(ownerHash)}, ${q('Արամ')}, 'owner', 0),
+  (${q(staffId)}, ${q(tenantId)}, ${q(staffAccountId)}, ${q(STAFF_PHONE)}, ${q(staffHash)}, ${q('Դավիթ')}, 'staff', 40);`);
 
   out.push(`
 insert into services (id, tenant_id, name, price, sort) values

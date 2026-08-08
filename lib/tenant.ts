@@ -5,7 +5,6 @@ import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
 import { claimAccount } from './accounts';
-import { eq } from 'drizzle-orm';
 
 import { TRIAL_DAYS } from './plan';
 
@@ -17,11 +16,10 @@ export type CreateBusinessInput = {
   pin: string;
 };
 
-export class PhoneTakenError extends Error {
-  constructor() {
-    super('PHONE_TAKEN');
-  }
-}
+/* Одна ошибка на весь продукт: раньше «номер занят» решалось чтением
+   users здесь, а теперь — уникальным индексом на человеке. Класс тот же,
+   чтобы `instanceof` у всех вызывающих продолжал работать. */
+export { PhoneTakenError } from './accounts';
 
 /**
  * Регистрация бизнеса.
@@ -34,14 +32,12 @@ export async function createBusiness(input: CreateBusinessInput) {
   const niche = getNiche(input.niche);
   const phone = normalizePhone(input.phone);
 
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone));
-  if (existing.length) throw new PhoneTakenError();
-
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000);
 
-  /* Человек заводится до транзакции: он переживает бизнес и не должен
-     исчезать вместе с откатом. Осиротевший — без единого участия — не
-     мешает: следующая регистрация тем же номером его подберёт. */
+  /* Человек заводится первым, и он же решает, свободен ли номер: занятость
+     ловится уникальным индексом на телефоне, а не чтением users перед
+     вставкой. Чтение здесь было и лишним, и обманчивым — между ним и
+     вставкой помещается вторая такая же регистрация. */
   const account = await claimAccount({ phone, pinHash: await hashPin(input.pin) });
 
   return db.transaction(async (tx) => {

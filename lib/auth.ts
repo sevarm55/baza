@@ -78,12 +78,23 @@ export async function startSession(
     })
     .returning();
 
+  /* Поколение берётся оттуда же, откуда его потом читает sessionAlive, —
+     у человека. Возьми мы копию из users, любое расхождение между ними
+     превращало бы вход в петлю: cookie выдаётся, первая же страница
+     сверяет поколение по человеку, не сходится, и человека выбрасывает
+     на /session-ended. Причём в приложении всё работало бы — оно давно
+     берёт поколение у человека. */
   const [user] = await db
-    .select({ ver: users.tokenVersion })
+    .select({ ver: accounts.tokenVersion, legacyVer: users.tokenVersion })
     .from(users)
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(eq(users.id, session.uid));
 
-  const token = await signAccess({ ...session, sid: row.id, ver: user?.ver ?? 0 });
+  const token = await signAccess({
+    ...session,
+    sid: row.id,
+    ver: user?.ver ?? user?.legacyVer ?? 0,
+  });
 
   const jar = await cookies();
   jar.set(COOKIE, token, {

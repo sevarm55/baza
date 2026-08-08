@@ -558,6 +558,48 @@ async function main() {
   check('код лежит у человека', ownerAccount.pinHash === ownerRow.pinHash);
   check('и телефон тот же', ownerAccount.phone === ownerRow.phone, ownerAccount.phone);
 
+  /* Участие без человека — состояние, которое оставляет старый код в
+     окне между выкатом схемы и выкатом этого кода. Чинится оно на лету,
+     и чинить обязано СВОЕЙ копией: если рядом лежит осиротевший человек
+     с тем же номером и чужим кодом, усыновление сделало бы чужой код
+     кодом входа сюда. */
+  const { claimAccount } = await import('../lib/accounts');
+  const { hashPin: hp, verifyPin: vp } = await import('../lib/pin');
+
+  const strayPhone = '+37477000777';
+  const stray = await claimAccount({ phone: strayPhone, pinHash: await hp('8888') });
+  const [orphaned] = await db
+    .insert(users)
+    .values({
+      tenantId: tenant.id,
+      phone: strayPhone,
+      pinHash: await hp('1234'),
+      name: 'Ничей',
+      role: 'staff',
+      percent: 10,
+    })
+    .returning();
+  const healed = await (await import('../lib/accounts')).accountOf(orphaned);
+  check('участие без человека чинится', healed.id === stray.id, healed.id === stray.id);
+  check('и чинится СВОИМ кодом, а не чужим', await vp('1234', healed.pinHash));
+  check('чужой код входом не становится', !(await vp('8888', healed.pinHash)));
+  await db.delete(users).where(eq(users.id, orphaned.id));
+  await db.delete(accountsTable).where(eq(accountsTable.id, stray.id));
+
+  /* Занятый номер отвергается индексом, а не чтением перед вставкой:
+     между чтением и вставкой помещается вторая такая же регистрация, и
+     первая версия кода в этом окне переписывала чужой код своим. */
+  let raced = false;
+  await claimAccount({ phone: ownerRow.phone, pinHash: await hp('0000') }).catch(() => {
+    raced = true;
+  });
+  check('занятый номер человеком не перехватывается', raced);
+  const [untouched] = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.id, ownerAccountId));
+  check('и код прежнего владельца цел', untouched.pinHash === ownerAccount.pinHash);
+
   const [live] = await db
     .insert(sessions)
     .values({ tenantId: tenant.id, userId: owner.id, kind: 'app', device: 'iPhone' })
