@@ -13,10 +13,48 @@ import { sql } from 'drizzle-orm';
 
 /* ---------------------------------------------------------------------------
    Мультитенантность
-   Один сервер обслуживает много бизнесов. tenant_id есть на каждой таблице
-   и подставляется в КАЖДЫЙ запрос слоем доступа к данным (lib/db/scope.ts).
-   Прямых запросов к db из компонентов быть не должно — только через scope.
+   Один сервер обслуживает много бизнесов. tenant_id есть на каждой таблице.
+   Отдельного слоя, который подставлял бы его сам, НЕТ: tenant_id приходит
+   из подписанного токена и передаётся в запросы руками. Гарантия держится
+   на двух строках — проверке членства в lib/api/guard.ts и в sessionAlive.
 --------------------------------------------------------------------------- */
+
+/**
+ * Человек.
+ *
+ * Здесь и только здесь живёт правило «один номер = один человек». Раньше
+ * оно жило в users, и из-за этого один и тот же человек не мог держать две
+ * мойки: строка users была одновременно и личностью, и участием в бизнесе.
+ * Теперь личность отдельно — телефон, код, поколение сессий, — а участие
+ * осталось в users (см. комментарий там).
+ *
+ * Имени тут нет намеренно. Имя даёт бизнес: у одного владельца человек
+ * записан «Ашот», у другого «Ашот Петросян». Лежи оно здесь, правка в
+ * одной точке переименовывала бы человека во всех.
+ *
+ * Каскадом не удаляется никогда: бизнес можно стереть, человек остаётся.
+ * Вместе с ним остаётся и trial_used_at — иначе «удалил и завёл заново»
+ * стало бы способом получать пробный срок бесконечно.
+ */
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** телефон в E.164, уникален глобально */
+    phone: text('phone').notNull(),
+    pinHash: text('pin_hash').notNull(),
+    /**
+     * Поколение сессий. Растёт при смене PIN и при «выйти везде»: все
+     * выданные раньше токены сразу перестают действовать, не дожидаясь
+     * своего срока. Без этого сменить PIN после кражи телефона бесполезно.
+     */
+    tokenVersion: integer('token_version').notNull().default(0),
+    /** когда человеку выдали пробный срок; null — ещё не выдавали */
+    trialUsedAt: timestamp('trial_used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('accounts_phone_uniq').on(t.phone)],
+);
 
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -58,6 +96,19 @@ export const tenants = pgTable('tenants', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Участие человека в одном бизнесе.
+ *
+ * Таблица называется users по историческим причинам и переименована не
+ * будет: на неё смотрят восемь внешних ключей — заказы, смены, выплаты,
+ * расходы, сессии, токены уведомлений, журнал. Все они и должны указывать
+ * именно сюда: машину помыл человек НА ЭТОЙ мойке, с процентом ЭТОЙ мойки.
+ *
+ * Личность живёт в accounts. Здесь — роль, процент, доступ и имя, каким
+ * человека зовут в этом бизнесе. Один человек с двумя мойками имеет две
+ * строки: свой процент на каждой, своя смена на каждой, увольнение на
+ * одной не трогает другую.
+ */
 export const users = pgTable(
   'users',
   {
@@ -65,7 +116,25 @@ export const users = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    /** телефон в E.164, уникален глобально: один номер = один аккаунт */
+    /**
+     * Чьё это участие.
+     *
+     * Пока допускает NULL, и это временно. Колонка приезжает раньше кода,
+     * который её заполняет: миграция и переход на accounts выкатываются
+     * порознь, чтобы рискованное шло в деплое, где больше ничего нет.
+     * Всё, что уже лежало в базе, заполнено переносом; строки, которые
+     * заведёт старый код между двумя выкатами, добьёт следующая миграция —
+     * она же поставит NOT NULL.
+     */
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    /**
+     * Копии полей аккаунта.
+     *
+     * Оставлены заполненными намеренно: пока идёт переезд, схема обязана
+     * оставаться совместимой со старым кодом, чтобы откат делался откатом
+     * кода и не требовал отката базы. Читать их новый код не должен —
+     * источник правды в accounts.
+     */
     phone: text('phone').notNull(),
     pinHash: text('pin_hash').notNull(),
     name: text('name').notNull(),
@@ -88,11 +157,28 @@ export const users = pgTable(
      * навсегда.
      */
     notifyOrders: boolean('notify_orders').notNull().default(true),
+    /**
+     * Куда вести человека после входа.
+     *
+     * У кого одна точка — поле не значит ничего. У кого несколько — это
+     * ответ на вопрос «в какой из них он работал в прошлый раз»: выбирать
+     * по алфавиту или по дате создания значило бы каждое утро высаживать
+     * его не на той мойке.
+     */
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    /* Пока жив старый код, этот индекс — последняя защита от двух
+       регистраций на один номер: проверка перед вставкой её не даёт,
+       между SELECT и INSERT помещается второй запрос. Снимется вместе с
+       кодом, который заменит его на accounts_phone_uniq. */
     uniqueIndex('users_phone_uniq').on(t.phone),
+    /* Дважды в одном бизнесе человека быть не может. Это и есть новый
+       смысл «номер занят»: занят он не глобально, а в этой точке. */
+    uniqueIndex('users_tenant_account_uniq').on(t.tenantId, t.accountId),
     index('users_tenant_idx').on(t.tenantId),
+    index('users_account_idx').on(t.accountId),
   ],
 );
 
@@ -568,7 +654,10 @@ export type Tenant = typeof tenants.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;
 export type PushToken = typeof pushTokens.$inferSelect;
-export type User = typeof users.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+/** Участие человека в бизнесе. `User` — прежнее имя того же типа. */
+export type Membership = typeof users.$inferSelect;
+export type User = Membership;
 export type Service = typeof services.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Order = typeof orders.$inferSelect;
