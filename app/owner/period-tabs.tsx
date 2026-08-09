@@ -9,7 +9,12 @@ export function PeriodTabs({ current }: { current: PeriodKey }) {
   const { active, pending, select } = usePendingTab(current);
 
   return (
-    <div className="mb-4 flex gap-1.5">
+    /* Капсула, как в приложении: выбранное — плашка на жёлобе, а не
+       подчёркнутый текст. Так «где я» читается формой, а не оттенком. */
+    <div
+      className="mb-3.5 flex gap-1 rounded-[14px] p-1"
+      style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
+    >
       {PERIODS.map((x) => (
         <Link
           key={x.key}
@@ -17,11 +22,12 @@ export function PeriodTabs({ current }: { current: PeriodKey }) {
           onClick={() => select(x.key)}
           aria-current={active === x.key ? 'page' : undefined}
           data-pending={pending && active === x.key ? '' : undefined}
-          className={`rounded-[10px] px-3 py-1.5 text-[13px] transition-colors ${
+          className="flex-1 rounded-[10px] px-3 py-2 text-center text-[13px] transition-colors"
+          style={
             active === x.key
-              ? 'bg-surface2 font-semibold text-ink'
-              : 'text-muted hover:text-ink'
-          }`}
+              ? { background: 'var(--on-board)', color: 'var(--board)', fontWeight: 600 }
+              : { color: 'var(--board-muted)' }
+          }
         >
           {x.label}
         </Link>

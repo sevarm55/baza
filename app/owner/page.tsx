@@ -147,12 +147,7 @@ export default async function TodayPage({
         tone={prevStats.count === 0 ? undefined : diff >= 0 ? 'good' : 'warn'}
       />
 
-      <DayChart
-        points={points}
-        currency={tenant.currency}
-        byHour={byHour}
-        labelEvery={byHour ? 3 : points.length > 14 ? 5 : 1}
-      />
+      <DayChart points={points} currency={tenant.currency} />
 
       <div className="mt-3">
         <Grid>

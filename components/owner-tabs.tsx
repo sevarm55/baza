@@ -44,7 +44,9 @@ export function OwnerTabs({ passes }: { passes: boolean }) {
   }, [active]);
 
   return (
-    <nav ref={strip} className="scroll-x mb-4 flex gap-1.5 pb-0.5">
+    /* Разделы — на полотне, а не на белой полосе: тёмные капсулы с
+       чернилами табло. Выбранный светлый, остальные приглушены. */
+    <nav ref={strip} className="scroll-x mb-3.5 flex gap-1.5 pb-0.5">
       {tabs.map((t) => (
         <Link
           key={t.href}

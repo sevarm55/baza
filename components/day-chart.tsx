@@ -1,6 +1,7 @@
 ﻿import { formatMoney } from '@/lib/money';
 
 export type ChartPoint = { label: string; value: number; peak?: boolean };
+type SplitSegment = { label: string; value: number; color: string };
 
 /**
  * Рельеф периода столбиками.
@@ -12,17 +13,9 @@ export type ChartPoint = { label: string; value: number; peak?: boolean };
 export function DayChart({
   points,
   currency,
-  byHour,
-  labelEvery = 3,
 }: {
   points: ChartPoint[];
   currency: string;
-  /* Раньше это угадывалось по числу столбиков: больше двадцати четырёх —
-     дни. Пока периоды были «7 дней» и «30 дней», догадка работала. С
-     календарным месяцем она ломается седьмого числа: семь столбиков, и
-     график объявляет их часами. */
-  byHour: boolean;
-  labelEvery?: number;
 }) {
   if (points.length === 0) return null;
 
@@ -30,33 +23,30 @@ export function DayChart({
   const peakIndex = points.findIndex((p) => p.value === max && max > 0);
 
   return (
-    <div className="tile mb-2.5">
-      <div className="mb-3 flex items-baseline justify-between">
-        <span className="label">{byHour ? 'ԺԱՄԵՐ' : 'ՕՐԵՐ'}</span>
-        {max > 0 && (
-          <span className="num text-[12px] text-faint">
-            {points[peakIndex]?.label} · {formatMoney(max, currency)}
-          </span>
-        )}
-      </div>
-
-      <div className="flex h-[92px] items-end gap-[3px]">
+    /* Волна, а не карточка с диаграммой.
+    
+       Столбики остались, но полотна вокруг них больше нет: на табло
+       график — это рельеф под показанием, а не отдельный прибор в
+       рамке. Рамка требовала заголовка, заголовок требовал места, и
+       вместе они отнимали высоту у того, ради чего сюда смотрят. */
+    <div className="mt-1 mb-2">
+      <div className="flex h-[64px] items-end gap-[3px]">
         {points.map((p, i) => {
           const height = max > 0 ? Math.max(2, Math.round((p.value / max) * 100)) : 2;
           const isPeak = i === peakIndex && max > 0;
           return (
             <div
               key={`${p.label}-${i}`}
-              className="flex-1 rounded-t-[3px] transition-[height]"
+              className="flex-1 rounded-t-[3px]"
               style={{
                 height: `${height}%`,
-                // пик выделен цветом: именно он отвечает на вопрос
-                // «когда у меня заезд», ради которого сюда и смотрят
+                /* Пик выделен: именно он отвечает на вопрос «когда у меня
+                   заезд», ради которого сюда и смотрят. Остальные —
+                   приглушённым чернилом полотна, чтобы волна читалась
+                   рельефом, а не набором палок. */
                 background: isPeak
-                  ? 'var(--color-accent-strong)'
-                  : p.value > 0
-                    ? 'var(--bar)'
-                    : 'var(--bar-empty)',
+                  ? 'var(--tone-violet-glow)'
+                  : 'color-mix(in srgb, var(--board-ink) 14%, transparent)',
               }}
               title={`${p.label} · ${formatMoney(p.value, currency)}`}
             />
@@ -64,27 +54,23 @@ export function DayChart({
         })}
       </div>
 
-      <div className="mt-2 flex gap-[3px]">
-        {points.map((p, i) => (
-          <div
-            key={`l-${p.label}-${i}`}
-            className="num flex-1 overflow-hidden text-center text-[10px] whitespace-nowrap text-faint"
-          >
-            {i % labelEvery === 0 ? p.label : ''}
-          </div>
-        ))}
+      {/* Подписи под волной: время слева, пик справа. Больше ничего —
+          читают тут форму, а не значения. */}
+      <div className="mt-1.5 flex items-baseline justify-between">
+        <span className="num text-[11px]" style={{ color: 'var(--board-muted)' }}>
+          {points[0]?.label}
+          {points.length > 1 && ` — ${points[points.length - 1]?.label}`}
+        </span>
+        {max > 0 && (
+          <span className="num text-[11px]" style={{ color: 'var(--board-muted)' }}>
+            {points[peakIndex]?.label} · {formatMoney(max, currency)}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-export type SplitSegment = { label: string; value: number; color: string };
-
-/**
- * Приход одной полосой вместо отдельных плиток.
- * Владельцу важна не абсолютная сумма наличных, а их доля: сколько денег
- * проходит мимо кассы — вопрос, с которого начинается весь продукт.
- */
 export function PaymentSplit({
   segments,
   currency,
