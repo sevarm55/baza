@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { hy } from '@/lib/i18n/hy';
 import { usePendingTab } from '@/components/use-pending-tab';
+import { SwitchMark } from '@/components/switch-mark';
 
 const TABS = [
   { href: '/owner', label: hy.owner.tabToday },
@@ -54,9 +55,10 @@ export function OwnerTabs({ passes }: { passes: boolean }) {
           onClick={() => select(t.href)}
           aria-current={active === t.href ? 'page' : undefined}
           data-pending={pending && active === t.href ? '' : undefined}
-          className={`tab ${active === t.href ? 'tab-on' : ''}`}
+          className={`tab relative ${active === t.href ? 'tab-on' : ''}`}
         >
-          {t.label}
+          {active === t.href && <SwitchMark id="owner-tabs" radius={8} />}
+          <span className="relative z-[1]">{t.label}</span>
         </Link>
       ))}
     </nav>

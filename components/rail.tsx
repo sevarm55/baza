@@ -4,6 +4,7 @@ import { Logo } from '@/components/logo';
 import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
 import { SignOutButton } from '@/components/sign-out-button';
+import { SwitchMark } from '@/components/switch-mark';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { Point } from '@/lib/accounts';
 
@@ -105,11 +106,17 @@ export function Rail({
               key={tab.key}
               href={tab.href}
               aria-current={active === tab.key ? 'page' : undefined}
-              className={`nav-item !rounded-[7px] ${active === tab.key ? 'nav-item-on' : ''}`}
+              className="nav-item relative !rounded-[7px]"
+              style={
+                active === tab.key
+                  ? { color: 'var(--board)', fontWeight: 600 }
+                  : { color: 'var(--board-muted)' }
+              }
             >
+              {active === tab.key && <SwitchMark id="rail-role" />}
               {/* Точка вместо значка: у разделов значок говорит «что это»,
                   здесь достаточно сказать «ты тут». */}
-              <span className="nav-mark items-center" aria-hidden>
+              <span className="nav-mark relative z-[1] items-center" aria-hidden>
                 <span
                   className="size-1.5 rounded-full"
                   style={{
@@ -118,7 +125,7 @@ export function Rail({
                   }}
                 />
               </span>
-              <span className="truncate">{tab.label}</span>
+              <span className="relative z-[1] truncate">{tab.label}</span>
             </Link>
           ))}
         </nav>

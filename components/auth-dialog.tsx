@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconClose } from '@/components/icons';
 import { Logo } from '@/components/logo';
+import { SwitchMark } from '@/components/switch-mark';
 import { hy } from '@/lib/i18n/hy';
 import { LoginForm } from '@/app/login/login-form';
 import { RegisterForm } from '@/app/start/[niche]/register-form';
@@ -117,7 +118,10 @@ export function AuthDialog({
                 data-on={tab === k ? '' : undefined}
                 onClick={() => setTab(k)}
               >
-                {k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}
+                {tab === k && (
+                  <SwitchMark id="auth-tabs" radius={8} fill="var(--surface)" />
+                )}
+                <span>{k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}</span>
               </button>
             ))}
           </div>

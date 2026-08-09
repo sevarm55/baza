@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { PERIODS, periodHref, type PeriodKey } from './periods';
 import { usePendingTab } from '@/components/use-pending-tab';
+import { SwitchMark } from '@/components/switch-mark';
 
 /** Открытый период приходит с сервера — он же лежит в адресе. */
 export function PeriodTabs({ current }: { current: PeriodKey }) {
@@ -31,14 +32,17 @@ export function PeriodTabs({ current }: { current: PeriodKey }) {
           onClick={() => select(x.key)}
           aria-current={active === x.key ? 'page' : undefined}
           data-pending={pending && active === x.key ? '' : undefined}
-          className="flex-1 rounded-[6px] px-3 py-1.5 text-center text-[13px] transition-colors sm:flex-none"
+          className="relative flex-1 rounded-[6px] px-3 py-1.5 text-center text-[13px] transition-colors sm:flex-none"
           style={
             active === x.key
-              ? { background: 'var(--on-board)', color: 'var(--board)', fontWeight: 600 }
+              ? { color: 'var(--board)', fontWeight: 600 }
               : { color: 'var(--board-muted)' }
           }
         >
-          {x.label}
+          {/* Плашка нарисована только под выбранным и переезжает сама —
+              см. SwitchMark. */}
+          {active === x.key && <SwitchMark id="period-tabs" radius={6} />}
+          <span className="relative z-[1]">{x.label}</span>
         </Link>
       ))}
     </div>
