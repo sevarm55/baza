@@ -55,8 +55,23 @@ export function ExpenseRow({
         </span>
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} title={category}>
-        <form action={action} className="grid gap-3">
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={category}
+        subtitle={when}
+        footer={
+          <>
+            <button form={`rm-${id}`} className="btn-inline btn-inline-danger me-auto">
+              {hy.expenses.remove}
+            </button>
+            <button form={`ed-${id}`} className="btn btn-auto" disabled={pending}>
+              {pending ? hy.common.loading : hy.settings.save}
+            </button>
+          </>
+        }
+      >
+        <form id={`ed-${id}`} action={action} className="grid gap-3">
           <input type="hidden" name="id" value={id} />
 
           <label className="grid gap-1.5">
@@ -68,7 +83,7 @@ export function ExpenseRow({
             <span className="label">{hy.expenses.amount}</span>
             <div className="relative">
               <input
-                className="field num !pe-9 text-end"
+                className="field num !ps-8"
                 name="amount"
                 type="number"
                 inputMode="numeric"
@@ -78,7 +93,7 @@ export function ExpenseRow({
                 onChange={(e) => setDraftAmount(e.target.value)}
                 required
               />
-              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
+              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
                 {currencySymbol}
               </span>
             </div>
@@ -86,15 +101,10 @@ export function ExpenseRow({
 
           {monthly && amountChanged && <p className="note">{hy.expenses.changeNote}</p>}
           {state?.error && <p className="alert">{state.error}</p>}
-
-          <button className="btn mt-1" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.save}
-          </button>
         </form>
 
-        <form action={removeExpenseAction} className="mt-3 flex justify-end">
+        <form id={`rm-${id}`} action={removeExpenseAction} className="hidden">
           <input type="hidden" name="id" value={id} />
-          <button className="btn-inline btn-inline-danger">{hy.expenses.remove}</button>
         </form>
       </Sheet>
     </>

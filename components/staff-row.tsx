@@ -62,8 +62,30 @@ export function StaffRow({
         </span>
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} title={name}>
-        <form action={action} className="grid gap-3">
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={name}
+        /* Телефон правке не подлежит: по нему человек входит, и смена
+           номера — это уже другой человек. Стоит в шапке, а не в теле
+           формы: там он читался наравне с полями и выглядел полем,
+           которое почему-то нельзя тронуть. */
+        subtitle={formatPhone(phone)}
+        footer={
+          <>
+            {/* Себя отключить нельзя — владелец потеряет доступ в кабинет. */}
+            {canRemove && (
+              <button form={`rm-${id}`} className="btn-inline btn-inline-danger me-auto">
+                {hy.settings.remove}
+              </button>
+            )}
+            <button form={`ed-${id}`} className="btn btn-auto" disabled={pending}>
+              {pending ? hy.common.loading : hy.settings.save}
+            </button>
+          </>
+        }
+      >
+        <form id={`ed-${id}`} action={action} className="grid gap-3">
           <input type="hidden" name="id" value={id} />
 
           <label className="grid gap-1.5">
@@ -96,23 +118,16 @@ export function StaffRow({
             </div>
           </label>
 
-          {/* Телефон правке не подлежит: по нему человек входит, и смена
-              номера — это уже другой человек. Показан, чтобы владелец
-              видел, кому диктовал PIN. */}
-          <p className="num text-[13.5px] text-faint">{formatPhone(phone)}</p>
-
           {state?.error && <p className="alert">{state.error}</p>}
-
-          <button className="btn mt-1" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.save}
-          </button>
         </form>
 
-        {/* Себя отключить нельзя — владелец потеряет доступ в кабинет. */}
+        {/* Форма удаления пустая и скрытая: её кнопка стоит в подвале
+            окна и связана с ней атрибутом `form`. Вкладывать одну
+            форму в другую нельзя, а поднимать всю форму в подвал
+            незачем — в HTML для этого и есть связь по идентификатору. */}
         {canRemove && (
-          <form action={archiveStaff} className="mt-3 flex justify-end">
+          <form id={`rm-${id}`} action={archiveStaff} className="hidden">
             <input type="hidden" name="id" value={id} />
-            <button className="btn-inline btn-inline-danger">{hy.settings.remove}</button>
           </form>
         )}
       </Sheet>

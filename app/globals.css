@@ -641,7 +641,11 @@ input[type='radio'] {
      колонок, а ширина полотна — см. --canvas-max. */
   .row-open {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Три колонки, а не две. Элементов в строке трое — название, число
+       и шеврон, — и в сетке на две колонки третий переносился на
+       следующую строку: под каждой услугой висела отдельная строка с
+       одной стрелкой. */
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 0.75rem;
     min-height: 3rem;
@@ -701,22 +705,31 @@ input[type='radio'] {
      краю. Поэтому центр задан здесь явно и целиком — четыре нуля и
      `margin: auto`, — а не оставлен на умолчания.
 
-     Прокрутка внутри окна, а не под ним: форма правки расхода на
-     телефоне длиннее экрана, и «сохранить» иначе оказывается за краем. */
+     Прокрутка идёт по телу окна, а не по всему окну: шапка с названием
+     и подвал с кнопками остаются на месте, пока длинная форма едет
+     между ними. Уехавшее вверх «сохранить» — это кнопка, которой на
+     телефоне нет. */
   .sheet {
     position: fixed;
     inset: 0;
     margin: auto;
-    width: min(420px, calc(100vw - 2rem));
+    width: min(440px, calc(100vw - 2rem));
     max-height: calc(100dvh - 3rem);
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Поля нет: его несут части окна по отдельности, иначе линия между
+       шапкой и телом не дошла бы до краёв. */
+    padding: 0;
     border: 1px solid color-mix(in srgb, var(--board-ink) 12%, transparent);
     border-radius: var(--radius-card);
-    background: var(--board-surface2);
+    /* Окно белое, а поля в нём серые — не наоборот. Серое окно с белыми
+       полями выглядело вывернутым наизнанку: в приборах кабинета серая
+       именно подложка. Здесь подложка — лист, на котором пишут. */
+    background: var(--board-surface);
     color: var(--on-board);
 
+    --field-fill: var(--board-surface2);
     --surface: var(--board-surface);
     --surface2: var(--board-surface2);
     --line: color-mix(in srgb, var(--board-ink) 12%, transparent);
@@ -771,6 +784,78 @@ input[type='radio'] {
     .sheet[open]::backdrop {
       opacity: 0;
     }
+  }
+
+  /* Шапка: что правим. Заголовок и, если есть, вторая строка — чей это
+     телефон, за какое число расход. Крестик тихий: он нужен тому, кто
+     передумал, а не тому, кто пришёл менять цену. */
+  .sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex: none;
+    padding: 1.05rem 1.25rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sheet-sub {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .sheet-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin: -0.15rem -0.35rem 0 0;
+    border-radius: var(--radius-chip);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .sheet-x:hover {
+    background: color-mix(in srgb, var(--board-ink) 7%, transparent);
+    color: var(--ink);
+  }
+
+  /* Тело: единственная часть, которая прокручивается. */
+  .sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 1.25rem;
+  }
+
+  /* Подвал: что с этим сделать. Отделён линией и тенью тона — он не
+     продолжение формы, а её итог, и кнопки в нём относятся ко всему
+     окну, а не к последнему полю.
+
+     Убрать — слева и тихо, сохранить — справа, где рука заканчивает
+     читать. Раньше «сохранить» шло лаймовой полосой во всю ширину, а
+     «удалить» висело под ним отдельной строкой у правого края: громче
+     всех кричала кнопка, которую нажимают по умолчанию, а опасная
+     стояла там, куда палец попадает случайно. */
+  .sheet-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    flex: none;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid var(--hairline);
+    background: color-mix(in srgb, var(--board-ink) 3%, transparent);
+  }
+
+  /* Кнопка по содержимому, а не во всю ширину: в подвале их две. */
+  .btn-auto {
+    width: auto;
+    min-height: 2.6rem;
+    padding-inline: 1.25rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -918,7 +1003,15 @@ input[type='radio'] {
     width: 100%;
     min-height: 2.75rem;
     padding: 0.7rem 0.8rem;
-    background: var(--surface2);
+    /* Заливку поля называет то, на чём оно лежит, — отсюда отдельный
+       токен, а не общий `--surface2`.
+
+       Общий давал совпадение: прибор в кабинете залит `--surface2`, и
+       поле на нём выходило серой вмятиной в сером — два одинаковых
+       прямоугольника, из которых один почему-то темнее. Поэтому в
+       кабинете поле светлое, а в окне правки, которое само белое, —
+       серое. Правило одно: поле не совпадает с подложкой. */
+    background: var(--field-fill, var(--surface2));
     /* Рамка есть всегда. Без неё поле читалось только на серой
        подложке: внутри белой модалки заливка почти совпадает с фоном, и
        от поля оставался один текст без границ. */
@@ -934,12 +1027,18 @@ input[type='radio'] {
   .field:hover:not(:disabled) {
     border-color: var(--muted);
   }
-  /* В фокусе поле светлеет и обводится грейпом: место ввода должно быть
-     видно с другого конца экрана, а не угадываться по курсору. */
+  /* В фокусе поле обводится грейпом: место ввода должно быть видно с
+     другого конца экрана, а не угадываться по курсору.
+
+     Грейп берётся светлый. Тёмный `--accent` на светлой теме — почти
+     чёрный, и в один пиксель по краю поля он читался не подсветкой, а
+     жирной чёрной рамкой: поле в фокусе выглядело обведённым маркером.
+     Светлый тон и кольцо пошире говорят то же самое, но тоном, а не
+     нажимом. Заливка при этом не меняется — мигание фоном на каждом
+     переходе между двумя полями читается как сбой. */
   .field:focus {
-    background: var(--surface);
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    border-color: var(--accent-strong);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 20%, transparent);
   }
   .field::placeholder {
     color: var(--faint);
@@ -1342,6 +1441,11 @@ input[type='radio'] {
     --color-ink: var(--on-board);
     --color-muted: var(--board-muted);
     --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+
+    /* Приборы кабинета залиты `--board-surface2`, поэтому поле на них
+       берёт другой тон: на светлой теме белый, на тёмной — глубже
+       подложки. См. `.field`. */
+    --field-fill: var(--board-surface);
   }
 
   .shell {

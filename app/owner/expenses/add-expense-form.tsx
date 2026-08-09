@@ -46,7 +46,7 @@ export function AddExpenseForm({
 
       <div className="relative w-[7.5rem] shrink-0">
         <input
-          className="field field-sm num h-full !pe-7"
+          className="field field-sm num h-full !ps-7"
           name="amount"
           type="number"
           inputMode="numeric"
@@ -55,7 +55,7 @@ export function AddExpenseForm({
           placeholder={hy.expenses.amount}
           required
         />
-        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
+        <span className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
           {currencySymbol}
         </span>
       </div>

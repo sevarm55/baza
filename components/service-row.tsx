@@ -51,8 +51,26 @@ export function ServiceRow({
         </span>
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} title={name}>
-        <form action={action} className="grid gap-3">
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={name}
+        footer={
+          <>
+            {/* Удаление тише сохранения и в другом углу: сюда пришли
+                менять цену, а не убирать услугу. В списке этой кнопки
+                нет вовсе — десять кнопок «убрать» в прейскуранте
+                предлагали удалить там, где просто читают. */}
+            <button form={`rm-${id}`} className="btn-inline btn-inline-danger me-auto">
+              {hy.settings.remove}
+            </button>
+            <button form={`ed-${id}`} className="btn btn-auto" disabled={pending}>
+              {pending ? hy.common.loading : hy.settings.save}
+            </button>
+          </>
+        }
+      >
+        <form id={`ed-${id}`} action={action} className="grid gap-3">
           <input type="hidden" name="id" value={id} />
 
           <label className="grid gap-1.5">
@@ -64,7 +82,7 @@ export function ServiceRow({
             <span className="label">{hy.settings.price}</span>
             <div className="relative">
               <input
-                className="field num !pe-9 text-end"
+                className="field num !ps-8"
                 name="price"
                 type="number"
                 inputMode="numeric"
@@ -73,26 +91,17 @@ export function ServiceRow({
                 defaultValue={price}
                 required
               />
-              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
+              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
                 {currencySymbol}
               </span>
             </div>
           </label>
 
           {state?.error && <p className="alert">{state.error}</p>}
-
-          <button className="btn mt-1" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.save}
-          </button>
         </form>
 
-        {/* Удаление — внизу окна и тише сохранения: сюда пришли менять
-            цену, а не убирать услугу. В списке этой кнопки больше нет
-            вовсе — десять кнопок «убрать» в прейскуранте предлагали
-            удалить там, где просто читают. */}
-        <form action={archiveService} className="mt-3 flex justify-end">
+        <form id={`rm-${id}`} action={archiveService} className="hidden">
           <input type="hidden" name="id" value={id} />
-          <button className="btn-inline btn-inline-danger">{hy.settings.remove}</button>
         </form>
       </Sheet>
     </>
