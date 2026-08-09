@@ -109,6 +109,33 @@ export function Reading({
   );
 }
 
+/**
+ * Плитка человека — его цветом.
+ *
+ * Цвет берётся из имени, тот же самый, что в ленте и на смене: на листе
+ * зарплат он превращает стопку одинаковых карточек в список людей. Тон
+ * строится из одного цвета — тёмная заливка и он же свечением, — чтобы
+ * не заводить вторую палитру рядом с существующей.
+ */
+export function PersonTile({
+  color,
+  children,
+}: {
+  color: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-[22px] p-4 text-white"
+      style={{
+        background: `radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, ${color} 40%, transparent) 0%, transparent 62%), color-mix(in srgb, ${color} 45%, #0d0d10)`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Сетка плиток: две колонки, как в приложении. */
 export function Grid({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-2 gap-2.5">{children}</div>;
