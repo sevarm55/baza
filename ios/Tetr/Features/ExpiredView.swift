@@ -22,6 +22,7 @@ import SwiftUI
 /// Клиент попадает сюда, уже зная, с кем он договаривался.
 struct ExpiredView: View {
     @EnvironmentObject private var session: Session
+    @EnvironmentObject private var queue: OrderQueue
 
     @State private var exporting = false
     @State private var exported: URL?
@@ -31,6 +32,11 @@ struct ExpiredView: View {
        неправдой: ничего не истекло, оплаты просто ещё не было. Тот же
        разбор, что на веб-стене. */
     private var fresh: Bool { session.access?.state == "unpaid" }
+
+    /// Остальные точки человека — куда отсюда можно уйти.
+    private var others: [API.Point] {
+        session.points.filter { $0.id != session.tenant?.id }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -62,15 +68,54 @@ struct ExpiredView: View {
                     .foregroundStyle(.white.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
 
-                /* Выгрузка — главное действие на этом экране. Единственное,
-                   что человеку тут по-настоящему нужно: забрать своё. */
-                Button(exporting ? "…" : "Ներբեռնել տվյալները") {
-                    Task { await exportCsv() }
+                /* Одна закрытая точка не имеет права запирать открытую.
+                   Без этого владелец, заведший вторую мойку, упирался бы
+                   в стену и терял доступ к первой — работающей. */
+                if others.isEmpty == false {
+                    VStack(spacing: 0) {
+                        ForEach(others) { point in
+                            Button {
+                                Task { try? await session.switchTo(point, queue: queue) }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Circle()
+                                        .fill(point.canRead ? Brand.lime : Brand.warnOnDark)
+                                        .frame(width: 7, height: 7)
+                                    Text(point.name)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 8)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.vertical, 11)
+                            }
+                            if point.id != others.last?.id {
+                                Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .background(.white.opacity(0.08), in: .rect(cornerRadius: 14))
+                    .padding(.top, 4)
                 }
-                .buttonStyle(LimeButton())
-                .disabled(exporting)
-                .padding(.top, 4)
 
+                /* Выгрузка — главное действие на этом экране. Единственное,
+                   что человеку тут по-настоящему нужно: забрать своё.
+                   У новой точки её нет: там пока нечего забирать. */
+                if !fresh {
+                    Button(exporting ? "…" : "Ներբեռնել տվյալները") {
+                        Task { await exportCsv() }
+                    }
+                    .buttonStyle(LimeButton())
+                    .disabled(exporting)
+                    .padding(.top, 4)
+                }
+
+                /* Удаление остаётся и у новой точки: её могли завести по
+                   ошибке, и без него она висела бы в списке навсегда. */
                 Button("Ջնջել բիզնեսը", role: .destructive) { deleting = true }
                     .font(.system(size: 14.5, weight: .semibold))
                     .padding(.top, 2)

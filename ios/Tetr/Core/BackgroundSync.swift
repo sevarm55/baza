@@ -52,7 +52,9 @@ enum BackgroundSync {
         schedule()
 
         let work = Task { @MainActor in
-            guard let session, let queue, !queue.waiting.isEmpty else {
+            /* Фоновая досылка идёт по текущей точке: остальные дождутся
+               возвращения на свою — там их и примут. */
+            guard let session, let queue, !queue.waiting(at: session.tenant?.id).isEmpty else {
                 task.setTaskCompleted(success: true)
                 return
             }

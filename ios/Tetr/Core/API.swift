@@ -71,11 +71,26 @@ enum API {
         }
     }
 
+    /// Точка, где человек работает.
+    ///
+    /// Отдельно от `Tenant`: тот — про бизнес целиком, со всеми его
+    /// терминами и услугами, а здесь ровно то, что нужно строке в списке.
+    struct Point: Decodable, Identifiable, Hashable {
+        let id: String
+        let name: String
+        /// owner | staff — на разных мойках роль может отличаться
+        let role: String
+        let state: String
+        let canRead: Bool
+    }
+
     struct Bootstrap: Decodable {
         let tenant: Tenant
         let me: Me
         let access: Access
         let services: [Service]
+        /// Необязательное: приложение может оказаться новее сервера.
+        let points: [Point]?
     }
 
     struct Tokens: Decodable {
@@ -84,11 +99,22 @@ enum API {
         let expiresIn: Int
     }
 
+    /// Ответ перехода на другую точку — та же пара токенов и новый список.
+    struct Switched: Decodable {
+        let access: String
+        let refresh: String
+        let expiresIn: Int
+        let tenantId: String
+        let points: [Point]?
+    }
+
     struct LoginResult: Decodable {
         let access: String
         let refresh: String
         let expiresIn: Int
         let user: Me
+        let tenantId: String?
+        let points: [Point]?
     }
 
     struct ShiftOrder: Decodable, Identifiable {
@@ -435,7 +461,28 @@ actor APIClient {
        и обрывать его нельзя: на телефонах стоят сборки, которые ходят
        именно туда, и для них смена адреса означала бы мёртвое приложение
        до следующего обновления. */
-    private let base = URL(string: "https://tetrin.pro/api/v1/")!
+    private let base = APIClient.baseURL()
+
+    /**
+     * Адрес сервера.
+     *
+     * В обычной сборке он один и зашит намертво. В отладочной его можно
+     * подменить переменной окружения `TETR_API` — без этого проверить
+     * приложение можно только на боевом сервере, то есть на живых
+     * клиентах. Схема запуска в Xcode переменных не несёт: ставится руками
+     * или через `xcrun simctl launch`.
+     *
+     *     xcrun simctl launch --console <udid> com.sevarm.tetr \
+     *       --setenv TETR_API http://localhost:3100/api/v1/
+     */
+    private static func baseURL() -> URL {
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["TETR_API"], let url = URL(string: raw) {
+            return url
+        }
+        #endif
+        return URL(string: "https://tetrin.pro/api/v1/")!
+    }
     private let session: URLSession
 
     private lazy var decoder: JSONDecoder = {

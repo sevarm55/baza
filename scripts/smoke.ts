@@ -2461,6 +2461,36 @@ async function main() {
   const pinAfter = (await findPerson('+37477313002'))!;
   check('и код ему НЕ переписали', pinAfter.pinHash === pinBefore.pinHash);
 
+  /* Переход на другую точку из приложения. */
+  const switchRoute = (await import('../app/api/v1/auth/switch/route')).POST;
+  const netTokens = await (await login(post('/login', { phone: '077 313 001', pin: '7711' }))).json();
+  check('вход отдаёт список точек', netTokens.points.length === 2, netTokens.points?.length);
+  check('и говорит, куда попал', netTokens.tenantId === net2.tenant.id, netTokens.tenantId);
+
+  const jumped = await switchRoute(
+    post('/auth/switch', { tenantId: net1.tenant.id }, netTokens.access),
+  );
+  check('переход проходит', jumped.status === 200, jumped.status);
+  const jumpedBody = await jumped.json();
+  check('и отдаёт точку назначения', jumpedBody.tenantId === net1.tenant.id);
+
+  const whereNow = await bootstrap(get('/bootstrap', jumpedBody.access));
+  check('новый токен ведёт в новую точку', whereNow.status === 200, whereNow.status);
+  check(
+    'и bootstrap показывает именно её',
+    (await whereNow.json()).tenant.id === net1.tenant.id,
+  );
+
+  /* Прежний токен умирает вместе со своей сессией: у одного устройства
+     не должно остаться двух действующих ключей. */
+  const beforeJump = await bootstrap(get('/bootstrap', netTokens.access));
+  check('прежний токен погашен', beforeJump.status === 401, beforeJump.status);
+
+  const stranger = await switchRoute(
+    post('/auth/switch', { tenantId: tenant.id }, jumpedBody.access),
+  );
+  check('в чужую точку не пускает', stranger.status === 404, stranger.status);
+
   /* Удаление одной точки не трогает человека, если ему есть где
      остаться: код, устройства и израсходованный пробный срок при нём. */
   const { deleteBusiness: wipe } = await import('../lib/account');

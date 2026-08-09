@@ -21,6 +21,23 @@ final class Session: ObservableObject {
     @Published private(set) var access: API.Access?
     @Published private(set) var services: [API.Service] = []
 
+    /// Точки человека. Одна или ни одной — переключателя нет вовсе.
+    @Published private(set) var points: [API.Point] = []
+
+    /**
+     * Счётчик смены точки.
+     *
+     * По нему всё дерево экранов пересоздаётся: `@State` обнуляется,
+     * `.task` перезапускается, ответы прежней мойки, которые ещё летят,
+     * приземляются в выброшенный вид.
+     *
+     * Иначе ошибка выглядела бы не ошибкой: на экране правильные цифры,
+     * просто чужие. Заметить это невозможно — а поверить легко.
+     */
+    @Published private(set) var generation = 0
+
+    var canSwitch: Bool { points.count > 1 }
+
     private var accessToken: String? {
         didSet { Keychain.set(accessToken, for: "access") }
     }
@@ -141,6 +158,7 @@ final class Session: ObservableObject {
         me = nil
         access = nil
         services = []
+        points = []
         state = .signedOut
     }
 
@@ -152,6 +170,41 @@ final class Session: ObservableObject {
         me = boot.me
         access = boot.access
         services = boot.services
+        points = boot.points ?? []
+    }
+
+    /**
+     * Перейти на другую свою точку.
+     *
+     * Порядок здесь важнее кода. Сначала досылаем очередь — записи в ней
+     * принадлежат ПРЕЖНЕЙ мойке, и уехать они должны туда, пока токен ещё
+     * её. Потом меняем токены и перечитываем всё с нуля. И только
+     * последним двигаем поколение: к этому моменту на руках уже данные
+     * новой точки, и перерисовка покажет их, а не пустоту.
+     */
+    func switchTo(_ point: API.Point, queue: OrderQueue) async throws {
+        guard point.id != tenant?.id else { return }
+
+        await queue.flush(using: self)
+
+        let device = await UIDevice.current.name
+        let result: API.Switched = try await authed { token in
+            try await self.api.send(
+                "auth/switch",
+                method: "POST",
+                body: ["tenantId": point.id, "device": device],
+                token: token,
+                as: API.Switched.self
+            )
+        }
+        accessToken = result.access
+        refreshToken = result.refresh
+
+        try await loadBootstrap()
+        // токен устройства привязан к участию: без этого новая мойка молчит
+        await Push.shared.reupload()
+
+        generation += 1
     }
 
     /// Запрос с токеном и одной попыткой обновления.

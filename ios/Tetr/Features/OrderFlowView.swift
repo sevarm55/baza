@@ -522,6 +522,8 @@ struct OrderFlowView: View {
                 // словом, а не номером: список классов мог смениться, пока
                 // запись лежала в очереди без связи
                 tier: tier.flatMap { tiers[safe: $0] },
+                // чья мойка: очередь переживает переключение точки
+                tenantId: session.tenant?.id,
                 at: Date()
             )
         )

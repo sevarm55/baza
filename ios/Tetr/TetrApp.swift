@@ -164,25 +164,48 @@ struct RootView: View {
 
 struct MainTabs: View {
     @EnvironmentObject private var session: Session
+    @EnvironmentObject private var queue: OrderQueue
+
+    /* Вкладку держим сами: при переходе на другую точку набор вкладок
+       может смениться — на одной мойке человек владелец, на другой
+       мойщик, — и выбранная вкладка перестала бы существовать под
+       пальцем. Экран смены есть у обеих ролей, туда и возвращаемся. */
+    @State private var tab = Tabs.shift
+
+    enum Tabs { case shift, summary, payroll, more }
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             /* Планшет с записями, а не капля. Капля — это автомойка, а ниш
                будет шесть: у стоматолога и барбера вода ни при чём. Экран
                же во всех нишах один и тот же — журнал за смену, — и планшет
                одинаково читается и как карта приёма, и как лист заказов.
                Заодно это ровно то, что значит армянское «տետր» — тетрадь. */
-            Tab("Հերթափոխ", systemImage: "list.clipboard.fill") {
+            Tab("Հերթափոխ", systemImage: "list.clipboard.fill", value: Tabs.shift) {
                 NavigationStack {
                     ShiftView()
-                        .navigationTitle(session.tenant?.name ?? "Tetrin")
+                        .navigationTitle(session.canSwitch ? "" : (session.tenant?.name ?? "Tetrin"))
                         .navigationBarTitleDisplayMode(.inline)
-                        .toolbar { signOut }
+                        .toolbar {
+                            /* У кого мойка одна — прежний заголовок и
+                               больше ничего: ни шеврона, ни меню. */
+                            if session.canSwitch {
+                                ToolbarItem(placement: .principal) {
+                                    PointMenu(
+                                        points: session.points,
+                                        currentId: session.tenant?.id
+                                    ) { point in
+                                        Task { try? await session.switchTo(point, queue: queue) }
+                                    }
+                                }
+                            }
+                            signOut
+                        }
                 }
             }
 
             if session.me?.isOwner == true {
-                Tab("Ամփոփում", systemImage: "chart.bar.fill") {
+                Tab("Ամփոփում", systemImage: "chart.bar.fill", value: Tabs.summary) {
                     NavigationStack {
                         /* Без заголовка панели: на этом экране заголовок
                            страницы — дата, и «Ամփոփում» над ней было бы
@@ -193,7 +216,7 @@ struct MainTabs: View {
                     }
                 }
 
-                Tab("Աշխատավարձ", systemImage: "banknote.fill") {
+                Tab("Աշխատավարձ", systemImage: "banknote.fill", value: Tabs.payroll) {
                     NavigationStack {
                         /* Без заголовка панели: показание «Վճարելու է» и
                            есть заголовок страницы, а «Աշխատավարձեր» над ним
@@ -207,7 +230,7 @@ struct MainTabs: View {
                 // Разделы, куда заходят редко. Вкладок должно быть столько,
                 // сколько экранов открывают каждый день; прайс правят раз
                 // в месяц — ему в панели не место.
-                Tab("Ավելին", systemImage: "ellipsis.circle.fill") {
+                Tab("Ավելին", systemImage: "ellipsis.circle.fill", value: Tabs.more) {
                     NavigationStack {
                         /* Без заголовка панели: имя раздела уже написано во
                            вкладке, а прозрачная панель поверх плиток давала
@@ -221,6 +244,12 @@ struct MainTabs: View {
         // Панель вкладок сжимается при прокрутке вниз: на экране смены
         // важнее список записей, чем постоянная навигация
         .tabBarMinimizeBehavior(.onScrollDown)
+        /* Смена точки пересоздаёт всё дерево: @State обнуляется, .task
+           перезапускается, ответы прежней мойки приземляются в
+           выброшенный вид. Без этого на экране остались бы правильные
+           цифры чужой мойки — а это не выглядит ошибкой вовсе. */
+        .id(session.generation)
+        .onChange(of: session.generation) { _, _ in tab = .shift }
     }
 
     @ToolbarContentBuilder

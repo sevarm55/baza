@@ -63,6 +63,12 @@ targets:
         # поехали бы схема, пути и конфигурация.
         CFBundleName: Tetrin
         UILaunchScreen: {}
+        # Локальный сервер для проверки: без этого отладочная сборка может
+        # ходить только в прод, то есть по живым клиентам. Разрешение
+        # касается ровно localhost и в магазинную сборку не влияет ни на
+        # что — туда приложение ходит по HTTPS.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         # Экран записи живёт вертикально: мойщик держит телефон одной рукой
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # Шифрование только стандартное — HTTPS и Keychain. Без этого

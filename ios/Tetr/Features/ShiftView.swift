@@ -43,8 +43,8 @@ struct ShiftView: View {
                 reading
                 wave
 
-                if !queue.waiting.isEmpty { pending }
-                ForEach(queue.rejected) { item in stuck(item) }
+                if !queue.waiting(at: session.tenant?.id).isEmpty { pending }
+                ForEach(queue.rejected(at: session.tenant?.id)) { item in stuck(item) }
 
                 grid
 
@@ -418,7 +418,7 @@ struct ShiftView: View {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
-            Text("\(queue.waiting.count) գրանցում սպասում է կապի")
+            Text("\(queue.waiting(at: session.tenant?.id).count) գրանցում սպասում է կապի")
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)

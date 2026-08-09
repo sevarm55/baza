@@ -49,6 +49,17 @@ final class OrderQueue: ObservableObject {
          * Необязательное: в очереди лежат записи, сделанные до тарифов.
          */
         var tier: String?
+        /**
+         * Чья это запись.
+         *
+         * Пока мойка у человека одна, поле не значит ничего. Когда их две,
+         * оно единственное, что не даёт машине, записанной на первой,
+         * уехать во вторую: очередь переживает переключение точки, а
+         * отправляется уже с другим токеном.
+         *
+         * Необязательное: в очереди лежат записи, сделанные до точек.
+         */
+        var tenantId: String?
         let at: Date
         /// Код отказа сервера, если он был. Запись при этом остаётся:
         /// молча выбрасывать работу человека нельзя.
@@ -91,7 +102,11 @@ final class OrderQueue: ObservableObject {
     func flush(using session: Session) async -> Int {
         var sent = 0
 
-        for item in items where item.failure == nil {
+        /* Только записи этой мойки. Чужие не выбрасываем и не помечаем
+           ошибкой — они дождутся возвращения на свою точку: там их и
+           примут. */
+        let here = session.tenant?.id
+        for item in items where item.failure == nil && (item.tenantId == nil || item.tenantId == here) {
             do {
                 var payload: [String: Any] = [
                     "ref": item.ref,
@@ -132,8 +147,15 @@ final class OrderQueue: ObservableObject {
 
     /// Записи, которые сервер не принял. Показываются отдельно: это не
     /// «ещё не ушло», а «не уйдёт само».
-    var rejected: [Item] { items.filter { $0.failure != nil } }
-    var waiting: [Item] { items.filter { $0.failure == nil } }
+    /* Показываем только записи этой мойки: номер машины из соседней
+       точки на чужом экране читается как своя запись. */
+    func rejected(at tenantId: String?) -> [Item] {
+        items.filter { $0.failure != nil && ($0.tenantId == nil || $0.tenantId == tenantId) }
+    }
+
+    func waiting(at tenantId: String?) -> [Item] {
+        items.filter { $0.failure == nil && ($0.tenantId == nil || $0.tenantId == tenantId) }
+    }
 
     /// Повторить отвергнутую — например, после того как владелец вернул
     /// услугу в прайс.

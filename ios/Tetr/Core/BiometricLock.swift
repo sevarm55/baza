@@ -48,6 +48,16 @@ final class BiometricLock: ObservableObject {
     /// Закрыть, если есть что закрывать. Зовётся на запуске и при уходе
     /// приложения в фон.
     func lockIfNeeded(hasSession: Bool) {
+        #if DEBUG
+        /* Указано на локальный сервер — значит идёт проверка, и замок
+           закрывает собой ровно те экраны, которые проверяют. Открыть его
+           автоматикой нечем: в симуляторе нет ни лица, ни кода-пароля. */
+        if ProcessInfo.processInfo.environment["TETR_API"] != nil {
+            locked = false
+            return
+        }
+        #endif
+
         locked = enabled && available && hasSession
     }
 

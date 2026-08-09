@@ -1,6 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { tiersOf } from '@/lib/catalog';
 import { listServices } from '@/lib/queries';
+import { listPoints } from '@/lib/accounts';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
@@ -56,6 +57,9 @@ export async function GET(request: Request) {
         phone: ctx.user.phone,
       },
       access: ctx.access,
+      /* Точки человека. Приложение показывает переключатель только когда
+         их больше одной — у остальных ни одного нового пикселя. */
+      points: await listPoints(ctx.account.id),
       services: services.map((s) => ({
         id: s.id,
         name: s.name,

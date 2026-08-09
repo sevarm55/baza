@@ -8,13 +8,33 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject private var session: Session
 
-    @State private var phone = ""
-    @State private var pin = ""
+    @State private var phone = LoginView.prefilled("TETR_PHONE")
+    @State private var pin = LoginView.prefilled("TETR_PIN")
     @State private var error: String?
     @State private var busy = false
     @FocusState private var focus: Field?
 
     private enum Field { case phone, pin }
+
+    /**
+     * Предзаполнение формы для проверки на локальном сервере.
+     *
+     * Только в отладочной сборке и только из переменных запуска — рядом с
+     * `TETR_API`. Причина та же: без этого приложение проверяется лишь на
+     * боевом сервере, то есть на живых клиентах. Поле кода это к тому же
+     * `SecureField`, и вводить в него автоматикой нечем.
+     *
+     *     xcrun simctl launch <udid> com.sevarm.tetr \
+     *       --setenv TETR_API http://localhost:3100/api/v1/ \
+     *       --setenv TETR_PHONE 77000001 --setenv TETR_PIN 1111
+     */
+    private static func prefilled(_ key: String) -> String {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment[key] ?? ""
+        #else
+        return ""
+        #endif
+    }
 
     var body: some View {
         ZStack {

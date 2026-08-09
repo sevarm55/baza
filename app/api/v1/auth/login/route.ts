@@ -5,7 +5,7 @@ import { users } from '@/lib/db/schema';
 import { verifyPin } from '@/lib/pin';
 import { normalizePhone } from '@/lib/phone';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone, markPointUsed, pointForLogin } from '@/lib/accounts';
+import { accountByPhone, listPoints, markPointUsed, pointForLogin } from '@/lib/accounts';
 import { issueForDevice } from '@/lib/api/tokens';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
@@ -83,6 +83,12 @@ export async function POST(request: Request) {
       refresh: issued.refresh,
       expiresIn: issued.expiresIn,
       user: { id: me.id, name: me.name, role: me.role, percent: me.percent },
+      /* Надмножество прежнего ответа: старые сборки лишние ключи просто
+         игнорируют и попадают в ту же точку, что и раньше. Двухшагового
+         «сначала список, потом выбор» нет намеренно — он сломал бы их и
+         добавил экран девяноста пяти клиентам из ста. */
+      tenantId: membership.tenantId,
+      points: account ? await listPoints(account.id) : [],
     });
   } catch (e) {
     return failFromError(e);

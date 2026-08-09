@@ -37,6 +37,14 @@ final class Push: NSObject, ObservableObject {
     }
 
     func askAndRegister() async {
+        #if DEBUG
+        /* На локальном сервере уведомлений не бывает: ключа APNs у него
+           нет, а токен лёг бы в одноразовую базу. Спрашивать разрешение
+           ради этого — значит закрывать системным окном тот самый экран,
+           который и проверяют. */
+        if ProcessInfo.processInfo.environment["TETR_API"] != nil { return }
+        #endif
+
         let center = UNUserNotificationCenter.current()
         center.delegate = self
 
@@ -64,6 +72,19 @@ final class Push: NSObject, ObservableObject {
                 )
             }
         }
+    }
+
+    /**
+     * Заново привязать токен устройства после перехода на другую точку.
+     *
+     * Запись о токене принадлежит участию, а не телефону: у владельца двух
+     * моек их две, по одной на каждую, и уведомления идут с обеих. Пока
+     * приложение не заявит себя на новой точке, она молчит — а тишину
+     * человек воспринимает не как поломку, а как «уведомлений не было».
+     */
+    func reupload() async {
+        guard deviceToken != nil else { return }
+        upload()
     }
 
     /// Отозвать токен при выходе.
