@@ -71,6 +71,35 @@
   --brand-2: #d7ff00;
   --brand-3: #a78bfa;
 
+
+  /* ───────── Табло ─────────
+     Язык приложения, перенесённый в веб один в один: тёмное полотно,
+     показание крупной цифрой, плитки со свечением, журнал строками.
+
+     Плитки НЕ меняются со сменой темы, и это не упущение. Плитка — это
+     прибор на панели: он светится одинаково и днём, и ночью, иначе на
+     светлой теме свечение выродилось бы в грязное пятно. */
+  --board: #f3f2f0;
+  --on-board: #14121a;
+  --board-muted: #6b6577;
+  --board-ink: #14121a;
+  --good-on-board: #0e8a5f;
+  --warn-on-board: #b45309;
+
+  /* Тона плиток. Одни и те же в обеих темах — см. выше. */
+  --tone-violet: #3b147a;
+  --tone-violet-glow: #a78bfa;
+  --tone-teal: #0b3d3a;
+  --tone-teal-glow: #2dd4bf;
+  --tone-amber: #4a220a;
+  --tone-amber-glow: #fbbf24;
+  --tone-lime: #d7ff00;
+  --tone-lime-glow: #ffffff;
+  --tone-slate: #22212a;
+  --tone-slate-glow: #8b88a8;
+  --tone-ink: #ffffff;
+  --tone-ink-on-lime: #1a1626;
+
   --accent-bg: #f3ebff;
   --accent-ink: #5b21b6;
 
@@ -142,6 +171,14 @@
   --person-3: #a3e635;
   --person-4: #a78bfa;
   --person-5: #2dd4bf;
+
+
+  --board: #0a0a0c;
+  --on-board: #f7f5fb;
+  --board-muted: #8e8899;
+  --board-ink: #f7f5fb;
+  --good-on-board: #34d399;
+  --warn-on-board: #fbbf24;
 
   --accent-bg: #241a3d;
   --accent-ink: #c4b5fd;
@@ -632,5 +669,24 @@ body {
 @media (prefers-reduced-motion: reduce) {
   a[data-pending] {
     animation: none;
+  }
+}
+
+/* ───────────────────────── табло ─────────────────────────
+   Полотно и журнал. Остальное рисуют компоненты в
+   components/board.tsx — здесь только то, что нельзя выразить
+   классами Tailwind: волосяные линии между строками и фон,
+   уходящий под всю страницу. */
+@layer components {
+  .board {
+    background: var(--board);
+    color: var(--on-board);
+    min-height: 100dvh;
+  }
+
+  /* Линия между строками, но не после последней: список должен
+     кончаться содержимым, а не чертой. */
+  .board-journal > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
   }
 }

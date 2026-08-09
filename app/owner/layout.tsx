@@ -33,7 +33,10 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         points={points}
         currentTid={tenant.id}
       />
-      <main className="mx-auto w-full max-w-[760px] px-4 pb-24">
+      {/* Полотно табло уходит под всю страницу, а не только под
+          содержимое: экран должен быть прибором целиком, а не листом с
+          тёмной вставкой посередине. */}
+      <main className="board mx-auto w-full max-w-[760px] px-4 pb-24">
         <OwnerTabs passes={passesEnabled()} />
         <BillingBanner access={currentAccess(tenant)} role="owner" />
         {children}

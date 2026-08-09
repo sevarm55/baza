@@ -77,7 +77,8 @@ export default function RootLayout({
             показывают. Тёмная включается только вручную и запоминается. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='dark'?'dark':'light'}catch(e){}})()`,
+            // тёмная по умолчанию: продукт выглядит так же, как приложение
+            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})()`,
           }}
         />
       </head>
