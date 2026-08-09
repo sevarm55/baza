@@ -23,6 +23,10 @@ export default async function Home() {
 
   return (
     <div className={s.page}>
+      {/* Фон стоит на месте, страница едет по нему. Файла может не
+          быть — тогда остаётся полотно, и это не поломка. */}
+      <div className={s.backdrop} aria-hidden />
+
       <header className={s.header}>
         <div className={s.container}>
           <nav className={s.nav}>
