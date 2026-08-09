@@ -114,9 +114,12 @@ export default async function BlockedPage() {
           {hy.billing.wallPhone}
         </a>
 
-        {isOwner && !fresh && (
+        {isOwner && (
           <>
-            <div className="mt-4 flex gap-3">
+            {/* Выгружать у новой точки нечего — она пустая. А удаление
+                оставляем: точку могли завести по ошибке, и без него она
+                висела бы в списке навсегда. */}
+            <div className={`mt-4 flex gap-3 ${fresh ? 'hidden' : ''}`}>
               {/* За всё время: человек уходит, и отдать ему тридцать дней
                   вместо всей истории было бы обманом */}
               <a
