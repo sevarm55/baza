@@ -5,7 +5,7 @@ import { users } from '@/lib/db/schema';
 import { verifyPin } from '@/lib/pin';
 import { normalizePhone } from '@/lib/phone';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone } from '@/lib/accounts';
+import { accountByPhone, markPointUsed, pointForLogin } from '@/lib/accounts';
 import { issueForDevice } from '@/lib/api/tokens';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
@@ -36,32 +36,53 @@ export async function POST(request: Request) {
     }
 
     /* Код спрашиваем у человека, а не у его работы на точке: у кого две
-       мойки, тот входит одним кодом в обе. Пока участие не привязано к
-       человеку — сверяем по его собственной копии. */
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.phone, phone), eq(users.active, true)));
+       мойки, тот входит одним кодом в обе. */
+    const account = await accountByPhone(phone);
 
-    const account = user?.accountId ? await accountByPhone(phone) : undefined;
-    const secret = account?.pinHash ?? user?.pinHash;
+    /* Участие ищем только ради людей, которых завёл ещё старый код и не
+       успел привязать. Своей копией кода они и сверяются. */
+    const [legacy] = account
+      ? []
+      : await db.select().from(users).where(and(eq(users.phone, phone), eq(users.active, true)));
 
+    const secret = account?.pinHash ?? legacy?.pinHash;
     const good = secret ? await verifyPin(pin, secret) : false;
     await noteLogin(phone, ip, good);
-    if (!user || !good) return fail('WRONG_CREDENTIALS', 401);
+    if (!good) return fail('WRONG_CREDENTIALS', 401);
+
+    /* Куда именно вести — решает pointForLogin, а не порядок строк в
+       таблице. Телефон больше не уникален, индекса по нему нет, и
+       «первая попавшаяся» означала бы случайную мойку. Открытая идёт
+       первой: владельца с неоплаченной второй точкой нельзя высаживать
+       на стену при работающей первой, тем более в приложении, где
+       переключателя пока нет вовсе. */
+    const point = account ? await pointForLogin(account.id) : undefined;
+
+    const membership = point
+      ? { id: point.membershipId, tenantId: point.id, role: point.role }
+      : legacy
+        ? { id: legacy.id, tenantId: legacy.tenantId, role: legacy.role === 'owner' ? ('owner' as const) : ('staff' as const) }
+        : null;
+
+    // код верный, а работать негде: все участия отключены
+    if (!membership) return fail('WRONG_CREDENTIALS', 401);
 
     const issued = await issueForDevice({
-      tenantId: user.tenantId,
-      userId: user.id,
-      role: user.role === 'owner' ? 'owner' : 'staff',
+      tenantId: membership.tenantId,
+      userId: membership.id,
+      role: membership.role,
       device: str(input.device) || null,
     });
+
+    await markPointUsed(membership.id);
+
+    const [me] = await db.select().from(users).where(eq(users.id, membership.id));
 
     return ok({
       access: issued.access,
       refresh: issued.refresh,
       expiresIn: issued.expiresIn,
-      user: { id: user.id, name: user.name, role: user.role, percent: user.percent },
+      user: { id: me.id, name: me.name, role: me.role, percent: me.percent },
     });
   } catch (e) {
     return failFromError(e);

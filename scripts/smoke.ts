@@ -558,14 +558,36 @@ async function main() {
   check('код лежит у человека', ownerAccount.pinHash === ownerRow.pinHash);
   check('и телефон тот же', ownerAccount.phone === ownerRow.phone, ownerAccount.phone);
 
-  /* Участие без человека — состояние, которое оставляет старый код в
-     окне между выкатом схемы и выкатом этого кода. Чинится оно на лету,
-     и чинить обязано СВОЕЙ копией: если рядом лежит осиротевший человек
-     с тем же номером и чужим кодом, усыновление сделало бы чужой код
-     кодом входа сюда. */
-  const { claimAccount } = await import('../lib/accounts');
+  /* Участие без человека — состояние, которое оставлял старый код в
+     окне между выкатом схемы и выкатом кода. Чинится оно на лету, но
+     только если номер свободен: рядом может лежать другой человек с тем
+     же номером и своим кодом, и усыновление сделало бы ЕГО код кодом
+     входа сюда. Раньше это было безопасно из-за users_phone_uniq —
+     индекса больше нет, значит и гарантии нет. */
+  const { claimAccount, accountOf } = await import('../lib/accounts');
   const { hashPin: hp, verifyPin: vp } = await import('../lib/pin');
 
+  const freePhone = '+37477000778';
+  const [lonely] = await db
+    .insert(users)
+    .values({
+      tenantId: tenant.id,
+      phone: freePhone,
+      pinHash: await hp('1234'),
+      name: 'Ничей',
+      role: 'staff',
+      percent: 10,
+    })
+    .returning();
+  const healed = await accountOf(lonely);
+  check('участие без человека чинится', healed.phone === freePhone);
+  check('и чинится СВОИМ кодом', await vp('1234', healed.pinHash));
+  const [linked] = await db.select().from(users).where(eq(users.id, lonely.id));
+  check('привязка записана', linked.accountId === healed.id);
+  await db.delete(users).where(eq(users.id, lonely.id));
+  await db.delete(accountsTable).where(eq(accountsTable.id, healed.id));
+
+  // а вот занятый чужим человеком номер усыновлять нельзя
   const strayPhone = '+37477000777';
   const stray = await claimAccount({ phone: strayPhone, pinHash: await hp('8888') });
   const [orphaned] = await db
@@ -574,15 +596,21 @@ async function main() {
       tenantId: tenant.id,
       phone: strayPhone,
       pinHash: await hp('1234'),
-      name: 'Ничей',
+      name: 'Тёзка',
       role: 'staff',
       percent: 10,
     })
     .returning();
-  const healed = await (await import('../lib/accounts')).accountOf(orphaned);
-  check('участие без человека чинится', healed.id === stray.id, healed.id === stray.id);
-  check('и чинится СВОИМ кодом, а не чужим', await vp('1234', healed.pinHash));
-  check('чужой код входом не становится', !(await vp('8888', healed.pinHash)));
+  let conflict = '';
+  await accountOf(orphaned).catch((e) => {
+    conflict = (e as Error).message;
+  });
+  check('чужого человека не усыновляют', conflict.startsWith('ACCOUNT_CONFLICT'), conflict);
+  const [untouchedStray] = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.id, stray.id));
+  check('и его код цел', await vp('8888', untouchedStray.pinHash));
   await db.delete(users).where(eq(users.id, orphaned.id));
   await db.delete(accountsTable).where(eq(accountsTable.id, stray.id));
 
@@ -1155,7 +1183,7 @@ async function main() {
   const [shiftService] = await (await import('../lib/queries')).listServices(tenant.id);
 
   const { addStaff: hire } = await import('../lib/catalog');
-  const { row: rookie } = await hire({
+  const rookie = await hire({
     tenantId: tenant.id,
     name: 'Նորեկ',
     phone: '+37455000192',
@@ -2325,7 +2353,11 @@ async function main() {
      новые мойки, и попади оно в основной сценарий — поехали бы суммы,
      которые проверяют совсем другое.                                    */
 
-  const { accountByPhone: findPerson, listPoints: pointsOf } = await import('../lib/accounts');
+  const {
+    accountByPhone: findPerson,
+    listPoints: pointsOf,
+    markPointUsed: markUsed,
+  } = await import('../lib/accounts');
 
   const net1 = await createBusiness({
     niche: 'carwash',
@@ -2361,6 +2393,17 @@ async function main() {
   check('у человека две точки', bothPoints.length === 2, bothPoints.length);
   check('открытая идёт первой', bothPoints[0].id === net1.tenant.id);
 
+  /* Вход обязан выбирать точку, а не брать первую попавшуюся строку.
+     Телефон больше не уникален, индекса по нему нет — «первая» означает
+     физический порядок в куче, а его двигает любая правка. Владелец с
+     неоплаченной второй точкой попадал бы на стену при работающей
+     первой, и в приложении, где переключателя нет, застревал бы там. */
+  const netLogin = await login(post('/login', { phone: '077 313 001', pin: '7711' }));
+  check('вход по номеру с двумя точками проходит', netLogin.status === 200, netLogin.status);
+  const netBody = await netLogin.json();
+  const [landed] = await db.select().from(users).where(eq(users.id, netBody.user.id));
+  check('и ведёт в ОТКРЫТУЮ точку', landed.tenantId === net1.tenant.id, landed.tenantId);
+
   /* Оплата закрывает вопрос обычным путём, без отдельной ветки. */
   await db
     .update(tenantTable)
@@ -2372,35 +2415,41 @@ async function main() {
     .where(eq(tenantTable.id, net2.tenant.id));
   check('после оплаты точка открывается', currentAccess(paidPoint).canRead);
 
-  /* Наём человека, который уже пользуется Tetrin: код у него свой, и
-     переписать его наймом нельзя — иначе это захват чужого доступа. */
+  /* Теперь обе открыты — и вход обязан вести туда, где человек работал
+     последним, а не куда придётся. */
+  const [onSecond] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.tenantId, net2.tenant.id), eq(users.accountId, human!.id)));
+  await markUsed(onSecond.id);
+  const backAgain = await login(post('/login', { phone: '077 313 001', pin: '7711' }));
+  const backBody = await backAgain.json();
+  const [landedAgain] = await db.select().from(users).where(eq(users.id, backBody.user.id));
+  check(
+    'вход возвращает на последнюю использованную',
+    landedAgain.tenantId === net2.tenant.id,
+    landedAgain.tenantId,
+  );
+
+  /* Человека, который уже пользуется Tetrin, нанять нельзя, и это
+     осознанный отказ: код ему когда-то назначил первый работодатель и с
+     тех пор знает. Разреши мы такой наём — этот первый работодатель
+     получил бы рабочий ключ от чужой мойки. */
   const hired2 = await catalog.addStaff({
     tenantId: net2.tenant.id,
-    name: 'Սուրեն',
+    name: 'Կարեն',
     phone: '077 313 002',
     pin: '2200',
     percent: 30,
   });
-  check('новый человек нанимается с кодом', !hired2.attached);
+  check('новый человек нанимается', hired2.percent === 30);
 
   const pinBefore = (await findPerson('+37477313002'))!;
-  const reHired = await catalog.addStaff({
-    tenantId: net1.tenant.id,
-    name: 'Սուրեն',
-    phone: '077 313 002',
-    pin: '9999',
-    percent: 40,
-  });
-  check('его же на вторую мойку берут без кода', reHired.attached);
-  const pinAfter = (await findPerson('+37477313002'))!;
-  check('и код ему НЕ переписывают', pinAfter.pinHash === pinBefore.pinHash);
-  check('процент на каждой точке свой', reHired.row.percent === 40 && hired2.row.percent === 30);
-
   let refusal = '';
   await catalog
     .addStaff({
       tenantId: net1.tenant.id,
-      name: 'Սուրեն',
+      name: 'Կարեն',
       phone: '077 313 002',
       pin: '9999',
       percent: 40,
@@ -2408,7 +2457,9 @@ async function main() {
     .catch((e) => {
       refusal = (e as Error).message;
     });
-  check('дважды в один бизнес — отказ', refusal === 'ALREADY_IN_BUSINESS', refusal);
+  check('его же на вторую мойку — отказ', refusal === 'PHONE_TAKEN', refusal);
+  const pinAfter = (await findPerson('+37477313002'))!;
+  check('и код ему НЕ переписали', pinAfter.pinHash === pinBefore.pinHash);
 
   /* Удаление одной точки не трогает человека, если ему есть где
      остаться: код, устройства и израсходованный пробный срок при нём. */

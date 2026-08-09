@@ -5,7 +5,7 @@ import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
 import { revokeMembershipSessions } from './auth';
-import { accountByPhone, claimAccount, PhoneTakenError } from './accounts';
+import { claimAccount, PhoneTakenError } from './accounts';
 
 /**
  * Прайс и люди — то, что владелец правит из кабинета.
@@ -115,25 +115,25 @@ export async function addStaff(params: {
     throw new ValidationError('BAD_PERCENT');
   }
 
-  /* Человека, который уже пользуется Tetrin, нанимаем БЕЗ кода: код у
-     него свой, и переписать его наймом нельзя. Иначе владелец одной
-     мойки вводил бы номер владельца другой, назначал свой код и заходил
-     в чужой бизнес.
+  if (!isValidPin(params.pin)) throw new ValidationError('BAD_PIN');
 
-     Это не редкий случай: один мойщик на двух мойках РАЗНЫХ владельцев
-     встречается чаще, чем сети из двух точек. */
-  const known = await accountByPhone(phone);
-
-  if (!known && !isValidPin(params.pin)) throw new ValidationError('BAD_PIN');
-
-  const pinHash = known ? known.pinHash : await hashPin(params.pin);
-  const account =
-    known ??
-    (await claimAccount({ phone, pinHash }).catch((e) => {
-      // гонка двух одновременных наймов: номер занял кто-то на миг раньше
-      if (e instanceof PhoneTakenError) throw new ValidationError('PHONE_TAKEN');
-      throw e;
-    }));
+  /* Человека, который уже пользуется Tetrin, нанять нельзя, и это
+     осознанный отказ, а не недоделка.
+     
+     Код сотруднику назначает работодатель и с тех пор его знает —
+     работник код не выбирал и обычно не менял. Разреши мы взять такого
+     человека на вторую мойку, его ПЕРВЫЙ работодатель получил бы рабочий
+     ключ от чужого бизнеса: тот же номер, тот же код, вход как этот
+     сотрудник.
+     
+     Чтобы это открыть, нужен не наём, а согласие: человек должен сам
+     сменить код или подтвердить приглашение. До тех пор владелец второй
+     мойки заводит ему отдельный номер — ровно как заводил до сих пор. */
+  const pinHash = await hashPin(params.pin);
+  const account = await claimAccount({ phone, pinHash }).catch((e) => {
+    if (e instanceof PhoneTakenError) throw new ValidationError('PHONE_TAKEN');
+    throw e;
+  });
 
   const [row] = await db
     .insert(users)
@@ -146,14 +146,8 @@ export async function addStaff(params: {
       role: 'staff',
       percent: params.percent,
     })
-    .returning()
-    /* Дважды в одном бизнесе человека быть не может — это ловит
-       уникальный индекс, а не проверка перед вставкой. Прежний
-       PHONE_TAKEN здесь врал бы: номер занят не вообще, а именно тут. */
-    .catch(() => {
-      throw new ValidationError('ALREADY_IN_BUSINESS');
-    });
-  return { row, attached: Boolean(known) };
+    .returning();
+  return row;
 }
 
 /**

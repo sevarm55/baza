@@ -122,6 +122,7 @@ struct OrderFlowView: View {
                     reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.8),
                     value: chosen.map(\.id)
                 )
+                .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: tier)
                 .animation(.easeOut(duration: 0.18), value: known?.key)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -282,10 +283,19 @@ struct OrderFlowView: View {
                         Text(item.name)
                             .font(.system(size: 14.5, weight: .semibold))
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
+                        /* Цена перекручивается разрядами при смене класса.
+                           Без этого выбор «Ջիպ» молча подменял все цены
+                           разом, и связь между нажатием и результатом
+                           приходилось додумывать: тот же приём, что у всех
+                           меняющихся чисел в продукте, здесь объясняет
+                           саму новую функцию. */
                         Text(money(item.price(tier: tier), currency))
                             .font(.system(size: 12))
                             .monospacedDigit()
                             .foregroundStyle(on ? Brand.onLime.opacity(0.7) : Brand.boardMuted)
+                            .contentTransition(
+                                .numericText(value: Double(item.price(tier: tier)))
+                            )
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)

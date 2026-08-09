@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
-    const { row: user, attached } = await addStaff({
+    const user = await addStaff({
       tenantId: ctx.tenant.id,
       name: str(input.name),
       phone: str(input.phone),
@@ -61,19 +61,12 @@ export async function POST(request: Request) {
     return ok(
       {
         staff: { id: user.id, name: user.name, phone: user.phone, percent: user.percent },
-        /* Человек уже пользовался Tetrin — код у него свой, и назначенный
-           владельцем не подойдёт. Приложению это нужно, чтобы сказать
-           «войдёт своим кодом» вместо «код 1234». */
-        attached,
       },
       201,
     );
   } catch (e) {
     if (e instanceof ValidationError) {
       if (e.message === 'PHONE_TAKEN') return fail('PHONE_TAKEN', 409, { reason: e.message });
-      if (e.message === 'ALREADY_IN_BUSINESS') {
-        return fail('ALREADY_IN_BUSINESS', 409, { reason: e.message });
-      }
       return fail('BAD_REQUEST', 400, { reason: e.message });
     }
     return failFromError(e);

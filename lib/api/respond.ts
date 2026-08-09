@@ -33,10 +33,6 @@ export type ApiError =
   | 'PASS_UNAVAILABLE'
   | 'ORDER_NOT_FOUND'
   | 'PHONE_TAKEN'
-  /* Человек уже работает в ЭТОМ бизнесе. Отдельно от PHONE_TAKEN: тот
-     значил «номер занят вообще», а теперь номер может честно
-     принадлежать человеку, который работает на соседней мойке. */
-  | 'ALREADY_IN_BUSINESS'
   | 'INTERNAL';
 
 export function ok<T>(data: T, status = 200): NextResponse {

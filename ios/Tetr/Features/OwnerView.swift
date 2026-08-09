@@ -476,15 +476,37 @@ struct OwnerView: View {
                 .foregroundStyle(Brand.boardMuted)
                 .frame(width: 42, alignment: .leading)
 
-            Text(item.clientKey ?? "—")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(Brand.person(who))
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Text(item.clientKey ?? "—")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                    Image(systemName: paymentSymbol(item.payment))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Brand.boardMuted)
+                        .accessibilityLabel(paymentLabel(item.payment))
+                }
+                /* Имя и услуга одной строкой.
+                   Имя — потому что вопрос «КТО помыл эту машину», и цвет на
+                   него отвечает лишь «тот же или другой». Цветом имя и
+                   набрано: два признака вместо одного, и на выгоревшем под
+                   солнцем экране остаётся хотя бы один.
+                   Услуга — потому что без неё цена необъяснима: 2 500 и
+                   12 000 в соседних строках выглядят ошибкой, пока не
+                   видно, что одно это кузов, а другое химчистка. */
+                HStack(spacing: 4) {
+                    Text(who)
+                        .foregroundStyle(Brand.person(who))
+                    Text("·")
+                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                    Text(item.serviceName)
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                .font(.system(size: 11))
                 .lineLimit(1)
-
-            Image(systemName: paymentSymbol(item.payment))
-                .font(.system(size: 10.5))
-                .foregroundStyle(Brand.boardMuted)
-                .accessibilityLabel(paymentLabel(item.payment))
+                .truncationMode(.tail)
+            }
 
             Spacer(minLength: 8)
 
@@ -663,6 +685,11 @@ struct OwnerView: View {
                 withAnimation(.snappy(duration: 0.45)) { summary = fresh }
             }
             failure = nil
+        } catch is CancellationError {
+            /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
+               сломалось — и экран об этом молчит: прежнее содержимое
+               остаётся на месте. */
+            return
         } catch let error as APIError {
             failure = error.isOffline
                 ? "Կապ չկա։"

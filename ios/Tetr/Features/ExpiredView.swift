@@ -27,6 +27,11 @@ struct ExpiredView: View {
     @State private var exported: URL?
     @State private var deleting = false
 
+    /* Точку только что завели, и «срок вышел» здесь было бы прямой
+       неправдой: ничего не истекло, оплаты просто ещё не было. Тот же
+       разбор, что на веб-стене. */
+    private var fresh: Bool { session.access?.state == "unpaid" }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.clear
@@ -45,11 +50,13 @@ struct ExpiredView: View {
                 }
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("Ժամկետը լրացել է")
+                Text(fresh ? "Կետը ստեղծված է" : "Ժամկետը լրացել է")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text("Մուտքը ժամանակավորապես դադարեցված է։ Ձեր տվյալները տեղում են՝ գրանցումները, հասույթը, հաճախորդների բազան։ Ոչինչ չի կորել։")
+                Text(fresh
+                     ? "Սկսում ենք վճարումից հետո։ Ձեր մյուս կետերն աշխատում են ինչպես առաջ։"
+                     : "Մուտքը ժամանակավորապես դադարեցված է։ Ձեր տվյալները տեղում են՝ գրանցումները, հասույթը, հաճախորդների բազան։ Ոչինչ չի կորել։")
                     .font(.system(size: 15.5))
                     .lineSpacing(3)
                     .foregroundStyle(.white.opacity(0.8))

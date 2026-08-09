@@ -57,6 +57,15 @@ export default async function AdminPage() {
             </div>
           </div>
           <div className={s.sum}>
+            {/* Ждущие первой оплаты — своя плитка, иначе они не попадают
+                ни в один счётчик и плитки перестают складываться в
+                «Всего». Это первое, что начинает врать. */}
+            <div className={s.sumLabel}>Ждёт оплаты</div>
+            <div className={s.sumValue} style={{ color: 'var(--color-warn)' }}>
+              {count('unpaid')}
+            </div>
+          </div>
+          <div className={s.sum}>
             <div className={s.sumLabel}>Триал</div>
             <div className={s.sumValue} style={{ color: 'var(--color-accent)' }}>
               {count('trial')}

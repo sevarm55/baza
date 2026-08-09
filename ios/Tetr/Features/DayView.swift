@@ -20,6 +20,9 @@ struct DayView: View {
 
     @State private var day: API.Day?
     @State private var loading = true
+    /// Почему день не открылся. Раньше отказ глотался вместе с ошибкой
+    /// разбора, и человек видел белый лист без единого слова.
+    @State private var failure: String?
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -176,20 +179,26 @@ struct DayView: View {
     }
 
     /**
-     * Наличные: сколько намыл и сколько сдал.
+     * Наличные: сколько набралось и сколько сдал.
      *
-     * «Не отмечено» и «сдал ноль» показываются по-разному: первое значит,
-     * что человек пропустил шаг, второе — что денег не было. Смешать их
-     * значит превратить забывчивость в обвинение.
+     * «Сдал ноль» и «не отметил» показываются по-разному, и это не
+     * придирка. Первое значит, что денег не было. Второе — что человек не
+     * дошёл до экрана сдачи: приложение о деньгах ничего не знает и не
+     * вправе делать вид, что знает.
+     *
+     * Поэтому формулировка безличная — «сдача не отмечена», а не «не
+     * отметил»: второе звучит претензией к человеку там, где утверждать
+     * нечего. И жёлтым, а не лаймом: лайм в продукте значит «хорошо», а
+     * это пропуск в учёте, который надо закрыть, а не достижение.
      */
     private func cash(expected: Int, declared: Int?) -> some View {
         HStack(spacing: 6) {
             Text("Կանխիկ \(Tetr.money(expected, currency))")
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.85))
 
             if let declared {
                 Text("· հանձնեց \(Tetr.money(declared, currency))")
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.85))
 
                 let diff = declared - expected
                 if diff != 0 {
@@ -197,10 +206,11 @@ struct DayView: View {
                          ? "· −\(Tetr.money(-diff, currency))"
                          : "· +\(Tetr.money(diff, currency))")
                         .fontWeight(.bold)
-                        .foregroundStyle(Brand.lime)
+                        .foregroundStyle(Brand.warnOnDark)
                 }
             } else {
-                Text("· չի նշել").foregroundStyle(Brand.lime.opacity(0.9))
+                Text("· հանձնումը չի նշվել")
+                    .foregroundStyle(Brand.warnOnDark)
             }
         }
         .font(.system(size: 12))
@@ -237,15 +247,35 @@ struct DayView: View {
                         .foregroundStyle(Brand.boardMuted)
                         .frame(width: 42, alignment: .leading)
 
-                    Text(item.clientKey ?? "—")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Brand.person(who))
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 5) {
+                            Text(item.clientKey ?? "—")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Brand.onBoard)
+                                .lineLimit(1)
+                            Image(systemName: paymentSymbol(item.payment))
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Brand.boardMuted)
+                                .accessibilityLabel(paymentLabel(item.payment))
+                        }
+                        /* Имя и услуга — та же строка, что в ленте сводки.
+                           Цвет отвечает только «тот же или другой», а
+                           вопрос здесь «кто помыл эту машину». Услуга —
+                           потому что без неё цена необъяснима: 2 500 и
+                           12 000 в соседних строках выглядят ошибкой, пока
+                           не видно, что одно кузов, а другое химчистка. */
+                        HStack(spacing: 4) {
+                            Text(who)
+                                .foregroundStyle(Brand.person(who))
+                            Text("·")
+                                .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                            Text(item.serviceName)
+                                .foregroundStyle(Brand.boardMuted)
+                        }
+                        .font(.system(size: 11))
                         .lineLimit(1)
-
-                    Image(systemName: paymentSymbol(item.payment))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .accessibilityLabel(paymentLabel(item.payment))
+                        .truncationMode(.tail)
+                    }
 
                     Spacer(minLength: 8)
 
@@ -285,14 +315,44 @@ struct DayView: View {
         return f.string(from: at)
     }
 
+    /// Ничего не пришло — говорим, что именно, и даём повторить.
+    private var problem: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 26))
+                .foregroundStyle(Brand.grape)
+            Text(failure ?? "Չհաջողվեց բացել օրը")
+                .font(.system(size: 14))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Brand.boardMuted)
+            Button("Կրկնել") { Task { await load() } }
+                .buttonStyle(.glass)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
     private func load() async {
         loading = true
         defer { loading = false }
 
-        let fresh: API.Day? = try? await session.authed { token in
-            try await APIClient.shared.send("day?date=\(date)", token: token, as: API.Day.self)
+        do {
+            day = try await session.authed { token in
+                try await APIClient.shared.send("day?date=\(date)", token: token, as: API.Day.self)
+            }
+            failure = nil
+        } catch is CancellationError {
+            return
+        } catch let error as APIError {
+            failure = error.isOffline
+                ? "Կապ չկա։"
+                : "Սերվերը չպատասխանեց (\(error.status) \(error.code ?? "—"))"
+        } catch {
+            /* Разбор ответа: показываем как есть — это баг, а не сбой сети.
+               Прятать его за «попробуйте позже» значит никогда не найти:
+               ровно так белый экран дня и прожил незамеченным. */
+            failure = "\(error)"
         }
-        day = fresh
     }
 
     static func title(_ date: String) -> String {

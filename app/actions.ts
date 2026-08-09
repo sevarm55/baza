@@ -27,7 +27,7 @@ import {
   verifyPin,
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone, listPoints, markPointUsed } from '@/lib/accounts';
+import { accountByPhone, listPoints, markPointUsed, pointForLogin } from '@/lib/accounts';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
@@ -95,32 +95,45 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
     return { error: hy.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
   }
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.phone, phone), eq(users.active, true)));
+  /* Код принадлежит человеку, а не его работе на точке. */
+  const account = await accountByPhone(phone);
 
-  /* Код принадлежит человеку, а не его работе на точке. Пока участие не
-     привязано к человеку — сверяем по его собственной копии. */
-  const account = user?.accountId ? await accountByPhone(phone) : undefined;
-  const secret = account?.pinHash ?? user?.pinHash;
+  /* Участие ищем только ради людей, которых завёл ещё старый код и не
+     успел привязать. Своей копией кода они и сверяются. */
+  const [legacy] = account
+    ? []
+    : await db.select().from(users).where(and(eq(users.phone, phone), eq(users.active, true)));
 
   // одна и та же ошибка на неверный телефон и на неверный PIN —
   // иначе форма превращается в способ узнать, кто зарегистрирован
+  const secret = account?.pinHash ?? legacy?.pinHash;
   const ok = secret ? await verifyPin(pin, secret) : false;
   await noteLogin(phone, ip, ok);
-  if (!user || !ok) return { error: hy.auth.wrongCredentials };
+  if (!ok) return { error: hy.auth.wrongCredentials };
+
+  /* Куда вести — решает pointForLogin, а не порядок строк: телефон
+     больше не уникален, и «первая попавшаяся» означала бы случайную
+     мойку. */
+  const point = account ? await pointForLogin(account.id) : undefined;
+  const membership = point
+    ? { id: point.membershipId, tid: point.id, role: point.role }
+    : legacy
+      ? {
+          id: legacy.id,
+          tid: legacy.tenantId,
+          role: legacy.role === 'owner' ? ('owner' as const) : ('staff' as const),
+        }
+      : null;
+
+  if (!membership) return { error: hy.auth.wrongCredentials };
 
   await startSession(
-    {
-      uid: user.id,
-      tid: user.tenantId,
-      role: user.role === 'owner' ? 'owner' : 'staff',
-    },
+    { uid: membership.id, tid: membership.tid, role: membership.role },
     { kind: 'web' },
   );
+  await markPointUsed(membership.id);
 
-  redirect(user.role === 'owner' ? '/owner' : '/work');
+  redirect(membership.role === 'owner' ? '/owner' : '/work');
 }
 
 export async function signOut() {
@@ -234,9 +247,6 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   try {
     await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
   } catch (e) {
-    if (e instanceof catalog.ValidationError && e.message === 'ALREADY_IN_BUSINESS') {
-      return { error: hy.auth.alreadyInBusiness };
-    }
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
       return { error: hy.auth.phoneTaken };
     }

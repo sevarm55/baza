@@ -6,12 +6,13 @@
  * Нужен для двух вещей: посмотреть, как выглядит закрытый доступ,
  * и дать клиенту пару дней, когда он просит «ещё немного посмотреть».
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
-const [rawPhone, rawDays] = process.argv.slice(2);
+// третий аргумент нужен только владельцу нескольких точек: id или часть названия
+const [rawPhone, rawDays, which] = process.argv.slice(2);
 
 if (!rawPhone || rawDays === undefined) {
-  console.error('использование: npm run trial -- <телефон владельца> <дней от сегодня>');
+  console.error('использование: npm run trial -- <телефон владельца> <дней> [точка]');
   process.exit(1);
 }
 
@@ -31,14 +32,36 @@ async function main() {
   await ensureDb();
 
   const phone = normalizePhone(rawPhone);
-  const [owner] = await db
+  const owners = await db
     .select()
     .from(users)
-    .where(and(eq(users.phone, phone), eq(users.role, 'owner')));
+    .where(and(eq(users.phone, phone), eq(users.role, 'owner'), eq(users.active, true)));
 
-  if (!owner) {
+  if (owners.length === 0) {
     console.error(`владелец с номером ${formatPhone(phone)} не найден`);
     process.exit(1);
+  }
+
+  /* У владельца может быть несколько точек. Молча взять любую значило бы
+     однажды продлить не ту — или, хуже, обнулить оплату у работающей.
+     Поэтому при неоднозначности отказываемся и показываем список. */
+  let owner = owners[0];
+  if (owners.length > 1) {
+    const named = await db
+      .select({ id: tenants.id, name: tenants.name })
+      .from(tenants)
+      .where(inArray(tenants.id, owners.map((o) => o.tenantId)));
+
+    const hit = which
+      ? named.filter((t) => t.id === which || t.name.toLowerCase().includes(which.toLowerCase()))
+      : [];
+
+    if (hit.length !== 1) {
+      console.error(`у ${formatPhone(phone)} несколько точек — укажите, какую:`);
+      for (const t of named) console.error(`  ${t.id}  ${t.name}`);
+      process.exit(1);
+    }
+    owner = owners.find((o) => o.tenantId === hit[0].id)!;
   }
 
   const trialEndsAt = new Date(Date.now() + days * 86_400_000);

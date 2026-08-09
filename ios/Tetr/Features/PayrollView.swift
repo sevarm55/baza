@@ -27,6 +27,13 @@ struct PayrollView: View {
     @State private var confirming: API.PayrollDue?
     @State private var failure: String?
     @State private var loading = false
+    /// Кого сейчас держат пальцем и насколько заполнилось.
+    @State private var holding: String?
+    @State private var progress: CGFloat = 0
+    /// Когда прошла последняя выплата. См. `press` — этим закрыт «цепной»
+    /// повтор на соседнем человеке.
+    @State private var locked: Date?
+    @State private var settleFailed = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -75,6 +82,14 @@ struct PayrollView: View {
             if let row = confirming {
                 Text("\(row.name ?? "—") · \(money(row.earned, currency))")
             }
+        }
+        /* Запрос не прошёл — об этом надо сказать словами. Молчание здесь
+           опаснее всего: человек уже отдал деньги из рук в руки и уверен,
+           что запись легла. */
+        .alert("Չգրանցվեց", isPresented: $settleFailed) {
+            Button("Լավ", role: .cancel) {}
+        } message: {
+            Text("Վճարումը չպահվեց։ Ստուգեք կապը և կրկնեք։")
         }
     }
 
@@ -164,27 +179,128 @@ struct PayrollView: View {
                     .contentTransition(.numericText(value: Double(row.earned)))
             }
 
-            Button {
-                confirming = row
-            } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Նշել վճարվածը")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .loading(settling == row.staffId, tint: .white, size: 18)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(.white.opacity(0.18), in: .rect(cornerRadius: 14))
-            }
-            .buttonStyle(.press)
-            .disabled(settling != nil)
-            .padding(.top, 14)
+            holdToSettle(row)
+                .padding(.top, 14)
         }
         .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 16)
         .accessibilityElement(children: .contain)
+    }
+
+    /**
+     * «Отметить выплаченным» — удержанием, а не диалогом.
+     *
+     * Выплата необратима: она закрывает период по человеку, и следующий
+     * расчёт пойдёт от неё. Прежде это защищал вопрос «вы уверены?» —
+     * защита, которую жмут не глядя, потому что за день таких вопросов
+     * десяток. Хуже того, диалог выскакивал ровно в тот момент, когда одна
+     * рука отдаёт деньги, а вторая держит телефон.
+     *
+     * Удержание работает иначе: подтверждение не отдельный экран, а само
+     * действие, растянутое во времени. Палец соскользнул или человек
+     * передумал — заливка откатилась, и ничего не случилось. Промахнуться
+     * невозможно в принципе, а не «маловероятно».
+     *
+     * Заливка идёт слева направо по самой кнопке: она не украшение, а
+     * единственный ответ на вопрос «сколько ещё держать».
+     */
+    private func holdToSettle(_ row: API.PayrollDue) -> some View {
+        let busy = settling == row.staffId
+        let active = holding == row.staffId
+
+        return HStack(spacing: 7) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 12, weight: .bold))
+            Text("Պահեք՝ նշելու համար")
+                .font(.system(size: 14, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(.white)
+        .loading(busy, tint: .white, size: 18)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background { fill(active: active) }
+        .contentShape(.rect(cornerRadius: 14))
+        /* `minimumDuration` и длительность заливки — одно и то же число:
+           разойдись они, полоса дозаполнялась бы уже после срабатывания
+           или срабатывало бы раньше, чем полоса дошла до края. */
+        .onLongPressGesture(minimumDuration: hold) {
+            /* Платим только тому, кого держали с самого начала. Без этой
+               проверки достаточно, чтобы удержание началось само — а оно
+               умеет: см. `press`. */
+            guard !busy, holding == row.staffId else { return }
+            Task { await settle(row) }
+        } onPressingChanged: { pressing in
+            guard !busy else { return }
+            press(row, pressing)
+        }
+        .disabled(settling != nil)
+        /* Удержание недоступно тем, кто ходит по экрану голосом или кому
+           тяжело держать палец. Для них остаётся прежний путь — обычное
+           действие с вопросом. */
+        .accessibilityElement()
+        .accessibilityLabel("Նշել վճարվածը")
+        .accessibilityValue(money(row.earned, currency))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { confirming = row }
+    }
+
+    /// Сколько держать. Больше секунды — чтобы случайное касание не
+    /// доходило до конца; меньше полутора — чтобы намеренное не бесило.
+    private var hold: Double { 1.1 }
+
+    /// Заливка наливается только у того, кого держат: `progress` один на
+    /// экран, и без проверки полоса ползла бы разом у всех.
+    @ViewBuilder
+    private func fill(active: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 14)
+        let done = active ? progress : 0
+        if reduceMotion {
+            /* «Уменьшение движения» запрещает движение, а не признак
+               работы: вместо ползущей полосы кнопка наливается целиком. */
+            shape.fill(.white.opacity(0.18 + 0.24 * done))
+        } else {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    shape.fill(.white.opacity(0.18))
+                    shape
+                        .fill(.white.opacity(0.42))
+                        .frame(width: geo.size.width * done)
+                }
+            }
+        }
+    }
+
+    /**
+     * Начало и конец удержания.
+     *
+     * Здесь же закрыт самый неприятный способ заплатить дважды. После
+     * выплаты строка человека уходит из списка, и следующая **уезжает вверх
+     * ровно под палец**. Палец с экрана не снимали — а на новой кнопке уже
+     * началось удержание, и через секунду деньги отданы второму человеку,
+     * которого никто не выбирал.
+     *
+     * Поэтому сразу после выплаты удержание не начинается: пока палец не
+     * отпустили, новое нажатие не считается нажатием. Запрет снимается сам
+     * через секунду — иначе непойманное отпускание оставило бы экран
+     * мёртвым до перезахода.
+     */
+    private func press(_ row: API.PayrollDue, _ pressing: Bool) {
+        guard pressing else {
+            locked = nil
+            holding = nil
+            // отпустили раньше времени — полоса возвращается быстро, чтобы
+            // отмена читалась отменой, а не подтормаживанием
+            withAnimation(.snappy(duration: 0.2)) { progress = 0 }
+            return
+        }
+
+        if let locked, Date().timeIntervalSince(locked) < 1 { return }
+
+        holding = row.staffId
+        // толчок в начале: палец узнаёт, что отсчёт пошёл, раньше глаза
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        withAnimation(.linear(duration: hold)) { progress = 1 }
     }
 
     private var settled: some View {
@@ -288,14 +404,29 @@ struct PayrollView: View {
         settling = staffId
         defer { settling = nil }
 
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "payouts",
-                method: "POST",
-                body: ["staffId": staffId],
-                token: token
-            )
+        defer {
+            /* Список сейчас перестроится под пальцем, который могли и не
+               убрать. До отпускания новых удержаний нет — см. `press`. */
+            locked = Date()
+            holding = nil
+            progress = 0
         }
+
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "payouts",
+                    method: "POST",
+                    body: ["staffId": staffId],
+                    token: token
+                )
+            }
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            settleFailed = true
+            return
+        }
+
         // Деньги отданы из рук в руки — толчок подтверждает, что запись
         // легла, не заставляя вчитываться в изменившийся список.
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -317,6 +448,11 @@ struct PayrollView: View {
                 withAnimation(.snappy(duration: 0.45)) { payroll = fresh }
             }
             failure = nil
+        } catch is CancellationError {
+            /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
+               сломалось — и экран об этом молчит: прежнее содержимое
+               остаётся на месте. */
+            return
         } catch let error as APIError {
             failure = error.isOffline ? "Կապ չկա։" : "\(error.status) \(error.code ?? "—")"
         } catch {
