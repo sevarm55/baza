@@ -86,6 +86,8 @@ export type Point = {
   membershipId: string;
   state: Access['state'];
   canRead: boolean;
+  /** сколько дней осталось; 0 — считать нечего */
+  daysLeft: number;
 };
 
 /**
@@ -126,6 +128,7 @@ export async function listPoints(accountId: string): Promise<Point[]> {
         membershipId: r.membershipId,
         state: access.state,
         canRead: access.canRead,
+        daysLeft: access.daysLeft,
         lastUsedAt: r.lastUsedAt,
         createdAt: r.createdAt,
       };
@@ -144,6 +147,7 @@ export async function listPoints(accountId: string): Promise<Point[]> {
       membershipId: r.membershipId,
       state: r.state,
       canRead: r.canRead,
+      daysLeft: r.daysLeft,
     }));
 }
 

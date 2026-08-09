@@ -82,6 +82,8 @@ enum API {
         let role: String
         let state: String
         let canRead: Bool
+        /// Необязательное: сервер может оказаться старее приложения.
+        let daysLeft: Int?
     }
 
     struct Bootstrap: Decodable {

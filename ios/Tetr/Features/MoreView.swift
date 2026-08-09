@@ -24,6 +24,20 @@ struct MoreView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
+                /* Точки — во всю ширину и первыми. Не из важности, а из
+                   смысла: они отвечают, О КАКОЙ мойке всё остальное на
+                   этом экране. Половинной плиткой в ряду это читалось бы
+                   как ещё один раздел наравне с расходами.
+
+                   У кого мойка одна — плитки нет вовсе. Рассказывать ему
+                   про точки значит объяснять устройство, которого он не
+                   просил. */
+                if session.canSwitch {
+                    wide(.slate, "Կետեր", subtitle, sticker: "sticker-wash.png") {
+                        PointsView().navigationTitle("Կետեր")
+                    }
+                }
+
                 HStack(spacing: gap) {
                     tile(.violet, "Օրացույց", "պատմություն", sticker: "sticker-calendar.png") {
                         CalendarView().toolbar(.hidden, for: .navigationBar)
@@ -63,6 +77,64 @@ struct MoreView: View {
         .sheet(item: $exported) { url in
             ShareSheet(url: url)
         }
+    }
+
+    /// Сколько точек и сколько из них ждут денег — то, ради чего сюда
+    /// заходят, видно ещё до нажатия.
+    private var subtitle: String {
+        let all = session.points.count
+        let closed = session.points.filter { !$0.canRead }.count
+        return closed == 0 ? "\(all) կետ · բոլորը բաց են" : "\(all) կետ · \(closed) սպասում է վճարման"
+    }
+
+    /**
+     * Плитка во всю ширину.
+     *
+     * Та же плитка, только ниже и шире: картинка уезжает вправо сильнее,
+     * потому что места по горизонтали втрое больше и прежний вылет
+     * оставил бы её висеть посреди пустоты.
+     */
+    private func wide<D: View>(
+        _ tone: Tone,
+        _ title: String,
+        _ note: String,
+        sticker: String,
+        @ViewBuilder destination: @escaping () -> D
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                if let art = UIImage(named: sticker) {
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 132, height: 132)
+                        .offset(x: 22, y: -6)
+                        .accessibilityHidden(true)
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text(title)
+                        .font(.system(size: 18, weight: .bold))
+                    Text(note)
+                        .font(.system(size: 12))
+                        .opacity(0.72)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .foregroundStyle(tone.ink)
+                .padding(.trailing, 120)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .frame(height: 116, alignment: .bottomLeading)
+            .frame(maxWidth: .infinity)
+            .glassEffect(.regular.tint(tone.base.opacity(0.72)).interactive(),
+                         in: .rect(cornerRadius: 26))
+        }
+        .buttonStyle(.press)
     }
 
     /**
