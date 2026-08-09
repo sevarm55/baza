@@ -161,19 +161,20 @@
   color: rgb(247 245 251 / 50%);
 }
 
-/* Картинка первого экрана. Пока её нет — полотно со свечением, и
-   это не заглушка: та же плитка, что в продукте. */
+/* Картинка первого экрана: деньги, которые сошлись, и линия вверх.
+   Не мойка и не витрина — то, ради чего продукт покупают.
+
+   Снизу растворяется в полотно, чтобы у снимка не было нижней границы:
+   прямая линия обреза читалась бы краем чужой картинки, вклеенной в
+   страницу. */
 .shot {
   position: relative;
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-card);
-  overflow: hidden;
   background:
-    radial-gradient(120% 100% at 70% 0%, rgb(167 139 250 / 30%) 0%, transparent 60%),
-    radial-gradient(80% 70% at 20% 100%, rgb(215 255 0 / 12%) 0%, transparent 60%),
+    linear-gradient(180deg, transparent 58%, rgb(10 10 12 / 70%) 84%, #0a0a0c 100%),
+    url('/hero.jpg') center / cover no-repeat,
     #101014;
-  background-size: cover;
-  background-position: center;
 }
 
 /* ───────────────────────── числа ───────────────────────── */
