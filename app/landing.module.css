@@ -18,16 +18,6 @@
   color: #f7f5fb;
   min-height: 100dvh;
 
-  /* Снимки экранов остаются светлыми на тёмном лендинге.
-  
-     Это не сбой палитры: человек смотрит на них как на фотографию
-     чужого телефона, а не как на часть страницы. Перекрась мы их в
-     полотно — они слились бы с фоном и перестали читаться снимками. */
-  --pcard: #ffffff;
-  --pline: #e9e6f0;
-  --pink: #1a1626;
-  --pmuted: #56506b;
-  --plate: #f3f2f6;
 }
 
 /* Общая ширина. Полоса красит фон во всю ширину экрана, контейнер
@@ -393,268 +383,41 @@
   }
 }
 
-/* ───────────────────── снимки экранов ─────────────────────
+/* ───────────────────── снимки продукта ─────────────────────
 
-   Эти правила пережили переезд лендинга во всю ширину: разметка
-   снимков не менялась, менялось только то, что вокруг них. */
+   Собраны из настоящих блоков продукта (components/board.tsx), поэтому
+   здесь только рамка вокруг них: подложка чуть светлее полотна,
+   волосяная граница и подпись, чей это экран. Всё остальное рисует сам
+   продукт — и не может разойтись с ним. */
 
-/* ─────────── экраны продукта внутри ленты ─────────── */
-
-/* Во всю ширину колонки и без парения: экран стоит в тексте так же,
-   как абзац, и держится за ту же ось, что и весь день. */
 .screen {
-  margin-top: 18px;
-  border: 1px solid var(--pline);
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--pcard);
-  color: var(--pink);
-  box-shadow: 0 18px 40px -26px rgb(10 0 30 / 45%);
+  background: #101014;
+  border: 1px solid rgb(247 245 251 / 9%);
 }
 
 .screenBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--pline);
-  background: var(--plate);
-  font-size: 13px;
-}
-
-.screenWho {
-  margin-inline-start: auto;
-  color: var(--pmuted);
+  padding: 11px 16px;
+  border-bottom: 1px solid rgb(247 245 251 / 8%);
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgb(247 245 251 / 45%);
 }
 
+/* Полотно внутри рамки: те же токены, что в кабинете, — блоки продукта
+   читают именно их. */
 .screenBody {
-  padding: 14px;
+  --board: #101014;
+  --on-board: #f7f5fb;
+  --board-muted: #8e8899;
+  --board-ink: #f7f5fb;
+  --good-on-board: #34d399;
+  --warn-on-board: #fbbf24;
+
+  padding: 18px 16px 20px;
+  color: var(--on-board);
 }
-
-.shift {
-  border-radius: 10px;
-  padding: 14px 15px 15px;
-  background: linear-gradient(135deg, var(--color-shift-from), var(--color-shift-to));
-  color: var(--color-shift-ink);
-}
-
-.shiftLabel {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  opacity: 0.72;
-}
-
-.shiftValue {
-  margin-top: 4px;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.shiftMeta {
-  margin-top: 4px;
-  font-size: 11.5px;
-  opacity: 0.78;
-  font-variant-numeric: tabular-nums;
-}
-
-.plateLabel {
-  margin-top: 13px;
-  font-size: 10.5px;
-  color: var(--pmuted);
-}
-
-.plate {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--plate);
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-variant-numeric: tabular-nums;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  min-height: 42px;
-}
-
-.plateFlag {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  background: #14235c;
-  color: #fff;
-  border-radius: 3px;
-  padding: 6px 4px;
-  line-height: 1;
-}
-
-.caret {
-  display: inline-block;
-  width: 2px;
-  height: 19px;
-  background: var(--pink);
-  animation: blink 1s steps(2, start) infinite;
-}
-
-.records {
-  margin-top: 10px;
-  display: grid;
-  gap: 7px;
-}
-
-.record {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-  animation: slideIn 0.3s ease both;
-}
-
-.recordName {
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.recordPay {
-  font-size: 11px;
-  color: var(--pmuted);
-}
-
-.recordSum {
-  font-size: 13.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.ownerLabel {
-  margin-top: 14px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pmuted);
-}
-
-.ownerLabel:first-child {
-  margin-top: 0;
-}
-
-.ownerValue {
-  margin-top: 3px;
-  font-size: 29px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  font-variant-numeric: tabular-nums;
-}
-
-.ownerMeta {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-
-.split {
-  margin-top: 12px;
-  display: flex;
-  gap: 3px;
-  height: 9px;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--plate);
-}
-
-.split i {
-  display: block;
-  transition: width 0.6s ease;
-}
-
-.splitLegend {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 14px;
-  font-size: 11.5px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-
-.splitLegend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.splitLegend i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: none;
-}
-
-.staffRow {
-  margin-top: 7px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.avatar {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--deep-2);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.staffWho {
-  min-width: 0;
-  flex: 1;
-}
-
-.staffName {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.staffMeta {
-  font-size: 11px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-
-.staffSum {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.caret,
-  .record {
-    animation: none;
-  }
-
-.split i {
-    transition: none;
-  }
