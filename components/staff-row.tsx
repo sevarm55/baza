@@ -76,8 +76,12 @@ export function StaffRow({
               {hy.settings.percent} · {roleLabel}
             </span>
             <div className="relative">
+              {/* Знак слева, как «+374» у телефона, и как в форме найма:
+                  два окна об одном и том же не должны выглядеть по-разному.
+                  Число прижималось к правому краю поля — единственное
+                  такое во всём продукте. */}
               <input
-                className="field num !pe-9 text-end"
+                className="field num !ps-8"
                 name="percent"
                 type="number"
                 inputMode="numeric"
@@ -86,7 +90,7 @@ export function StaffRow({
                 defaultValue={percent}
                 required
               />
-              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
+              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
                 %
               </span>
             </div>

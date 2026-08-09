@@ -80,15 +80,20 @@ export function Rail({
         {/* Владелец на маленькой мойке моет и сам, поэтому переключение
             между кабинетом и записью стоит рядом с выходом, а не среди
             разделов: это не раздел, а вторая половина продукта. */}
-        {/* Жёлоб во всю ширину рейки и с воздухом внутри.
-        
-            Был на три пикселя поля и текст в тринадцать — переключатель
-            выходил мелкой белой таблеткой в углу, зажатой между разделами
-            и кнопкой выхода. Это не «мелочь внизу»: владелец, который сам
-            моет машины, ходит туда-сюда десять раз за смену. */}
+        {/* Две строки, а не две половины.
+
+            В два столбца это не помещается физически: рейка 244 пикселя,
+            половина — сотня, а «Սեփականատեր» в одиннадцать армянских
+            букв просит полторы. Обе подписи обрывались многоточием, и
+            переключатель показывал «Աշխատակ…» и «Սեփական…» — два огрызка,
+            по которым не прочесть, куда ты попадёшь.
+
+            Столбиком слова помещаются целиком, а цель под курсором
+            становится вдвое шире. Что это переключатель, а не ещё два
+            раздела, говорит жёлоб: разделы выше лежат прямо на рейке. */}
         <nav
-          className="mb-3 grid grid-cols-2 gap-1 rounded-[10px] p-1"
-          style={{ background: 'color-mix(in srgb, var(--board-ink) 8%, transparent)' }}
+          className="mb-3 grid gap-0.5 rounded-[10px] p-1"
+          style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
         >
           {(
             [
@@ -100,14 +105,20 @@ export function Rail({
               key={tab.key}
               href={tab.href}
               aria-current={active === tab.key ? 'page' : undefined}
-              className="truncate rounded-[7px] px-2 py-2 text-center text-[13.5px] transition-colors"
-              style={
-                active === tab.key
-                  ? { background: 'var(--on-board)', color: 'var(--board)', fontWeight: 600 }
-                  : { color: 'var(--board-muted)' }
-              }
+              className={`nav-item !rounded-[7px] ${active === tab.key ? 'nav-item-on' : ''}`}
             >
-              {tab.label}
+              {/* Точка вместо значка: у разделов значок говорит «что это»,
+                  здесь достаточно сказать «ты тут». */}
+              <span className="nav-mark items-center" aria-hidden>
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{
+                    background: 'currentColor',
+                    opacity: active === tab.key ? 1 : 0.35,
+                  }}
+                />
+              </span>
+              <span className="truncate">{tab.label}</span>
             </Link>
           ))}
         </nav>
