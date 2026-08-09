@@ -71,8 +71,11 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
             {hy.settings.percent} · {staffRole}
           </span>
           <div className="relative">
+            {/* Знак слева, как «+374» у телефона. Все украшения полей в
+                продукте стоят в начале: справа их взгляд ищет отдельно,
+                а слева они читаются вместе с первым знаком числа. */}
             <input
-              className="field field-sm num !pe-7 !text-center"
+              className="field field-sm num !ps-7"
               name="percent"
               type="number"
               inputMode="numeric"
@@ -81,7 +84,7 @@ export function AddStaffForm({ staffRole }: { staffRole: string }) {
               defaultValue={40}
               required
             />
-            <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
+            <span className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
               %
             </span>
           </div>

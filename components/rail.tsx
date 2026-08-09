@@ -80,10 +80,15 @@ export function Rail({
         {/* Владелец на маленькой мойке моет и сам, поэтому переключение
             между кабинетом и записью стоит рядом с выходом, а не среди
             разделов: это не раздел, а вторая половина продукта. */}
-        {/* Тот же жёлоб, что у периодов: 8 снаружи, 6 внутри. */}
+        {/* Жёлоб во всю ширину рейки и с воздухом внутри.
+        
+            Был на три пикселя поля и текст в тринадцать — переключатель
+            выходил мелкой белой таблеткой в углу, зажатой между разделами
+            и кнопкой выхода. Это не «мелочь внизу»: владелец, который сам
+            моет машины, ходит туда-сюда десять раз за смену. */}
         <nav
-          className="mb-2.5 flex gap-0.5 rounded-[8px] p-[3px]"
-          style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
+          className="mb-3 grid grid-cols-2 gap-1 rounded-[10px] p-1"
+          style={{ background: 'color-mix(in srgb, var(--board-ink) 8%, transparent)' }}
         >
           {(
             [
@@ -95,7 +100,7 @@ export function Rail({
               key={tab.key}
               href={tab.href}
               aria-current={active === tab.key ? 'page' : undefined}
-              className="flex-1 rounded-[6px] px-2 py-1.5 text-center text-[13px] transition-colors"
+              className="truncate rounded-[7px] px-2 py-2 text-center text-[13.5px] transition-colors"
               style={
                 active === tab.key
                   ? { background: 'var(--on-board)', color: 'var(--board)', fontWeight: 600 }
