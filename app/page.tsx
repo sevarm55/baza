@@ -43,58 +43,79 @@ export default async function Home() {
       </header>
 
       <main>
-        {/* Открытие. Ни плашки, ни картинки: обещание, кнопка во всю
-            ширину и три числа — всё, что нужно решить на первом экране. */}
-        <section className={`${s.band} ${s.open}`}>
-          <div className={s.container}>
-            <p className={s.eyebrow}>{L.eyebrow}</p>
-            <h1 className={s.headline}>
-              {L.headline}
-              <span className={s.headlineAccent}>{L.headlineAccent}</span>
-            </h1>
-            <p className={s.lead}>{L.lead}</p>
+        {/* Первый экран в две половины: слева обещание и кнопка,
+            справа место под снимок продукта. На телефоне снимок уходит
+            вниз — там сначала читают, потом смотрят. */}
+        <section className={`${s.container} ${s.open}`}>
+          <div className={s.hero}>
+            <div>
+              <p className={s.eyebrow}>{L.eyebrow}</p>
+              <h1 className={s.headline}>
+                {L.headline}
+                <span className={s.headlineAccent}>{L.headlineAccent}</span>
+              </h1>
+              <p className={s.lead}>{L.lead}</p>
 
-            <AuthTrigger mode="register" niche={niche} className={s.cta}>
-              {L.ctaPrimary(TRIAL_DAYS)}
-            </AuthTrigger>
-            <p className={s.ctaNote}>{L.ctaNote}</p>
-
-            <div className={s.numbers}>
-              {L.stats(TRIAL_DAYS).map((stat) => (
-                <div key={stat.label} className={s.number}>
-                  <div className={s.numberValue}>
-                    <span className="num">{stat.value}</span>
-                    <span className={s.numberUnit}>{stat.unit}</span>
-                  </div>
-                  <div className={s.numberLabel}>{stat.label}</div>
-                </div>
-              ))}
+              <div className={s.actions}>
+                <AuthTrigger mode="register" niche={niche} className={s.cta}>
+                  {L.ctaPrimary(TRIAL_DAYS)}
+                </AuthTrigger>
+                <p className={s.ctaNote}>{L.ctaNote}</p>
+              </div>
             </div>
+
+            {/* Место под снимок продукта. Пока файла нет — то же полотно
+                со свечением, что и внутри: пусто, но не поломано.
+                Картинка подставится одной строкой в .shot, когда будет. */}
+            <div className={s.shot} aria-hidden />
+          </div>
+        </section>
+
+        <section className={`${s.container} ${s.line}`}>
+          <div className={s.numbers}>
+            {L.stats(TRIAL_DAYS).map((stat) => (
+              <div key={stat.label} className={s.number}>
+                <div className={s.numberValue}>
+                  <span className="num">{stat.value}</span>{' '}
+                  <span className={s.numberUnit}>{stat.unit}</span>
+                </div>
+                <div className={s.numberLabel}>{stat.label}</div>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* Рабочий день одной лентой. Экраны продукта стоят прямо в ней —
             там, где о них зашла речь, а не отдельной витриной. */}
-        <section className={s.section}>
-          <div className={s.container}>
-            <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
+        {/* Рабочий день сеткой, а не лентой: четыре момента видно
+            разом, и человек складывает из них картину сам. Лентой их
+            приходилось листать, а последний — расчёт зарплаты, ради
+            которого сюда и приходят, — оказывался за краем экрана. */}
+        <section className={`${s.container} ${s.band} ${s.line}`}>
+          <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
 
-            <ol className={s.line}>
-              {L.steps.map((step, i) => (
-                <li key={step.time} className={s.moment}>
-                  <span className={`${s.time} num`}>{step.time}</span>
-                  <h3 className={s.momentTitle}>{step.title}</h3>
-                  <p className={s.momentBody}>{step.body}</p>
-                  {i === 0 && <WorkerScreen />}
-                  {i === 2 && <OwnerScreen />}
-                </li>
-              ))}
-            </ol>
+          <div className={s.map}>
+            {L.steps.map((step) => (
+              <div key={step.time} className={s.moment}>
+                <span className={`${s.time} num`}>{step.time}</span>
+                <h3 className={s.momentTitle}>{step.title}</h3>
+                <p className={s.momentBody}>{step.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className={s.section} style={{ paddingTop: 0 }}>
-          <div className={s.container}>
+        {/* Экраны продукта — во всю ширину, между рассказом и ценой:
+            показать раньше, чем назвать сумму. */}
+        <section className={`${s.container} ${s.band}`} style={{ paddingTop: 0 }}>
+          <div className={s.map}>
+            <WorkerScreen />
+            <OwnerScreen />
+          </div>
+        </section>
+
+        <section className={`${s.container} ${s.band} ${s.line}`} style={{ paddingTop: 'clamp(40px,5vw,72px)' }}>
+          <div>
             <h2 className={s.sectionTitle}>{L.moreTitle}</h2>
 
             <div className={s.moreList}>
@@ -103,32 +124,34 @@ export default async function Home() {
                   <span className={`${s.moreNum} num`}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <div>
-                    <h3 className={s.moreTitle}>{item.title}</h3>
-                    <p className={s.moreBody}>{item.body}</p>
-                  </div>
+                  <h3 className={s.moreItemTitle}>{item.title}</h3>
+                  <p className={s.moreBody}>{item.body}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section className={`${s.band} ${s.price}`}>
-          <div className={s.container}>
-            <p className={s.priceLabel}>{L.priceTitle}</p>
-            <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
-            <p className={s.pricePeriod}>{L.pricePeriod}</p>
-            <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
-              {L.ctaPrimary(TRIAL_DAYS)}
-            </AuthTrigger>
-            <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
+        <section className={`${s.container} ${s.band}`}>
+          <div className={s.price}>
+            <div>
+              <p className={s.priceLabel}>{L.priceTitle}</p>
+              <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
+              <p className={s.pricePeriod}>{L.pricePeriod}</p>
+            </div>
+            <div className={s.priceSide}>
+              <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
+                {L.ctaPrimary(TRIAL_DAYS)}
+              </AuthTrigger>
+              <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className={s.footer}>
-        <div className={s.container}>
-          {L.footer}
+      <footer className={`${s.container} ${s.line}`}>
+        <div className={s.footer}>
+          <span>{L.footer}</span>
           {/* Обе ссылки обязательны для App Store, но им же и место:
               единственная страница, куда человек придёт сам, — эта. */}
           <div className={s.footerLinks}>

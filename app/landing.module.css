@@ -1,650 +1,383 @@
 /* ─────────────────────────────────────────────────────────────
-   Лендинг. Живёт по своим правилам, поэтому стили изолированы
-   в модуле и не трогают дизайн-систему приложения.
+   Лендинг.
 
-   Страница телефонная — и на телефоне, и на большом экране. Одна
-   узкая колонка, ничего не разъезжается в две стороны, ничего не
-   висит сбоку. Причина простая: сюда приходят с телефона, и широкая
-   раскладка на десктопе — это второй, никем не виденный дизайн,
-   который приходится содержать наравне с первым.
+   Во всю ширину, а не колонкой в 620 пикселей посередине. Узкая
+   колонка была разумной, пока страница читалась как письмо: одна
+   мысль под другой, сверху вниз. Но человек, которому продают
+   рабочий инструмент, читает не письмо — он сравнивает. Ему нужно
+   видеть рядом, что это, что он получит и сколько стоит, а не
+   листать три экрана, чтобы это сложить.
 
-   Отсюда и остальное. Экраны продукта стоят прямо в ленте дня, во всю
-   ширину колонки, там, где о них зашла речь: карточке, лежащей поверх
-   границы разделов, не за что держаться, а строке в тексте — есть.
-
-   Ширину держит один класс — .container. Полоса во всю ширину красит
-   только фон, содержимое внутри неё идёт через тот же контейнер.
+   Полотно тёмное — то же, что в приложении. Лендинг обещает
+   продукт; показывать светлую бумагу, а после регистрации выдавать
+   тёмную приборную панель значит обмануть на первом же шаге.
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  /* экраны продукта — предметы, а не элементы интерфейса: остаются
-     светлыми в обеих темах */
-  --pcard: #ffffff;
-  --pline: #e9e6f0;
-  --pink: #1a1626;
-  --pmuted: #56506b;
-  --plate: #f3f2f6;
-
-  /* грейп и лайм одинаковы в обеих темах: это марка */
-  --deep: #2e1065;
-  --deep-2: #4c1d95;
-  --on-deep: #ffffff;
-  --on-deep-soft: #c9b8f0;
-  --on-deep-line: rgb(255 255 255 / 14%);
-
-  background: var(--color-bg);
-  color: var(--color-ink);
-  overflow-x: hidden;
+  background: #0a0a0c;
+  color: #f7f5fb;
+  min-height: 100dvh;
 }
 
-/* ─────────────────────── контейнер ─────────────────────── */
-
+/* Общая ширина. Полоса красит фон во всю ширину экрана, контейнер
+   держит содержимое. */
 .container {
   width: 100%;
-  max-width: 620px;
+  max-width: 1240px;
   margin-inline: auto;
-  padding-inline: 20px;
+  padding-inline: clamp(20px, 4vw, 48px);
 }
 
 .band {
-  width: 100%;
+  padding-block: clamp(56px, 8vw, 112px);
 }
 
-.section {
-  padding-block: clamp(52px, 11vw, 76px);
+.line {
+  border-top: 1px solid rgb(247 245 251 / 8%);
 }
 
 /* ───────────────────────── шапка ───────────────────────── */
 
 .header {
-  position: absolute;
-  inset-inline: 0;
+  position: sticky;
   top: 0;
   z-index: 20;
-  color: var(--on-deep);
+  background: rgb(10 10 12 / 82%);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgb(247 245 251 / 7%);
 }
 
 .nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-block: 16px;
+  gap: 16px;
+  padding-block: 14px;
 }
 
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
 }
 
 .navLink {
-  color: var(--on-deep-soft);
-  text-decoration: none;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-btn);
   font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
+  color: rgb(247 245 251 / 70%);
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.navLink:hover {
+  color: #f7f5fb;
+  background: rgb(247 245 251 / 8%);
 }
 
 .navCta {
-  padding: 9px 16px;
-  border-radius: 8px;
-  background: var(--color-accent-fill);
-  color: var(--color-accent-on);
-  font-weight: 700;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-btn);
+  background: #d7ff00;
+  color: #1a1626;
   font-size: 14px;
-  text-decoration: none;
-  white-space: nowrap;
+  font-weight: 700;
+  transition: filter 0.12s ease;
+}
+.navCta:hover {
+  filter: brightness(1.06);
 }
 
-/* ──────────────────────── открытие ──────────────────────── */
+/* ───────────────────────── первый экран ─────────────────────────
+
+   Две половины: слева обещание и кнопка, справа картинка. На
+   телефоне картинка уходит вниз — там сначала читают, потом
+   смотрят. */
 
 .open {
-  background: linear-gradient(168deg, var(--deep-2), var(--deep) 68%);
-  color: var(--on-deep);
-  padding-block: clamp(88px, 22vw, 116px) clamp(28px, 7vw, 40px);
+  padding-block: clamp(48px, 7vw, 96px);
 }
 
-/* Строка, а не плашка: плашка — ещё один предмет на экране,
-   а это всего лишь адрес, кому страница. */
+.hero {
+  display: grid;
+  gap: clamp(32px, 4vw, 56px);
+  align-items: center;
+}
+
 .eyebrow {
-  margin: 0;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-accent-fill);
+  color: #d7ff00;
 }
 
 .headline {
-  margin: 14px 0 0;
-  font-size: clamp(2.15rem, 9.4vw, 2.9rem);
-  line-height: 1.04;
-  letter-spacing: -0.035em;
-  font-weight: 700;
+  margin-top: 18px;
+  font-size: clamp(38px, 6.4vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 800;
   text-wrap: balance;
 }
-
 .headlineAccent {
   display: block;
-  color: var(--color-accent-fill);
+  color: rgb(247 245 251 / 45%);
 }
 
 .lead {
-  margin: 18px 0 0;
-  font-size: 15.5px;
-  line-height: 1.62;
-  color: var(--on-deep-soft);
+  margin-top: 22px;
+  max-width: 46ch;
+  font-size: clamp(15.5px, 1.3vw, 18px);
+  line-height: 1.6;
+  color: rgb(247 245 251 / 70%);
 }
 
-/* Кнопка во всю ширину колонки: так её нажимают на телефоне, и так
-   она не оказывается «где-то посередине». */
+.actions {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
 .cta {
-  display: block;
-  margin-top: 26px;
-  padding: 17px 24px;
-  border-radius: 10px;
-  background: var(--color-accent-fill);
-  color: var(--color-accent-on);
-  font-weight: 700;
-  font-size: 16.5px;
-  text-align: center;
-  text-decoration: none;
+  padding: 1.05rem 2rem;
+  border-radius: var(--radius-btn);
+  background: #d7ff00;
+  color: #1a1626;
+  font-size: 17px;
+  font-weight: 800;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+.cta:hover {
+  filter: brightness(1.06);
+}
+.cta:active {
+  transform: translateY(1px);
 }
 
 .ctaNote {
-  margin: 12px 0 0;
-  font-size: 13px;
-  text-align: center;
-  color: var(--on-deep-soft);
+  font-size: 13.5px;
+  color: rgb(247 245 251 / 50%);
 }
 
-/* Три обещания — в той же полосе: это ответы на вопросы, которые
-   задают до чтения, и уходить за ними ниже никто не станет. */
+/* Картинка первого экрана. Пока её нет — полотно со свечением, и
+   это не заглушка: та же плитка, что в продукте. */
+.shot {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 70% 0%, rgb(167 139 250 / 30%) 0%, transparent 60%),
+    radial-gradient(80% 70% at 20% 100%, rgb(215 255 0 / 12%) 0%, transparent 60%),
+    #101014;
+  background-size: cover;
+  background-position: center;
+}
+
+/* ───────────────────────── числа ───────────────────────── */
+
 .numbers {
-  margin-top: clamp(30px, 8vw, 42px);
-  border-top: 1px solid var(--on-deep-line);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 28px);
+  padding-block: clamp(28px, 3.5vw, 44px);
 }
 
 .number {
-  padding-block: 18px;
-}
-.number + .number {
-  border-inline-start: 1px solid var(--on-deep-line);
-  padding-inline-start: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .numberValue {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  font-size: clamp(1.6rem, 7vw, 2rem);
-  font-weight: 700;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1;
+  font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--color-accent-fill);
+  font-variant-numeric: tabular-nums;
 }
-
 .numberUnit {
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--on-deep-soft);
+  color: #d7ff00;
 }
-
 .numberLabel {
-  margin-top: 4px;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--on-deep-soft);
+  font-size: 13px;
+  color: rgb(247 245 251 / 50%);
 }
 
-/* ─────────────────────── лента дня ─────────────────────── */
+/* ───────────────────────── рабочий день ───────────────────────── */
 
 .sectionTitle {
-  margin: 0 0 clamp(24px, 6vw, 34px);
-  font-size: clamp(1.6rem, 6.6vw, 2.1rem);
+  font-size: clamp(24px, 3.2vw, 38px);
   line-height: 1.1;
-  letter-spacing: -0.03em;
-  font-weight: 700;
-  text-wrap: balance;
+  letter-spacing: -0.025em;
+  font-weight: 800;
 }
 
-.line {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.map {
+  margin-top: clamp(28px, 3.5vw, 44px);
+  display: grid;
+  gap: clamp(12px, 1.6vw, 20px);
+  grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
 }
 
-/* Момент дня. Слева — тонкая линия, по которой день и читается сверху
-   вниз; она же держит экраны продукта на общей оси. */
 .moment {
-  position: relative;
-  padding-inline-start: 26px;
-  padding-bottom: clamp(30px, 7vw, 42px);
-  border-inline-start: 2px solid var(--color-line);
-}
-.moment:last-child {
-  border-inline-start-color: transparent;
-  padding-bottom: 0;
-}
-
-.moment::before {
-  content: '';
-  position: absolute;
-  inset-block-start: 6px;
-  inset-inline-start: -7px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 0 4px var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(20px, 2vw, 28px);
+  border-radius: var(--radius-card);
+  background: rgb(247 245 251 / 5%);
 }
 
 .time {
-  display: block;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--color-accent);
+  letter-spacing: 0.08em;
+  color: #d7ff00;
+  font-variant-numeric: tabular-nums;
 }
 
 .momentTitle {
-  margin: 8px 0 0;
-  font-size: clamp(1.0625rem, 4.6vw, 1.25rem);
-  line-height: 1.28;
-  letter-spacing: -0.015em;
+  font-size: 17px;
+  line-height: 1.25;
   font-weight: 700;
-  text-wrap: balance;
+  letter-spacing: -0.01em;
 }
 
 .momentBody {
-  margin: 8px 0 0;
-  font-size: 14.5px;
-  line-height: 1.62;
-  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgb(247 245 251 / 62%);
 }
 
-/* ─────────── экраны продукта внутри ленты ─────────── */
-
-/* Во всю ширину колонки и без парения: экран стоит в тексте так же,
-   как абзац, и держится за ту же ось, что и весь день. */
-.screen {
-  margin-top: 18px;
-  border: 1px solid var(--pline);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--pcard);
-  color: var(--pink);
-  box-shadow: 0 18px 40px -26px rgb(10 0 30 / 45%);
-}
-
-.screenBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--pline);
-  background: var(--plate);
-  font-size: 13px;
-}
-.screenWho {
-  margin-inline-start: auto;
-  color: var(--pmuted);
-  font-size: 12px;
-}
-
-.screenBody {
-  padding: 14px;
-}
-
-.shift {
-  border-radius: 10px;
-  padding: 14px 15px 15px;
-  background: linear-gradient(135deg, var(--color-shift-from), var(--color-shift-to));
-  color: var(--color-shift-ink);
-}
-
-.shiftLabel {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  opacity: 0.72;
-}
-
-.shiftValue {
-  margin-top: 4px;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.shiftMeta {
-  margin-top: 4px;
-  font-size: 11.5px;
-  opacity: 0.78;
-  font-variant-numeric: tabular-nums;
-}
-
-.plateLabel {
-  margin-top: 13px;
-  font-size: 10.5px;
-  color: var(--pmuted);
-}
-
-.plate {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--plate);
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-variant-numeric: tabular-nums;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  min-height: 42px;
-}
-
-.plateFlag {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  background: #14235c;
-  color: #fff;
-  border-radius: 3px;
-  padding: 6px 4px;
-  line-height: 1;
-}
-
-.caret {
-  display: inline-block;
-  width: 2px;
-  height: 19px;
-  background: var(--pink);
-  animation: blink 1s steps(2, start) infinite;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-.records {
-  margin-top: 10px;
-  display: grid;
-  gap: 7px;
-}
-
-.record {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-  animation: slideIn 0.3s ease both;
-}
-
-.recordName {
-  font-size: 13.5px;
-  font-weight: 600;
-}
-.recordPay {
-  font-size: 11px;
-  color: var(--pmuted);
-}
-.recordSum {
-  font-size: 13.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-.ownerLabel {
-  margin-top: 14px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pmuted);
-}
-.ownerLabel:first-child {
-  margin-top: 0;
-}
-
-.ownerValue {
-  margin-top: 3px;
-  font-size: 29px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  font-variant-numeric: tabular-nums;
-}
-
-.ownerMeta {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-
-.split {
-  margin-top: 12px;
-  display: flex;
-  gap: 3px;
-  height: 9px;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--plate);
-}
-.split i {
-  display: block;
-  transition: width 0.6s ease;
-}
-
-.splitLegend {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 14px;
-  font-size: 11.5px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-.splitLegend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.splitLegend i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: none;
-}
-
-.staffRow {
-  margin-top: 7px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--pline);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.avatar {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--deep-2);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.staffWho {
-  min-width: 0;
-  flex: 1;
-}
-
-.staffName {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.staffMeta {
-  font-size: 11px;
-  color: var(--pmuted);
-  font-variant-numeric: tabular-nums;
-}
-
-.staffSum {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ─────────────────────────── и ещё ─────────────────────────── */
+/* ───────────────────────── и ещё ───────────────────────── */
 
 .moreList {
+  margin-top: clamp(24px, 3vw, 40px);
   display: grid;
-  border-top: 1px solid var(--color-line);
+  gap: clamp(12px, 1.6vw, 20px);
+  grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
 }
 
 .moreItem {
-  display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr);
-  gap: 0 4px;
-  padding-block: clamp(18px, 4.5vw, 24px);
-  border-bottom: 1px solid var(--color-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(247 245 251 / 12%);
 }
 
 .moreNum {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--color-accent);
+  color: rgb(247 245 251 / 35%);
   font-variant-numeric: tabular-nums;
-  padding-top: 2px;
 }
 
-.moreTitle {
-  margin: 0;
+.moreItemTitle {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .moreBody {
-  margin: 6px 0 0;
-  font-size: 14.5px;
-  line-height: 1.6;
-  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgb(247 245 251 / 62%);
 }
 
-/* ──────────────────────────── цена ──────────────────────────── */
+/* ───────────────────────── цена ─────────────────────────
 
-/* Страница закрывается лаймом во всю ширину — единственное место, где
-   второй цвет марки занимает целую полосу. */
+   Во всю ширину и крупно. Цена — последнее, что решают, и прятать
+   её мелким шрифтом в углу значит заставить искать. */
+
 .price {
-  background: var(--color-accent-fill);
-  color: var(--color-accent-on);
-  padding-block: clamp(48px, 12vw, 72px);
-  text-align: center;
+  display: grid;
+  gap: clamp(20px, 3vw, 40px);
+  align-items: center;
+  padding: clamp(28px, 4vw, 56px);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgb(167 139 250 / 22%) 0%, transparent 62%),
+    rgb(247 245 251 / 5%);
 }
 
 .priceLabel {
-  margin: 0;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.65;
+  color: rgb(247 245 251 / 45%);
 }
 
 .priceValue {
-  margin: 12px 0 0;
-  font-size: clamp(2.8rem, 13vw, 3.6rem);
-  font-weight: 700;
-  letter-spacing: -0.045em;
+  margin-top: 10px;
+  font-size: clamp(44px, 6vw, 72px);
   line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
 }
 
 .pricePeriod {
-  margin: 10px 0 0;
-  font-size: 14.5px;
-  opacity: 0.72;
+  margin-top: 10px;
+  font-size: 15px;
+  color: rgb(247 245 251 / 62%);
 }
 
-/* Кнопка на лайме уходит в грейп: лайм по лайму — не кнопка. */
+.priceSide {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
 .priceCta {
-  display: block;
-  margin-top: 26px;
-  padding: 17px 24px;
-  border-radius: 10px;
-  background: var(--color-accent-on);
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 16.5px;
-  text-align: center;
-  text-decoration: none;
+  padding: 1.05rem 2rem;
+  border-radius: var(--radius-btn);
+  background: #d7ff00;
+  color: #1a1626;
+  font-size: 17px;
+  font-weight: 800;
+  transition: filter 0.12s ease;
+}
+.priceCta:hover {
+  filter: brightness(1.06);
 }
 
 .priceNote {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.55;
-  opacity: 0.72;
+  font-size: 13.5px;
+  color: rgb(247 245 251 / 50%);
 }
 
-/* ─────────────────────────── подвал ─────────────────────────── */
+/* ───────────────────────── подвал ───────────────────────── */
 
 .footer {
-  padding-block: 26px 38px;
-  font-size: 12.5px;
-  color: var(--color-faint);
-  text-align: center;
+  padding-block: 36px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 13.5px;
+  color: rgb(247 245 251 / 45%);
 }
 
 .footerLinks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 20px;
-  justify-content: center;
-  margin-top: 12px;
-}
-.footerLinks a {
-  color: var(--color-muted);
-  text-decoration: none;
-}
-.footerLinks a:hover {
-  text-decoration: underline;
+  gap: 18px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .caret,
-  .record {
-    animation: none;
+/* ───────────────────────── широкий экран ───────────────────────── */
+
+@media (min-width: 900px) {
+  .hero {
+    grid-template-columns: 7fr 5fr;
   }
-  .split i {
-    transition: none;
+  .price {
+    grid-template-columns: 1fr auto;
   }
 }
