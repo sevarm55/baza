@@ -32,7 +32,7 @@ struct PointsView: View {
                    этом здесь, а не искать кнопку. Правила App Store
                    (3.1.3f) не разрешают начинать внутри приложения
                    платный путь, а вторая точка платная сразу. */
-                Text("Նոր բիզնեսն ավելացվում է կայքում՝ tetrin.pro")
+                Text("Նոր մասնաճյուղն ավելացվում է կայքում՝ tetrin.pro")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
                     .multilineTextAlignment(.center)

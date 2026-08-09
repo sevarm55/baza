@@ -33,8 +33,8 @@ struct MoreView: View {
                    про точки значит объяснять устройство, которого он не
                    просил. */
                 if session.canSwitch {
-                    wide(.slate, "Իմ բիզնեսները", subtitle, sticker: "sticker-wash.png") {
-                        PointsView().navigationTitle("Իմ բիզնեսները")
+                    wide(.slate, "Իմ մասնաճյուղերը", subtitle, sticker: "sticker-wash.png") {
+                        PointsView().navigationTitle("Իմ մասնաճյուղերը")
                     }
                 }
 
@@ -85,8 +85,8 @@ struct MoreView: View {
         let all = session.points.count
         let closed = session.points.filter { !$0.canRead }.count
         return closed == 0
-            ? "\(all) բիզնես · բոլորը բաց են"
-            : "\(all) բիզնես · \(closed) սպասում է վճարման"
+            ? "\(all) մասնաճյուղ · բոլորը բաց են"
+            : "\(all) մասնաճյուղ · \(closed) սպասում է վճարման"
     }
 
     /**
