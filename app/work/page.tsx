@@ -8,7 +8,7 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
 import { Rail } from '@/components/rail';
-import { NumericText } from '@/components/numeric-text';
+import { Grid, Reading, Tile } from '@/components/board';
 import { passesEnabled } from '@/lib/features';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
@@ -34,61 +34,77 @@ export default async function WorkPage() {
     me.accountId ? listPoints(me.accountId) : Promise.resolve([]),
   ]);
 
-  /* Экран записи живёт на телефоне, и его порядок задан рукой: сначала
-     свои деньги, потом смена, потом кнопка. На компьютере тот же порядок
-     разъезжается в две колонки — слева заработок и смена, справа запись,
-     — но шире 1100 не растёт: это экран для одной руки, а кнопка во весь
-     монитор не становится удобнее от того, что она большая.
-
-     Владелец приходит сюда из кабинета, поэтому у него остаётся боковая
+  /* Владелец приходит сюда из кабинета, поэтому у него остаётся боковая
      колонка: на маленькой мойке он моет сам и переключается между двумя
      половинами продукта по десять раз за день. У мойщика разделов нет —
      ему колонка не нужна, у него шапка. */
   const owner = session.role === 'owner';
+  const onShift = Boolean(open);
 
+  /* Экран смены на языке табло.
+
+     Собран по четырём вопросам мойщика, в порядке частоты: записать
+     машину (десятки раз за смену), сколько я заработал (после каждой),
+     на смене ли я (дважды в день), что я только что записал (когда
+     ошибся). Слева показание, приборы и единственное действие; справа
+     журнал.
+
+     Прежняя разметка была на две равные половины, и нижние две трети
+     экрана пустовали. Равные половины врали: слева стояло то, что
+     читают, справа — то, что нажимают, и по площади выходило, будто
+     это одинаково важно. Семь к пяти — то же соотношение, что во всех
+     разделах кабинета. */
   const body = (
     <>
       <BillingBanner access={access} role={session.role} />
 
-      <div className="mx-auto grid w-full max-w-[1100px] gap-[var(--seam)] lg:grid-cols-2">
-        <div className="grid content-start gap-[var(--seam)]">
-          {/* Личный заработок в реальном времени. Это не украшение:
-              без него сотруднику незачем вбивать записи вообще.
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
+          {/* Свои деньги — тем же прибором, что выручка в кабинете, а не
+              собственной градиентной карточкой. Мойщик и владелец
+              смотрят на одно и то же число разными глазами, и незачем
+              рисовать для этого два разных предмета.
 
-              Заливка индиго, текст белый: это единственный способ
-              сказать «вот твои деньги» так, чтобы читалось на солнце.
-              Цвета берутся не от общих токенов текста — на цветном фоне
-              приглушённый серый превращается в грязь. */}
-          <section className="rounded-[var(--radius-card)] bg-gradient-to-br from-shift-from to-shift-to p-5 text-shift-ink">
-            {/* Строчными, как все подписи продукта: капслок в разрядку
-                над собственным заработком читался как штамп на бланке. */}
-            <div className="text-[12.5px] font-medium opacity-70">{hy.work.shiftTitle}</div>
-            {/* Разряды перекатываются, когда мойщик записал машину: свои
-                деньги он смотрит после каждой, и цифра должна не просто
-                смениться, а показать, что выросла. */}
-            <div className="num my-2 text-[clamp(38px,5vw,48px)] leading-[0.95] font-bold tracking-[-0.03em]">
-              <NumericText>{formatMoney(shift.earned, tenant.currency)}</NumericText>
-            </div>
-            <div className="num text-[13px] opacity-70">
-              {shift.count} {tenant.unitOne} · {formatMoney(shift.revenue, tenant.currency)} ·{' '}
-              {hy.work.yourShare} {me.percent}%
-            </div>
-          </section>
+              Состояние смены встало строкой сравнения под цифрой:
+              «сколько» и «работаю ли я» читаются одним взглядом, а
+              зелёная точка здесь — тот же знак, которым владелец видит
+              человека на смене. */}
+          <Reading
+            caption={hy.work.shiftTitle}
+            value={formatMoney(shift.earned, tenant.currency)}
+            compare={onShift ? hy.work.onShift : hy.work.offShift}
+            tone={onShift ? 'good' : 'warn'}
+          />
 
-          <ShiftToggle open={Boolean(open)} />
+          <Grid>
+            <Tile tone="teal" label={tenant.unitOne} value={shift.count} />
+            <Tile
+              tone="slate"
+              label={hy.owner.revenueToday}
+              value={formatMoney(shift.revenue, tenant.currency)}
+              note={`${hy.work.yourShare} ${me.percent}%`}
+            />
+          </Grid>
 
-          {/* Вне смены записывать нельзя: машина, записанная мимо смены,
-              не попадает в сдачу наличных при закрытии. То же правило в
-              приложении и на сервере.
+          {/* Одно действие, и оно никогда не серое.
 
-              Отключённая кнопка без объяснения читается как поломка, а
-              не как правило, — поэтому строка над ней. */}
-          {!open && <p className="note">{hy.work.needShift}</p>}
+              Было так: вне смены наверху висела погашенная кнопка
+              «+ машина», а объяснение, почему она не работает, стояло в
+              другой колонке под случайной линией. Погашенная кнопка без
+              объяснения читается поломкой, а с объяснением в стороне —
+              поломкой, которую зачем-то описали. Теперь вне смены её
+              нет вовсе: следующее действие человека там не «записать», а
+              «начать смену», её и показываем.
+
+              На смене всё наоборот: запись становится самым громким на
+              экране, а выключатель смены уходит вниз и затихает — его
+              жмут дважды в день, а кнопку записи сорок раз. */}
+          {!onShift && <ShiftToggle open={false} />}
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 lg:col-span-5">
           <OrderFlow
-            canWrite={access.canWrite && Boolean(open)}
+            canWrite={access.canWrite && onShift}
             services={services.map((s) => ({ id: s.id, name: s.name, price: s.price }))}
             currency={tenant.currency}
             clientIdLabel={tenant.clientIdLabel}
@@ -103,6 +119,8 @@ export default async function WorkPage() {
               at: o.createdAt.toISOString(),
             }))}
           />
+
+          {onShift && <ShiftToggle open className="mt-[var(--seam)]" />}
         </div>
       </div>
     </>

@@ -6,6 +6,7 @@ import { addOrder, lookupClient } from '@/app/actions';
 import { formatMoney, staffShare } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { CancelOrderButton } from '@/components/cancel-order-button';
+import { Panel, Row } from '@/components/board';
 import { IconCard, IconCash, IconCheck, IconTicket, IconTransfer } from '@/components/icons';
 import {
   enqueue,
@@ -39,6 +40,9 @@ type Known = {
 };
 
 type Step = 'home' | 'client' | 'service' | 'payment' | 'done';
+
+/** Подложка прибора — та же, что рисует `Panel`. */
+const PANEL = { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' } as const;
 
 const PAYMENTS: { key: Payment; label: string; Icon: typeof IconCash }[] = [
   { key: 'cash', label: hy.payment.cash, Icon: IconCash },
@@ -183,70 +187,84 @@ export function OrderFlow({
   /* ------------------------------ главная ------------------------------ */
   if (step === 'home') {
     return (
-      <>
-        <button
-          className="btn btn-big"
-          disabled={!canWrite}
-          onClick={() => setStep('client')}
-        >
-          {addLabel}
-        </button>
-
-        {/* Мойщик должен видеть, что его работа не потерялась,
-            даже если связи нет прямо сейчас. */}
-        {queue.length > 0 && (
-          <div className="hint-warn mt-3">
-            {hy.work.waitingToSend(queue.length)}
-          </div>
+      <div className="grid content-start gap-[var(--seam)]">
+        {/* Кнопка есть только тогда, когда ею можно пользоваться.
+            Погашенная кнопка вне смены читалась поломкой; теперь вне
+            смены на её месте стоит начало смены — см. ShiftToggle. */}
+        {canWrite && (
+          <button className="btn btn-big" onClick={() => setStep('client')}>
+            {addLabel}
+          </button>
         )}
 
-        <h2 className="h-section">{hy.work.recent}</h2>
-        <div className="list">
-          {queue.map((q) => (
-            <div key={q.ref} className="li opacity-70">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px] font-semibold">{q.serviceName}</div>
-                <div className="text-[13.5px] text-warn">{hy.work.pending}</div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-[15px] font-semibold">
-                  {formatMoney(q.price, currency)}
-                </div>
-                <div className="text-xs text-muted">{hhmm(new Date(q.at).toISOString())}</div>
-              </div>
-            </div>
-          ))}
-          {recent.length === 0 && queue.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted">
-              {hy.work.noShiftYet}
-            </div>
-          ) : (
-            recent.map((o) => (
-              <div key={o.id} className="li">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-semibold">{o.serviceName}</div>
-                  <div className="text-[13.5px] text-muted">{paymentLabel(o.payment)}</div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="text-[15px] font-semibold">
+        {/* Мойщик должен видеть, что его работа не потерялась, даже если
+            связи нет прямо сейчас. */}
+        {queue.length > 0 && <div className="hint-warn">{hy.work.waitingToSend(queue.length)}</div>}
+
+        {/* Журнал — прибор с подложкой, как списки в кабинете. Раньше он
+            лежал прямо на полотне: строки висели в пустоте, а время и
+            крестик уезжали к правому краю экрана, ни к чему не
+            привязанные. */}
+        <Panel title={hy.work.recent} count={recent.length + queue.length}>
+          <div className="board-journal">
+            {queue.map((q) => (
+              <Row key={q.ref}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-semibold">{q.serviceName}</span>
+                  <span className="block text-[12.5px]" style={{ color: 'var(--warn-on-board)' }}>
+                    {hy.work.pending}
+                  </span>
+                </span>
+                <span className="shrink-0 text-end">
+                  <span className="num block text-[14px] font-semibold">
+                    {formatMoney(q.price, currency)}
+                  </span>
+                  <span
+                    className="num block text-[12px]"
+                    style={{ color: 'var(--board-muted)' }}
+                  >
+                    {hhmm(new Date(q.at).toISOString())}
+                  </span>
+                </span>
+              </Row>
+            ))}
+
+            {recent.length === 0 && queue.length === 0 ? (
+              <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+                {hy.work.noShiftYet}
+              </p>
+            ) : (
+              recent.map((o) => (
+                <Row key={o.id}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold">{o.serviceName}</span>
+                    <span
+                      className="block truncate text-[12.5px]"
+                      style={{ color: 'var(--board-muted)' }}
+                    >
+                      {paymentLabel(o.payment)} · {hhmm(o.at)}
+                    </span>
+                  </span>
+                  <span className="num shrink-0 text-[14px] font-semibold">
                     {formatMoney(o.price, currency)}
-                  </div>
-                  <div className="text-xs text-muted">{hhmm(o.at)}</div>
-                </div>
-                {/* ошибся номером или услугой — исправляет сам, не бегая к владельцу */}
-                <CancelOrderButton orderId={o.id} />
-              </div>
-            ))
-          )}
-        </div>
-      </>
+                  </span>
+                  {/* Ошибся номером или услугой — исправляет сам, не бегая
+                      к владельцу. Стоит последним и тихо: отменять
+                      приходится одну запись из сорока. */}
+                  <CancelOrderButton orderId={o.id} />
+                </Row>
+              ))
+            )}
+          </div>
+        </Panel>
+      </div>
     );
   }
 
   /* ------------------------------ готово ------------------------------ */
   if (step === 'done') {
     return (
-      <div className="py-10 text-center">
+      <div className="panel-pad rounded-[var(--radius-card)] py-10 text-center" style={PANEL}>
         {/* Галка в кружке, а не эмодзи: тот же контур 1.5, что у всех
             знаков продукта, и тот же зелёный, которым в кабинете
             помечено «сошлось». */}
@@ -275,8 +293,11 @@ export function OrderFlow({
     ? known?.passes?.find((p) => p.serviceId === service.id)
     : undefined;
 
+  /* Мастер записи — на той же подложке, что журнал на его месте.
+     Иначе при переходе с главной прибор исчезает, и три шага висят на
+     голом полотне: экран выглядит так, будто разметка сломалась. */
   return (
-    <div>
+    <div className="panel-pad rounded-[var(--radius-card)]" style={PANEL}>
       {/* Полоска шагов — прямая, а не из трёх таблеток: капсула в три
           пикселя высотой всё равно не читается как капсула, зато рядом
           с прямоугольными полями выглядит деталью из другого набора. */}
