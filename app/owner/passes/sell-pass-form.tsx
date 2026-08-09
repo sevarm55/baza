@@ -108,7 +108,7 @@ export function SellPassForm({
       {/* Владелец должен видеть, какую скидку он на самом деле даёт.
           «10 по цене 8» на глаз считается неправильно чаще, чем кажется. */}
       {service && (
-        <p className="text-[12.5px] text-muted">
+        <p className="text-[13.5px] text-muted">
           {uses} × {service.name} = {full.toLocaleString('en-US').replace(/,/g, ' ')}
           {discount > 0 && <span className="text-good"> · −{discount}%</span>}
         </p>

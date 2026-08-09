@@ -41,16 +41,23 @@ export function NewPointForm({
             </option>
             {niches.map((n) => (
               <option key={n.key} value={n.key}>
-                {n.icon} {n.name}
+                {n.name}
               </option>
             ))}
           </select>
         </label>
       )}
 
-      {state?.error && <p className="note text-red-600">{state.error}</p>}
+      {state?.error && <p className="alert mt-1">{state.error}</p>}
 
-      <button className="btn justify-self-start" disabled={pending || disabled}>
+      {/* `justify-self` сам по себе ничего не делал: у `.btn` ширина
+          100%, и кнопка всё равно растягивалась во всю колонку. Точку
+          заводят раз в год — обещать этим действием размер главной
+          кнопки экрана незачем. */}
+      <button
+        className="btn !w-auto justify-self-start px-7"
+        disabled={pending || disabled}
+      >
         {pending ? hy.common.loading : hy.points.add}
       </button>
     </form>

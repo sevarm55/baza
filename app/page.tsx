@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { AuthTrigger } from '@/components/auth-buttons';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
-import { startHref } from '@/lib/niches';
+import { ACTIVE_NICHES } from '@/lib/niches';
 import { Logo } from '@/components/logo';
 import { OwnerScreen, WorkerScreen } from './screens';
 import s from './landing.module.css';
@@ -15,7 +16,9 @@ export default async function Home() {
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
 
   const L = hy.landing;
-  const start = startHref();
+  /* Ниша известна заранее: пока она одна, выбирать нечего, и окно
+     регистрации открывается сразу с ней. */
+  const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
   const more = L.more.filter((item) => !('feature' in item) || passesEnabled());
 
   return (
@@ -25,12 +28,15 @@ export default async function Home() {
           <nav className={s.nav}>
             <Logo size={26} />
             <div className={s.navLinks}>
-              <Link href="/login" className={s.navLink}>
+              {/* Кнопки, а не ссылки: вход и регистрация открываются
+                  окном на месте. Адрес при этом не трогается — человеку
+                  в этот момент нужна форма, а не переход. */}
+              <AuthTrigger mode="signIn" niche={niche} className={s.navLink}>
                 {hy.auth.signInTitle}
-              </Link>
-              <Link href={start} className={s.navCta}>
+              </AuthTrigger>
+              <AuthTrigger mode="register" niche={niche} className={s.navCta}>
                 {hy.onboarding.createAccount}
-              </Link>
+              </AuthTrigger>
             </div>
           </nav>
         </div>
@@ -48,9 +54,9 @@ export default async function Home() {
             </h1>
             <p className={s.lead}>{L.lead}</p>
 
-            <Link href={start} className={s.cta}>
+            <AuthTrigger mode="register" niche={niche} className={s.cta}>
               {L.ctaPrimary(TRIAL_DAYS)}
-            </Link>
+            </AuthTrigger>
             <p className={s.ctaNote}>{L.ctaNote}</p>
 
             <div className={s.numbers}>
@@ -112,9 +118,9 @@ export default async function Home() {
             <p className={s.priceLabel}>{L.priceTitle}</p>
             <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
             <p className={s.pricePeriod}>{L.pricePeriod}</p>
-            <Link href={start} className={s.priceCta}>
+            <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
               {L.ctaPrimary(TRIAL_DAYS)}
-            </Link>
+            </AuthTrigger>
             <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
           </div>
         </section>

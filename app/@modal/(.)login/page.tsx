@@ -36,7 +36,7 @@ export default async function LoginModal() {
       <LoginForm />
 
       {/* Окно не должно быть тупиком: у пришедшего впервые аккаунта ещё нет */}
-      <p className="mt-6 text-center text-[13px] text-muted">
+      <p className="mt-6 text-center text-[13.5px] text-muted">
         <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">
           {hy.onboarding.createAccount}
         </Link>

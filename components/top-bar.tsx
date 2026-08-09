@@ -30,11 +30,20 @@ export function TopBar({
   const many = !!points && points.length > 1 && !!currentTid;
 
   return (
-    <header className="sticky top-0 z-20 mb-4 border-b border-line bg-bg/90 px-4 py-3 backdrop-blur">
+    /* Шапка живёт на телефоне: на компьютере всё то же самое стоит в
+       боковой колонке. Поэтому она в цветах полотна, а не страницы —
+       иначе сверху висела бы полоса чужого тона. */
+    <header
+      className="sticky top-0 z-20 px-[var(--seam)] py-3 backdrop-blur"
+      style={{
+        background: 'color-mix(in srgb, var(--board) 90%, transparent)',
+        borderBottom: '1px solid color-mix(in srgb, var(--board-ink) 8%, transparent)',
+      }}
+    >
       {/* На телефоне переключатель ролей уходит на вторую строку.
           Иначе три элемента в ряд сжимают название бизнеса до одной
           буквы — а владелец должен видеть, куда он вошёл. */}
-      <div className="mx-auto flex max-w-[760px] flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="order-1 flex min-w-0 flex-1 items-center gap-2.5">
           <Logo size={26} withName={false} />
           {many ? (
@@ -42,7 +51,9 @@ export function TopBar({
           ) : (
             <div className="min-w-0">
               <div className="truncate text-[15px] font-semibold">{tenantName}</div>
-              <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
+              <div className="truncate text-[12px]" style={{ color: 'var(--board-muted)' }}>
+                {subtitle}
+              </div>
             </div>
           )}
         </div>
@@ -58,7 +69,10 @@ export function TopBar({
           /* Выбранная сторона — белая плашка на сером жёлобе, а не
              мандариновая заливка: это «вы находитесь здесь», а мандарин
              в продукте означает «нажми меня». */
-          <nav className="order-3 flex w-full gap-1 rounded-[14px] bg-surface2 p-1 sm:order-2 sm:w-auto">
+          <nav
+            className="order-3 flex w-full gap-0.5 rounded-[8px] p-[3px] sm:order-2 sm:w-auto"
+            style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
+          >
             {(
               [
                 { href: '/work', key: 'work', label: hy.roles.staff },
@@ -69,11 +83,12 @@ export function TopBar({
                 key={tab.key}
                 href={tab.href}
                 aria-current={active === tab.key ? 'page' : undefined}
-                className={`flex-1 rounded-[10px] px-3.5 py-2 text-center text-[13.5px] transition sm:flex-none ${
+                className="flex-1 rounded-[6px] px-3 py-1.5 text-center text-[13px] transition-colors sm:flex-none"
+                style={
                   active === tab.key
-                    ? 'bg-surface font-semibold text-ink shadow-sm'
-                    : 'text-muted hover:text-ink'
-                }`}
+                    ? { background: 'var(--on-board)', color: 'var(--board)', fontWeight: 600 }
+                    : { color: 'var(--board-muted)' }
+                }
               >
                 {tab.label}
               </Link>

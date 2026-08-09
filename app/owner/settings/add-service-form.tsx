@@ -7,9 +7,14 @@ import { hy } from '@/lib/i18n/hy';
 export function AddServiceForm({ currencySymbol }: { currencySymbol: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const firstRef = useRef<HTMLInputElement>(null);
 
+  /* Услуги заводят пачкой — весь прейскурант за один заход. Курсор
+     возвращается в название, чтобы следующую можно было набрать сразу. */
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (!state?.ok) return;
+    formRef.current?.reset();
+    firstRef.current?.focus();
   }, [state]);
 
   /* Пустая строка подписей не имеет: что вводить, говорят подсказки внутри
@@ -17,6 +22,7 @@ export function AddServiceForm({ currencySymbol }: { currencySymbol: string }) {
   return (
     <form ref={formRef} action={action} className="row-edit">
       <input
+        ref={firstRef}
         className="field field-sm w-full sm:w-auto sm:min-w-[8rem] sm:flex-1"
         name="name"
         aria-label={hy.settings.name}
@@ -36,7 +42,7 @@ export function AddServiceForm({ currencySymbol }: { currencySymbol: string }) {
           placeholder={hy.settings.price}
           required
         />
-        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13px] text-faint">
+        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
           {currencySymbol}
         </span>
       </div>

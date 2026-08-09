@@ -1,6 +1,7 @@
 'use client';
 
 import { signOut } from '@/app/actions';
+import { IconPower } from '@/components/icons';
 import { hy } from '@/lib/i18n/hy';
 
 /**
@@ -16,8 +17,8 @@ export function SignOutButton() {
         navigator.serviceWorker?.controller?.postMessage('bazis:signout');
       }}
     >
-      <button className="btn-icon" title={hy.auth.signOut} aria-label={hy.auth.signOut}>
-        ⏻
+      <button className="btn-icon btn-icon-board" title={hy.auth.signOut} aria-label={hy.auth.signOut}>
+        <IconPower className="size-4" />
       </button>
     </form>
   );

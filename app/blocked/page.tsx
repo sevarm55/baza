@@ -67,7 +67,7 @@ export default async function BlockedPage() {
           {fresh ? hy.points.freshTitle : blocked ? hy.billing.blockedTitle : hy.billing.wallTitle}
         </h1>
 
-        <p className="mt-3.5 text-[15.5px] leading-relaxed text-white/80">
+        <p className="mt-3.5 text-[17px] leading-relaxed text-white/80">
           {fresh ? hy.points.freshText : blocked ? hy.billing.blockedText : hy.billing.wallLead}
         </p>
 
@@ -75,12 +75,12 @@ export default async function BlockedPage() {
             владелец, заведший вторую мойку, упирался бы в стену и терял
             доступ к первой — работающей и оплаченной. */}
         {others.length > 0 && (
-          <div className="mt-5 rounded-[14px] border border-white/15 p-1">
+          <div className="mt-5 rounded-[10px] border border-white/15 p-[3px]">
             {others.map((point) => (
               <PointForm key={point.id} tid={point.id}>
                 <button
                   type="submit"
-                  className="flex w-full items-center gap-2.5 rounded-[11px] px-3 py-2.5 text-left text-white"
+                  className="flex w-full items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-left text-white"
                 >
                   <span
                     className={`size-2 shrink-0 rounded-full ${
@@ -88,7 +88,7 @@ export default async function BlockedPage() {
                     }`}
                     aria-hidden
                   />
-                  <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
                     {point.name}
                   </span>
                   <span className="shrink-0 text-[12px] text-white/50">
@@ -100,7 +100,7 @@ export default async function BlockedPage() {
           </div>
         )}
 
-        <p className="mt-5 text-[14px] text-white/70">{hy.billing.wallContinue}</p>
+        <p className="mt-5 text-[15px] text-white/70">{hy.billing.wallContinue}</p>
         {/* Звонок — главное действие: продолжить пользоваться хотят обе стороны */}
         {/* Цвета фирменные, а не тематические: экран всегда тёмный —
             под ним картинка, — и переменные светлой темы дали бы здесь
@@ -108,7 +108,7 @@ export default async function BlockedPage() {
             приложении. */}
         <a
           href="tel:+37499855546"
-          className="mt-2 block rounded-[22px] py-4 text-center text-[17px] font-bold no-underline"
+          className="mt-2 block rounded-[10px] py-4 text-center text-[17px] font-bold no-underline"
           style={{ backgroundColor: '#D7FF00', color: '#2E1065' }}
         >
           {hy.billing.wallPhone}
@@ -125,7 +125,7 @@ export default async function BlockedPage() {
               <a
                 href="/owner/export?days=all"
                 download
-                className="flex-1 rounded-[14px] border border-white/20 py-3 text-center text-[14px] font-semibold text-white no-underline"
+                className="flex-1 rounded-[10px] border border-white/20 py-3 text-center text-[15px] font-semibold text-white no-underline"
               >
                 {hy.billing.wallDownload}
               </a>
@@ -136,11 +136,11 @@ export default async function BlockedPage() {
                 на эту же стену. За раскрывающимся заголовком — удаление
                 необратимо и на глаза попадаться не должно. */}
             <details className="mt-4">
-              <summary className="cursor-pointer text-[14px] font-semibold text-white/70">
+              <summary className="cursor-pointer text-[15px] font-semibold text-white/70">
                 {hy.billing.wallDelete}
               </summary>
 
-              <p className="mt-2 text-[12.5px] text-white/45">{hy.billing.wallDeleteNote}</p>
+              <p className="mt-2 text-[13.5px] text-white/45">{hy.billing.wallDeleteNote}</p>
 
               <form
                 method="post"
@@ -160,7 +160,7 @@ export default async function BlockedPage() {
                   required
                 />
                 <button
-                  className="shrink-0 rounded-[12px] border border-white/25 px-3 py-2 text-[13px] font-semibold text-white/80"
+                  className="shrink-0 rounded-[8px] border border-white/25 px-3 py-2 text-[13.5px] font-semibold text-white/80"
                   name="mode"
                   value="wipe"
                 >
@@ -172,7 +172,7 @@ export default async function BlockedPage() {
         )}
 
         <div className="mt-7 flex items-center justify-between">
-          <span className="text-[13px] text-white/45">{tenant.name}</span>
+          <span className="text-[13.5px] text-white/45">{tenant.name}</span>
           <SignOutButton />
         </div>
       </div>

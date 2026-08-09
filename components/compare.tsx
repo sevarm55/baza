@@ -39,7 +39,7 @@ export function Compare({
   if (Math.abs(diff) < 100) return null;
 
   return (
-    <div className="mt-1.5 text-[12.5px] text-muted">
+    <div className="mt-1.5 text-[13.5px] text-muted">
       {label}
       <span className="num"> {money(base)}</span>
       <span className="text-faint"> · </span>

@@ -19,17 +19,46 @@ export default async function RegisterPage({
   // закрытую нишу нельзя открыть и прямой ссылкой
   if (!niche || !niche.enabled) notFound();
 
+  /* Те же две половины, что у входа: слева марка, справа дело. Панель
+     регистрации при этом не тронута — она же показывается окном поверх
+     лендинга, и там левой половины нет. */
   return (
-    <main className="mx-auto w-full max-w-[460px] px-4 pb-24">
-      {/* Ссылка на вход живёт внизу панели — она одна и та же на странице
-          и в окне, дублировать её в шапке незачем. */}
-      <header className="py-6">
+    <main className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
+      <aside
+        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex xl:p-14"
+        style={
+          {
+            background:
+              'radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--tone-violet-glow) 30%, transparent) 0%, transparent 62%), var(--tone-violet)',
+            '--color-ink': '#ffffff',
+          } as React.CSSProperties
+        }
+      >
         <Link href="/" aria-label={hy.app.name}>
-          <Logo size={28} />
+          <Logo size={30} />
         </Link>
-      </header>
 
-      <RegisterPanel niche={niche} />
+        <p className="max-w-[15ch] text-[clamp(30px,3.2vw,46px)] leading-[1.12] font-bold tracking-tight">
+          {hy.app.tagline}
+        </p>
+
+        <span className="text-[13.5px] opacity-60">tetrin.pro</span>
+      </aside>
+
+      <div className="flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[460px]">
+          {/* На телефоне знак стоит над панелью: левой половины там нет.
+              Ссылка на вход живёт внизу панели — она одна и та же на
+              странице и в окне, дублировать её в шапке незачем. */}
+          <header className="mb-6 lg:hidden">
+            <Link href="/" aria-label={hy.app.name}>
+              <Logo size={28} />
+            </Link>
+          </header>
+
+          <RegisterPanel niche={niche} />
+        </div>
+      </div>
     </main>
   );
 }

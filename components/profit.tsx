@@ -44,8 +44,11 @@ export function Profit({
   // длина полоски — доля от выручки; при нулевой выручке полосок нет вовсе
   const bar = (n: number) => (revenue > 0 ? Math.max(1, Math.round((n / revenue) * 100)) : 0);
 
+  /* Подложку даёт тот, кто ставит лестницу на страницу: рядом с другими
+     приборами она живёт внутри общего прибора, и вторая подложка
+     нарисовала бы карточку в карточке. */
   return (
-    <div className="card mb-3.5">
+    <div>
       <Row label={hy.owner.revenue} value={money(revenue)} width={bar(revenue)} strong />
 
       <Row
@@ -58,7 +61,10 @@ export function Profit({
       {/* Промежуточный итог есть во всех пяти изученных отчётах. Это фраза,
           а не термин: третье существительное рядом с «Հասույթ» — ровно та
           беда, в которую попал Poster с пятью словами про оборот. */}
-      <div className="mt-1 mb-2 flex justify-between gap-3 pl-3 text-[12px] text-faint">
+      <div
+        className="mt-1 mb-2 flex justify-between gap-3 ps-3 text-[12px]"
+        style={{ color: 'var(--board-muted)', opacity: 0.85 }}
+      >
         <span>{hy.owner.afterPayroll}</span>
         <span className="num">{money(afterPayroll)}</span>
       </div>
@@ -69,7 +75,10 @@ export function Profit({
           скажет «я сегодня столько не тратил» — и будет прав: в сумме
           сидит доля аренды, а не сегодняшний платёж. */}
       {expenses > 0 && (
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 pl-3 text-[11.5px] text-faint">
+        <div
+          className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 ps-3 text-[12px]"
+          style={{ color: 'var(--board-muted)', opacity: 0.85 }}
+        >
           {oneOff > 0 && (
             <span>
               {hy.expenses.oneOff} <span className="num">{money(oneOff)}</span>
@@ -84,7 +93,10 @@ export function Profit({
         </div>
       )}
 
-      <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-line pt-3">
+      <div
+        className="mt-3 flex items-baseline justify-between gap-3 pt-3"
+        style={{ borderTop: '1px solid color-mix(in srgb, var(--board-ink) 10%, transparent)' }}
+      >
         <span className="label">{profit >= 0 ? hy.owner.profit : hy.owner.inTheRed}</span>
         {/* убыток жёлтым, а не красным: красный в продукте значит
             «удалить», и путать эти два сигнала нельзя */}
@@ -121,17 +133,36 @@ function Row({
 }) {
   return (
     <div className="mt-1.5 first:mt-0">
-      <div className="flex justify-between gap-3 text-[13px]">
-        <span className={strong ? 'font-semibold' : 'text-muted'}>
-          {minus && <span className="text-faint">− </span>}
+      <div className="flex justify-between gap-3 text-[13.5px]">
+        <span
+          className={strong ? 'font-semibold' : undefined}
+          style={strong ? undefined : { color: 'var(--board-muted)' }}
+        >
+          {minus && <span style={{ opacity: 0.7 }}>− </span>}
           {label}
         </span>
-        <span className={`num ${strong ? 'font-semibold' : 'text-muted'}`}>{value}</span>
+        <span
+          className={`num ${strong ? 'font-semibold' : ''}`}
+          style={strong ? undefined : { color: 'var(--board-muted)' }}
+        >
+          {value}
+        </span>
       </div>
-      <div className="mt-1 h-[3px] rounded-full bg-surface2">
+      {/* Полоска — единственная величина, переданная длиной. Жёлоб и
+          сама полоска берут чернила полотна: тона страницы под ними
+          выцветают в грязь. */}
+      <div
+        className="mt-1 h-[3px] rounded-[2px]"
+        style={{ background: 'color-mix(in srgb, var(--board-ink) 8%, transparent)' }}
+      >
         <div
-          className={`h-full rounded-full ${strong ? 'bg-ink' : 'bg-line'}`}
-          style={{ width: `${width}%` }}
+          className="h-full rounded-[2px]"
+          style={{
+            width: `${width}%`,
+            background: strong
+              ? 'var(--on-board)'
+              : 'color-mix(in srgb, var(--board-ink) 25%, transparent)',
+          }}
         />
       </div>
     </div>

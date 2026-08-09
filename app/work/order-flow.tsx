@@ -6,6 +6,7 @@ import { addOrder, lookupClient } from '@/app/actions';
 import { formatMoney, staffShare } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { CancelOrderButton } from '@/components/cancel-order-button';
+import { IconCard, IconCash, IconCheck, IconTicket, IconTransfer } from '@/components/icons';
 import {
   enqueue,
   flushQueue,
@@ -39,10 +40,10 @@ type Known = {
 
 type Step = 'home' | 'client' | 'service' | 'payment' | 'done';
 
-const PAYMENTS: { key: Payment; label: string; icon: string }[] = [
-  { key: 'cash', label: hy.payment.cash, icon: '💵' },
-  { key: 'card', label: hy.payment.card, icon: '💳' },
-  { key: 'transfer', label: hy.payment.transfer, icon: '📱' },
+const PAYMENTS: { key: Payment; label: string; Icon: typeof IconCash }[] = [
+  { key: 'cash', label: hy.payment.cash, Icon: IconCash },
+  { key: 'card', label: hy.payment.card, Icon: IconCard },
+  { key: 'transfer', label: hy.payment.transfer, Icon: IconTransfer },
 ];
 
 export function OrderFlow({
@@ -204,11 +205,11 @@ export function OrderFlow({
           {queue.map((q) => (
             <div key={q.ref} className="li opacity-70">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[14.5px] font-semibold">{q.serviceName}</div>
-                <div className="text-[12.5px] text-warn">{hy.work.pending}</div>
+                <div className="truncate text-[15px] font-semibold">{q.serviceName}</div>
+                <div className="text-[13.5px] text-warn">{hy.work.pending}</div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[14.5px] font-semibold">
+                <div className="text-[15px] font-semibold">
                   {formatMoney(q.price, currency)}
                 </div>
                 <div className="text-xs text-muted">{hhmm(new Date(q.at).toISOString())}</div>
@@ -223,11 +224,11 @@ export function OrderFlow({
             recent.map((o) => (
               <div key={o.id} className="li">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[14.5px] font-semibold">{o.serviceName}</div>
-                  <div className="text-[12.5px] text-muted">{paymentLabel(o.payment)}</div>
+                  <div className="truncate text-[15px] font-semibold">{o.serviceName}</div>
+                  <div className="text-[13.5px] text-muted">{paymentLabel(o.payment)}</div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-[14.5px] font-semibold">
+                  <div className="text-[15px] font-semibold">
                     {formatMoney(o.price, currency)}
                   </div>
                   <div className="text-xs text-muted">{hhmm(o.at)}</div>
@@ -246,8 +247,16 @@ export function OrderFlow({
   if (step === 'done') {
     return (
       <div className="py-10 text-center">
-        <div className="text-[52px]">✅</div>
-        <h3 className="mb-1 mt-3.5 text-xl font-semibold">{hy.work.saved}</h3>
+        {/* Галка в кружке, а не эмодзи: тот же контур 1.5, что у всех
+            знаков продукта, и тот же зелёный, которым в кабинете
+            помечено «сошлось». */}
+        <div
+          className="mx-auto flex size-14 items-center justify-center rounded-[var(--radius-card)] text-good"
+          style={{ background: 'color-mix(in srgb, var(--good) 14%, transparent)' }}
+        >
+          <IconCheck className="size-7" />
+        </div>
+        <h3 className="mb-1 mt-3.5 text-[19px] font-semibold tracking-[-0.02em]">{hy.work.saved}</h3>
         {service && (
           <p className="text-sm text-muted">
             {service.name} · {formatMoney(service.price, currency)} →{' '}
@@ -268,13 +277,14 @@ export function OrderFlow({
 
   return (
     <div>
-      <div className="mb-4 flex gap-1.5">
+      {/* Полоска шагов — прямая, а не из трёх таблеток: капсула в три
+          пикселя высотой всё равно не читается как капсула, зато рядом
+          с прямоугольными полями выглядит деталью из другого набора. */}
+      <div className="mb-4 flex gap-1">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            /* яркий мандарин, а не тёмный: полоска в три пикселя —
-               единственное, что показывает, сколько шагов осталось */
-            className={`h-[5px] flex-1 rounded-full transition-colors ${
+            className={`h-[3px] flex-1 rounded-[2px] transition-colors ${
               i <= stepIndex ? 'bg-accent-strong' : 'bg-line'
             }`}
           />
@@ -357,8 +367,11 @@ export function OrderFlow({
                 disabled={pending}
                 onClick={() => confirm('pass', activePass.id)}
               >
-                <span className="font-semibold">🎟 {hy.payment.pass}</span>
-                <span className="text-good">
+                <span className="flex items-center gap-2.5 font-semibold">
+                  <IconTicket className="size-[18px] shrink-0 text-good" />
+                  {hy.payment.pass}
+                </span>
+                <span className="num text-good">
                   {hy.passes.remaining} {activePass.remaining}
                 </span>
               </button>
@@ -370,11 +383,12 @@ export function OrderFlow({
                 disabled={pending}
                 onClick={() => confirm(p.key)}
               >
-                <span className="font-semibold">
-                  {p.icon} {p.label}
+                <span className="flex items-center gap-2.5 font-semibold">
+                  <p.Icon className="size-[18px] shrink-0 text-muted" />
+                  {p.label}
                 </span>
                 {service && (
-                  <span className="text-muted">{formatMoney(service.price, currency)}</span>
+                  <span className="num text-muted">{formatMoney(service.price, currency)}</span>
                 )}
               </button>
             ))}
@@ -398,7 +412,7 @@ export function OrderFlow({
 function paymentLabel(p: string): string {
   if (p === 'cash') return hy.payment.cash;
   if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return `🎟 ${hy.payment.pass}`;
+  if (p === 'pass') return hy.payment.pass;
   return hy.payment.transfer;
 }
 

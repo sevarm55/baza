@@ -14,9 +14,14 @@ export function AddExpenseForm({
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(addExpenseAction, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const firstRef = useRef<HTMLInputElement>(null);
 
+  /* Расходы заводят пачкой — за неделю сразу, — поэтому после каждого
+     курсор возвращается в категорию. */
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (!state?.ok) return;
+    formRef.current?.reset();
+    firstRef.current?.focus();
   }, [state]);
 
   return (
@@ -24,6 +29,7 @@ export function AddExpenseForm({
       {/* Подсказки списком, а не выпадашкой: категорию чаще пишут свою,
           а готовый вариант должен экономить нажатия, а не ограничивать. */}
       <input
+        ref={firstRef}
         className="field field-sm w-full sm:w-auto sm:min-w-[9rem] sm:flex-1"
         name="category"
         list="expense-hints"
@@ -49,12 +55,12 @@ export function AddExpenseForm({
           placeholder={hy.expenses.amount}
           required
         />
-        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13px] text-faint">
+        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13.5px] text-faint">
           {currencySymbol}
         </span>
       </div>
 
-      <label className="flex shrink-0 items-center gap-2 text-[13px]">
+      <label className="flex shrink-0 items-center gap-2 text-[13.5px]">
         <input type="checkbox" name="monthly" className="size-4" />
         {hy.expenses.monthly}
       </label>

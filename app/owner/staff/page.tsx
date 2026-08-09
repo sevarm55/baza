@@ -3,6 +3,8 @@ import { requireOwner } from '@/lib/auth';
 import { getTenant, listStaff } from '@/lib/queries';
 import { hy } from '@/lib/i18n/hy';
 import { StaffRow } from '@/components/staff-row';
+import { Panel } from '@/components/board';
+import { PageHead } from '@/components/page-head';
 import { AddStaffForm } from './add-staff-form';
 
 export default async function StaffPage() {
@@ -14,30 +16,36 @@ export default async function StaffPage() {
 
   return (
     <>
-      {/* Сотрудники разведены заметнее, чем строки внутри одного: карточек
-          больше нет, и границу между людьми держит только воздух. */}
-      <div className="grid gap-4">
-        {staff.map((s) => (
-          <StaffRow
-            key={s.id}
-            id={s.id}
-            name={s.name}
-            phone={s.phone}
-            percent={s.percent}
-            roleLabel={s.role === 'owner' ? hy.roles.owner : tenant.staffRole}
-            // себя отключить нельзя — владелец потеряет доступ к кабинету
-            canRemove={s.id !== session.uid}
-          />
-        ))}
+      <PageHead title={hy.settings.staff} meta={hy.settings.percentNote} />
+
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+        <Panel title={hy.settings.staff} count={staff.length} className="lg:col-span-8">
+          {/* Список людей: волосяная линия между строками и подсветка
+              под курсором. Правку показывает сама строка, когда на неё
+              навели, — читать список это не мешает. */}
+          <div className="rows">
+            {staff.map((s) => (
+              <StaffRow
+                key={s.id}
+                id={s.id}
+                name={s.name}
+                phone={s.phone}
+                percent={s.percent}
+                roleLabel={s.role === 'owner' ? hy.roles.owner : tenant.staffRole}
+                // себя отключить нельзя — владелец потеряет доступ к кабинету
+                canRemove={s.id !== session.uid}
+              />
+            ))}
+          </div>
+        </Panel>
+
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+          <Panel title={hy.settings.addStaff}>
+            <AddStaffForm staffRole={tenant.staffRole} />
+          </Panel>
+          <p className="note">{hy.settings.staffNote}</p>
+        </div>
       </div>
-
-      <h2 className="h-section">{hy.settings.addStaff}</h2>
-      <AddStaffForm staffRole={tenant.staffRole} />
-
-      <p className="note mt-3.5">{hy.settings.staffNote}</p>
-      <p className="mt-2.5 px-1 text-[12.5px] leading-relaxed text-faint">
-        {hy.settings.percentNote}
-      </p>
     </>
   );
 }

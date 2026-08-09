@@ -88,7 +88,7 @@
 
 .navCta {
   padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
@@ -143,7 +143,7 @@
   display: block;
   margin-top: 26px;
   padding: 17px 24px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--color-accent-fill);
   color: var(--color-accent-on);
   font-weight: 700;
@@ -272,7 +272,7 @@
 .screen {
   margin-top: 18px;
   border: 1px solid var(--pline);
-  border-radius: 18px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--pcard);
   color: var(--pink);
@@ -299,7 +299,7 @@
 }
 
 .shift {
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 14px 15px 15px;
   background: linear-gradient(135deg, var(--color-shift-from), var(--color-shift-to));
   color: var(--color-shift-ink);
@@ -341,7 +341,7 @@
   gap: 8px;
   background: var(--plate);
   border: 1px solid var(--pline);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 10px 12px;
   font-variant-numeric: tabular-nums;
   font-size: 18px;
@@ -387,7 +387,7 @@
   justify-content: space-between;
   gap: 10px;
   border: 1px solid var(--pline);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 10px 12px;
   animation: slideIn 0.3s ease both;
 }
@@ -446,7 +446,7 @@
   display: flex;
   gap: 3px;
   height: 9px;
-  border-radius: 999px;
+  border-radius: 3px;
   overflow: hidden;
   background: var(--plate);
 }
@@ -482,7 +482,7 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--pline);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px 12px;
 }
 
@@ -599,7 +599,7 @@
   display: block;
   margin-top: 26px;
   padding: 17px 24px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--color-accent-on);
   color: #ffffff;
   font-weight: 700;

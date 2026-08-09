@@ -6,6 +6,8 @@ import { hy } from '@/lib/i18n/hy';
 import { EXPENSE_HINTS, getPeriodCosts, listExpenses } from '@/lib/expenses';
 import { daysInMonthOf } from '@/lib/time';
 import { ExpenseRow } from '@/components/expense-row';
+import { Panel } from '@/components/board';
+import { PageHead } from '@/components/page-head';
 import { AddExpenseForm } from './add-expense-form';
 
 /**
@@ -36,39 +38,55 @@ export default async function ExpensesPage() {
   // у драма нет копеек, у рубля есть — шаг ввода берём из валюты
   const step = toMajor(1, tenant.currency);
 
+  /* Слева заводят расход, справа он тут же появляется в списке. На
+     телефоне форма стояла над списком и уезжала вверх, стоило начать
+     листать; на широком экране она остаётся на месте, потому что
+     расходы заводят пачкой — раз в неделю за всю неделю. */
   return (
     <>
-      <h2 className="h-section !mt-0">{hy.expenses.title}</h2>
+      <PageHead title={hy.expenses.title} meta={hy.expenses.note} />
 
-      <div className="card mb-3.5 flex items-baseline justify-between gap-3">
-        <span className="label">{hy.owner.expensesTotal}</span>
-        <span className="num text-[22px] leading-none font-bold">{money(costs.total)}</span>
-      </div>
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+          <Panel>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="label">{hy.owner.expensesTotal}</span>
+              <span className="num text-[24px] leading-none font-semibold tracking-[-0.03em]">
+                {money(costs.total)}
+              </span>
+            </div>
+          </Panel>
 
-      <AddExpenseForm currencySymbol={currencySymbol(tenant.currency)} hints={EXPENSE_HINTS} />
-
-      <p className="note mt-3.5">{hy.expenses.note}</p>
-
-      {/* Между расходами воздуха больше, чем внутри строки: на телефоне
-          строка переносится, и без этого не видно, где кончается аренда
-          и начинается химия. Ровно та же причина, что у списка услуг. */}
-      <div className="mt-4 grid gap-4">
-        {rows.length === 0 ? (
-          <div className="text-sm text-faint">{hy.expenses.empty}</div>
-        ) : (
-          rows.map((e) => (
-            <ExpenseRow
-              key={e.id}
-              id={e.id}
-              category={e.category}
-              amount={toMajor(e.amount, tenant.currency)}
-              monthly={e.monthly}
-              when={e.monthly ? hy.expenses.perMonth : isoDate(e.at)}
+          <Panel title={hy.expenses.add}>
+            <AddExpenseForm
               currencySymbol={currencySymbol(tenant.currency)}
-              step={step}
+              hints={EXPENSE_HINTS}
             />
-          ))
-        )}
+          </Panel>
+        </div>
+
+        <Panel title={hy.expenses.title} count={rows.length} className="lg:col-span-8">
+          {rows.length === 0 ? (
+            <p className="py-6 text-center text-sm text-faint">{hy.expenses.empty}</p>
+          ) : (
+            /* Тот же список, что у услуг: линия между строками вместо
+               воздуха, правка проявляется под курсором. */
+            <div className="rows">
+              {rows.map((e) => (
+                <ExpenseRow
+                  key={e.id}
+                  id={e.id}
+                  category={e.category}
+                  amount={toMajor(e.amount, tenant.currency)}
+                  monthly={e.monthly}
+                  when={e.monthly ? hy.expenses.perMonth : isoDate(e.at)}
+                  currencySymbol={currencySymbol(tenant.currency)}
+                  step={step}
+                />
+              ))}
+            </div>
+          )}
+        </Panel>
       </div>
     </>
   );

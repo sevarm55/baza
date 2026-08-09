@@ -16,6 +16,7 @@ import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness, PhoneTakenError } from '@/lib/tenant';
+import { changePin, ProfileError } from '@/lib/profile';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import {
@@ -359,6 +360,39 @@ export async function archiveStaff(formData: FormData): Promise<void> {
     .catch(() => {});
 
   revalidatePath('/owner/staff');
+}
+
+/**
+ * Смена PIN из кабинета.
+ *
+ * В приложении это было, в вебе — нет: механизм в `lib/profile` есть с
+ * самого начала, а дотянуться до него из браузера было нельзя. PIN
+ * диктуют работнику вслух, работника однажды увольняют — и закрыть
+ * доступ владельцу было нечем, кроме телефона.
+ *
+ * Старый код спрашивается обязательно, все сессии после смены гаснут —
+ * включая эту. Так и задумано: тот, у кого старый PIN уже есть,
+ * перестаёт работать. Человека выбрасывает на вход, где он заходит
+ * новым.
+ */
+export async function changePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  await ensureDb();
+
+  const current = String(formData.get('current') ?? '');
+  const next = String(formData.get('next') ?? '');
+
+  try {
+    await changePin(session.uid, current, next);
+  } catch (e) {
+    if (e instanceof ProfileError) {
+      return { error: e.message === "BAD_PIN" ? hy.errors.badPin : hy.auth.wrongPin };
+    }
+    return { error: hy.errors.generic };
+  }
+
+  // сессия только что отозвана — идти внутрь больше некуда
+  redirect('/login');
 }
 
 export async function saveBusiness(formData: FormData): Promise<void> {

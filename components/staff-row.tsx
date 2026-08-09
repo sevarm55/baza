@@ -1,16 +1,21 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { archiveStaff, saveStaff, type FormState } from '@/app/actions';
+import { Sheet } from '@/components/sheet';
 import { formatPhone } from '@/lib/phone';
+import { personColor } from '@/lib/person-color';
 import { hy } from '@/lib/i18n/hy';
 
 /**
- * Строка сотрудника с правкой на месте.
+ * Человек в списке.
  *
- * Кнопка сохранения появляется только когда есть что сохранять, и она
- * подписана словом. Голая галочка не говорит ни что это кнопка, ни что
- * она сделает — приходится проверять нажатием, а это уже не интерфейс.
+ * Строка читается: имя, телефон, процент. Точка слева — того же цвета,
+ * которым этот человек отмечен в ленте и на смене; один цвет на весь
+ * продукт, и «кто это» узнаётся раньше, чем прочитано имя.
+ *
+ * Правка — окном, как у услуги: процент, который меняется прямо в
+ * списке от случайного касания, — это чужие деньги.
  */
 export function StaffRow({
   id,
@@ -28,83 +33,85 @@ export function StaffRow({
   canRemove: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveStaff, null);
-  const [draftName, setDraftName] = useState(name);
-  const [draftPercent, setDraftPercent] = useState(String(percent));
-  const [saved, setSaved] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const dirty = draftName !== name || draftPercent !== String(percent);
-
-  useEffect(() => {
-    if (!state?.ok) return;
-    setSaved(true);
-    const t = setTimeout(() => setSaved(false), 2200);
-    return () => clearTimeout(t);
-  }, [state]);
+  const [seen, setSeen] = useState(state);
+  if (seen !== state) {
+    setSeen(state);
+    if (state?.ok) setOpen(false);
+  }
 
   return (
-    <form action={action} className="grid gap-1.5">
-      <input type="hidden" name="id" value={id} />
-
-      {/* Телефон и роль — подпись над строкой, а не содержимое карточки:
-          рамка вокруг рамок полей ничего не добавляла, кроме высоты. */}
-      <div className="flex items-baseline justify-between gap-3 px-1">
-        <span className="num text-[12.5px] text-muted">{formatPhone(phone)}</span>
-        <span className="label">{roleLabel}</span>
-      </div>
-
-      {/* Подписи полей — в aria-label: имя и число с процентом читаются
-          и без надписи сверху, а строк на экране много. */}
-      <div className="row-edit">
-        <input
-          className="field field-sm w-full sm:w-auto sm:min-w-[8rem] sm:flex-1"
-          name="name"
-          aria-label={hy.settings.name}
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          required
-        />
-
-        <div className="relative w-[6rem] shrink-0">
-          <input
-            className="field field-sm num h-full !pe-7"
-            name="percent"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={100}
-            aria-label={hy.settings.percent}
-            value={draftPercent}
-            onChange={(e) => setDraftPercent(e.target.value)}
-            required
+    <>
+      <button type="button" className="row-open" onClick={() => setOpen(true)}>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ background: personColor(name) }}
+            aria-hidden
           />
-          <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[13px] text-faint">
-            %
-          </span>
-        </div>
-
-        {/* Место под кнопки держится всегда: у владельца кнопки удаления
-            нет — себя не отключишь, — и без запаса его поле процента
-            уезжало вправо мимо всех остальных строк. */}
-        <div className="ms-auto flex min-w-[5.25rem] justify-end gap-2">
-          {dirty && (
-            <button className="btn-inline btn-inline-primary" disabled={pending}>
-              {pending ? hy.common.loading : hy.settings.save}
-            </button>
-          )}
-          {saved && !dirty && (
-            <span className="self-center text-[13px] font-semibold text-good">
-              {hy.settings.saved}
+          <span className="min-w-0">
+            <span className="block truncate text-[15px] font-medium">{name}</span>
+            <span className="num block truncate text-[13.5px] text-muted">
+              {formatPhone(phone)} · {roleLabel}
             </span>
-          )}
-          {canRemove && (
-            <button className="btn-inline btn-inline-danger" formAction={archiveStaff}>
-              {hy.settings.remove}
-            </button>
-          )}
-        </div>
-      </div>
+          </span>
+        </span>
+        <span className="num text-[15px] tabular-nums">
+          {percent} <span className="text-faint">%</span>
+        </span>
+      </button>
 
-      {state?.error && <p className="alert">{state.error}</p>}
-    </form>
+      <Sheet open={open} onClose={() => setOpen(false)} title={name}>
+        <form action={action} className="grid gap-3">
+          <input type="hidden" name="id" value={id} />
+
+          <label className="grid gap-1.5">
+            <span className="label">{hy.settings.name}</span>
+            <input className="field" name="name" defaultValue={name} required autoFocus />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="label">
+              {hy.settings.percent} · {roleLabel}
+            </span>
+            <div className="relative">
+              <input
+                className="field num !pe-9 text-end"
+                name="percent"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                defaultValue={percent}
+                required
+              />
+              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
+                %
+              </span>
+            </div>
+          </label>
+
+          {/* Телефон правке не подлежит: по нему человек входит, и смена
+              номера — это уже другой человек. Показан, чтобы владелец
+              видел, кому диктовал PIN. */}
+          <p className="num text-[13.5px] text-faint">{formatPhone(phone)}</p>
+
+          {state?.error && <p className="alert">{state.error}</p>}
+
+          <button className="btn mt-1" disabled={pending}>
+            {pending ? hy.common.loading : hy.settings.save}
+          </button>
+        </form>
+
+        {/* Себя отключить нельзя — владелец потеряет доступ в кабинет. */}
+        {canRemove && (
+          <form action={archiveStaff} className="mt-3 flex justify-end">
+            <input type="hidden" name="id" value={id} />
+            <button className="btn-inline btn-inline-danger">{hy.settings.remove}</button>
+          </form>
+        )}
+      </Sheet>
+    </>
   );
 }

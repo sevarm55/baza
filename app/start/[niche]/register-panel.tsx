@@ -21,8 +21,12 @@ export function RegisterPanel({ niche }: { niche: Niche }) {
         <span className="label">
           {hy.onboarding.newBusiness} · {hy.onboarding.inThreeMinutes}
         </span>
-        <h1 className="mt-2 flex items-center gap-3 text-[26px] leading-tight font-bold">
-          <span className="text-[30px]">{niche.icon}</span>
+        {/* Значок ниши — эмодзи, и на этом месте он был крупнее
+            названия бизнеса. Системная картинка в тридцать пунктов
+            перед словом «Автомойка» ничего не добавляет: слово уже
+            сказало всё, а рисунок пришёл из чужой палитры. В данных он
+            остаётся — его читает приложение через /api/v1/niches. */}
+        <h1 className="mt-2 text-[26px] leading-tight font-bold tracking-[-0.025em]">
           {niche.name}
         </h1>
         <p className="mt-2 text-[13.5px] text-muted">{niche.tag}</p>
@@ -34,8 +38,8 @@ export function RegisterPanel({ niche }: { niche: Niche }) {
         <div className="grid gap-2">
           {niche.services.map((service) => (
             <div key={service.name} className="flex items-baseline justify-between gap-3">
-              <span className="truncate text-[14px]">{service.name}</span>
-              <span className="num shrink-0 text-[14px] text-muted">
+              <span className="truncate text-[15px]">{service.name}</span>
+              <span className="num shrink-0 text-[15px] text-muted">
                 {formatMoney(service.price)}
               </span>
             </div>
@@ -43,16 +47,16 @@ export function RegisterPanel({ niche }: { niche: Niche }) {
         </div>
 
         <div className="mt-3 border-t border-hairline pt-3">
-          <p className="text-[12.5px] text-faint">
+          <p className="text-[13.5px] text-faint">
             {hy.onboarding.servicesReady(niche.services.length)}
           </p>
-          <p className="mt-0.5 text-[12.5px] text-faint">{hy.onboarding.editLater}</p>
+          <p className="mt-0.5 text-[13.5px] text-faint">{hy.onboarding.editLater}</p>
         </div>
       </div>
 
       <RegisterForm nicheKey={niche.key} defaultName={niche.name} />
 
-      <p className="mt-5 text-center text-[13px] text-muted">
+      <p className="mt-5 text-center text-[13.5px] text-muted">
         {hy.onboarding.alreadyHave}{' '}
         <Link href="/login" className="underline underline-offset-4 hover:text-ink">
           {hy.auth.signIn}

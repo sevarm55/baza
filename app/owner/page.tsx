@@ -15,7 +15,8 @@ import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { Profit } from '@/components/profit';
-import { Grid, Journal, Reading, Row, Tile } from '@/components/board';
+import { Grid, Panel, Reading, Row, Tile } from '@/components/board';
+import { PageHead } from '@/components/page-head';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
 import { personColor } from '@/lib/person-color';
@@ -106,51 +107,44 @@ export default async function TodayPage({
   const perUnit = stats.count > 0 ? Math.round(profit / stats.count) : 0;
   const diff = profit - prevProfit;
 
+  /* Разметка широкого экрана.
+
+     Слева то, ради чего кабинет открывают: показание и рельеф периода.
+     Справа — приборы, которые объясняют это число. Ниже тем же швом:
+     лента машин во всю левую ширину и сводка справа.
+
+     На телефоне двенадцать колонок схлопываются в одну, и порядок
+     остаётся прежний — сначала цифра, потом приборы, потом списки. */
   return (
     <>
-      <PeriodTabs current={period.key} />
+      {/* Дата обязательна — сутки считаются по времени бизнеса и в
+          полночь начинаются заново; без неё владелец, открывший кабинет
+          в половине первого, видит ноль и решает, что данные пропали. */}
+      <PageHead
+        title={hy.owner.tabToday}
+        meta={periodDates(from, to, tenant.timezone, byHour)}
+      >
+        <PeriodTabs current={period.key} />
+      </PageHead>
 
-      {/* Показание: дата и кто на мойке, затем сама цифра, затем
-          сравнение. Дата обязательна — сутки считаются по времени
-          бизнеса и в полночь начинаются заново; без неё владелец,
-          открывший кабинет в половине первого, видит ноль и решает,
-          что данные пропали. */}
-      <Reading
-        caption={
-          <span className="inline-flex items-center gap-1.5">
-            {periodDates(from, to, tenant.timezone, byHour)}
-            {crew.filter((c) => c.present).length > 0 && (
-              <>
-                <span aria-hidden>·</span>
-                {crew
-                  .filter((c) => c.present)
-                  .map((c) => (
-                    <span
-                      key={c.staffId ?? 'none'}
-                      className="size-2 rounded-full"
-                      style={{ background: personColor(c.name) }}
-                      title={c.name ?? '—'}
-                    />
-                  ))}
-              </>
-            )}
-          </span>
-        }
-        value={money(stats.revenue)}
-        compare={
-          prevStats.count === 0
-            ? hy.owner.noBase
-            : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
-                period.key === 'today' ? hy.owner.vsLastWeek : hy.owner.vsPrev
-              }`
-        }
-        tone={prevStats.count === 0 ? undefined : diff >= 0 ? 'good' : 'warn'}
-      />
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+        <Panel className="lg:col-span-8 lg:justify-center lg:p-6">
+          <Reading
+            caption={hy.owner.revenue}
+            value={money(stats.revenue)}
+            compare={
+              prevStats.count === 0
+                ? hy.owner.noBase
+                : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
+                    period.key === 'today' ? hy.owner.vsLastWeek : hy.owner.vsPrev
+                  }`
+            }
+            tone={prevStats.count === 0 ? undefined : diff >= 0 ? 'good' : 'warn'}
+          />
+          <DayChart points={points} currency={tenant.currency} />
+        </Panel>
 
-      <DayChart points={points} currency={tenant.currency} />
-
-      <div className="mt-3">
-        <Grid>
+        <Grid className="content-start lg:col-span-4">
           {/* Прибыль во всю ширину: это ответ, остальное — как он
               получился. Рядом доля, которая осталась, и сколько
               приносит одна машина: без них цифра не с чем сравнить. */}
@@ -180,117 +174,193 @@ export default async function TodayPage({
             note={`${hy.owner.payroll} ${money(stats.payroll)}`}
           />
         </Grid>
-      </div>
 
-      {/* Разбор прибыли лестницей — строка на каждый вычет. Так устроен
-          отчёт у всех бухгалтерских продуктов, и так владелец видит, где
-          деньги ушли, а не только сколько осталось. */}
-      <Profit
-        revenue={stats.revenue}
-        payroll={stats.payroll}
-        oneOff={costs.oneOff}
-        monthlyShare={costs.monthlyShare}
-        profit={profit}
-        daily={period.key === 'today'}
-        money={money}
-      />
+        {/* Лента машин таблицей: на широком экране строка помещается
+            целиком, и тогда столбец — единственный способ сравнить
+            соседние записи, не читая каждую. На телефоне та же лента
+            остаётся списком в две строки. */}
+        <Panel title={hy.owner.feed} count={feed.length} className="lg:col-span-8 lg:self-start">
+          {feed.length === 0 ? (
+            <Empty />
+          ) : (
+            <>
+              <div className="board-journal lg:hidden">
+                {feed.map((o) => (
+                  <Row key={o.id}>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="num block truncate text-[15px] font-semibold"
+                        style={{ color: 'var(--on-board)' }}
+                      >
+                        {o.clientKey ?? '—'}
+                      </span>
+                      <span
+                        className="block truncate text-[12px]"
+                        style={{ color: 'var(--board-muted)' }}
+                      >
+                        {/* имя цветом человека: «кто помыл» читается по
+                            цвету, до чтения строки */}
+                        <span
+                          className="font-semibold"
+                          style={{ color: personColor(o.staffName) }}
+                        >
+                          {o.staffName ?? '—'}
+                        </span>{' '}
+                        · {o.serviceName} · {paymentLabel(o.payment)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span
+                        className="num block text-[15px] font-semibold"
+                        style={{ color: 'var(--on-board)' }}
+                      >
+                        {money(o.price)}
+                      </span>
+                      <span
+                        className="num block text-[12px]"
+                        style={{ color: 'var(--board-muted)' }}
+                      >
+                        {o.staffPercent > 0 && <>{money(staffShare(o.price, o.staffPercent))} · </>}
+                        {hhmm(o.createdAt)}
+                      </span>
+                    </span>
+                    <CancelOrderButton orderId={o.id} />
+                  </Row>
+                ))}
+              </div>
 
-      <PaymentSplit
-        currency={tenant.currency}
-        segments={split
-          .filter((s) => passesEnabled() || s.payment !== 'pass')
-          .map((s) => ({
-            label: paymentLabel(s.payment),
-            value: s.revenue,
-            color: PAYMENT_COLORS[s.payment] ?? 'var(--muted)',
-          }))}
-      />
+              <div className="hidden lg:block">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>{tenant.clientIdLabel}</th>
+                      <th>{tenant.staffRole}</th>
+                      <th>{hy.owner.colService}</th>
+                      <th>{hy.owner.colPayment}</th>
+                      <th className="end">{hy.owner.colPrice}</th>
+                      <th className="end">{hy.owner.colShare}</th>
+                      <th className="end">{hy.owner.colTime}</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {feed.map((o) => (
+                      <tr key={o.id}>
+                        <td className="num font-semibold">{o.clientKey ?? '—'}</td>
+                        <td>
+                          <span
+                            className="font-semibold"
+                            style={{ color: personColor(o.staffName) }}
+                          >
+                            {o.staffName ?? '—'}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--board-muted)' }}>{o.serviceName}</td>
+                        <td style={{ color: 'var(--board-muted)' }}>{paymentLabel(o.payment)}</td>
+                        <td className="num end font-semibold">{money(o.price)}</td>
+                        <td className="num end" style={{ color: 'var(--board-muted)' }}>
+                          {o.staffPercent > 0 ? money(staffShare(o.price, o.staffPercent)) : '—'}
+                        </td>
+                        <td className="num end" style={{ color: 'var(--board-muted)' }}>
+                          {hhmm(o.createdAt)}
+                        </td>
+                        <td className="end">
+                          <CancelOrderButton orderId={o.id} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Panel>
 
-      <Journal title={hy.owner.onShift} count={crew.length}>
-        {crew.length === 0 ? (
-          <Row>
-            <span className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
-              {hy.common.empty}
-            </span>
-          </Row>
-        ) : (
-          crew.map((s) => (
-            <Row key={s.staffId ?? 'none'}>
-              <span
-                className="size-2 shrink-0 rounded-full"
-                style={{
-                  background: s.present ? personColor(s.name) : 'transparent',
-                  boxShadow: s.present ? 'none' : `inset 0 0 0 1.5px ${personColor(s.name)}`,
-                }}
-                aria-label={s.present ? hy.owner.onShiftNow : undefined}
+        {/* Правая колонка объясняет цифру: кто её намыл, из чего она
+            сложилась и чем платили. */}
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+          <Panel title={hy.owner.onShift} count={crew.length}>
+            {crew.length === 0 ? (
+              <Empty />
+            ) : (
+              <div className="board-journal">
+                {crew.map((s) => (
+                  <Row key={s.staffId ?? 'none'}>
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{
+                        background: s.present ? personColor(s.name) : 'transparent',
+                        boxShadow: s.present
+                          ? 'none'
+                          : `inset 0 0 0 1.5px ${personColor(s.name)}`,
+                      }}
+                      aria-label={s.present ? hy.owner.onShiftNow : undefined}
+                    />
+                    <span
+                      className="min-w-0 flex-1 truncate text-[15px] font-semibold"
+                      style={{ color: 'var(--on-board)' }}
+                    >
+                      {s.name ?? '—'}
+                    </span>
+                    <span
+                      className="num shrink-0 text-[13.5px]"
+                      style={{ color: 'var(--board-muted)' }}
+                    >
+                      {s.count} {tenant.unitOne}
+                    </span>
+                    <span
+                      className="num shrink-0 text-right text-[15px] font-semibold"
+                      style={{ color: 'var(--on-board)' }}
+                    >
+                      {money(s.revenue)}
+                    </span>
+                  </Row>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          {/* Разбор прибыли лестницей — строка на каждый вычет. Так
+              устроен отчёт у всех бухгалтерских продуктов, и так
+              владелец видит, где деньги ушли, а не только сколько
+              осталось. */}
+          <Panel title={hy.owner.profitBreakdown}>
+            <Profit
+              revenue={stats.revenue}
+              payroll={stats.payroll}
+              oneOff={costs.oneOff}
+              monthlyShare={costs.monthlyShare}
+              profit={profit}
+              daily={period.key === 'today'}
+              money={money}
+            />
+          </Panel>
+
+          {split.some((s) => s.revenue > 0) && (
+            <Panel title={hy.owner.colPayment}>
+              <PaymentSplit
+                currency={tenant.currency}
+                segments={split
+                  .filter((s) => passesEnabled() || s.payment !== 'pass')
+                  .map((s) => ({
+                    label: paymentLabel(s.payment),
+                    value: s.revenue,
+                    color: PAYMENT_COLORS[s.payment] ?? 'var(--board-muted)',
+                  }))}
               />
-              <span
-                className="min-w-0 flex-1 truncate text-[14px] font-semibold"
-                style={{ color: 'var(--on-board)' }}
-              >
-                {s.name ?? '—'}
-              </span>
-              <span className="num shrink-0 text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-                {s.count} {tenant.unitOne}
-              </span>
-              <span
-                className="num shrink-0 text-right text-[14px] font-semibold"
-                style={{ color: 'var(--on-board)' }}
-              >
-                {money(s.revenue)}
-              </span>
-            </Row>
-          ))
-        )}
-      </Journal>
-
-      <Journal title={hy.owner.feed} count={feed.length}>
-        {feed.length === 0 ? (
-          <Row>
-            <span className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
-              {hy.common.empty}
-            </span>
-          </Row>
-        ) : (
-          feed.map((o) => (
-            <Row key={o.id}>
-              <span className="min-w-0 flex-1">
-                <span
-                  className="num block truncate text-[14px] font-semibold"
-                  style={{ color: 'var(--on-board)' }}
-                >
-                  {o.clientKey ?? '—'}
-                </span>
-                <span
-                  className="block truncate text-[12px]"
-                  style={{ color: 'var(--board-muted)' }}
-                >
-                  {/* имя цветом человека: «кто помыл» читается по цвету,
-                      до чтения строки */}
-                  <span className="font-semibold" style={{ color: personColor(o.staffName) }}>
-                    {o.staffName ?? '—'}
-                  </span>{' '}
-                  · {o.serviceName} · {paymentLabel(o.payment)}
-                </span>
-              </span>
-              <span className="shrink-0 text-right">
-                <span
-                  className="num block text-[14px] font-semibold"
-                  style={{ color: 'var(--on-board)' }}
-                >
-                  {money(o.price)}
-                </span>
-                <span className="num block text-[11.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {o.staffPercent > 0 && <>{money(staffShare(o.price, o.staffPercent))} · </>}
-                  {hhmm(o.createdAt)}
-                </span>
-              </span>
-              <CancelOrderButton orderId={o.id} />
-            </Row>
-          ))
-        )}
-      </Journal>
+            </Panel>
+          )}
+        </div>
+      </div>
     </>
+  );
+}
+
+function Empty() {
+  return (
+    <p className="py-6 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+      {hy.common.empty}
+    </p>
   );
 }
 

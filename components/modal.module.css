@@ -5,31 +5,43 @@
    реагирует на Escape и сам поднимается над всем остальным. Ручная
    реализация всего этого — источник багов, а не гибкости.
 
-   На телефоне это лист, выезжающий снизу: пальцу до него ближе,
-   и жест привычен по всему остальному, чем человек пользуется.
-   На большом экране — обычное окно по центру.
+   По центру экрана — везде, и на телефоне тоже.
+
+   Лист, выезжающий снизу, здесь был ошибкой. Он копировал жест из
+   мобильных приложений, где им закрывают вспомогательные панели, но
+   внутри оказывалась форма входа: то единственное, ради чего страницу
+   открыли. Главное содержимое прижималось к нижнему краю, верхняя
+   половина экрана оставалась пустой, а на низком окне ноутбука кнопка
+   «Войти» вообще уезжала под сгиб.
    ───────────────────────────────────────────────────────────── */
 
 .dialog {
+  /* Центр задан явно и целиком. Браузер центрирует модальный <dialog>
+     сам, но любое собственное margin в этом правиле перебивает его
+     стиль — и окно прилипает к краю. Раньше так и было: `margin: auto
+     auto 0` прижимал окно к низу. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+
+  width: fit-content;
+  max-width: 100%;
+  max-height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
-  max-width: 100%;
-  max-height: 100%;
-  width: 100%;
-  /* лист прижат к низу экрана */
-  margin: auto auto 0;
   overflow: visible;
 }
 
 .dialog::backdrop {
-  background: rgb(4 6 10 / 0%);
+  background: rgb(12 9 20 / 0%);
   backdrop-filter: blur(0px);
-  transition: background 0.26s ease, backdrop-filter 0.26s ease;
+  transition: background 0.24s cubic-bezier(0.2, 0, 0, 1),
+    backdrop-filter 0.24s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .dialog[data-open='true']::backdrop {
-  background: rgb(4 6 10 / 62%);
+  background: rgb(12 9 20 / 46%);
   backdrop-filter: blur(6px);
 }
 
@@ -39,23 +51,33 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  max-height: 92vh;
+  width: min(400px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2.5rem);
 
   background: var(--surface);
   border: 1px solid var(--line);
-  border-bottom: 0;
-  border-radius: 20px 20px 0 0;
-  padding: 26px var(--pad) calc(30px + env(safe-area-inset-bottom));
+  border-radius: var(--radius-card);
+  padding: 26px var(--pad) 24px;
 
-  transform: translateY(100%);
+  /* Тень есть и на телефоне, а не только с 640px.
+  
+     На белом полотне окно без тени сливалось с фоном: рамка в один
+     пиксель отделяет его от подложки, но не поднимает над ней, и
+     оставалось непонятно, что страница под окном заблокирована.
+     Тонирована в фиолетовый продукта: чёрная на светлом — грязь. */
+  box-shadow: 0 18px 44px -16px rgb(12 9 20 / 32%), 0 2px 8px -2px rgb(12 9 20 / 12%);
+
+  /* Въезд от 0.97 и на восемь пикселей снизу: ничто в мире не
+     появляется из точки, и ничто не прилетает через полэкрана. */
+  transform: translateY(8px) scale(0.97);
   opacity: 0;
   /* панель держит фокус вместо первого поля — обводка тут ни к чему */
   outline: none;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
 }
 
 .dialog[data-open='true'] .panel {
-  transform: translateY(0);
+  transform: none;
   opacity: 1;
 }
 
@@ -69,50 +91,18 @@
   padding-inline: var(--pad);
 }
 
-/* Полоска-ручка: намекает, что лист можно закрыть, и отделяет
-   его от фона лучше любой тени. */
-.grip {
-  width: 40px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--line);
-  margin: -8px auto 20px;
-}
-
 .close {
   position: absolute;
-  inset-block-start: 16px;
-  inset-inline-end: 16px;
+  inset-block-start: 14px;
+  inset-inline-end: 14px;
 }
 
 @media (min-width: 640px) {
-  .dialog {
-    /* Именно fit-content, а не auto: браузер держит модальный диалог
-       с left:0 и right:0, и при auto он растягивается во всю ширину —
-       центрировать margin-ом становится нечего. */
-    width: fit-content;
-    margin: auto;
-  }
-
   .panel {
     --pad: 28px;
 
-    width: 400px;
-    max-height: 88vh;
-    border: 1px solid var(--line);
-    border-radius: 18px;
     padding: 30px var(--pad) 28px;
-    box-shadow: 0 30px 80px rgb(0 0 0 / 45%);
-
-    transform: translateY(12px) scale(0.97);
-  }
-
-  .dialog[data-open='true'] .panel {
-    transform: translateY(0) scale(1);
-  }
-
-  .grip {
-    display: none;
+    box-shadow: 0 28px 64px -20px rgb(12 9 20 / 42%), 0 3px 10px -3px rgb(12 9 20 / 14%);
   }
 }
 

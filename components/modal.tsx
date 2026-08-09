@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { IconClose } from '@/components/icons';
 import s from './modal.module.css';
 
 const EXIT_MS = 280;
@@ -78,13 +79,12 @@ export function Modal({ path, children }: { path: string; children: React.ReactN
       }}
     >
       <div ref={panel} tabIndex={-1} className={s.panel}>
-        <div className={s.grip} aria-hidden />
         {/* Содержимое прокручивается внутри окна, а не растит его за край
             экрана: регистрация длиннее входа, и на телефоне кнопка
             «Создать» иначе оказывается вне видимой части. */}
         <div className={s.body}>{children}</div>
         <button className={`btn-icon ${s.close}`} onClick={close} aria-label="Փակել">
-          ✕
+          <IconClose className="size-4" />
         </button>
       </div>
     </dialog>

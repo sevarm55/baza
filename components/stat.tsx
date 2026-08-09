@@ -22,13 +22,13 @@ export function Hero({
     <div className="mb-3.5">
       <div className="label">{label}</div>
       <div
-        className={`num mt-1.5 text-[clamp(2.5rem,11vw,3.25rem)] leading-none font-bold tracking-tight ${
+        className={`num mt-1.5 text-[clamp(2.375rem,10vw,3rem)] leading-[0.95] font-bold tracking-[-0.03em] ${
           tone === 'good' ? 'text-good' : 'text-ink'
         }`}
       >
         {value}
       </div>
-      {meta && <div className="mt-2.5 text-[13.5px] text-muted">{meta}</div>}
+      {meta && <div className="mt-2.5 text-[13px] text-muted">{meta}</div>}
     </div>
   );
 }
@@ -48,15 +48,21 @@ export function Stat({
       <div className="label mb-1.5">{label}</div>
       {/* Число — главное на плитке, поэтому кегль отрывается от подписи резко.
           Когда всё набрано одним размером, глазу не за что зацепиться. */}
-      <div className={`num text-[26px] font-semibold leading-none tracking-tight ${color}`}>
+      <div className={`num text-[24px] font-semibold leading-none tracking-[-0.03em] ${color}`}>
         {value}
       </div>
     </div>
   );
 }
 
-export function StatGrid({ children }: { children: React.ReactNode }) {
-  return <div className="mb-4 grid grid-cols-2 gap-2.5">{children}</div>;
+export function StatGrid({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={`grid grid-cols-2 gap-[var(--seam)] ${className}`}>{children}</div>;
 }
 
 export function Avatar({ text }: { text: string }) {
@@ -72,7 +78,7 @@ export function Avatar({ text }: { text: string }) {
   const color = personColor(text);
   return (
     <div
-      className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[12.5px] font-semibold"
+      className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-chip)] text-[13px] font-semibold"
       style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
     >
       {initials}

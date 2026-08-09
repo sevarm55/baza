@@ -25,7 +25,7 @@ export function RegisterForm({
       <label className="grid gap-2">
         <span className="label">{hy.onboarding.bizName}</span>
         <input
-          className="field !text-[17px]"
+          className="field !text-[16px]"
           name="businessName"
           defaultValue={defaultName}
           required
@@ -35,17 +35,17 @@ export function RegisterForm({
 
       <label className="grid gap-2">
         <span className="label">{hy.onboarding.ownerName}</span>
-        <input className="field !text-[17px]" name="ownerName" required autoComplete="name" />
+        <input className="field !text-[16px]" name="ownerName" required autoComplete="name" />
       </label>
 
       <label className="grid gap-2">
         <span className="label">{hy.auth.phone}</span>
         <div className="relative">
-          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[17px] text-faint">
+          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[16px] text-faint">
             +374
           </span>
           <input
-            className="field num !ps-[4.4rem] !text-[17px]"
+            className="field num !ps-[4.4rem] !text-[16px]"
             name="phone"
             type="tel"
             inputMode="tel"
@@ -71,7 +71,7 @@ export function RegisterForm({
         <button className="btn" disabled={pending}>
           {pending ? hy.common.loading : hy.onboarding.createAndStart}
         </button>
-        <p className="text-center text-[12.5px] text-faint">
+        <p className="text-center text-[13.5px] text-faint">
           {hy.onboarding.freeDays(TRIAL_DAYS)}
         </p>
       </div>

@@ -16,11 +16,11 @@ export function LoginForm() {
           {/* Код страны нарисован в поле, а не набирается: клиенты все
               местные, и восемь лишних нажатий каждый раз — это налог
               на вход, который платят зря. */}
-          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[17px] text-faint">
+          <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[16px] text-faint">
             +374
           </span>
           <input
-            className="field num !ps-[4.4rem] !text-[17px]"
+            className="field num !ps-[4.4rem] !text-[16px]"
             name="phone"
             type="tel"
             inputMode="tel"

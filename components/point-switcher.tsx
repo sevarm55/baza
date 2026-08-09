@@ -48,13 +48,13 @@ export function PointSwitcher({
               />
             </svg>
           </div>
-          <div className="truncate text-[11.5px] text-muted">{subtitle}</div>
+          <div className="truncate text-[12px] text-muted">{subtitle}</div>
         </div>
       </summary>
 
       {/* Панель поверх содержимого, а не в потоке: иначе открытие списка
           сдвигало бы вниз всю страницу. */}
-      <div className="absolute left-0 top-full z-30 mt-2 w-[min(280px,calc(100vw-2rem))] overflow-hidden rounded-[14px] border border-line bg-surface shadow-lg">
+      <div className="absolute left-0 top-full z-30 mt-2 w-[min(280px,calc(100vw-2rem))] overflow-hidden rounded-[var(--radius-sm)] border border-line bg-surface shadow-lg">
         {points.map((point) => {
           const here = point.id === currentId;
           return (
@@ -71,13 +71,13 @@ export function PointSwitcher({
                     неё зашли, а не после. */}
                 <span
                   className={`size-2 shrink-0 rounded-full ${
-                    point.canRead ? 'bg-emerald-500' : 'bg-amber-500'
+                    point.canRead ? 'bg-good' : 'bg-warn'
                   }`}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium">{point.name}</span>
-                  <span className="block truncate text-[11.5px] text-muted">
+                  <span className="block truncate text-[15px] font-medium">{point.name}</span>
+                  <span className="block truncate text-[12px] text-muted">
                     {point.role === 'owner' ? hy.roles.owner : hy.roles.staff}
                     {point.canRead ? '' : ` · ${hy.points.needsPayment}`}
                   </span>

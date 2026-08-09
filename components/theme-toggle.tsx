@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { IconHalf, IconMoon, IconSun } from '@/components/icons';
 
 type Theme = 'light' | 'dark';
 
@@ -33,10 +34,16 @@ export function ThemeToggle() {
   const label = theme === 'light' ? 'Մուգ' : 'Լուսավոր';
 
   return (
-    <button className="btn-icon" onClick={flip} title={label} aria-label={label}>
+    <button className="btn-icon btn-icon-board" onClick={flip} title={label} aria-label={label}>
       {/* пока тема не прочитана, рисуем нейтральный знак — так кнопка
           не прыгает между иконками сразу после загрузки */}
-      {theme === null ? '◐' : theme === 'light' ? '☾' : '☀'}
+      {theme === null ? (
+        <IconHalf className="size-4" />
+      ) : theme === 'light' ? (
+        <IconMoon className="size-4" />
+      ) : (
+        <IconSun className="size-4" />
+      )}
     </button>
   );
 }

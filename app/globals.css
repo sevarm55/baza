@@ -24,11 +24,14 @@
    ───────────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #faf9fc;
+  /* Белое полотно. Тёплый серый читался бумагой, а продукт — приборная
+     панель: у неё фон нейтральный, а всё, что на нём, отделяется
+     подложкой, а не оттенком бумаги. */
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface2: #f3f1f8;
-  --line: #e5e2ec;
-  --hairline: #efedf5;
+  --surface2: #f2f1f5;
+  --line: #e3e1e9;
+  --hairline: #ecebf0;
   --hover: rgb(26 22 38 / 4%);
   --tile-shadow: 0 1px 2px rgb(26 22 38 / 6%), 0 10px 30px -18px rgb(26 22 38 / 35%);
 
@@ -79,7 +82,7 @@
      Плитки НЕ меняются со сменой темы, и это не упущение. Плитка — это
      прибор на панели: он светится одинаково и днём, и ночью, иначе на
      светлой теме свечение выродилось бы в грязное пятно. */
-  --board: #f3f2f0;
+  --board: #ffffff;
   --on-board: #14121a;
   --board-muted: #6b6577;
   --board-ink: #14121a;
@@ -99,6 +102,13 @@
   --tone-slate-glow: #8b88a8;
   --tone-ink: #ffffff;
   --tone-ink-on-lime: #1a1626;
+
+  /* Поверхности НА полотне. Поле ввода должно быть светлее полотна в
+     светлой теме и темнее — в тёмной, поэтому вывести их формулой из
+     одного тона нельзя: пришлось бы в одной из тем получить серую
+     заплату вместо поля. */
+  --board-surface: #ffffff;
+  --board-surface2: #e7e5e1;
 
   --accent-bg: #f3ebff;
   --accent-ink: #5b21b6;
@@ -180,6 +190,9 @@
   --good-on-board: #34d399;
   --warn-on-board: #fbbf24;
 
+  --board-surface: #1a191f;
+  --board-surface2: #24232b;
+
   --accent-bg: #241a3d;
   --accent-ink: #c4b5fd;
 
@@ -260,11 +273,59 @@
   --color-brand-2: var(--brand-2);
   --color-brand-3: var(--brand-3);
 
-  /* Крупнее прежнего: у мойщика мокрые руки и перчатки, а мягкая
-     форма прощает промах пальцем лучше, чем острая. */
-  --radius-card: 18px;
-  --radius-sm: 12px;
-  --radius-btn: 14px;
+  /* Скругление.
+
+     Капсулы больше нет ни у одного элемента. Радиус 999 у кнопки — самый
+     заметный след «сгенерированного» интерфейса: он превращает кнопку в
+     таблетку, поле — в аптечную упаковку, а вкладку — в мыльный пузырь,
+     и весь экран начинает выглядеть мягче, чем то, что на нём написано.
+     Деньги, проценты и зарплаты требуют точного вида, а не милого.
+
+     Три ступени на весь продукт, и они близки друг к другу нарочно:
+     разнобой скруглений — вторая по заметности примета собранного из
+     кусков интерфейса. 12 у поверхностей, 10 у того, что нажимают, 8 у
+     мелочи внутри них. Дальше 8 не идём: у прибора со скруглением 8
+     внутри не может лежать деталь с 12, иначе углы не вложатся. */
+  --radius-card: 12px;
+  --radius-sm: 10px;
+  --radius-btn: 10px;
+  --radius-chip: 8px;
+
+  /* Движение — из DESIGN.md §11. До сих пор эти значения жили только в
+     документе, а в коде каждый компонент писал «0.12s ease» своей рукой.
+     Браузерная `ease` разгоняется и тормозит симметрично, отчего короткий
+     переход выглядит вялым; наша выходит резко и мягко гасится. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --slow: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-micro: 160ms;
+  --t-press: 90ms;
+}
+
+/* ───────────────────── размеры рабочей панели ─────────────────────
+
+   Шов равен полю страницы — правило из DESIGN.md, из-за которого щит
+   выглядит цельным предметом: прибор у края отстоит от края ровно
+   настолько же, насколько от соседа.
+
+   Ширина боковой колонки не в процентах: меню — это не содержимое,
+   и растягивать его вслед за экраном незачем. На большом мониторе
+   растёт рабочая область, а не список разделов. */
+:root {
+  --rail: 244px;
+  /* Шов вырос на два пункта. Приборы стали плоскими — без свечения и
+     теней их разделяет только воздух, и прежнего зазора на это не
+     хватало: два соседних прибора читались одним. */
+  --seam: clamp(14px, 1.15vw, 22px);
+  /* Предел ширины рабочей области. Строка длиной в два метра не
+     читается: за 1600 таблица начинает разъезжаться, а глаз теряет
+     начало строки, пока доходит до её конца. */
+  --canvas-max: 1640px;
+}
+
+@media (min-width: 1536px) {
+  :root {
+    --rail: 268px;
+  }
 }
 
 html {
@@ -277,6 +338,15 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Флажок остаётся браузерным — своя реализация чекбокса всегда хуже
+   родной на клавиатуре и в озвучке, — но красится в цвет продукта.
+   Синяя галка из системных настроек посреди грейпа и лайма читается
+   деталью, случайно попавшей из другого приложения. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent-strong);
+}
+
 /* Видимый фокус — не украшение: без него с клавиатуры работать вслепую.
    Грейп, а не лайм: лайм по светлому фону даёт 1.06, обводки не будет
    видно вообще. Второй цвет марки годится только заливкой.
@@ -285,11 +355,15 @@ body {
    собственный фокус поля: браузер считает текстовый ввод «видимым
    фокусом» и при обычном клике мышью, так что к рамке поля добавлялась
    ещё и внешняя обводка — две синие рамки одна в другой. Поле теперь
-   отвечает за свой фокус само, ниже. */
+   отвечает за свой фокус само, ниже.
+
+   Радиуса здесь больше нет. `border-radius` в этом правиле менял форму
+   не обводки, а самого элемента: капсула вкладки на фокусе становилась
+   почти прямоугольной и прыгала обратно, стоило увести клавиатуру.
+   Обводка и без того обходит скругление сама. */
 :focus-visible:not(.field) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* Повторяющиеся блоки держим здесь, а не размазываем по JSX:
@@ -298,19 +372,38 @@ body {
 @layer components {
   /* ─────────────────────── типографика ─────────────────────── */
 
+  /* Шкала кеглей — пять ступеней на весь продукт.
+
+     Было десять: 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5. Ни
+     один из этих шагов глаз не различает как «другой уровень» — они
+     читаются как один мутный размер, и иерархии не возникает. Осталось
+     12 (служебное), 13.5 (второстепенное), 15 (основное), 17 (заголовок
+     прибора), 20+ (показания).
+
+     Разница между ступенями теперь не меньше 1.5 пунктов, и уровень
+     виден до чтения. */
+  /* Подпись поля и прибора.
+
+     Капслока в разрядку здесь больше нет. «ՀԵՌԱԽՈՍ» над полем телефона
+     набиралось так же, как заголовок раздела в старых панелях
+     управления, — и на экране, где подписей десяток, из них
+     складывалась вторая, шумная сетка поверх содержимого. Строчными и
+     тише: подпись обязана читаться, но не обязана заявлять о себе.
+
+     Цвет — `--muted`, а не `--faint`: на полотне подпись проваливалась
+     почти до фона, а по ней понимают, что вводить. */
   .label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--faint);
+    letter-spacing: 0;
+    color: var(--muted);
   }
 
   /* Заголовок раздела на табло: не капслок в разрядку, а обычная
      подпись над списком. Капслок был нужен, чтобы отделить заголовок от
      карточки под ним; списка без карточки он только утяжеляет. */
   .h-section {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--board-muted);
     margin: 1.4rem 0 0.35rem;
@@ -332,14 +425,14 @@ body {
   .card {
     background: color-mix(in srgb, var(--board-ink) 5%, transparent);
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--radius-card);
     padding: 1.05rem;
   }
 
   .tile {
     background: color-mix(in srgb, var(--board-ink) 5%, transparent);
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--radius-card);
     padding: 1rem 1.05rem;
   }
 
@@ -360,7 +453,7 @@ body {
     /* строки списка — тоже цели для пальца, а не просто текст */
     padding: 0.7rem 0.375rem;
     border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
-    transition: background 0.12s ease;
+    transition: background var(--t-micro) var(--ease);
   }
   .li:last-child {
     border-bottom: 0;
@@ -371,33 +464,52 @@ body {
 
   /* ───────────────────────── кнопки ───────────────────────── */
 
-  /* Главное действие — мандарин под белым текстом. Заливка глубокая:
-     по яркому мандарину белый даёт 2.9 и разваливается на солнце,
-     по этой — 5.2 и держится. */
+  /* Главное действие — лайм под тёмно-фиолетовым текстом: 13.2, самая
+     читаемая пара продукта, и под солнцем тоже.
+
+     Нажатие показано тоном, а не свечением. Цветная тень под кнопкой
+     («glow») и `filter: brightness()` на наведении — два приёма, по
+     которым интерфейс сразу читается сгенерированным: свет под кнопкой
+     ниоткуда не падает, а brightness размывает выверенный цвет в
+     случайный. Здесь темнеет сама заливка — на ту же величину, что и в
+     приложении, и ровно предсказуемо. */
   .btn {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 3.25rem;
-    padding: 0.9rem 1.1rem;
+    /* 48, а не 52. Прежняя высота ставилась под палец в перчатке, но
+       палец в перчатке попадает и в 48, а лишние четыре пикселя на
+       каждой кнопке в форме из четырёх полей — это лишний сантиметр
+       высоты, из-за которого «сохранить» уезжает за край экрана. */
+    min-height: 3rem;
+    padding: 0.8rem 1.1rem;
     border: 1px solid transparent;
     border-radius: var(--radius-btn);
     background: var(--accent-fill);
     color: var(--accent-on);
     font: inherit;
     font-weight: 700;
-    font-size: 1.0625rem;
+    /* Подпись кнопки — не заголовок. 17 пунктов полужирным на лаймовой
+       заливке кричали громче показания, ради которого экран открыт. */
+    font-size: 15px;
+    letter-spacing: -0.005em;
     cursor: pointer;
-    transition: filter 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
+    transition: background var(--t-micro) var(--ease), transform var(--t-press) var(--ease);
   }
   .btn:hover:not(:disabled) {
-    filter: brightness(1.05);
-    box-shadow: 0 8px 20px -8px var(--accent-fill);
+    background: color-mix(in srgb, var(--accent-fill) 92%, var(--accent-on));
   }
+  /* Отклик на палец — 1 пиксель вниз и ещё темнее. Кнопку жмут мокрой
+     рукой в перчатке, и подтверждение должно быть видно, а не угадано. */
   .btn:active:not(:disabled) {
     transform: translateY(1px);
-    box-shadow: none;
+    background: color-mix(in srgb, var(--accent-fill) 84%, var(--accent-on));
+  }
+  /* Обводка фокуса на лайме — тёмная: грейп по лайму даёт 2.4 и в
+     солнечный день не читается, а тёмно-фиолетовый — 13.2. */
+  .btn:focus-visible {
+    outline-color: var(--accent-on);
   }
   .btn:disabled {
     opacity: 0.4;
@@ -413,15 +525,20 @@ body {
   .btn-ghost:hover:not(:disabled) {
     background: var(--surface2);
     border-color: var(--muted);
-    filter: none;
-    box-shadow: none;
+  }
+  .btn-ghost:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn-ghost:focus-visible {
+    outline-color: var(--accent);
   }
 
-  /* Кнопка, которую жмут в перчатках и мокрыми руками. */
+  /* Кнопка, которую жмут в перчатках и мокрыми руками. Единственная на
+     экране мойщика — ей и положено быть крупной. */
   .btn-big {
-    min-height: 4rem;
-    padding: 1.25rem;
-    font-size: 1.1875rem;
+    min-height: 3.75rem;
+    padding: 1.15rem;
+    font-size: 1.0625rem;
     border-radius: var(--radius-card);
   }
 
@@ -433,19 +550,24 @@ body {
     gap: 0.35rem;
     width: auto;
     padding: 0.45rem 0.7rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-chip);
     border: 1px solid var(--line);
     background: var(--surface2);
     color: var(--ink);
     font: inherit;
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    transition: background var(--t-micro) var(--ease), border-color var(--t-micro) var(--ease),
+      color var(--t-micro) var(--ease), transform var(--t-press) var(--ease);
   }
   .btn-inline:hover:not(:disabled) {
-    border-color: var(--accent);
+    border-color: var(--muted);
+    background: var(--surface);
+  }
+  .btn-inline:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .btn-inline:disabled {
     opacity: 0.45;
@@ -457,8 +579,13 @@ body {
     border-color: var(--accent-fill);
     color: var(--accent-on);
   }
+  /* Та же логика, что у большой кнопки: темнеет заливка, а не яркость. */
   .btn-inline-primary:hover:not(:disabled) {
-    filter: brightness(1.08);
+    background: color-mix(in srgb, var(--accent-fill) 92%, var(--accent-on));
+    border-color: color-mix(in srgb, var(--accent-fill) 92%, var(--accent-on));
+  }
+  .btn-inline-primary:focus-visible {
+    outline-color: var(--accent-on);
   }
 
   .btn-inline-danger {
@@ -484,24 +611,267 @@ body {
     gap: 0.35rem 0.5rem;
   }
 
+  /* ─────────────────── строка списка и её окно ───────────────────
+
+     Список больше не состоит из полей ввода. Строка — это строка:
+     название слева, число справа, и её читают. Правка открывается
+     окном по нажатию: так число не меняется под рукой от случайного
+     касания, а «сохранить» стоит там, где его ждут, — рядом с тем, что
+     правишь.
+
+     Вся строка нажимается целиком: цель в 44 пикселя высотой попадает
+     под палец в перчатке, а слово «изменить» в каждой из десяти строк
+     только повторяло бы то, что и так понятно. */
+  /* Открывающаяся строка. Третья колонка — шеврон: без него длинная
+     строка на широкой панели читается подписью, а не кнопкой, и цена
+     справа висит в пустоте сама по себе. */
+  /* Цена стоит сразу за названием, а не у дальнего края.
+  
+     Колонка `1fr` растягивала имя на всю панель, и на широком экране
+     между «Կոմպլեքս» и «5000 ֏» оставалось полэкрана пустоты: два
+     значения одной строки читались как два разных столбца. Теперь имя
+     занимает ровно своё место, цена идёт следом, а пустота уходит
+     вправо — туда, где ей и место. */
+  .row-open {
+    display: grid;
+    grid-template-columns: minmax(0, auto) auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.7rem var(--pad-panel, 1.05rem);
+    margin-inline: calc(var(--pad-panel, 1.05rem) * -1);
+    border-radius: 0;
+    text-align: start;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background var(--t-micro) var(--ease);
+  }
+  /* Шеврон приглушён и не тянет на себя внимание: он подсказка формы,
+     а не элемент, который читают. */
+  /* Шеврон в третьей, растянутой колонке и прижат к её концу: вся
+     пустота строки собирается ЗДЕСЬ, между ценой и краем, а не между
+     названием и ценой. */
+  .row-open::after {
+    content: '';
+    grid-column: 3;
+    justify-self: end;
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid var(--faint);
+    border-block-start: 1.5px solid var(--faint);
+    transform: rotate(45deg);
+    transition: border-color var(--t-micro) var(--ease);
+  }
+  .row-open:hover::after {
+    border-color: var(--muted);
+  }
+  .row-open:hover {
+    background: var(--hover);
+  }
+  .row-open:active {
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+
+  /* Окно правки.
+
+     Живёт в верхнем слое, вне `.shell`, поэтому тона полотна ему
+     приходится назвать заново — иначе внутри окажется палитра страницы,
+     а не прибора. */
+  /* Ровно по центру экрана, и на телефоне тоже.
+
+     Браузер центрирует модальный `<dialog>` сам, но только пока ему не
+     мешают: любое собственное `margin` или `inset` в правиле выше
+     перебивает пользовательский стиль браузера, и окно прилипает к
+     краю. Поэтому центр задан здесь явно и целиком — четыре нуля и
+     `margin: auto`, — а не оставлен на умолчания.
+
+     Прокрутка внутри окна, а не под ним: форма правки расхода на
+     телефоне длиннее экрана, и «сохранить» иначе оказывается за краем. */
+  .sheet {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(420px, calc(100vw - 2rem));
+    max-height: calc(100dvh - 3rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 1.4rem;
+    border: 1px solid color-mix(in srgb, var(--board-ink) 12%, transparent);
+    border-radius: var(--radius-card);
+    background: var(--board-surface2);
+    color: var(--on-board);
+
+    --surface: var(--board-surface);
+    --surface2: var(--board-surface2);
+    --line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    --ink: var(--on-board);
+    --muted: var(--board-muted);
+    --faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+    --color-surface: var(--board-surface);
+    --color-surface2: var(--board-surface2);
+    --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --color-ink: var(--on-board);
+    --color-muted: var(--board-muted);
+    --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+
+    /* Окно въезжает от 0.97, а не от нуля: ничто в мире не появляется
+       из точки. Выезд быстрее въезда — система отвечает быстрее, чем
+       человек решает. */
+    opacity: 0;
+    transform: scale(0.97);
+    transition: opacity 140ms var(--ease), transform 140ms var(--ease), overlay 140ms allow-discrete,
+      display 140ms allow-discrete;
+  }
+
+  .sheet[open] {
+    opacity: 1;
+    transform: none;
+    transition-duration: 200ms;
+  }
+
+  @starting-style {
+    .sheet[open] {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  /* Затемнение тонировано в чернила полотна, а не чистым чёрным:
+     чистый чёрный на тёмной теме даёт провал без дна, а на светлой —
+     серую плёнку поверх фиолетового, которая читается как ошибка. */
+  .sheet::backdrop {
+    background: rgb(12 9 20 / 58%);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 140ms var(--ease), overlay 140ms allow-discrete,
+      display 140ms allow-discrete;
+  }
+  .sheet[open]::backdrop {
+    opacity: 1;
+  }
+  @starting-style {
+    .sheet[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sheet,
+    .sheet[open] {
+      transform: none;
+    }
+  }
+
+  /* Строка-переход: раздел, до которого отсюда можно дойти.
+
+     Была кнопка во всю ширину прибора на каждый такой переход — три
+     панели подряд, в каждой одна широкая кнопка. Кнопка обещает
+     действие («сделать»), а это переход («пойти»), и обещание не
+     сходилось. Строка со стрелкой не обещает ничего лишнего и занимает
+     втрое меньше высоты. */
+  .link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 14px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .link-row::after {
+    content: '→';
+    flex: none;
+    font-size: 14px;
+    color: var(--faint);
+    transition: transform var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .link-row:hover::after {
+    color: var(--ink);
+    transform: translateX(2px);
+  }
+
+  /* Список правимых строк.
+
+     Раньше строки разделял воздух в 16 пикселей — и десять услуг
+     читались как десять отдельных форм. Теперь это список: волосяная
+     линия между строками, подсветка под курсором. Отрицательное поле
+     по бокам нужно, чтобы подсветка и линия доходили до края прибора,
+     а не висели в его середине. */
+  /* Строка списка — цель, а не абзац.
+  
+     Было 0.45rem поля: строки слипались в текст, и по ним не читалось,
+     что каждая открывается. Стало 0.7rem и минимальная высота 48 — то
+     же, что у поля рядом, — плюс подсветка под курсором на всю ширину
+     подложки. */
+  /* Поле прибора одним объявлением: строкам списка нужно знать его
+     размер, чтобы дотянуться до края подложки, а Tailwind-классы
+     переменной не оставляют. */
+  .panel-pad {
+    --pad-panel: 1rem;
+    padding: var(--pad-panel);
+  }
+  @media (min-width: 640px) {
+    .panel-pad {
+      --pad-panel: 1.5rem;
+    }
+  }
+
+  /* Строка списка.
+  
+     Ни скруглений, ни отступа наружу. Скруглённая подсветка превращала
+     список в стопку отдельных плашек: под курсором всплывала капсула,
+     а линия под ней шла от края до края и с этой капсулой не совпадала.
+     Теперь строка занимает всю ширину подложки, линия идёт по ней же, а
+     подсветка — прямоугольник ровно по строке. */
+  .rows > * {
+    margin-inline: calc(var(--pad-panel, 1.05rem) * -1);
+    padding: 0.7rem var(--pad-panel, 1.05rem);
+    min-height: 3rem;
+    border-radius: 0;
+    transition: background var(--t-micro) var(--ease);
+  }
+  .rows > * + * {
+    /* Линия рисуется тенью, а не рамкой: рамка сдвигала бы содержимое
+       строки на свой пиксель при каждом наведении. */
+    box-shadow: inset 0 1px 0 var(--hairline);
+  }
+  /* Подсветка строки под курсором — на компьютере. Кнопки при этом
+     никуда не прячутся: спрятанное удаление приходится искать наугад,
+     а список из десяти строк не то место, где стоит играть в прятки. */
+  @media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+    .rows > *:hover,
+    .rows > *:focus-within {
+      background: var(--hover);
+    }
+  }
+
   /* Квадратная кнопка-иконка. Рамка и фон есть всегда, а не только при
      наведении: голая иконка не читается как нажимаемая, особенно на
-     телефоне, где наведения не существует в принципе. */
+     телефоне, где наведения не существует в принципе.
+
+     Квадратная теперь и на самом деле: круглая кнопка рядом с
+     прямоугольным полем и прямоугольной вкладкой — деталь из другого
+     набора, и глаз спотыкается о неё раньше, чем понимает почему. */
   .btn-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     flex: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-chip);
     border: 1px solid var(--line);
     background: var(--surface);
     color: var(--muted);
     cursor: pointer;
     font-size: 15px;
     line-height: 1;
-    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease),
+      border-color var(--t-micro) var(--ease);
   }
   .btn-icon:hover {
     background: var(--surface2);
@@ -509,42 +879,117 @@ body {
     color: var(--ink);
   }
 
+  /* Та же кнопка, но на полотне: тона страницы под ней читаются
+     наклейкой поверх прибора. Рамки нет вовсе — на тёмном полотне её
+     роль берёт на себя заливка. */
+  .btn-icon-board {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--board-ink) 7%, transparent);
+    color: var(--board-muted);
+  }
+  .btn-icon-board:hover {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    color: var(--on-board);
+  }
+
   /* ───────────────────────── поля ───────────────────────── */
 
+  /* Поле — залитое, а не обведённое.
+  
+     Белая рамка на белом полотне не читалась вовсе: было видно линию, но
+     не было видно, что внутрь можно писать. Заливка отвечает на это
+     раньше рамки, а рамка остаётся тонкой и нужна только на краю. */
   .field {
     width: 100%;
-    min-height: 3.25rem;
-    padding: 0.85rem 0.95rem;
-    background: var(--surface);
+    min-height: 2.75rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--surface2);
+    /* Рамка есть всегда. Без неё поле читалось только на серой
+       подложке: внутри белой модалки заливка почти совпадает с фоном, и
+       от поля оставался один текст без границ. */
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     color: var(--ink);
     font: inherit;
-    font-size: 1rem;
+    font-size: 15px;
     outline: none;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    transition: background var(--t-micro) var(--ease), border-color var(--t-micro) var(--ease),
+      box-shadow var(--t-micro) var(--ease);
+  }
+  .field:hover:not(:disabled) {
+    border-color: var(--muted);
+  }
+  /* В фокусе поле светлеет и обводится грейпом: место ввода должно быть
+     видно с другого конца экрана, а не угадываться по курсору. */
+  .field:focus {
+    background: var(--surface);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .field::placeholder {
     color: var(--faint);
   }
+
+  /* Браузерные стрелки у числового поля.
+
+     Цену набирают целиком — «12000», а не доводят по одному драму
+     стрелкой вверх. Толку от них нет, а выглядят они деталью чужого
+     интерфейса, случайно попавшей в наш: две серые стрелочки, которые
+     появляются под курсором и съедают место у самого числа. */
+  .field::-webkit-outer-spin-button,
+  .field::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  .field[type='number'] {
+    appearance: textfield;
+  }
   .field:hover {
     border-color: var(--muted);
   }
-  /* Тихий фокус: рамка того же тона, что при наведении, без кольца и без
-     цвета. Синее кольцо на каждом касании поля кричало громче самого
-     содержимого — а в списке услуг полей десяток. */
+  /* Фокус — рамка в чернила, удвоенная внутренней тенью.
+
+     Цветного кольца по-прежнему нет: синий ореол на каждом касании поля
+     кричал громче содержимого, а в прейскуранте полей десяток. Но и
+     прежний «тихий фокус» тоном подсказки был неотличим от наведения —
+     с клавиатуры человек не понимал, где он стоит.
+
+     Второй пиксель нарисован тенью внутрь, а не рамкой: рамка в два
+     пикселя сдвинула бы текст поля на один при каждом заходе в него. */
   .field:focus {
-    border-color: var(--muted);
-    box-shadow: none;
+    border-color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--ink);
     outline: none;
   }
 
   /* Поле для строк-редакторов: список услуг длинный, и в полный рост
      он растягивается на два экрана. */
   .field-sm {
-    min-height: 2.6rem;
+    min-height: 2.75rem;
     padding: 0.5rem 0.7rem;
     font-size: 15px;
+  }
+
+  /* Поле в строке списка.
+
+     Прятать рамку в покое пробовали — и отказались: поле, которое не
+     выглядит полем, приходится искать наугад, а под курсором список
+     начинал мерцать проявляющимися коробками. Рамка здесь есть всегда,
+     она просто тише обычной: тон линии, а не заливка.
+
+     Порядок в списке держат не рамки, а колонки — они одной ширины во
+     всех строках, и цены выстраиваются столбцом. */
+  .field-quiet {
+    background: transparent;
+    border-color: var(--line);
+  }
+  .field-quiet:hover:not(:focus) {
+    border-color: var(--muted);
+  }
+  .field-quiet:focus {
+    background: var(--surface);
+    border-color: var(--ink);
   }
 
   .field-key {
@@ -554,59 +999,105 @@ body {
     font-variant-numeric: tabular-nums;
   }
 
+  /* Вариант выбора: услуга, способ оплаты.
+
+     Тени больше нет. Тень обещает, что предмет лежит НАД страницей и
+     его можно поднять; здесь её единственной работой было отличить
+     кнопку от фона — с этим справляется рамка, и справляется честнее.
+     Заодно ряд из пяти услуг перестал выглядеть колодой карт. */
   .opt {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
     width: 100%;
+    min-height: 3.5rem;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    box-shadow: var(--tile-shadow);
-    padding: 1.15rem 1.1rem;
+    border-radius: var(--radius-sm);
+    box-shadow: none;
+    padding: 0.9rem 1rem;
     font: inherit;
-    font-size: 1rem;
+    font-size: 15px;
     color: var(--ink);
     cursor: pointer;
     text-align: start;
-    transition: border-color 0.12s ease, background 0.12s ease;
+    transition: border-color var(--t-micro) var(--ease), background var(--t-micro) var(--ease),
+      transform var(--t-press) var(--ease);
   }
   .opt:hover:not(:disabled) {
-    border-color: var(--accent-strong);
-    background: var(--accent-bg);
+    border-color: var(--ink);
+    background: var(--hover);
+  }
+  .opt:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .opt:disabled {
     opacity: 0.5;
     cursor: default;
   }
 
-  /* ───────────────────── цветные врезки ───────────────────── */
+  /* ─────────────────── сообщения и сноски ───────────────────
 
+     Цветной коробки здесь больше нет ни у одного из трёх.
+
+     Плашка с заливкой, рамкой и скруглением вокруг одной строки текста —
+     самый узнаваемый след генератора: она есть в каждом сгенерированном
+     интерфейсе и почти ни в одном сделанном. Причина не во вкусе. Коробка
+     обещает предмет — то, что можно закрыть, развернуть, перетащить, — а
+     внутри одна фраза, которую надо просто прочитать. Обещание не
+     выполняется, и интерфейс на полстроки становится менее правдивым.
+
+     Сообщение здесь — строка речи: цвет несёт смысл (ошибка, ожидание,
+     сошлось), вес несёт важность, точка слева отмечает состояние — та же
+     точка, которой в продукте помечен человек на смене. */
+
+  /* Ошибка формы. Красный и полужирный, под полем, без рамки: строка
+     ошибки должна читаться быстрее, чем разглядываться. */
   .alert {
-    background: var(--bad-bg);
-    border: 1px solid var(--bad-line);
+    background: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
     color: var(--bad-ink);
-    border-radius: var(--radius-sm);
-    padding: 0.7rem 0.85rem;
-    font-size: 0.875rem;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .hint-good,
+  .hint-warn {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  /* Точка состояния — тот же знак, что у человека на смене и у точки в
+     списке. Один язык на весь продукт: цветная точка значит «состояние»,
+     где бы она ни стояла. */
+  .hint-good::before,
+  .hint-warn::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    translate: 0 -1px;
   }
 
   .hint-good {
-    background: var(--good-bg);
-    border: 1px solid var(--good-line);
     color: var(--good-ink);
-    border-radius: var(--radius-sm);
-    padding: 0.65rem 0.85rem;
-    font-size: 13px;
   }
 
   .hint-warn {
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-line);
     color: var(--warn-ink);
-    border-radius: var(--radius-card);
-    padding: 0.65rem 0.85rem;
-    font-size: 13px;
   }
 
   .scroll-x {
@@ -618,18 +1109,18 @@ body {
     display: none;
   }
 
-  /* Разделы на полотне: капсула из чернил табло, без рамки. Рамка
+  /* Разделы на полотне: плашка из чернил табло, без рамки. Рамка
      здесь была нужна на белом фоне, чтобы кнопка не растворилась; на
      полотне она рисует лишнюю сетку поверх приборов. */
   .tab {
     white-space: nowrap;
-    border-radius: 999px;
-    padding: 0.55rem 1rem;
+    border-radius: var(--radius-chip);
+    padding: 0.5rem 0.85rem;
     font-size: 13.5px;
     color: var(--board-muted);
     background: color-mix(in srgb, var(--board-ink) 7%, transparent);
     border: 0;
-    transition: color 0.12s ease, background 0.12s ease;
+    transition: color var(--t-micro) var(--ease), background var(--t-micro) var(--ease);
   }
   .tab:hover {
     color: var(--on-board);
@@ -655,18 +1146,33 @@ body {
     animation: pending 1.1s ease-in-out 0.25s infinite;
   }
 
-  /* Полоска грейпом, а не лаймом: лайм по светлому фону не виден. */
+  /* Примечание — сноска, а не врезка.
+
+     Была цветная полоска слева на скруглённой подложке: ровно тот
+     «callout», по которому видно генератор. Полоска к тому же врала —
+     грейп в продукте значит опору и действие, а тут им был помечен текст,
+     который ничего не делает.
+
+     Сноска устроена как в книге: волосяная линия сверху отделяет её от
+     того, к чему она относится, кегль ниже основного, мера ограничена.
+     Никакой заливки — примечание не предмет на экране, а голос сбоку. */
   .note {
-    border-inline-start: 3px solid var(--accent);
-    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
-    border-radius: 18px;
-    padding: 0.8rem 0.9rem;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--board-muted);
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 10%, transparent);
+    border-radius: 0;
+    background: none;
+    padding: 0.7rem 0 0;
+    /* Строка длиной во весь монитор не читается: глаз теряет её начало,
+       пока доходит до конца. 68 знаков — обычная мера для сплошного
+       текста. */
+    max-width: 68ch;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--muted);
   }
   .note-warn {
-    border-inline-start-color: var(--warn);
+    color: var(--warn-ink);
+    border-top-color: color-mix(in srgb, var(--warn) 40%, transparent);
   }
 }
 
@@ -676,10 +1182,80 @@ body {
   }
 }
 
-/* Кому анимация мешает — тому ожидание показывает система, а не мы. */
+/* Скелет: место прибора, пока едут данные.
+
+   Дышит прозрачностью, а не бегущим бликом. Блик по десятку блоков
+   сразу — это десяток движущихся объектов на экране, где ещё ничего
+   не показано; дыхание тише и не спорит с содержимым, которое вот-вот
+   появится. Медленно (1.6 с) — чтобы не читалось как ошибка. */
+@keyframes skeleton {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.skeleton {
+  animation: skeleton 1.6s var(--ease) infinite;
+}
+
+/* ───────────────── перекат разрядов ─────────────────
+   Разряд уходит вниз и новый приходит снизу, когда число выросло, и
+   наоборот, когда упало. Сдвиг меньше высоты знака: разряд должен
+   выехать из-под соседнего, а не пролететь мимо строки.
+
+   Двигаются только `transform` и `opacity` — обе идут мимо раскладки,
+   и на слабом телефоне анимация не роняет кадры. */
+@keyframes tick-up {
+  from {
+    transform: translateY(0.5em);
+    opacity: 0;
+  }
+}
+
+@keyframes tick-down {
+  from {
+    transform: translateY(-0.5em);
+    opacity: 0;
+  }
+}
+
+.tick {
+  display: inline-block;
+  animation-duration: 240ms;
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
+}
+
+.tick-up {
+  animation-name: tick-up;
+}
+
+.tick-down {
+  animation-name: tick-down;
+}
+
+/* Кому анимация мешает — тому ожидание показывает система, а не мы.
+   У разрядов остаётся проявление без движения: понять, что число
+   сменилось, нужно и тем, кому качка противопоказана. */
 @media (prefers-reduced-motion: reduce) {
   a[data-pending] {
     animation: none;
+  }
+
+  .tick {
+    animation-name: tick-fade;
+    animation-delay: 0ms !important;
+  }
+
+  /* Скелету дыхание тоже ни к чему: место прибора видно и без него. */
+  .skeleton {
+    animation: none;
+  }
+}
+
+@keyframes tick-fade {
+  from {
+    opacity: 0;
   }
 }
 
@@ -699,5 +1275,267 @@ body {
      кончаться содержимым, а не чертой. */
   .board-journal > * + * {
     border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+}
+
+/* ─────────────────────── рабочая панель ───────────────────────
+
+   Кабинет на компьютере — это не телефон, растянутый до монитора.
+   Колонка в 760 пикселей посреди двадцатичетырёхдюймового экрана
+   отдаёт две трети площади пустоте и заставляет пролистывать то,
+   что помещается целиком: показание, приборы, лента и смена — всё
+   это владелец должен видеть одним взглядом, не прокручивая.
+
+   Поэтому на компьютере разделы уходят в неподвижную боковую
+   колонку, а полотно занимает всё остальное. На телефоне схема
+   складывается обратно в один столбец с полосой вкладок сверху —
+   продукт живёт в PWA, и там прежний порядок был верным. */
+@layer components {
+  /* Полотно — среда, а не плашка посреди страницы.
+
+     Всё, что внутри, живёт в его тонах: поле ввода, кнопка в строке,
+     волосяная линия между записями. Поэтому цвета переопределяются
+     здесь, один раз, а не подставляются руками в каждом компоненте —
+     иначе форма расходов, написанная для белой страницы, всплывала бы
+     на тёмном полотне белой наклейкой.
+
+     Заодно исчезают тени: на полотне их нет ни одной — приборы
+     разделены швом и тоном (DESIGN.md, §3). */
+  .shell,
+  .board {
+    --surface: var(--board-surface);
+    --surface2: var(--board-surface2);
+    --line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    --tile-shadow: none;
+
+    --ink: var(--on-board);
+    --muted: var(--board-muted);
+    --faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+
+    /* То же самое ещё раз — для классов Tailwind.
+
+       `@theme inline` объявляет `--color-surface: var(--surface)` в
+       корне, и это значение там же и вычисляется: потомки наследуют
+       уже готовый цвет, а не ссылку. Поэтому переопределения выше
+       достаточно для собственных классов (`.field`, `.card`), но не
+       для `bg-surface` и `text-muted` — им нужен свой ряд. */
+    --color-surface: var(--board-surface);
+    --color-surface2: var(--board-surface2);
+    --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --color-hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --color-ink: var(--on-board);
+    --color-muted: var(--board-muted);
+    --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    background: var(--board);
+    color: var(--on-board);
+  }
+
+  @media (min-width: 1024px) {
+    .shell {
+      grid-template-columns: var(--rail) minmax(0, 1fr);
+    }
+
+    /* Оболочка без боковой колонки — экран мойщика. Разделов у него
+       нет, и место под них отдавать незачем. Правило стоит после
+       общего, чтобы перебить его при равной силе. */
+    .shell-solo {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* Боковая колонка: шасси, на котором держатся приборы. Отделена
+     не тенью, а тоном и волосяной линией — тень здесь означала бы,
+     что меню лежит поверх страницы, а оно с ней одно целое. */
+  .rail {
+    display: none;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1.15rem 0.85rem 1rem;
+    background: color-mix(in srgb, var(--board-ink) 4%, var(--board));
+    border-inline-end: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+
+  @media (min-width: 1024px) {
+    .rail {
+      display: flex;
+    }
+  }
+
+  /* Пункт меню. Высота — как у строки списка, а не как у кнопки:
+     разделов семь, и каждый лишний пиксель высоты уводит последний
+     за край экрана на ноутбуке. */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: var(--radius-chip);
+    padding: 0.5rem 0.7rem;
+    font-size: 14px;
+    color: var(--board-muted);
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .nav-item:hover {
+    background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+    color: var(--on-board);
+  }
+
+  /* «Вы находитесь здесь» — светлая плашка, тот же приём, что у
+     вкладок периода. Лайм не берём: он в продукте значит «нажми». */
+  .nav-item-on {
+    background: var(--on-board);
+    color: var(--board);
+    font-weight: 600;
+  }
+  .nav-item-on:hover {
+    background: var(--on-board);
+    color: var(--board);
+  }
+
+  /* Значок раздела: место под ним занято всегда, иначе подписи
+     разъезжаются по левому краю между пунктами со значком и без. */
+  .nav-mark {
+    display: inline-flex;
+    width: 1.1rem;
+    justify-content: center;
+    flex: none;
+    opacity: 0.85;
+  }
+
+  .canvas {
+    min-width: 0;
+    padding: var(--seam);
+    padding-bottom: 6rem;
+  }
+
+  @media (min-width: 1024px) {
+    .canvas {
+      padding-bottom: 3rem;
+    }
+  }
+
+  /* Содержимое не растягивается бесконечно, но и не жмётся в
+     колонку: предел стоит там, где строка перестаёт читаться.
+
+     До того как появится боковая колонка, разметка ещё телефонная —
+     один столбец. Растянутый на всю ширину планшета, он превращает
+     плитку в полосу метровой длины с числом в углу, поэтому здесь у
+     него своя, более узкая мера. */
+  .canvas-inner {
+    width: 100%;
+    max-width: 820px;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 1024px) {
+    .canvas-inner {
+      max-width: var(--canvas-max);
+    }
+  }
+
+  /* Заголовок раздела: слева — где мы, справа — чем управляем.
+     На телефоне разъезжается на две строки. */
+  .page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: var(--seam);
+  }
+
+  /* Заголовок раздела. Полужирный вместо жирного и тесный трекинг:
+     иерархию на этой странице держит показание в шестьдесят пунктов, и
+     спорить с ним заголовку незачем — ему достаточно назвать место. */
+  .page-title {
+    font-size: clamp(20px, 1.4vw, 24px);
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    color: var(--on-board);
+  }
+
+  /* Пояснение под заголовком не тянется во всю ширину монитора: строка
+     в полтора метра не читается — глаз теряет её начало, пока доходит
+     до конца. Предел в 78 знаков — обычная мера для сплошного текста. */
+  .page-head p,
+  .page-head > div > div {
+    max-width: 78ch;
+  }
+
+  /* Недоступная кнопка на полотне.
+
+     Полупрозрачный лайм на угле давал болотное пятно — цвет, которого
+     в продукте нет и который читается как поломка, а не как «сейчас
+     нельзя». Здесь заливка нейтральная, и запрет виден сразу. */
+  .shell .btn:disabled,
+  .board .btn:disabled {
+    opacity: 1;
+    background: color-mix(in srgb, var(--board-ink) 9%, transparent);
+    color: var(--board-muted);
+  }
+
+  /* Кнопка-призрак на полотне.
+
+     С заливкой поверхности она в точности повторяла поле ввода: тот же
+     тон, та же рамка, тот же радиус — и «Выгрузить» читалось как пустая
+     строка для ввода. Здесь заливки нет вовсе, а рамка заметнее. */
+  .shell .btn-ghost,
+  .board .btn-ghost {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--board-ink) 20%, transparent);
+  }
+  .shell .btn-ghost:hover:not(:disabled),
+  .board .btn-ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--board-ink) 7%, transparent);
+    border-color: color-mix(in srgb, var(--board-ink) 32%, transparent);
+  }
+
+  /* ─────────────────────── таблицы ───────────────────────
+
+     На широком экране список машин — это таблица, а не стопка
+     карточек. Карточка нужна там, где строка не помещается в
+     ширину; когда помещается, она только добавляет рамок и
+     мешает сравнивать соседние значения по столбцу. */
+  .tbl {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .tbl th {
+    padding: 0 0.6rem 0.5rem;
+    text-align: start;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--board-muted);
+  }
+
+  .tbl td {
+    padding: 0.8rem 0.6rem;
+    font-size: 14px;
+    vertical-align: middle;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+
+  .tbl tbody tr {
+    transition: background var(--t-micro) var(--ease);
+  }
+  .tbl tbody tr:hover {
+    background: color-mix(in srgb, var(--board-ink) 4%, transparent);
+  }
+
+  /* Деньги и всё, что сравнивают глазом по столбцу, — вправо. */
+  .tbl .end {
+    text-align: end;
   }
 }

@@ -1,15 +1,18 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { NumericText } from '@/components/numeric-text';
 
 /**
  * Табло — язык приложения, перенесённый в веб.
  *
  * Экран собирается не из карточек с заголовками, а из приборов: одно
- * показание крупной цифрой сверху, под ним плитки со свечением, под ними
- * журнал строками. Разница не в оформлении. Карточка требует прочитать
- * заголовок, чтобы понять, что внутри; прибор отвечает раньше чтения —
- * размером, цветом и местом.
+ * показание крупной цифрой, плитки со свечением, журнал строками.
+ * Разница не в оформлении. Карточка требует прочитать заголовок, чтобы
+ * понять, что внутри; прибор отвечает раньше чтения — размером, цветом
+ * и местом.
  *
- * Здесь только форма. Что показывать и как считать — дело страниц.
+ * На телефоне приборы идут сверху вниз, на компьютере стоят рядом в
+ * сетке страницы. Сама сетка — дело страницы: здесь только форма
+ * приборов и то, из чего их складывают.
  */
 
 export type Tone = 'violet' | 'teal' | 'amber' | 'lime' | 'slate';
@@ -20,6 +23,12 @@ export type Tone = 'violet' | 'teal' | 'amber' | 'lime' | 'slate';
  * Заливка тона плюс радиальное пятно из угла — то же, что рисует
  * `View.tile(_:)` в приложении. Тона одинаковы в обеих темах: плитка
  * это прибор на панели, он светится и днём, и ночью.
+ *
+ * Свечение здесь остаётся сознательно. От формы — капсул и толстых
+ * скруглений — продукт отказался, потому что она врала про точность;
+ * свет не врёт ни про что: это прибор, и он горит. Изменились только
+ * углы (12 вместо 24, как у всех поверхностей) и набор числа —
+ * полужирный с тесным трекингом вместо жирного.
  */
 export function Tile({
   tone = 'slate',
@@ -45,14 +54,20 @@ export function Tile({
 
   return (
     <div
-      className={`rounded-[22px] p-4 ${wide ? 'col-span-2' : ''}`}
+      className={`flex flex-col rounded-[var(--radius-card)] p-4 sm:p-5 ${wide ? 'col-span-2' : ''}`}
       style={style}
     >
-      <div className="text-[11.5px] font-medium opacity-70">{label}</div>
+      <div className="text-[12.5px] font-medium opacity-70">{label}</div>
       {value !== undefined && (
-        <div className="num mt-1 text-[26px] leading-none font-bold tracking-tight">{value}</div>
+        <div className="num mt-auto pt-3 text-[clamp(24px,2.1vw,30px)] leading-none font-semibold tracking-[-0.03em]">
+          {typeof value === 'string' || typeof value === 'number' ? (
+            <NumericText>{String(value)}</NumericText>
+          ) : (
+            value
+          )}
+        </div>
       )}
-      {note !== undefined && <div className="num mt-1.5 text-[12px] opacity-70">{note}</div>}
+      {note !== undefined && <div className="num mt-1.5 text-[12.5px] opacity-70">{note}</div>}
       {children}
     </div>
   );
@@ -84,28 +99,107 @@ export function Reading({
         ? 'var(--warn-on-board)'
         : 'var(--board-muted)';
 
+  /* На телефоне показание стоит по центру: экран узкий, и цифра в нём
+     сама себе ось. На компьютере — по левому краю, вместе со всем
+     остальным содержимым: центрированный блок в широкой колонке
+     повисает без опоры, а глаз при переходе от раздела к разделу
+     каждый раз ищет новое начало строки. */
   return (
-    <div className="flex flex-col items-center pt-2 pb-3 text-center">
+    <div className="flex flex-col items-center pt-2 pb-3 text-center lg:items-start lg:pt-0 lg:text-start">
       <div className="text-[13px] font-medium" style={{ color: 'var(--board-muted)' }}>
         {caption}
       </div>
       {/* Разряды разделены узким пробелом, и трекинг здесь не трогаем:
           отрицательный схлопывает группы в одно число. */}
       <div
-        className="num mt-1 text-[clamp(40px,11vw,54px)] leading-none font-bold"
+        className="num mt-1.5 text-[clamp(40px,7vw,64px)] leading-[0.95] font-bold"
         style={{ color: 'var(--on-board)' }}
       >
-        {value}
+        {typeof value === 'string' || typeof value === 'number' ? (
+          <NumericText>{String(value)}</NumericText>
+        ) : (
+          value
+        )}
       </div>
+      {/* Сравнение — строкой, а не капсулой.
+
+          Плашка с заливкой вокруг «−2 204 ֏ против прошлой недели»
+          обещала предмет: то, на что нажимают или что закрывают. Внутри
+          был текст, который надо просто прочитать. Цвет несёт то же
+          самое и без коробки, а точка слева — тот же знак состояния,
+          которым в продукте помечен человек на смене. */}
       {compare !== undefined && (
         <div
-          className="num mt-2.5 rounded-full px-3 py-1 text-[12.5px] font-semibold"
-          style={{ color: compareColor, background: 'color-mix(in srgb, currentColor 12%, transparent)' }}
+          className="num mt-3 flex items-center gap-2 text-[13px] font-semibold"
+          style={{ color: compareColor }}
         >
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: 'currentColor' }}
+            aria-hidden
+          />
           {compare}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Прибор с заголовком — то, из чего собран широкий экран.
+ *
+ * На телефоне разделы шли подряд сверху вниз, и подписи над ними
+ * хватало, чтобы отделить один от другого. Рядом по горизонтали так не
+ * работает: без общей подложки два списка в соседних колонках читаются
+ * как один в две колонки. Подложка — те же чернила полотна, что у
+ * карточки, без рамки и без тени.
+ */
+export function Panel({
+  title,
+  count,
+  actions,
+  children,
+  className = '',
+  bare,
+}: {
+  title?: string;
+  count?: number;
+  /** управление в правом углу заголовка */
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  /** без подложки: когда прибор уже стоит внутри другого */
+  bare?: boolean;
+}) {
+  /* Воздуха внутри прибора теперь вдвое больше, а заголовок читается.
+     Было 17 пикселей поля и подпись 13.5 приглушённым — прибор выглядел
+     тесной коробкой с шёпотом наверху, и на экране из шести таких не
+     находилось ни одного названия. Поле выросло до 26, заголовок стал
+     размером с текст и цветом чернил; счётчик рядом остался тихим — он
+     подробность, а не имя. */
+  return (
+    <section
+      className={`flex min-w-0 flex-col ${bare ? '' : 'panel-pad rounded-[var(--radius-card)]'} ${className}`}
+      style={bare ? undefined : { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
+    >
+      {title !== undefined && (
+        <div className="mb-4 flex min-h-[1.75rem] items-center justify-between gap-3">
+          <h2
+            className="flex items-baseline gap-2 text-[14px] font-semibold tracking-[-0.01em]"
+            style={{ color: 'var(--on-board)' }}
+          >
+            {title}
+            {count !== undefined && (
+              <span className="num text-[12.5px] font-normal" style={{ color: 'var(--board-muted)' }}>
+                {count}
+              </span>
+            )}
+          </h2>
+          {actions}
+        </div>
+      )}
+      {children}
+    </section>
   );
 }
 
@@ -126,7 +220,7 @@ export function PersonTile({
 }) {
   return (
     <div
-      className="rounded-[22px] p-4 text-white"
+      className="rounded-[var(--radius-card)] p-4 text-white sm:p-5"
       style={{
         background: `radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, ${color} 40%, transparent) 0%, transparent 62%), color-mix(in srgb, ${color} 45%, #0d0d10)`,
       }}
@@ -136,36 +230,25 @@ export function PersonTile({
   );
 }
 
-/** Сетка плиток: две колонки, как в приложении. */
-export function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-2.5">{children}</div>;
+/**
+ * Сетка плиток: две колонки, как в приложении.
+ *
+ * Шов тот же, что у всей страницы. Разные зазоры между приборами и
+ * между блоками — первое, по чему разметка читается собранной из
+ * случайных деталей.
+ */
+export function Grid({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-2 gap-[var(--seam)] ${className}`}>{children}</div>;
 }
 
 /**
- * Журнал — строками, без карточек.
+ * Строка журнала.
  *
  * Карточка вокруг каждой записи делает сорок машин сорока предметами.
  * Строка с волосяной линией между — это список, который читают сверху
- * вниз, а не разглядывают.
+ * вниз, а не разглядывают. Линии рисует `.board-journal` на обёртке,
+ * заголовок и счётчик — `Panel` вокруг неё.
  */
-export function Journal({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
-  return (
-    <div className="mt-4">
-      <div className="flex items-center justify-between px-1.5 pb-1.5">
-        <span className="text-[13px] font-semibold" style={{ color: 'var(--board-muted)' }}>
-          {title}
-        </span>
-        {count !== undefined && (
-          <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
-            {count}
-          </span>
-        )}
-      </div>
-      <div className="board-journal">{children}</div>
-    </div>
-  );
-}
-
 export function Row({ children }: { children: ReactNode }) {
   return <div className="flex items-center gap-2.5 px-1.5 py-2.5">{children}</div>;
 }

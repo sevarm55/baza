@@ -52,7 +52,7 @@ export function Sidebar({ items, who }: { items: NavItem[]; who: string }) {
     <aside className={s.side} data-collapsed={collapsed}>
       <div className={s.brand}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className={s.brandMark} aria-hidden />
+        <img src="/logo.png" alt="" className={s.brandMark} aria-hidden />
         <span className={s.brandText}>Tetrin</span>
       </div>
 

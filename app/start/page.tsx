@@ -28,11 +28,10 @@ export default async function StartPage() {
           <Link
             key={n.key}
             href={`/start/${n.key}`}
-            className="card transition hover:-translate-y-0.5 hover:border-accent"
+            className="card border border-line transition hover:border-ink"
           >
-            <span className="mb-2 block text-[26px]">{n.icon}</span>
-            <div className="font-semibold">{n.name}</div>
-            <div className="mt-1 text-xs leading-snug text-muted">{n.tag}</div>
+            <div className="text-[15px] font-semibold">{n.name}</div>
+            <div className="mt-1.5 text-[13px] leading-snug text-muted">{n.tag}</div>
           </Link>
         ))}
       </div>

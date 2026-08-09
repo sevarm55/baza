@@ -1,0 +1,38 @@
+# Локальный Postgres для разработки.
+#
+# PGlite остаётся запасным вариантом «клонировал и запустил», но работать
+# на нём нельзя: это файловая база в одном процессе. Стоит открыть её
+# вторым — скриптом, сидером, второй вкладкой `npm run dev` — и она
+# портится молча, а потом каждый запрос отвечает «Aborted()».
+#
+# Здесь та же версия, что в бою: разойдись они, локально проходило бы то,
+# что на сервере падает.
+#
+#   npm run db:up     поднять
+#   npm run db:fresh  пересоздать с демо-данными
+#   npm run db:down   остановить (данные остаются)
+#
+# Порт 5433, а не 5432: на машине разработчика 5432 обычно уже занят
+# чем-то своим, и молчаливое подключение не к той базе — худшее, чем
+# может кончиться совпадение портов.
+services:
+  tetr-dev-db:
+    image: postgres:17-alpine
+    container_name: tetr-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tetr
+      POSTGRES_PASSWORD: tetr
+      POSTGRES_DB: tetr
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - tetr-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tetr -d tetr']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  tetr-dev-db:

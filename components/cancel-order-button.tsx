@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react';
 import { revokeOrder } from '@/app/actions';
+import { IconClose } from '@/components/icons';
 import { hy } from '@/lib/i18n/hy';
 
 /**
@@ -13,7 +14,7 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
 
   return (
     <button
-      className="shrink-0 rounded-lg px-2 py-1 text-sm text-muted transition hover:bg-surface2 hover:text-bad disabled:opacity-40"
+      className="flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition hover:bg-surface2 hover:text-bad disabled:opacity-40"
       title={hy.owner.cancelOrder}
       aria-label={hy.owner.cancelOrder}
       disabled={pending}
@@ -22,7 +23,7 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
         startTransition(async () => void (await revokeOrder(orderId)));
       }}
     >
-      {pending ? '…' : '✕'}
+      {pending ? '…' : <IconClose className="size-3.5" />}
     </button>
   );
 }
