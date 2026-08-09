@@ -9,6 +9,17 @@ import { TenantActions } from './tenant-actions';
 import s from './admin.module.css';
 import shell from './shell.module.css';
 
+/* Русские числительные: «2 владельцев» читается как ошибка, а админку
+   каждый день смотрит человек. Формы для 1 / 2-4 / 5+. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  const mod10 = n % 10;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
 const STATE_LABEL: Record<Access['state'], string> = {
   active: 'Оплачено',
   trial: 'Триал',
@@ -29,12 +40,40 @@ export default async function AdminPage() {
 
   const count = (state: Access['state']) => rows.filter((r) => r.access.state === state).length;
 
+  /* Точки одного человека — один клиент, а не несколько. Группируем по
+     владельцу, сохраняя порядок первого появления: список отсортирован
+     по дате создания, и группа встаёт туда, где стоит самая новая её
+     точка.
+
+     Ключ — accountId, а не телефон: телефон это копия, которая однажды
+     исчезнет. Строки без владельца (такого быть не должно) остаются
+     каждая сама по себе, иначе они слиплись бы в одну ложную группу. */
+  const groups: { key: string; owner: string | null; phone: string | null; points: typeof rows }[] =
+    [];
+  const groupBy = new Map<string, (typeof groups)[number]>();
+  for (const row of rows) {
+    const key = row.ownerAccountId ?? `сам-по-себе:${row.id}`;
+    let group = groupBy.get(key);
+    if (!group) {
+      group = { key, owner: row.ownerName, phone: row.ownerPhone, points: [] };
+      groupBy.set(key, group);
+      groups.push(group);
+    }
+    group.points.push(row);
+  }
+
+  const owners = groups.length;
+
   return (
     <>
       <div className={shell.pageHead}>
         <h1 className={shell.pageTitle}>Клиенты</h1>
         <div className={shell.pageSub}>
-          {rows.length} {rows.length === 1 ? 'бизнес' : 'бизнесов'} · продление записывает платёж
+          {/* Владельцев и точек порознь: считай мы только точки, вторая
+              мойка старого клиента читалась бы как новый клиент, и рост
+              выручки перестал бы отличаться от роста базы. */}
+          {owners} {plural(owners, 'владелец', 'владельца', 'владельцев')} · {rows.length}{' '}
+          {plural(rows.length, 'точка', 'точки', 'точек')} · продление записывает платёж
         </div>
       </div>
 
@@ -47,7 +86,11 @@ export default async function AdminPage() {
 
         <div className={s.summary}>
           <div className={s.sum}>
-            <div className={s.sumLabel}>Всего</div>
+            <div className={s.sumLabel}>Владельцев</div>
+            <div className={s.sumValue}>{owners}</div>
+          </div>
+          <div className={s.sum}>
+            <div className={s.sumLabel}>Точек</div>
             <div className={s.sumValue}>{rows.length}</div>
           </div>
           <div className={s.sum}>
@@ -88,7 +131,11 @@ export default async function AdminPage() {
         <div className={s.rows}>
           {rows.length === 0 && <div className={s.empty}>Пока никто не зарегистрировался</div>}
 
-          {rows.map((t) => {
+          {groups.map((group) => {
+            const many = group.points.length > 1;
+            const paid = group.points.filter((p) => p.access.canRead).length;
+
+            const cards = group.points.map((t) => {
             const state = t.access.state;
             const niche = NICHES[t.niche as NicheKey];
             const idleDays = t.idleDays;
@@ -142,6 +189,23 @@ export default async function AdminPage() {
                   note={t.adminNote}
                 />
               </article>
+            );
+            });
+
+            /* У кого одна точка — ровно те же карточки, что и были: ни
+               заголовка, ни рамки, ни отступа. Девяносто пять клиентов
+               из ста не должны заметить, что группировка вообще
+               появилась. */
+            if (!many) return cards;
+
+            return (
+              <div key={group.key} className={s.group}>
+                <div className={s.groupHead}>
+                  {group.owner ?? '—'} · {group.points.length}{' '}
+                  {plural(group.points.length, 'точка', 'точки', 'точек')} · оплачено: {paid}
+                </div>
+                {cards}
+              </div>
             );
           })}
       </div>

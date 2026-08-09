@@ -25,14 +25,36 @@ export default async function AttentionPage() {
 
   const tenants = await listTenantsForAdmin();
 
-  const rows = tenants
+  const flagged = tenants
     .map((t) => {
       const access = accessOf(t);
       const reason = reasonFor(access.state, access.daysLeft, t.orderCount, t.idleDays);
       return reason ? { t, access, reason } : null;
     })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
-    .sort((a, b) => a.reason.rank - b.reason.rank);
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  /* Один звонок на человека, а не на точку. У владельца трёх моек
+     кончился срок на всех трёх — это одна причина позвонить, а не три
+     строки, которые вытеснят из списка остальных клиентов.
+
+     Оставляем самую срочную причину и приписываем, сколько точек она
+     задела: с этого разговор и начнётся. */
+  const byOwner = new Map<string, { row: (typeof flagged)[number]; also: number }>();
+  for (const item of flagged) {
+    const key = item.t.ownerAccountId ?? `сам-по-себе:${item.t.id}`;
+    const seen = byOwner.get(key);
+    if (!seen) {
+      byOwner.set(key, { row: item, also: 0 });
+    } else {
+      seen.also += 1;
+      if (item.reason.rank < seen.row.reason.rank) {
+        // более срочная причина вытесняет прежнюю, но счёт точек копится
+        byOwner.set(key, { row: item, also: seen.also });
+      }
+    }
+  }
+
+  const rows = [...byOwner.values()].sort((a, b) => a.row.reason.rank - b.row.reason.rank);
 
   return (
     <>
@@ -45,7 +67,7 @@ export default async function AttentionPage() {
         {rows.length === 0 ? (
           <div className={s.empty}>Всё спокойно: у всех оплачено и все работают</div>
         ) : (
-          rows.map(({ t, reason }) => {
+          rows.map(({ row: { t, reason }, also }) => {
             const niche = NICHES[t.niche as NicheKey];
             return (
               <article key={t.id} className={s.row}>
@@ -55,7 +77,10 @@ export default async function AttentionPage() {
                       {niche?.icon} {t.name}
                     </Link>
                   </div>
-                  <span className={`${s.badge} ${s.badgeExpired}`}>{reason.text}</span>
+                  <span className={`${s.badge} ${s.badgeExpired}`}>
+                    {reason.text}
+                    {also > 0 && ` · ещё ${also}`}
+                  </span>
                 </div>
                 <div className={s.meta}>
                   {t.ownerName ?? '—'} ·{' '}

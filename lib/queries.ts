@@ -1,6 +1,15 @@
 import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
-import { clients, orderItems, orders, payouts, services, tenants, users } from './db/schema';
+import {
+  accounts,
+  clients,
+  orderItems,
+  orders,
+  payouts,
+  services,
+  tenants,
+  users,
+} from './db/schema';
 import { getPassSales } from './passes';
 
 /* Все чтения идут отсюда и ВСЕГДА принимают tenantId первым аргументом.
@@ -23,9 +32,18 @@ export async function listTenantsForAdmin() {
   const [list, owners, activity, staff] = await Promise.all([
     db.select().from(tenants).orderBy(desc(tenants.createdAt)),
 
+    /* Номер берём у человека, а не из копии на участии: копия доживает
+       свой век. Заодно приходит его id — по нему точки одного владельца
+       собираются в группу, а не считаются разными клиентами. */
     db
-      .select({ tenantId: users.tenantId, name: users.name, phone: users.phone })
+      .select({
+        tenantId: users.tenantId,
+        name: users.name,
+        phone: accounts.phone,
+        accountId: users.accountId,
+      })
       .from(users)
+      .innerJoin(accounts, eq(accounts.id, users.accountId))
       .where(eq(users.role, 'owner')),
 
     db
@@ -61,6 +79,7 @@ export async function listTenantsForAdmin() {
       ...t,
       ownerName: ownerBy.get(t.id)?.name ?? null,
       ownerPhone: ownerBy.get(t.id)?.phone ?? null,
+      ownerAccountId: ownerBy.get(t.id)?.accountId ?? null,
       staffCount: staffBy.get(t.id) ?? 0,
       orderCount: a?.orderCount ?? 0,
       idleDays: a?.idleDays ?? null,
@@ -78,10 +97,39 @@ export async function getTenant(tenantId: string) {
 /** Владелец бизнеса: тот, кому звонить. */
 export async function getOwner(tenantId: string) {
   const [o] = await db
-    .select({ id: users.id, name: users.name, phone: users.phone })
+    .select({
+      id: users.id,
+      name: users.name,
+      phone: accounts.phone,
+      accountId: users.accountId,
+    })
     .from(users)
+    .innerJoin(accounts, eq(accounts.id, users.accountId))
     .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')));
   return o ?? null;
+}
+
+/**
+ * Остальные точки того же владельца — для карточки клиента.
+ *
+ * Разговор с клиентом почти всегда про все его мойки сразу: «продлите
+ * мне» без уточнения, какую именно. Без списка это выясняется звонком.
+ */
+export async function otherPointsOf(accountId: string, exceptTenantId: string) {
+  const rows = await db
+    .select({
+      id: tenants.id,
+      name: tenants.name,
+      plan: tenants.plan,
+      trialEndsAt: tenants.trialEndsAt,
+      paidUntil: tenants.paidUntil,
+    })
+    .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
+    .where(and(eq(users.accountId, accountId), eq(users.role, 'owner')))
+    .orderBy(tenants.createdAt);
+
+  return rows.filter((r) => r.id !== exceptTenantId);
 }
 
 export async function getUser(tenantId: string, userId: string) {

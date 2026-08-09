@@ -148,7 +148,12 @@ export async function remindExpiring(now = new Date()) {
 
   if (soon.length === 0) return { notified: 0 };
 
-  const names = soon.map(({ t }) => t.name).join(', ');
+  /* Имя владельца рядом с названием точки: у филиалов названия почти
+     одинаковые — «Мойка» и «Мойка 2», — и по одному названию непонятно,
+     кому звонить. */
+  const names = soon
+    .map(({ t }) => (t.ownerName ? `${t.name} (${t.ownerName})` : t.name))
+    .join(', ');
   await notifyPlatform({
     title: soon.length === 1 ? 'Завтра кончается срок' : `Завтра кончается срок у ${soon.length}`,
     body: names.length > 140 ? names.slice(0, 137) + '…' : names,

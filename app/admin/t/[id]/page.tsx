@@ -8,6 +8,7 @@ import {
   getPeriodStats,
   getTenant,
   listStaff,
+  otherPointsOf,
   startOfDay,
   startOfDaysAgo,
 } from '@/lib/queries';
@@ -19,6 +20,14 @@ import { formatPhone } from '@/lib/phone';
 import { NICHES, type NicheKey } from '@/lib/niches';
 import s from '../../admin.module.css';
 import shell from '../../shell.module.css';
+
+const STATE_SHORT: Record<ReturnType<typeof accessOf>['state'], string> = {
+  active: 'оплачена',
+  trial: 'триал',
+  expired: 'срок вышел',
+  blocked: 'отключена',
+  unpaid: 'ждёт оплаты',
+};
 
 /**
  * Карточка клиента: его цифры нашими глазами.
@@ -57,6 +66,7 @@ export default async function TenantCard({ params }: { params: Promise<{ id: str
   ]);
 
   const access = accessOf(t);
+  const siblings = owner?.accountId ? await otherPointsOf(owner.accountId, t.id) : [];
   const money = (n: number) => formatMoney(n, t.currency);
   const niche = NICHES[t.niche as NicheKey];
 
@@ -84,6 +94,20 @@ export default async function TenantCard({ params }: { params: Promise<{ id: str
 
       {t.adminNote && <div className={s.billingOff}>{t.adminNote}</div>}
 
+      {/* Остальные мойки того же человека. Разговор почти всегда про все
+          сразу — «продлите мне» без уточнения какую. */}
+      {siblings.length > 0 && (
+        <div className={s.billingOff}>
+          Ещё {siblings.length === 1 ? 'точка' : 'точки'} этого владельца:{' '}
+          {siblings.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && ', '}
+              <Link href={`/admin/t/${p.id}`}>{p.name}</Link> — {STATE_SHORT[accessOf(p).state]}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className={s.summary}>
         <div className={s.sum}>
           <div className={s.sumLabel}>Подписка</div>
@@ -92,7 +116,11 @@ export default async function TenantCard({ params }: { params: Promise<{ id: str
               ? 'отключён'
               : access.state === 'expired'
                 ? 'срок вышел'
-                : `${access.daysLeft} дн`}
+                : /* «0 дн» здесь было бы неотличимо от просрочки, а это
+                     разные разговоры: тут ещё ни разу не платили. */
+                  access.state === 'unpaid'
+                  ? 'ждёт оплаты'
+                  : `${access.daysLeft} дн`}
           </div>
         </div>
         {periods.map((p) => (
