@@ -78,6 +78,12 @@
       "sourceType": "github",
       "skillPath": "skills/stitch-skill/SKILL.md",
       "computedHash": "13322f38406cd3abf16ba45e35bdc9b18002d0153a79b4612b97aefc65d5a335"
+    },
+    "visual": {
+      "source": "nick-vels/VelsVisual",
+      "sourceType": "github",
+      "skillPath": "skills/visual/SKILL.md",
+      "computedHash": "12f06691919cf5e9702d9a232cade93ccd65a71aaad0570351a862e60637c2dd"
     }
   }
 }
