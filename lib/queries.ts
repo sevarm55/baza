@@ -380,6 +380,59 @@ export type PayrollRow = {
   pctTo: number | null;
 };
 
+export type PayrollDay = {
+  staffId: string | null;
+  /** день в часовом поясе мойки, `YYYY-MM-DD` */
+  day: string;
+  count: number;
+  revenue: number;
+  earned: number;
+};
+
+/**
+ * То же неоплаченное, но разложенное по дням.
+ *
+ * Одна растущая сумма не читается. У мойщика, которому не платили
+ * неделю, в строке стоит «21 машина» — и владелец не понимает, за что
+ * это: за сегодня, за вчера, за весь месяц. Деньги, которые нельзя
+ * разложить на дни, вызывают спор ровно тот же, ради устранения
+ * которого продукт и написан.
+ *
+ * Граница дня — полночь в часовом поясе мойки, а не фиксированный час.
+ * Час пришлось бы спрашивать у каждого: одна мойка закрывается в
+ * восемь, другая работает до полуночи, а третья круглосуточно. Полночь
+ * не требует настройки и ни одну смену не разрезает пополам — кроме
+ * круглосуточной, где резать всё равно придётся где-то.
+ */
+export async function getUnsettledByDay(
+  tenantId: string,
+  timezone: string,
+  until: Date = new Date(),
+): Promise<PayrollDay[]> {
+  return db
+    .select({
+      staffId: orders.staffId,
+      day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
+      count: sql<number>`count(*)::int`,
+      revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
+      earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        notCanceled,
+        lt(orders.createdAt, until),
+        sql`${orders.createdAt} > coalesce(
+          (select max(p.period_to) from payouts p where p.staff_id = ${orders.staffId}),
+          to_timestamp(0)
+        )`,
+      ),
+    )
+    .groupBy(orders.staffId, sql`2`)
+    .orderBy(desc(sql`2`));
+}
+
 /**
  * Сколько причитается каждому с момента последнего расчёта.
  * `until` фиксирует верхнюю границу, чтобы запись, созданная во время

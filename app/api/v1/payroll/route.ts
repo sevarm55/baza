@@ -1,5 +1,10 @@
 import { ensureDb } from '@/lib/db/ready';
-import { getSettledUntil, getUnsettledPayroll, listPayouts } from '@/lib/queries';
+import {
+  getSettledUntil,
+  getUnsettledByDay,
+  getUnsettledPayroll,
+  listPayouts,
+} from '@/lib/queries';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
 
@@ -10,8 +15,9 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
-    const [rows, settled, history] = await Promise.all([
+    const [rows, byDay, settled, history] = await Promise.all([
       getUnsettledPayroll(ctx.tenant.id),
+      getUnsettledByDay(ctx.tenant.id, ctx.tenant.timezone),
       getSettledUntil(ctx.tenant.id),
       listPayouts(ctx.tenant.id),
     ]);
@@ -33,6 +39,11 @@ export async function GET(request: Request) {
         earned: r.earned,
         // с какого момента копится: владелец должен видеть период, а не только сумму
         since: r.staffId ? (settled.get(r.staffId)?.toISOString() ?? null) : null,
+        /* Разбивка по дням. Одна растущая сумма не читается: владелец
+           не понимает, за сегодня она или за неделю. */
+        days: byDay
+          .filter((d) => d.staffId === r.staffId)
+          .map((d) => ({ day: d.day, count: d.count, revenue: d.revenue, earned: d.earned })),
       })),
       payouts: history,
     });
