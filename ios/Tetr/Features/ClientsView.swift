@@ -20,28 +20,70 @@ struct ClientsView: View {
 
     @State private var clients: [API.Client] = []
     @State private var loaded = false
+    @State private var query = ""
+    @State private var sort: Sort = .recent
+
+    /** Чем упорядочен список.
+
+        Это порядок, а не отбор: ни один клиент не пропадает, меняется
+        только кто наверху. Отбор здесь был бы вреден — владелец ищет
+        конкретную машину, а не подмножество. */
+    private enum Sort: String, CaseIterable {
+        case recent, often, richest
+
+        var label: String {
+            switch self {
+            case .recent: return "Վերջին այցը"
+            case .often: return "Ամենահաճախը"
+            case .richest: return "Ամենաշատ վճարած"
+            }
+        }
+    }
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
-    private var lost: [API.Client] { clients.filter { $0.daysSince > lostAfter } }
-    private var rest: [API.Client] { clients.filter { $0.daysSince <= lostAfter } }
+
+    /// Поиск по номеру. Пробелы и регистр не в счёт: номер диктуют
+    /// вслух и записывают как придётся — «93LM227» и «93 lm 227» это
+    /// одна машина.
+    private var found: [API.Client] {
+        let q = query.replacingOccurrences(of: " ", with: "").uppercased()
+        let base = q.isEmpty
+            ? clients
+            : clients.filter {
+                $0.key.replacingOccurrences(of: " ", with: "").uppercased().contains(q)
+            }
+
+        switch sort {
+        case .recent: return base.sorted { $0.daysSince < $1.daysSince }
+        case .often: return base.sorted { $0.visits > $1.visits }
+        case .richest: return base.sorted { $0.total > $1.total }
+        }
+    }
+
+    private var lost: [API.Client] { found.filter { $0.daysSince > lostAfter } }
+    private var rest: [API.Client] { found.filter { $0.daysSince <= lostAfter } }
+
+    /// Разделять на «стоит позвонить» и остальных имеет смысл только в
+    /// полном списке по умолчанию. При поиске или другом порядке человек
+    /// уже сказал, что ищет, и деление мешает.
+    private var grouped: Bool { query.isEmpty && sort == .recent }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
-                if loaded { reading }
+                if loaded { head }
 
-                if !lost.isEmpty {
-                    group("Արժե զանգել", lost, lostOnes: true)
+                if grouped {
+                    if !lost.isEmpty { group("Արժե զանգել", lost, lostOnes: true) }
+                    if !rest.isEmpty { group("Բոլորը", rest, lostOnes: false) }
+                } else if !found.isEmpty {
+                    group(sort.label, found, lostOnes: false)
                 }
-                if !rest.isEmpty {
-                    group("Բոլորը", rest, lostOnes: false)
-                }
+
                 if loaded && clients.isEmpty {
-                    Text("Դեռ տվյալներ չկան")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 44)
+                    empty("Դեռ տվյալներ չկան")
+                } else if loaded && found.isEmpty {
+                    empty("Այդպիսի համար չկա")
                 }
             }
             .padding(.horizontal, 12)
@@ -53,30 +95,104 @@ struct ClientsView: View {
         .refreshable { await reload() }
     }
 
-    /// Сколько всего клиентов и сколько из них пропало.
-    private var reading: some View {
-        VStack(spacing: 0) {
-            Text("Հաճախորդ")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
-
-            Text("\(clients.count)")
-                .font(.system(size: 50, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .contentTransition(.numericText(value: Double(clients.count)))
-
-            if !lost.isEmpty {
-                Text("\(lost.count) չի եղել \(lostAfter) օրից ավել")
-                    .font(.system(size: 12))
+    /**
+     * Шапка: сколько их, поиск, порядок.
+     *
+     * Было показание на пятьдесят пунктов — число клиентов огромной
+     * цифрой, — и то же число повторялось ещё дважды: в подписи группы
+     * «Բոլորը» и в её счётчике. Три раза одно и то же, и полэкрана
+     * воздуха до первой строки. Показание уместно там, где число само по
+     * себе ответ: выручка, зарплата к выдаче. «Сколько у меня машин в
+     * базе» такой вопрос не задаёт — с этим экраном приходят искать
+     * конкретную.
+     *
+     * Поэтому строка вместо плаката, а освободившееся место отдано
+     * поиску. На двадцати клиентах он не нужен, на двухстах без него
+     * страницу листают вслепую, и заводить его надо до того, как их
+     * станет двести, а не после.
+     */
+    private var head: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(clients.count) հաճախորդ")
+                    .font(.system(size: 17, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.warnOnBoard)
-                    .padding(.top, 6)
+                    .foregroundStyle(Brand.onBoard)
+                    .contentTransition(.numericText(value: Double(clients.count)))
+
+                if !lost.isEmpty && grouped {
+                    Text("· \(lost.count) չի եղել \(lostAfter) օրից ավել")
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.warnOnBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+
+                TextField("Փնտրել մեքենայի համարով", text: $query)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.onBoard)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.characters)
+                    .submitLabel(.search)
+
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Brand.boardMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 12))
+
+            /* Порядок — прокруткой вбок: три слова по-армянски в строку
+               не помещаются, а перенос превратил бы переключатель в
+               абзац. */
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Sort.allCases, id: \.self) { option in
+                        Button {
+                            sort = option
+                        } label: {
+                            Text(option.label)
+                                .font(.system(size: 13, weight: sort == option ? .semibold : .regular))
+                                .foregroundStyle(sort == option ? Brand.board : Brand.boardMuted)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(
+                                    sort == option ? Brand.onBoard : Brand.boardInk.opacity(0.07),
+                                    in: .rect(cornerRadius: 9)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 1)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 4)
+        .padding(.horizontal, 4)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
+    private func empty(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14))
+            .foregroundStyle(Brand.boardMuted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 44)
     }
 
     /**
@@ -164,10 +280,15 @@ struct ClientsView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// «213 այց · վերջինը՝ 3 օր առաջ».
+    ///
+    /// Слово «վերջինը» обязательно. Без него «3 օր առաջ» стоит рядом с
+    /// числом визитов и читается чем угодно — сроком, промежутком,
+    /// давностью первого приезда. Речь о последнем, и это надо сказать.
     private func visitLine(_ client: API.Client) -> String {
         let visits = "\(client.visits) այց"
-        if client.daysSince == 0 { return "\(visits) · այսօր" }
-        return "\(visits) · \(client.daysSince) օր առաջ"
+        if client.daysSince == 0 { return "\(visits) · վերջինը՝ այսօր" }
+        return "\(visits) · վերջինը՝ \(client.daysSince) օր առաջ"
     }
 
     private func reload() async {
