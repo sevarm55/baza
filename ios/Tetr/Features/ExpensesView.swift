@@ -55,13 +55,13 @@ struct ExpensesView: View {
             }
 
             if !monthlyOnes.isEmpty {
-                heading("Ամսական", "\(monthlyOnes.count)")
+                heading("Ամսական ծախսեր", "\(monthlyOnes.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
 
                 ForEach(monthlyOnes) { item in
-                    card(item, tone: .amber)
+                    card(item)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
@@ -70,7 +70,7 @@ struct ExpensesView: View {
             }
 
             if !oneOffs.isEmpty {
-                heading("Միանվագ", "\(oneOffs.count)")
+                heading("Միանգամյա ծախսեր", "\(oneOffs.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
@@ -125,40 +125,55 @@ struct ExpensesView: View {
         .refreshable { await reload() }
     }
 
-    /// Сколько постоянных расходов в месяц и во что это обходится в день.
-    ///
-    /// Дневная доля — то, чего в продукте не было: в прибыли за день она
-    /// участвует, но увидеть её было негде, и владелец каждый раз заново
-    /// удивлялся, откуда взялись расходы в день без покупок.
+    /**
+     * Сколько ушло за тот период, который показан ниже.
+     *
+     * Стояло «Ամսական ծախս 345 000 ֏», а под ним лежали ещё и разовые на
+     * 42 000. Число в шапке отвечало не на тот вопрос, с которым сюда
+     * заходят: человек читает верхнюю цифру как «столько я потратил» и
+     * недосчитывается сорока двух тысяч.
+     *
+     * Период назван «последние 30 дней», а не «этот месяц», и это не
+     * придирка. Сервер отдаёт разовые скользящим окном в тридцать дней:
+     * десятого августа в списке лежит июльская химия. Назови мы это
+     * «этим месяцем» — июльские траты стали бы августовскими, и вместо
+     * одной неверной цифры вышло бы две.
+     *
+     * Под итогом — из чего он сложился. Без разбивки сумма требует веры,
+     * а верхняя строка на экране расходов обязана проверяться на месте.
+     */
     private var reading: some View {
-        let perMonth = monthlyOnes.reduce(0) { $0 + $1.amount }
-        let perDay = perMonth > 0 ? Int(Double(perMonth) / Double(daysThisMonth)) : 0
-
-        return VStack(spacing: 0) {
-            Text("Ամսական ծախս")
+        VStack(spacing: 0) {
+            Text("Վերջին 30 օրը")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
                 .padding(.top, 6)
 
-            Text(money(perMonth, currency))
+            Text(money(spentTotal, currency))
                 .font(.system(size: 46, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
-                .contentTransition(.numericText(value: Double(perMonth)))
+                .contentTransition(.numericText(value: Double(spentTotal)))
 
-            if perDay > 0 {
-                Text("օրական \(money(perDay, currency))")
+            if spentMonthly > 0 || spentOneOff > 0 {
+                Text("Ամսական \(money(spentMonthly, currency))  +  Միանգամյա \(money(spentOneOff, currency))")
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .padding(.top, 6)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 4)
     }
+
+    private var spentMonthly: Int { monthlyOnes.reduce(0) { $0 + $1.amount } }
+    private var spentOneOff: Int { oneOffs.reduce(0) { $0 + $1.amount } }
+    private var spentTotal: Int { spentMonthly + spentOneOff }
 
     /// Длина текущего месяца — тот же знаменатель, которым сервер делит
     /// постоянные расходы по дням.
@@ -186,35 +201,75 @@ struct ExpensesView: View {
         .padding(.bottom, 2)
     }
 
-    /// Постоянный расход — плиткой: он тянет деньги каждый день, и в списке
-    /// должен весить больше, чем канистра химии, купленная во вторник.
-    private func card(_ item: API.Expense, tone: Tone) -> some View {
+    /**
+     * Постоянный расход — такой же строкой, как разовый.
+     *
+     * Была плитка с тоном и свечением, и она весила на экране втрое
+     * больше строки. Основание было такое: постоянный тянет деньги
+     * каждый день. Но это не разные вещи, а одна — деньги, ушедшие из
+     * кассы, — и разный носитель говорил, что аренда важнее химии,
+     * которой за месяц набирается на столько же.
+     *
+     * Разницу несёт значок, а не размер: «ամսական» рядом с названием
+     * сказано словом, и это ровно та подробность, которой оно и
+     * является.
+     */
+    private func card(_ item: API.Expense) -> some View {
         Button {
             editing = item
         } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.category)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(tone.ink)
-                        .lineLimit(1)
-                    Text("օրական \(money(item.amount / max(1, daysThisMonth), currency))")
-                        .font(.system(size: 11.5))
-                        .monospacedDigit()
-                        .foregroundStyle(tone.ink.opacity(0.72))
-                }
-                Spacer(minLength: 8)
-                Text(money(item.amount, currency))
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(tone.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .tile(tone, radius: 20, pad: 15)
+            line(
+                title: item.category,
+                badge: "ամսական",
+                note: "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
+                amount: item.amount
+            )
         }
         .buttonStyle(.press)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Общая строка расхода. Одна на оба вида — в этом весь смысл.
+    private func line(title: String, badge: String?, note: String?, amount: Int) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+
+                    if let badge {
+                        Text(badge)
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(Brand.boardMuted)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Brand.boardInk.opacity(0.09), in: .rect(cornerRadius: 6))
+                    }
+                }
+
+                if let note {
+                    Text(note)
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Text(money(amount, currency))
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .background(Brand.boardInk.opacity(0.06), in: .rect(cornerRadius: 14))
+        .contentShape(.rect)
     }
 
     /// Разовый — строкой: он уже случился и больше ничего не тянет.
@@ -238,37 +293,7 @@ struct ExpensesView: View {
         Button {
             editing = item
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: symbol(for: item.category))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 34, height: 34)
-                    .background(Brand.boardInk.opacity(0.06), in: .rect(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(item.category)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-                    Text(day(item.at))
-                        .font(.system(size: 11.5))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                }
-
-                Spacer(minLength: 8)
-
-                Text(money(item.amount, currency))
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .background(Brand.boardInk.opacity(0.04), in: .rect(cornerRadius: 16))
-            .contentShape(.rect)
+            line(title: item.category, badge: nil, note: day(item.at), amount: item.amount)
         }
         .buttonStyle(.press)
         .accessibilityElement(children: .combine)
