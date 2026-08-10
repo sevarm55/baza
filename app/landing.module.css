@@ -1,0 +1,448 @@
+/* ─────────────────────────────────────────────────────────────
+   Витрина.
+
+   Плакат, а не документ: сплошные плиты цвета во всю ширину, огромный
+   плотный заголовок и один предмет на кадре. Плиты чередуются — синяя,
+   лаймовая, синяя, — и смена цвета сама отбивает экраны друг от друга,
+   без линеек и заголовков разделов.
+
+   Цвета витрины (#0036FF и #B5F800) — её собственные и живут только
+   здесь. Марка Tetrin остаётся грейповой: знак и иконка приложения уже
+   в App Store, и перекрашивать их ради сайта нельзя. Внутри продукта
+   ничего из этого файла не действует.
+
+   Контраст пары проверен: лайм по синему и синий по лайму дают 6.2,
+   белый по синему — 7.7. Все три выше порога AA, поэтому крупный текст
+   можно ставить любым из них, а мелкий — белым по синему и синим по
+   лайму, где запас больше.
+
+   Форма острая, как во всём продукте: капсул нет, плита 24px, кнопка
+   10px. На референсе была капсульная навигация — она сюда не поехала
+   намеренно.
+   ───────────────────────────────────────────────────────────── */
+
+.page {
+  --blue: #0036ff;
+  --lime: #b5f800;
+  --edge: clamp(16px, 4vw, 72px);
+  --gap: clamp(48px, 6.5vw, 112px);
+
+  /* Плотный гротеск: латиница и цифры из Anton, армянский из Noto Sans
+     Armenian ExtraCondensed Black. Подстановка идёт порядком — у Anton
+     армянских глифов нет, буква проваливается во второй шрифт сама.
+     Тот же приём, что в рекламных креативах. */
+  --display: var(--font-anton), var(--font-arm-display), sans-serif;
+
+  background: var(--blue);
+  color: #fff;
+  overflow-x: clip;
+}
+
+/* ───────── Плиты ─────────
+   Пара работает крест-накрест: на синей плите крупное — лаймом, мелкое —
+   белым; на лаймовой всё синим. Мелкое не отдано лайму намеренно: лайм
+   по синему даёт 6.2, и на кегле подписи этого впритык, а белый по
+   синему — 7.7 и читается на любом экране, в том числе на солнце. */
+.blue {
+  background: var(--blue);
+  color: #fff;
+}
+
+.blue .h1,
+.blue .h2,
+.blue .priceSum,
+.blue .eyebrow,
+.blue .stepIndex {
+  color: var(--lime);
+}
+
+.lime {
+  background: var(--lime);
+  color: var(--blue);
+}
+
+/* ───────── Шапка ───────── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px var(--edge);
+  background: rgb(0 54 255 / 88%);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  flex: 0 0 auto;
+}
+
+/* Слово марки набрано плотным гротеском прямо здесь, а не знаком из
+   компонента: знак остаётся грейповым, а слово на синей полосе должно
+   быть белым и в шрифте витрины. */
+.wordmark {
+  font-family: var(--display);
+  font-size: 26px;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ghost {
+  padding: 12px 16px;
+  border-radius: var(--radius-btn);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ghost:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.cta {
+  padding: 14px 22px;
+  border-radius: var(--radius-btn);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--lime);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, filter 0.15s;
+}
+
+/* На лаймовой плите кнопка меняется местами с фоном: лайм по лайму
+   не виден вовсе. */
+.lime .cta {
+  color: var(--lime);
+  background: var(--blue);
+}
+
+.cta:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.ctaBig {
+  padding: 22px 36px;
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+}
+
+/* ───────── Типографика ───────── */
+.eyebrow {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: clamp(16px, 2.4vw, 28px);
+}
+
+/* Заголовок во всю плиту. Плотный гротеск держит крупный кегль без
+   разрежения, поэтому трекинг отрицательный, а интерлиньяж меньше
+   единицы: строки должны стоять плитой, а не списком. */
+.h1 {
+  font-family: var(--display);
+  font-size: clamp(3rem, 10.5vw, 10rem);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.h2 {
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 6vw, 5.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: clamp(20px, 2.6vw, 34px);
+  max-width: 42ch;
+  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  line-height: 1.45;
+  opacity: 0.88;
+}
+
+.actions {
+  margin-top: clamp(26px, 3.4vw, 44px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.note {
+  font-size: 0.95rem;
+  opacity: 0.72;
+}
+
+/* ───────── Первый экран ───────── */
+.hero {
+  padding: clamp(40px, 6vw, 88px) var(--edge) 0;
+}
+
+/* Кадр вплотную к нижнему краю плиты и во всю её ширину: у снимка
+   сплошная синяя заливка, ровно та же, что у плиты, и граница между
+   ними не должна читаться вовсе. */
+.heroShot {
+  position: relative;
+  margin: clamp(28px, 4vw, 56px) calc(var(--edge) * -1) 0;
+  aspect-ratio: 16 / 9;
+}
+
+.heroShot img {
+  object-fit: cover;
+}
+
+/* ───────── Шаги ───────── */
+.step {
+  padding: var(--gap) var(--edge);
+  display: grid;
+  grid-template-columns: 1fr 0.92fr;
+  align-items: center;
+  gap: clamp(32px, 5vw, 80px);
+}
+
+.stepFlip {
+  grid-template-columns: 0.92fr 1fr;
+}
+
+.stepFlip .stepText {
+  order: 2;
+}
+
+.stepIndex {
+  font-family: var(--display);
+  font-size: clamp(2rem, 3.4vw, 3.2rem);
+  line-height: 1;
+  opacity: 0.42;
+  margin-bottom: clamp(14px, 1.8vw, 22px);
+}
+
+.stepBody {
+  margin-top: clamp(18px, 2.2vw, 28px);
+  max-width: 32ch;
+  font-size: clamp(1rem, 1.35vw, 1.2rem);
+  line-height: 1.45;
+  opacity: 0.86;
+}
+
+/* Кадр и экран продукта одной кучей. Плита под кадром того же цвета,
+   что заливка снимка, поэтому у кадра нет ни рамки, ни тени — он
+   просто часть плиты. Тень есть только у экрана: он белый и должен
+   лежать НА кадре, а не в нём. */
+/* Соотношение у каждого кадра своё, родное.
+   Общий контейнер 4:5 обрезал квадратные снимки по низу: у мойщика
+   пропадала рука, у ладони с деньгами — запястье, и фигура повисала в
+   воздухе с ровным срезом. Предмет на сплошной заливке обрезать нельзя
+   вообще — срез читается не кадрированием, а браком.
+
+   `contain` вдобавок к точному соотношению — страховка: если кадр
+   заменят на другой, он впишется целиком, а незанятое место останется
+   цветом плиты, потому что заливка снимка и плита одного цвета. */
+.stepMedia {
+  position: relative;
+}
+
+.mediaSquare {
+  aspect-ratio: 1 / 1;
+}
+
+.mediaTall {
+  aspect-ratio: 4 / 5;
+}
+
+.stepPhoto {
+  position: absolute;
+  inset: 0;
+}
+
+.stepPhoto img {
+  object-fit: contain;
+}
+
+/* Растворение нижнего края.
+
+   Заливка снимка и плита под ним одного цвета, поэтому границы кадра не
+   видно вовсе — а вместе с ней не видно и того, что кадр кончился. Там,
+   где модель обрезала человека (мойщик по бедро, ладонь по запястье),
+   фигура читалась оборванной ровной горизонталью посреди цветного поля:
+   не кадрирование, а брак.
+
+   Градиент в цвет плиты убирает саму горизонталь. Ставится не всем:
+   канистрам он не нужен, они стоят на своём дне, а не обрезаны. */
+.fadeOut::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 26%;
+  pointer-events: none;
+}
+
+.blue .fadeOut::after {
+  background: linear-gradient(180deg, rgb(0 54 255 / 0%), var(--blue) 82%);
+}
+
+.lime .fadeOut::after {
+  background: linear-gradient(180deg, rgb(181 248 0 / 0%), var(--lime) 82%);
+}
+
+.stepScreen {
+  position: absolute;
+  right: -6%;
+  bottom: -8%;
+  width: 34%;
+  max-width: 210px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 30px 70px -22px rgb(0 12 60 / 55%);
+}
+
+.stepFlip .stepScreen {
+  right: auto;
+  left: -6%;
+}
+
+.stepScreen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ───────── Полоса с машиной ─────────
+   Дыхание между шагами: одна строка и один кадр во всю ширину. */
+.band {
+  padding: var(--gap) 0 0;
+  overflow: hidden;
+}
+
+.bandText {
+  padding: 0 var(--edge) clamp(28px, 4vw, 56px);
+}
+
+.bandShot {
+  position: relative;
+  aspect-ratio: 3 / 2;
+}
+
+.bandShot img {
+  object-fit: cover;
+}
+
+/* ───────── Цена ───────── */
+.price {
+  padding: var(--gap) var(--edge);
+  text-align: center;
+}
+
+.priceSum {
+  font-family: var(--display);
+  font-size: clamp(4rem, 17vw, 15rem);
+  line-height: 0.82;
+  letter-spacing: -0.03em;
+}
+
+.pricePeriod {
+  margin-top: clamp(18px, 2.4vw, 30px);
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  opacity: 0.86;
+}
+
+.priceNote {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  opacity: 0.68;
+}
+
+.priceActions {
+  margin-top: clamp(28px, 4vw, 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ───────── Подвал ───────── */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px var(--edge);
+  border-top: 1px solid rgb(255 255 255 / 22%);
+  font-size: 0.9rem;
+  opacity: 0.76;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 20px;
+}
+
+.footerLinks a:hover {
+  text-decoration: underline;
+}
+
+/* ───────── Телефон ───────── */
+@media (max-width: 860px) {
+  .step,
+  .stepFlip {
+    grid-template-columns: 1fr;
+  }
+
+  .stepFlip .stepText {
+    order: 0;
+  }
+
+  .stepMedia {
+    aspect-ratio: 4 / 5;
+    margin-bottom: 72px;
+  }
+
+  .stepScreen,
+  .stepFlip .stepScreen {
+    right: 0;
+    left: auto;
+    bottom: -60px;
+    width: 118px;
+  }
+
+  .heroShot {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 560px) {
+  .ghost {
+    padding-inline: 10px;
+  }
+
+  .cta {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+
+  .wordmark {
+    font-size: 22px;
+  }
+}

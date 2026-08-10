@@ -121,7 +121,9 @@ export function AuthDialog({
                 {tab === k && (
                   <SwitchMark id="auth-tabs" radius={8} fill="var(--surface)" />
                 )}
-                <span>{k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}</span>
+                <span className={s.tabLabel}>
+                  {k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}
+                </span>
               </button>
             ))}
           </div>
