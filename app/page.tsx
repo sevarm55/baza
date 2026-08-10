@@ -23,52 +23,95 @@ export default async function Home() {
 
   return (
     <div className={s.page}>
-      <header className={s.header}>
-        <div className={s.container}>
-          <nav className={s.nav}>
-            <Logo size={26} />
-            <div className={s.navLinks}>
-              {/* Кнопки, а не ссылки: вход и регистрация открываются
-                  окном на месте. Адрес при этом не трогается — человеку
-                  в этот момент нужна форма, а не переход. */}
-              <AuthTrigger mode="signIn" niche={niche} className={s.navLink}>
-                {hy.auth.signInTitle}
-              </AuthTrigger>
-              <AuthTrigger mode="register" niche={niche} className={s.navCta}>
-                {hy.onboarding.createAccount}
-              </AuthTrigger>
-            </div>
-          </nav>
-        </div>
-      </header>
-
       <main>
-        {/* Первый экран в две половины: слева обещание и кнопка,
-            справа место под снимок продукта. На телефоне снимок уходит
-            вниз — там сначала читают, потом смотрят. */}
-        <section className={`${s.container} ${s.open}`}>
-          <div className={s.hero}>
-            <div>
-              <p className={s.eyebrow}>{L.eyebrow}</p>
-              <h1 className={s.headline}>
-                {L.headline}
-                <span className={s.headlineAccent}>{L.headlineAccent}</span>
-              </h1>
-              <p className={s.lead}>{L.lead}</p>
+        {/* Разворот: слева слово, справа цвет во всю высоту.
 
-              <div className={s.actions}>
-                <AuthTrigger mode="register" niche={niche} className={s.cta}>
-                  {L.ctaPrimary(TRIAL_DAYS)}
+            Шапка живёт внутри левой половины, а не полосой над всей
+            страницей: полоса поверх цветного блока разрезала бы его
+            надвое, а он тут работает именно целым — тем, что упирается
+            в него взгляд, дойдя до конца заголовка. */}
+        <section className={s.stage}>
+          <div className={s.left}>
+            <div className={s.bar}>
+              <nav className={s.pillNav}>
+                <Logo size={30} />
+                <AuthTrigger mode="signIn" niche={niche} className={s.pillLink}>
+                  {hy.auth.signInTitle}
                 </AuthTrigger>
-                <p className={s.ctaNote}>{L.ctaNote}</p>
+                <Link href="#day" className={s.pillLink}>
+                  {L.dayTitle}
+                </Link>
+                <Link href="#price" className={s.pillLink}>
+                  {L.priceTitle}
+                </Link>
+              </nav>
+
+              <div className={s.rounds}>
+                <AuthTrigger
+                  mode="register"
+                  niche={niche}
+                  className={s.round}
+                  aria-label={hy.onboarding.createAccount}
+                >
+                  <Plus />
+                </AuthTrigger>
               </div>
             </div>
 
-            {/* Место под снимок продукта. Пока файла нет — то же полотно
-                со свечением, что и внутри: пусто, но не поломано.
-                Картинка подставится одной строкой в .shot, когда будет. */}
-            <div className={s.shot} aria-hidden />
+            <h1 className={s.title}>
+              {L.headline}
+              <span className={s.titleMark} aria-hidden />
+            </h1>
+
+            <div className={s.leaf} aria-hidden>
+              <div className={s.dots}>
+                {['#7c3aed', '#0d9488', '#d97706', '#a3e635'].map((c) => (
+                  <span key={c} className={s.dot} style={{ background: c }} />
+                ))}
+              </div>
+            </div>
+
+            <div className={s.foot}>
+              <div className={s.bigActions}>
+                <AuthTrigger mode="register" niche={niche} className={s.bigCta}>
+                  {L.ctaPrimary(TRIAL_DAYS)}
+                </AuthTrigger>
+                <AuthTrigger
+                  mode="register"
+                  niche={niche}
+                  className={`${s.round} ${s.arrow}`}
+                  aria-label={L.ctaPrimary(TRIAL_DAYS)}
+                >
+                  <ArrowUpRight />
+                </AuthTrigger>
+              </div>
+              <p className={s.footText}>{L.lead}</p>
+            </div>
           </div>
+
+          {/* Правая половина: продукт настоящими блоками продукта, а не
+              картинкой. Нарисованный отдельно снимок отстаёт от продукта
+              на следующий же день — так уже было. */}
+          <aside className={s.panel}>
+            <div className={s.panelShot}>
+              <OwnerScreen />
+            </div>
+
+            <div className={s.sticker}>
+              <span className={s.stickerLabel}>{hy.owner.revenueToday}</span>
+              <span className={`num ${s.stickerValue}`}>{formatMoney(31000)}</span>
+            </div>
+
+            <div className={s.card}>
+              <div className={`num ${s.cardTitle}`}>{formatMoney(PRICE)}</div>
+              <p className={s.cardNote}>
+                {L.priceNote(TRIAL_DAYS)}
+              </p>
+              <AuthTrigger mode="register" niche={niche} className={s.cardCta}>
+                {L.ctaPrimary(TRIAL_DAYS)}
+              </AuthTrigger>
+            </div>
+          </aside>
         </section>
 
         <section className={`${s.container} ${s.line}`}>
@@ -161,5 +204,24 @@ export default async function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/* Знаки первого экрана. Тот же контур 1.5 по сетке 16, что у всех
+   значков продукта: витрина говорит громче кабинета, но говорит на его
+   языке. */
+function Plus() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
+      <path d="M8 3.5v9M3.5 8h9" />
+    </svg>
+  );
+}
+
+function ArrowUpRight() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-[22px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 11 11 5M6 5h5v5" />
+    </svg>
   );
 }

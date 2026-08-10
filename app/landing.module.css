@@ -14,8 +14,8 @@
    ───────────────────────────────────────────────────────────── */
 
 .page {
-  background: #0a0a0c;
-  color: #f7f5fb;
+  background: #f2f0ec;
+  color: #12111a;
   min-height: 100dvh;
 
 }
@@ -34,7 +34,7 @@
 }
 
 .line {
-  border-top: 1px solid rgb(247 245 251 / 8%);
+  border-top: 1px solid rgb(18 17 26 / 8%);
 }
 
 /* ───────────────────────── шапка ───────────────────────── */
@@ -43,9 +43,9 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgb(10 10 12 / 82%);
+  background: rgb(242 240 236 / 78%);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgb(247 245 251 / 7%);
+  border-bottom: 1px solid rgb(18 17 26 / 7%);
 }
 
 .nav {
@@ -66,12 +66,12 @@
   padding: 0.55rem 0.9rem;
   border-radius: var(--radius-btn);
   font-size: 14px;
-  color: rgb(247 245 251 / 70%);
+  color: rgb(18 17 26 / 70%);
   transition: color 0.12s ease, background 0.12s ease;
 }
 .navLink:hover {
-  color: #f7f5fb;
-  background: rgb(247 245 251 / 8%);
+  color: #12111a;
+  background: rgb(18 17 26 / 8%);
 }
 
 .navCta {
@@ -108,7 +108,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #d7ff00;
+  color: #5b21b6;
 }
 
 .headline {
@@ -121,7 +121,7 @@
 }
 .headlineAccent {
   display: block;
-  color: rgb(247 245 251 / 45%);
+  color: rgb(18 17 26 / 45%);
 }
 
 .lead {
@@ -129,7 +129,7 @@
   max-width: 46ch;
   font-size: clamp(15.5px, 1.3vw, 18px);
   line-height: 1.6;
-  color: rgb(247 245 251 / 70%);
+  color: rgb(18 17 26 / 70%);
 }
 
 .actions {
@@ -158,7 +158,7 @@
 
 .ctaNote {
   font-size: 13.5px;
-  color: rgb(247 245 251 / 50%);
+  color: rgb(18 17 26 / 50%);
 }
 
 /* Картинка первого экрана: деньги, которые сошлись, и линия вверх.
@@ -172,9 +172,9 @@
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-card);
   background:
-    linear-gradient(180deg, transparent 58%, rgb(10 10 12 / 70%) 84%, #0a0a0c 100%),
+    linear-gradient(180deg, transparent 58%, rgb(10 10 12 / 70%) 84%, #f2f0ec 100%),
     url('/hero.jpg') center / cover no-repeat,
-    #101014;
+    #e8e5df;
 }
 
 /* ───────────────────────── числа ───────────────────────── */
@@ -202,11 +202,11 @@
 .numberUnit {
   font-size: 14px;
   font-weight: 600;
-  color: #d7ff00;
+  color: #5b21b6;
 }
 .numberLabel {
   font-size: 13px;
-  color: rgb(247 245 251 / 50%);
+  color: rgb(18 17 26 / 50%);
 }
 
 /* ───────────────────────── рабочий день ───────────────────────── */
@@ -231,14 +231,14 @@
   gap: 10px;
   padding: clamp(20px, 2vw, 28px);
   border-radius: var(--radius-card);
-  background: rgb(247 245 251 / 5%);
+  background: rgb(18 17 26 / 5%);
 }
 
 .time {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #d7ff00;
+  color: #5b21b6;
   font-variant-numeric: tabular-nums;
 }
 
@@ -252,7 +252,7 @@
 .momentBody {
   font-size: 14px;
   line-height: 1.55;
-  color: rgb(247 245 251 / 62%);
+  color: rgb(18 17 26 / 62%);
 }
 
 /* ───────────────────────── и ещё ───────────────────────── */
@@ -269,13 +269,13 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 18px;
-  border-top: 1px solid rgb(247 245 251 / 12%);
+  border-top: 1px solid rgb(18 17 26 / 12%);
 }
 
 .moreNum {
   font-size: 12px;
   font-weight: 700;
-  color: rgb(247 245 251 / 35%);
+  color: rgb(18 17 26 / 35%);
   font-variant-numeric: tabular-nums;
 }
 
@@ -288,7 +288,7 @@
 .moreBody {
   font-size: 14px;
   line-height: 1.55;
-  color: rgb(247 245 251 / 62%);
+  color: rgb(18 17 26 / 62%);
 }
 
 /* ───────────────────────── цена ─────────────────────────
@@ -304,7 +304,7 @@
   border-radius: var(--radius-card);
   background:
     radial-gradient(90% 120% at 100% 0%, rgb(167 139 250 / 22%) 0%, transparent 62%),
-    rgb(247 245 251 / 5%);
+    rgb(18 17 26 / 5%);
 }
 
 .priceLabel {
@@ -312,7 +312,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgb(247 245 251 / 45%);
+  color: rgb(18 17 26 / 45%);
 }
 
 .priceValue {
@@ -327,7 +327,7 @@
 .pricePeriod {
   margin-top: 10px;
   font-size: 15px;
-  color: rgb(247 245 251 / 62%);
+  color: rgb(18 17 26 / 62%);
 }
 
 .priceSide {
@@ -352,7 +352,7 @@
 
 .priceNote {
   font-size: 13.5px;
-  color: rgb(247 245 251 / 50%);
+  color: rgb(18 17 26 / 50%);
 }
 
 /* ───────────────────────── подвал ───────────────────────── */
@@ -365,7 +365,7 @@
   justify-content: space-between;
   gap: 14px;
   font-size: 13.5px;
-  color: rgb(247 245 251 / 45%);
+  color: rgb(18 17 26 / 45%);
 }
 
 .footerLinks {
@@ -382,6 +382,311 @@
   .price {
     grid-template-columns: 1fr auto;
   }
+}
+
+/* ═════════════════════ первый экран ═════════════════════
+
+   Разворот: слева слово, справа цветной блок во всю высоту.
+
+   Прежний первый экран был двумя равными колонками текста и картинки
+   на общем фоне — та же схема, что у половины интерфейсов, и потому
+   невидимая. Здесь работает не расположение, а обрыв: полотно
+   кончается, и вплотную к нему стоит другой цвет во всю высоту. Глаз
+   идёт по строке заголовка и упирается в него, а не в поле страницы.
+
+   Скругления тут капсульные, и это единственное место в продукте, где
+   так. Внутри капсул нет нигде: они смягчают форму, а прибор,
+   считающий чужие деньги, мягким быть не должен. Витрине можно —
+   у неё другая работа: не считать, а остановить. */
+
+.stage {
+  display: grid;
+  min-height: min(92vh, 900px);
+}
+
+@media (min-width: 1000px) {
+  .stage {
+    grid-template-columns: 1fr 460px;
+  }
+}
+@media (min-width: 1400px) {
+  .stage {
+    grid-template-columns: 1fr 40%;
+  }
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  padding: 20px clamp(20px, 3.5vw, 44px) clamp(28px, 4vw, 48px);
+}
+
+/* ───────── шапка-капсула ───────── */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.pillNav {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.6vw, 28px);
+  padding: 9px 22px 9px 10px;
+  border: 1.5px solid #12111a;
+  border-radius: 999px;
+}
+
+.pillLink {
+  font-size: 14px;
+  font-weight: 500;
+  color: #12111a;
+  white-space: nowrap;
+  transition: opacity 0.12s ease;
+}
+.pillLink:hover {
+  opacity: 0.55;
+}
+
+/* Круглые кнопки справа — единственные круги на странице, и они
+   держат симметрию с логотипом в начале капсулы. */
+.round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1.5px solid #12111a;
+  border-radius: 999px;
+  color: #12111a;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.round:hover {
+  background: #12111a;
+  color: #f2f0ec;
+}
+
+.rounds {
+  display: none;
+  gap: 8px;
+}
+@media (min-width: 760px) {
+  .rounds {
+    display: flex;
+  }
+}
+
+/* ───────── заголовок ───────── */
+
+.title {
+  margin-top: clamp(28px, 5vw, 64px);
+  font-size: clamp(38px, 6.2vw, 86px);
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #12111a;
+  text-wrap: balance;
+}
+
+/* Значок, врезанный в строку заголовка, — как точка в конце фразы,
+   только предметная: показывает, о чём речь, раньше чем дочитают. */
+.titleMark {
+  display: inline-block;
+  vertical-align: -0.12em;
+  width: 0.92em;
+  height: 0.92em;
+  margin-inline-start: 0.16em;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgb(215 255 0 / 85%) 0%, transparent 60%),
+    #5b21b6;
+}
+
+/* ───────── полоса-лист ─────────
+
+   Снимок в фигуре с двумя срезанными углами по диагонали: прямоугольник
+   читался бы вставленной картинкой, а эта форма — частью полотна. */
+.leaf {
+  position: relative;
+  margin-top: clamp(22px, 3vw, 40px);
+  aspect-ratio: 16 / 7;
+  border-radius: 120px 18px 120px 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgb(18 17 26 / 0%) 40%, rgb(18 17 26 / 18%) 100%),
+    url('/hero.jpg') center / cover no-repeat,
+    #e2ded6;
+}
+
+/* Точки-образцы у правого края — те же тона, которыми в продукте
+   светятся плитки. */
+.dots {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 14px;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgb(242 240 236 / 88%);
+  backdrop-filter: blur(6px);
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+/* ───────── низ левой половины ───────── */
+
+.foot {
+  margin-top: auto;
+  padding-top: clamp(24px, 3vw, 40px);
+  display: grid;
+  gap: clamp(16px, 2vw, 32px);
+  align-items: center;
+}
+@media (min-width: 820px) {
+  .foot {
+    grid-template-columns: auto 1fr;
+  }
+}
+
+.bigActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bigCta {
+  padding: clamp(16px, 1.6vw, 22px) clamp(28px, 3vw, 46px);
+  border: 1.5px solid #12111a;
+  border-radius: 999px;
+  font-size: clamp(15px, 1.3vw, 19px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: #12111a;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.bigCta:hover {
+  background: #12111a;
+  color: #f2f0ec;
+}
+
+.arrow {
+  width: clamp(52px, 5vw, 68px);
+  height: clamp(52px, 5vw, 68px);
+}
+
+.footText {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgb(18 17 26 / 68%);
+  max-width: 46ch;
+}
+
+/* ───────── правая половина ─────────
+
+   Цвет во всю высоту без полей. Поле здесь означало бы «карточка на
+   странице», а это не карточка: это вторая половина разворота. */
+
+.panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 2.5vw, 36px);
+  min-height: 380px;
+  background:
+    radial-gradient(80% 60% at 70% 10%, rgb(215 255 0 / 16%) 0%, transparent 60%),
+    linear-gradient(160deg, #6d28d9 0%, #3b0f80 100%);
+}
+
+/* Снимок продукта внутри — настоящими блоками продукта, а не
+   картинкой: нарисованный отдельно снимок отстаёт от продукта на
+   следующий же день. */
+.panelShot {
+  width: min(100%, 340px);
+}
+
+/* Наклейка с ценником поверх: одна запись — одна сумма. То же, что в
+   образце делает карточка товара. */
+.sticker {
+  position: absolute;
+  top: clamp(18px, 3vw, 34px);
+  inset-inline-end: clamp(14px, 2vw, 26px);
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgb(242 240 236 / 94%);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px -12px rgb(12 9 20 / 55%);
+}
+.stickerLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(18 17 26 / 55%);
+}
+.stickerValue {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #12111a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Белая карточка внизу — то, чем заканчивают чтение: сколько стоит и
+   куда нажать. В образце на этом месте подписка на новости; здесь
+   новостей нет, а цена есть. */
+.card {
+  position: absolute;
+  inset-inline: clamp(14px, 2vw, 26px);
+  bottom: clamp(14px, 2vw, 26px);
+  padding: clamp(16px, 2vw, 22px);
+  border-radius: 18px;
+  background: #f2f0ec;
+  box-shadow: 0 18px 46px -18px rgb(12 9 20 / 60%);
+}
+.cardTitle {
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #12111a;
+  font-variant-numeric: tabular-nums;
+}
+.cardNote {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgb(18 17 26 / 62%);
+}
+.cardCta {
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #d7ff00;
+  color: #1a1626;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.cardCta:hover {
+  filter: brightness(1.05);
 }
 
 /* ───────────────────── снимки продукта ─────────────────────
