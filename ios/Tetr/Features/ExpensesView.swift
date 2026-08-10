@@ -25,6 +25,13 @@ struct ExpensesView: View {
     @State private var adding = false
     @State private var editing: API.Expense?
     @State private var loaded = false
+    /// Какой месяц смотрим. Считает сервер — здесь только выбор.
+    @State private var month: Month = .current
+
+    enum Month: String, CaseIterable {
+        case current, prev
+        var label: String { self == .current ? "Այս ամիս" : "Անցյալ ամիս" }
+    }
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -144,7 +151,7 @@ struct ExpensesView: View {
      */
     private var reading: some View {
         VStack(spacing: 0) {
-            Text("Վերջին 30 օրը")
+            Text(month.label)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
                 .padding(.top, 6)
@@ -166,6 +173,30 @@ struct ExpensesView: View {
                     .minimumScaleFactor(0.7)
                     .padding(.top, 6)
             }
+
+            /* Переключатель месяца рядом с итогом, а не в заголовке
+               экрана: он меняет именно это число, и стоять должен там,
+               где на него смотрят. */
+            HStack(spacing: 6) {
+                ForEach(Month.allCases, id: \.self) { option in
+                    Button {
+                        month = option
+                        Task { await reload() }
+                    } label: {
+                        Text(option.label)
+                            .font(.system(size: 13, weight: month == option ? .semibold : .regular))
+                            .foregroundStyle(month == option ? Brand.board : Brand.boardMuted)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                month == option ? Brand.onBoard : Brand.boardInk.opacity(0.07),
+                                in: .rect(cornerRadius: 9)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 12)
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 4)
@@ -391,7 +422,7 @@ struct ExpensesView: View {
 
     private func reload() async {
         let result: API.Expenses? = try? await session.authed { token in
-            try await APIClient.shared.send("expenses", token: token, as: API.Expenses.self)
+            try await APIClient.shared.send("expenses?month=\(month.rawValue)", token: token, as: API.Expenses.self)
         }
         if let result {
             items = result.expenses

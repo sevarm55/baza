@@ -1,5 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { startOfDay } from '@/lib/queries';
+import { startOfDay, startOfMonth, startOfPrevMonth } from '@/lib/queries';
 import { addExpense, listExpenses, BadExpenseError, EXPENSE_HINTS } from '@/lib/expenses';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
@@ -17,14 +17,20 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
-    const days = Number(new URL(request.url).searchParams.get('days') ?? 30);
-    const safeDays = Number.isFinite(days) && days > 0 ? days : 30;
-    const from = startOfDay(
-      ctx.tenant.timezone,
-      new Date(Date.now() - (safeDays - 1) * 86_400_000),
-    );
+    /* Месяц целиком, а не скользящие тридцать дней.
 
-    const rows = await listExpenses(ctx.tenant.id, from);
+       Скользящее окно давало десятого августа июльские траты в списке, и
+       итог наверху складывал их как августовские. Владелец думает
+       месяцами — так он платит аренду и так сверяется с прибылью, — и
+       граница периода должна совпадать с той, которой он считает сам. */
+    const month = new URL(request.url).searchParams.get('month') ?? 'current';
+    const prev = month === 'prev';
+    const from = prev
+      ? startOfPrevMonth(ctx.tenant.timezone)
+      : startOfMonth(ctx.tenant.timezone);
+    const to = prev ? startOfMonth(ctx.tenant.timezone) : undefined;
+
+    const rows = await listExpenses(ctx.tenant.id, from, to);
 
     return ok({
       hints: EXPENSE_HINTS,

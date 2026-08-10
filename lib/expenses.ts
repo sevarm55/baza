@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { expenses } from './db/schema';
 
@@ -56,7 +56,18 @@ export async function addExpense(input: NewExpense) {
  * Постоянные не фильтруются по дате: аренда, заведённая полгода назад,
  * действует и сегодня, и не увидеть её в списке было бы странно.
  */
-export async function listExpenses(tenantId: string, from: Date) {
+export async function listExpenses(tenantId: string, from: Date, to?: Date) {
+  /* Верхняя граница нужна закрытому месяцу.
+
+     Без неё окно было скользящим — «последние тридцать дней», — и
+     десятого августа в списке лежала июльская химия. Итог наверху
+     складывал её с августовскими, и владелец видел в графе «этот месяц»
+     деньги, потраченные в прошлом.
+
+     Постоянный расход попадает в месяц, если он в нём ДЕЙСТВОВАЛ:
+     заведён до конца месяца и не закрыт до его начала. Проверять только
+     `endedAt is null` нельзя — закрытая в июле аренда обязана остаться в
+     июльском счёте, иначе прошлый месяц задним числом дешевеет. */
   return db
     .select()
     .from(expenses)
@@ -64,8 +75,16 @@ export async function listExpenses(tenantId: string, from: Date) {
       and(
         eq(expenses.tenantId, tenantId),
         or(
-          and(eq(expenses.monthly, true), isNull(expenses.endedAt)),
-          and(eq(expenses.monthly, false), gte(expenses.at, from)),
+          and(
+            eq(expenses.monthly, true),
+            to ? lt(expenses.at, to) : undefined,
+            or(isNull(expenses.endedAt), gte(expenses.endedAt, from)),
+          ),
+          and(
+            eq(expenses.monthly, false),
+            gte(expenses.at, from),
+            to ? lt(expenses.at, to) : undefined,
+          ),
         ),
       ),
     )
