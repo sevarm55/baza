@@ -97,7 +97,7 @@ export function AuthDialog({
         <aside className={s.aside}>
           <Logo size={30} />
           <p className={s.pitch}>{hy.app.tagline}</p>
-          <p className={s.asideNote}>{hy.landing.ctaNote}</p>
+          <p className={s.asideNote}>{hy.auth.note}</p>
         </aside>
 
         <div className={s.form}>
