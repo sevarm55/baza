@@ -141,8 +141,17 @@ ${services.map((s) => `  (${q(s.id)}, ${q(tenantId)}, ${q(s.name)}, ${s.price}, 
       client.total += price;
 
       orderRows.push(
+        /* `least(..., now())` обязателен для сегодняшнего дня.
+
+           Часы записей заданы по рабочему дню — девять утра, полдень,
+           три часа. Если демо разворачивают в восемь утра, половина
+           сегодняшних машин оказывается в будущем, и зарплата их не
+           видит: она считает до «сейчас», иначе машина, записанная в
+           момент нажатия «выплачено», молча пометилась бы оплаченной.
+           Экран получался страшный — целый мойщик пропадал из списка
+           вместе с причитающимися ему деньгами. */
         `  (${q(randomUUID())}, ${q(tenantId)}, ${q(client.id)}, ${q(byOwner ? ownerId : staffId)}, ${q(service.id)}, ${q(service.name)}, ${price}, ${service.price}, ${byOwner ? 0 : 40}, ${q(payment)}, ` +
-          `date_trunc('day', now() at time zone 'Asia/Yerevan') at time zone 'Asia/Yerevan' - interval '${days} days' + interval '${Math.round(hour * 60)} minutes')`,
+          `least(date_trunc('day', now() at time zone 'Asia/Yerevan') at time zone 'Asia/Yerevan' - interval '${days} days' + interval '${Math.round(hour * 60)} minutes', now() - interval '1 minute'))`,
       );
     });
   });

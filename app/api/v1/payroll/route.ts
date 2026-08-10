@@ -21,6 +21,13 @@ export async function GET(request: Request) {
         staffId: r.staffId,
         name: r.name,
         percent: r.percent,
+        /* Ставки, по которым сумма посчитана на самом деле. `percent`
+           выше — текущая ставка человека, и после её изменения она
+           перестаёт объяснять `earned`: деньги считаются по снимку в
+           каждой записи. Приложению показывать надо эти две, а вилку
+           `pctFrom–pctTo` — когда они разошлись. */
+        pctFrom: r.pctFrom,
+        pctTo: r.pctTo,
         count: r.count,
         revenue: r.revenue,
         earned: r.earned,

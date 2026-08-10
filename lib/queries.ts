@@ -372,6 +372,12 @@ export type PayrollRow = {
   count: number;
   revenue: number;
   earned: number;
+  /* Границы ставок, по которым сумма НА САМОМ ДЕЛЕ посчитана. Не то же,
+     что `percent`: тот текущий, а деньги считаются по снимку в каждой
+     записи. Пока ставку не меняли, они совпадают; после изменения —
+     расходятся, и показывать вместо них текущую значит врать. */
+  pctFrom: number | null;
+  pctTo: number | null;
 };
 
 /**
@@ -391,6 +397,8 @@ export async function getUnsettledPayroll(
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
       earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+      pctFrom: sql<number>`min(${orders.staffPercent})::int`,
+      pctTo: sql<number>`max(${orders.staffPercent})::int`,
     })
     .from(orders)
     .leftJoin(users, eq(users.id, orders.staffId))
