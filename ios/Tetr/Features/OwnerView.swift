@@ -379,7 +379,7 @@ struct OwnerView: View {
             }
 
             HStack(spacing: gap) {
-                small(.lime, session.tenant?.unitOne ?? "", "\(s.stats.count)",
+                small(.indigo, session.tenant?.unitOne ?? "", "\(s.stats.count)",
                       foot: "", animate: Double(s.stats.count))
                 small(.slate, "Միջին չեկ", money(s.stats.avgCheck, currency),
                       foot: "", animate: Double(s.stats.avgCheck))

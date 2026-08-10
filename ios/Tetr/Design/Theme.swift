@@ -95,6 +95,10 @@ enum Brand {
     static let boardInk = adaptive(light: 0x14121A, dark: 0xF7F5FB)
     static let goodOnBoard = adaptive(light: 0x0E8A5F, dark: 0x34D399)
     static let warnOnBoard = adaptive(light: 0xB45309, dark: 0xFBBF24)
+    /* Красный в продукте значит ровно одно — «удалить», и больше нигде не
+       появляется: убыток набран жёлтым именно поэтому. Тот же тон, что у
+       `--bad` в вебе. */
+    static let badOnBoard = adaptive(light: 0xDC2626, dark: 0xF87171)
     static let good = adaptive(light: 0x047857, dark: 0x34D399)
 
     /* Сегментный переключатель: дорожка и выбранная плашка.

@@ -31,55 +31,88 @@ struct ExpensesView: View {
     private var monthlyOnes: [API.Expense] { items.filter(\.monthly) }
     private var oneOffs: [API.Expense] { items.filter { !$0.monthly } }
 
-    private let gap: CGFloat = 10
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: gap) {
-                if loaded { reading }
+        /* Список, а не прокрутка со стопкой плиток: смахивание по строке
+           существует только в `List`.
 
-                if !monthlyOnes.isEmpty {
-                    heading("Ամսական", "\(monthlyOnes.count)")
-                    ForEach(monthlyOnes) { item in
-                        card(item, tone: .amber)
-                    }
-                }
+           Тем же приёмом свайп когда-то был сделан в прайсе, и он был
+           верным. Своя реализация на `DragGesture` повторяет повадки
+           системного списка приблизительно — сопротивление, порог,
+           реакцию на бросок приходится подбирать на глаз, и палец
+           замечает расхождение раньше, чем глаз. Система эти повадки
+           уже знает.
 
-                if !oneOffs.isEmpty {
-                    heading("Միանվագ", "\(oneOffs.count)")
-                    VStack(spacing: 0) {
-                        ForEach(oneOffs) { item in
-                            row(item)
-                            if item.id != oneOffs.last?.id {
-                                Rectangle()
-                                    .fill(Brand.boardInk.opacity(0.07))
-                                    .frame(height: 1)
-                            }
-                        }
-                    }
-                }
-
-                if loaded && items.isEmpty {
-                    Text("Ծախսեր դեռ չկան")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 44)
-                }
-
-                addButton
-
-                Text("Ամսականները բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Brand.boardMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 6)
+           Плитки при этом остаются как были: подложка строки прозрачная,
+           разделители сняты, поля свои. От `List` берётся жест, а не
+           внешний вид. */
+        List {
+            if loaded {
+                reading
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(.init(top: 8, leading: 12, bottom: 5, trailing: 12))
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
+
+            if !monthlyOnes.isEmpty {
+                heading("Ամսական", "\(monthlyOnes.count)")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
+
+                ForEach(monthlyOnes) { item in
+                    card(item, tone: .amber)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+                        .swipeActions(edge: .trailing) { erase(item) }
+                }
+            }
+
+            if !oneOffs.isEmpty {
+                heading("Միանվագ", "\(oneOffs.count)")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
+
+                /* Разделителей нет: у каждой строки своя подложка, и линия
+                   между двумя подложками — вторая граница там, где
+                   хватает одной. */
+                ForEach(oneOffs) { item in
+                    row(item)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
+                        .swipeActions(edge: .trailing) { erase(item) }
+                }
+            }
+
+            if loaded && items.isEmpty {
+                Text("Ծախսեր դեռ չկան")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.boardMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 44)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
+            }
+
+            addButton
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+
+            Text("Ամսականները բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 6, leading: 18, bottom: 28, trailing: 18))
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .sheet(isPresented: $adding) {
@@ -185,35 +218,75 @@ struct ExpensesView: View {
     }
 
     /// Разовый — строкой: он уже случился и больше ничего не тянет.
+    /**
+     * Разовый расход.
+     *
+     * Была голая строка: дата колонкой, название, сумма — три текста в
+     * ряд, разделённые волосяной линией. На тёмном полотне такой список
+     * читается таблицей выгрузки, а не тем же продуктом, что плитки над
+     * ним, и разовые расходы выглядели придатком к постоянным.
+     *
+     * Теперь у каждого своя подложка со скруглением — та же форма, что у
+     * плиток, только тише по цвету: разовый расход не событие месяца, ему
+     * не нужен тон и свечение.
+     *
+     * Знак слева не украшение. Постоянных расходов два-три, их узнают по
+     * названию; разовых за месяц набирается два десятка одинаковых
+     * «Քիմիա» и «Ջուր», и по значку список листается глазами, без чтения.
+     */
     private func row(_ item: API.Expense) -> some View {
         Button {
             editing = item
         } label: {
-            HStack(spacing: 10) {
-                Text(day(item.at))
-                    .font(.system(size: 12))
-                    .monospacedDigit()
+            HStack(spacing: 12) {
+                Image(systemName: symbol(for: item.category))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 46, alignment: .leading)
+                    .frame(width: 34, height: 34)
+                    .background(Brand.boardInk.opacity(0.06), in: .rect(cornerRadius: 10))
 
-                Text(item.category)
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.category)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                    Text(day(item.at))
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                }
 
                 Spacer(minLength: 8)
 
                 Text(money(item.amount, currency))
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Brand.boardInk.opacity(0.04), in: .rect(cornerRadius: 16))
             .contentShape(.rect)
         }
         .buttonStyle(.press)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Значок по названию. Совпадение по подсказкам из `EXPENSE_HINTS` —
+    /// это то, что мойка вписывает чаще всего; всё остальное получает
+    /// нейтральный конверт, а не случайную картинку.
+    private func symbol(for category: String) -> String {
+        switch category {
+        case "Քիմիա": return "drop.triangle.fill"
+        case "Վարձ": return "house.fill"
+        case "Հոսանք": return "bolt.fill"
+        case "Ջուր": return "drop.fill"
+        case "Գույք": return "shippingbox.fill"
+        case "Վերանորոգում": return "wrench.and.screwdriver.fill"
+        default: return "tray.fill"
+        }
     }
 
     /// Добавление — строкой в самом списке, а не плюсиком в панели: плюсик
@@ -248,6 +321,47 @@ struct ExpensesView: View {
             f.timeZone = zone
         }
         return f.string(from: d)
+    }
+
+    /**
+     * Удаление расхода.
+     *
+     * Строка исчезает сразу, до ответа сервера: жест уже сделан, и ждать
+     * сеть, глядя на неудалённое, — значит сомневаться, сработало ли.
+     * Если запрос не прошёл, `reload` вернёт её на место.
+     *
+     * Постоянный расход удаляется целиком, вместе с прошлым: это не то же,
+     * что изменить сумму — там прошлые дни остаются со старой. Здесь
+     * владелец говорит «такого расхода у меня не было».
+     */
+    /**
+     * Кнопка, которая появляется из-под строки.
+     *
+     * Подтверждения нет намеренно: система и так требует двух движений —
+     * смахнуть и нажать. Третье было бы недоверием к пальцу.
+     *
+     * Красный проставлен явно. Общий цвет приложения перекрывает
+     * системный, и «удалить» выходит грейповым — то есть неотличимым от
+     * обычного действия. Расход из приложения не вернуть, и предупредить
+     * об этом должен цвет, а не только слово.
+     */
+    @ViewBuilder
+    private func erase(_ item: API.Expense) -> some View {
+        Button(role: .destructive) {
+            Task { await remove(item) }
+        } label: {
+            Label("Ջնջել", systemImage: "trash")
+        }
+        .tint(.red)
+    }
+
+    private func remove(_ item: API.Expense) async {
+        items.removeAll { $0.id == item.id }
+        let ok: Bool = (try? await session.authed { token in
+            _ = try await APIClient.shared.raw("expenses/\(item.id)", method: "DELETE", token: token)
+            return true
+        }) ?? false
+        if !ok { await reload() }
     }
 
     private func reload() async {
