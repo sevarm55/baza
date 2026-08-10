@@ -17,7 +17,8 @@
     "trial": "tsx scripts/set-trial.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:up": "docker compose -f infra/dev-db.yml up -d --wait",
-    "db:down": "docker compose -f infra/dev-db.yml stop"
+    "db:down": "docker compose -f infra/dev-db.yml stop",
+    "e2e": "tsx scripts/e2e.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

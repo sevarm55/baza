@@ -81,7 +81,23 @@ export async function authorize(
 
   const access = currentAccess(tenant);
   if (!need.anyPlan) {
-    if (!access.canRead) return fail('SUBSCRIPTION_BLOCKED', 403);
+    /* Закрытая дверь и неоплаченная дверь — разные двери.
+
+       Раньше отсюда на любое закрытие уходил `SUBSCRIPTION_BLOCKED` с
+       403. Но закрытие бывает двух совершенно разных сортов: срок вышел
+       или точку ещё не оплачивали — тогда достаточно заплатить, и всё
+       откроется; либо бизнес закрыли из админки — тогда платить некуда,
+       надо звонить. Приложение по одному коду их не различало и в обоих
+       случаях сказало бы одно и то же. Первый же неплательщик увидел бы
+       «с вами свяжутся» вместо «оплатите» — и не заплатил бы.
+
+       Отсюда и разные статусы: 402 значит «заплати и войдёшь», 403 —
+       «здесь тебе не открыть». */
+    if (!access.canRead) {
+      return access.state === 'blocked'
+        ? fail('SUBSCRIPTION_BLOCKED', 403)
+        : fail('SUBSCRIPTION_EXPIRED', 402, { state: access.state });
+    }
     if (need.write && !access.canWrite) return fail('SUBSCRIPTION_EXPIRED', 402);
   }
   if (need.owner && user.role !== 'owner') return fail('FORBIDDEN', 403);
