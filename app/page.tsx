@@ -63,13 +63,7 @@ export default async function Home() {
               <span className={s.titleMark} aria-hidden />
             </h1>
 
-            <div className={s.leaf} aria-hidden>
-              <div className={s.dots}>
-                {['#7c3aed', '#0d9488', '#d97706', '#a3e635'].map((c) => (
-                  <span key={c} className={s.dot} style={{ background: c }} />
-                ))}
-              </div>
-            </div>
+            <div className={s.leaf} aria-hidden />
 
             <div className={s.foot}>
               <div className={s.bigActions}>

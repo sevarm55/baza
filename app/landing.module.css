@@ -515,34 +515,23 @@
 .leaf {
   position: relative;
   margin-top: clamp(22px, 3vw, 40px);
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 8.5;
   border-radius: 120px 18px 120px 18px;
   overflow: hidden;
+  /* Кадр посажен по верхнему краю, а не по центру. По центру `cover`
+     срезал у снимка верх — стопка денег обрывалась, и предмет читался
+     наполовину. Верх здесь и есть предмет; резать можно низ, там
+     подставка. */
   background:
-    linear-gradient(180deg, rgb(18 17 26 / 0%) 40%, rgb(18 17 26 / 18%) 100%),
-    url('/hero.jpg') center / cover no-repeat,
+    linear-gradient(180deg, rgb(18 17 26 / 0%) 45%, rgb(18 17 26 / 16%) 100%),
+    url('/hero.jpg') center top / cover no-repeat,
     #e2ded6;
 }
 
-/* Точки-образцы у правого края — те же тона, которыми в продукте
-   светятся плитки. */
-.dots {
-  position: absolute;
-  top: 50%;
-  inset-inline-end: 14px;
-  transform: translateY(-50%);
-  display: grid;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 999px;
-  background: rgb(242 240 236 / 88%);
-  backdrop-filter: blur(6px);
-}
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-}
+/* Здесь были точки-образцы у правого края. Убраны: в образце они
+   выбирают цвет лампы, а у нас не выбирают ничего — четыре кружка,
+   которые нельзя нажать и которые ни на что не влияют. Украшение,
+   притворяющееся управлением, хуже отсутствия украшения. */
 
 /* ───────── низ левой половины ───────── */
 
