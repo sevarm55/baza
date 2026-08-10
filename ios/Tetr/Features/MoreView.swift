@@ -5,9 +5,15 @@ import SwiftUI
  *
  * Не системный список строк, а сетка плиток — как на домашнем экране
  * телефона. Список из шести одинаковых строк заставляет читать все шесть
- * подряд; в сетке цвет и значок находят нужное раньше, чем прочитано
+ * подряд; в сетке нужное находится по цвету и месту раньше, чем прочитано
  * название, а заходят сюда именно за конкретной вещью, а не «посмотреть,
  * что есть».
+ *
+ * Рисунков на плитках больше нет. Стояли трёхмерные наклейки — машина,
+ * календарь, мойщик, — и каждая была нарисована в своей манере: разный
+ * свет, разная перспектива, разная степень глянца. Шесть таких рядом
+ * читались не набором разделов, а витриной случайных иллюстраций и
+ * спорили со стеклом, поверх которого лежали. Плитку держат цвет и слово.
  *
  * Отдельной вкладкой, а не пунктами в панели: вкладок должно быть столько,
  * сколько экранов открывают каждый день. Прайс правят раз в месяц — ему там
@@ -33,35 +39,34 @@ struct MoreView: View {
                    про точки значит объяснять устройство, которого он не
                    просил. */
                 if session.canSwitch {
-                    wide(.slate, "Իմ մասնաճյուղերը", subtitle, sticker: "sticker-wash.png") {
+                    wide(.slate, "Իմ մասնաճյուղերը", subtitle) {
                         PointsView().navigationTitle("Իմ մասնաճյուղերը")
                     }
                 }
 
                 HStack(spacing: gap) {
-                    tile(.violet, "Օրացույց", "պատմություն", sticker: "sticker-calendar.png") {
+                    tile(.violet, "Օրացույց", "պատմություն") {
                         CalendarView().toolbar(.hidden, for: .navigationBar)
                     }
-                    tile(.teal, "Հաճախորդներ", "ովքեր են վերադառնում", sticker: "sticker-clients.png") {
+                    tile(.teal, "Հաճախորդներ", "ովքեր են վերադառնում") {
                         ClientsView().navigationTitle("Հաճախորդներ")
                     }
                 }
 
                 HStack(spacing: gap) {
-                    tile(.amber, session.tenant?.staffRole ?? "Աշխատակիցներ", "և տոկոսները",
-                         sticker: "sticker-staff.png") {
+                    tile(.amber, session.tenant?.staffRole ?? "Աշխատակիցներ", "և տոկոսները") {
                         StaffView().navigationTitle(session.tenant?.staffRole ?? "Աշխատակիցներ")
                     }
-                    tile(.lime, "Ծառայություններ", "և գները", sticker: "sticker-services.png") {
+                    tile(.lime, "Ծառայություններ", "և գները") {
                         ServicesView().navigationTitle("Ծառայություններ և գներ")
                     }
                 }
 
                 HStack(spacing: gap) {
-                    tile(.slate, "Ծախսեր", "վարձ, ջուր, քիմիա", sticker: "sticker-expenses.png") {
+                    tile(.slate, "Ծախսեր", "վարձ, ջուր, քիմիա") {
                         ExpensesView().navigationTitle("Ծախսեր")
                     }
-                    tile(.slate, "Պրոֆիլ", "անուն, PIN, մուտք", sticker: "sticker-profile.png") {
+                    tile(.slate, "Պրոֆիլ", "անուն, PIN, մուտք") {
                         ProfileView().toolbar(.hidden, for: .navigationBar)
                     }
                 }
@@ -89,33 +94,17 @@ struct MoreView: View {
             : "\(all) մասնաճյուղ · \(closed) սպասում է վճարման"
     }
 
-    /**
-     * Плитка во всю ширину.
-     *
-     * Та же плитка, только ниже и шире: картинка уезжает вправо сильнее,
-     * потому что места по горизонтали втрое больше и прежний вылет
-     * оставил бы её висеть посреди пустоты.
-     */
+    /// Плитка во всю ширину: та же, только ниже, и заголовок крупнее.
     private func wide<D: View>(
         _ tone: Tone,
         _ title: String,
         _ note: String,
-        sticker: String,
         @ViewBuilder destination: @escaping () -> D
     ) -> some View {
         NavigationLink {
             destination()
         } label: {
             ZStack(alignment: .topTrailing) {
-                if let art = UIImage(named: sticker) {
-                    Image(uiImage: art)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 132, height: 132)
-                        .offset(x: 22, y: -6)
-                        .accessibilityHidden(true)
-                }
-
                 VStack(alignment: .leading, spacing: 0) {
                     Spacer(minLength: 0)
                     Text(title)
@@ -127,7 +116,6 @@ struct MoreView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .foregroundStyle(tone.ink)
-                .padding(.trailing, 120)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)
@@ -145,38 +133,18 @@ struct MoreView: View {
      * Настоящее liquid glass, подкрашенное тоном раздела, а не сплошная
      * заливка. Разница здесь не косметическая: стекло преломляет то, что под
      * ним, поэтому шесть плиток подряд перестают быть шестью плоскими
-     * прямоугольниками и получают глубину, в которой картинка лежит, а не
-     * приклеена.
-     *
-     * Картинка садится в правый верхний угол и выходит за край. Обрезка
-     * углом — не небрежность: предмет, срезанный рамкой, читается лежащим в
-     * коробке, а вписанный целиком — наклейкой поверх неё.
+     * прямоугольниками и получают глубину.
      */
     private func tile<D: View>(
         _ tone: Tone,
         _ title: String,
         _ note: String,
-        sticker: String,
         @ViewBuilder destination: @escaping () -> D
     ) -> some View {
         NavigationLink {
             destination()
         } label: {
             ZStack(alignment: .topTrailing) {
-                if let art = UIImage(named: sticker) {
-                    Image(uiImage: art)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 124, height: 124)
-                        /* Наружу только вправо. Вверх нельзя: `interactive()`
-                           на нажатии поджимает форму стекла, а она же
-                           обрезает содержимое — и у мойщика срезало голову.
-                           Правый срез так и задуман: предмет, обрезанный
-                           рамкой, читается лежащим в коробке. */
-                        .offset(x: 26, y: -2)
-                        .accessibilityHidden(true)
-                }
-
                 VStack(alignment: .leading, spacing: 0) {
                     Spacer(minLength: 0)
                     Text(title)
@@ -191,9 +159,6 @@ struct MoreView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .foregroundStyle(tone.ink)
-                // текст не заходит под картинку: длинное «Ծառայություններ»
-                // упиралось прямо в ценники
-                .padding(.trailing, 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)

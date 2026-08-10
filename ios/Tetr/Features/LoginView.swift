@@ -13,6 +13,7 @@ struct LoginView: View {
     @State private var error: String?
     @State private var busy = false
     @FocusState private var focus: Field?
+    @Environment(\.splashActive) private var splashActive
 
     private enum Field { case phone, pin }
 
@@ -113,7 +114,14 @@ struct LoginView: View {
             }
             .padding(.horizontal, 24)
         }
-        .onAppear { focus = .phone }
+        /* Курсор в поле телефона — но не раньше, чем уйдёт заставка:
+           клавиатура рисуется системой поверх всего приложения и закрывала
+           бы ролик снизу. Оба обработчика нужны: экран может появиться и
+           до заставки, и после неё. */
+        .onAppear { if !splashActive { focus = .phone } }
+        .onChange(of: splashActive) { _, active in
+            if !active { focus = .phone }
+        }
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)

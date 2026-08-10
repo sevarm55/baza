@@ -29,6 +29,12 @@ struct TetrApp: App {
 
     @Environment(\.scenePhase) private var phase
 
+    /* Заставка живёт столько же, сколько процесс: возврат из фона `App`
+       не пересоздаёт, поэтому ролик играет один раз за холодный старт и
+       не встречает человека каждый раз, когда он переключился на камеру
+       и вернулся. */
+    @State private var splash = true
+
     init() {
         /* Спиннер «потяни, чтобы обновить» — это UIRefreshControl из UIKit,
            и общий `.tint` приложения его не касается: он остаётся системным
@@ -76,6 +82,19 @@ struct TetrApp: App {
                         break
                     }
                 }
+                /* Поверх всего: проверка сессии идёт своим ходом под
+                   заставкой, и к моменту, когда ролик кончился, приложение
+                   обычно уже знает, кого показывать. */
+                .overlay {
+                    if splash {
+                        LaunchVideoView {
+                            withAnimation(.easeOut(duration: 0.35)) { splash = false }
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                // экраны под заставкой не должны поднимать клавиатуру
+                .environment(\.splashActive, splash)
         }
     }
 }
