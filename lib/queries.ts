@@ -543,6 +543,44 @@ export async function listClients(tenantId: string, limit = 500) {
 }
 
 /**
+ * История одной машины: сам клиент и всё, что он у нас мыл.
+ *
+ * Список клиентов отвечает «кто это и сколько принёс», но следующий
+ * вопрос владельца всегда один и тот же: **что именно он у меня брал**.
+ * Без ответа строка списка — тупик, а сам список превращается в счётчик,
+ * по которому ничего нельзя решить.
+ *
+ * Отменённые записи не показываем: клиент за них не платил, и в его
+ * итоге их нет. Показать их здесь значило бы, что сумма в шапке
+ * перестанет сходиться с лентой под ней.
+ */
+export async function getClientHistory(tenantId: string, key: string, limit = 200) {
+  const [client] = await db
+    .select()
+    .from(clients)
+    .where(and(eq(clients.tenantId, tenantId), eq(clients.key, key)));
+
+  if (!client) return null;
+
+  const rows = await db
+    .select({
+      id: orders.id,
+      createdAt: orders.createdAt,
+      price: orders.price,
+      serviceName: orders.serviceName,
+      payment: orders.payment,
+      staffName: users.name,
+    })
+    .from(orders)
+    .leftJoin(users, eq(users.id, orders.staffId))
+    .where(and(eq(orders.tenantId, tenantId), eq(orders.clientId, client.id), notCanceled))
+    .orderBy(desc(orders.createdAt))
+    .limit(limit);
+
+  return { client, orders: rows };
+}
+
+/**
  * На чём бизнес зарабатывает.
  *
  * Стало возможным только со строками услуг: пока услуга была одна на

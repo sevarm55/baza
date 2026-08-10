@@ -22,6 +22,7 @@ struct ClientsView: View {
     @State private var loaded = false
     @State private var query = ""
     @State private var sort: Sort = .recent
+    @State private var opened: API.Client?
 
     /** Чем упорядочен список.
 
@@ -93,6 +94,10 @@ struct ClientsView: View {
         .background(Brand.board.ignoresSafeArea())
         .task { await reload() }
         .refreshable { await reload() }
+        .sheet(item: $opened) { client in
+            ClientHistoryView(client: client, currency: currency)
+                .environmentObject(session)
+        }
     }
 
     /**
@@ -220,9 +225,11 @@ struct ClientsView: View {
 
             ForEach(items) { client in
                 if lostOnes {
-                    row(client, tone: .amber)
+                    Button { opened = client } label: { row(client, tone: .amber) }
+                        .buttonStyle(.press)
                 } else {
-                    plainRow(client)
+                    Button { opened = client } label: { plainRow(client) }
+                        .buttonStyle(.press)
                     if client.id != items.last?.id {
                         Rectangle()
                             .fill(Brand.boardInk.opacity(0.07))
@@ -252,6 +259,13 @@ struct ClientsView: View {
                 .foregroundStyle(tone.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+
+            /* Шеврон, а не просто нажимаемая строка. Строка без знака
+               выглядит подписью: человек не пробует по ней тапнуть и не
+               узнаёт, что за ней что-то есть. */
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(tone.ink.opacity(0.45))
         }
         .tile(tone, radius: 20, pad: 14)
         .accessibilityElement(children: .combine)
@@ -274,9 +288,14 @@ struct ClientsView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Brand.boardMuted.opacity(0.6))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 11)
+        .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 

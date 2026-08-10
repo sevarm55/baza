@@ -402,6 +402,21 @@ enum API {
         let daysSince: Int
     }
 
+    struct ClientOrder: Decodable, Identifiable {
+        let id: String
+        let createdAt: String
+        let price: Int
+        let serviceName: String
+        let payment: String
+        let staffName: String?
+    }
+
+    /// Одна машина и всё, что она у нас мыла.
+    struct ClientHistory: Decodable {
+        let client: Client
+        let orders: [ClientOrder]
+    }
+
     struct Clients: Decodable {
         let clients: [Client]
     }
