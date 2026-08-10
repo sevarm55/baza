@@ -727,3 +727,253 @@
   padding: 18px 16px 20px;
   color: var(--on-board);
 }
+
+/* ═════════════════════ остальные экраны ═════════════════════
+
+   Во всю ширину и блоками, без колонки посередине.
+
+   Колонка в 1240 посреди монитора — то, как выглядит документ, а не
+   витрина: она говорит «здесь текст, читайте». В образце страница
+   собрана из плит, которые встречаются краями и упираются в края
+   экрана; читается это не как страница, а как предмет. Поле у плиты
+   такое же, как у первого экрана, — иначе разворот и то, что под ним,
+   окажутся из разных наборов. */
+
+.full {
+  padding-inline: clamp(20px, 3.5vw, 44px);
+}
+
+/* ───────── полоса чисел ───────── */
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  border-block: 1.5px solid #12111a;
+}
+
+.stripCell {
+  padding: clamp(28px, 3.5vw, 52px) clamp(18px, 2vw, 32px);
+  border-inline-start: 1.5px solid rgb(18 17 26 / 14%);
+}
+.stripCell:first-child {
+  border-inline-start: 0;
+  padding-inline-start: 0;
+}
+
+.stripValue {
+  font-size: clamp(44px, 6vw, 88px);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+  color: #12111a;
+  font-variant-numeric: tabular-nums;
+}
+.stripUnit {
+  font-size: 0.34em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #5b21b6;
+}
+.stripLabel {
+  margin-top: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: rgb(18 17 26 / 60%);
+  max-width: 26ch;
+}
+
+/* ───────── заголовок раздела ───────── */
+
+.big {
+  margin: 0;
+  padding-block: clamp(44px, 6vw, 96px) clamp(20px, 2.5vw, 36px);
+  font-size: clamp(30px, 5.4vw, 76px);
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #12111a;
+  text-wrap: balance;
+}
+
+/* ───────── плиты рабочего дня ─────────
+
+   Встык, без зазора: зазор превратил бы их в четыре карточки на фоне,
+   а это одна лента, разделённая цветом. Тона те же, которыми в
+   продукте светятся плитки, — витрина и прибор об одном. */
+
+.slabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.slab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(24px, 2.6vw, 40px);
+  min-height: clamp(240px, 26vw, 340px);
+}
+.slabTime {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.slabTitle {
+  margin-top: auto;
+  font-size: clamp(18px, 1.6vw, 23px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+.slabBody {
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+
+/* ───────── витрина продукта ─────────
+
+   Плита во всю ширину и вровень с краями экрана: снимки на светлом
+   полотне выглядели вырезанными и наклеенными, а на своём тёмном —
+   тем, чем являются. */
+
+.showcase {
+  margin-top: clamp(28px, 3.5vw, 52px);
+  padding: clamp(28px, 4vw, 72px) clamp(20px, 3.5vw, 44px);
+  border-radius: 28px;
+  background:
+    radial-gradient(70% 90% at 85% 0%, rgb(215 255 0 / 14%) 0%, transparent 62%),
+    linear-gradient(150deg, #6d28d9 0%, #2e0b66 100%);
+}
+.showcaseGrid {
+  display: grid;
+  gap: clamp(16px, 2vw, 32px);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
+/* ───────── список «и ещё» ─────────
+
+   Строками во всю ширину, с волосяной линией и крупным номером слева.
+   Сеткой карточек это читалось перечнем возможностей, а нужно — списком
+   ответов на вопросы, которые задают. */
+
+.lines {
+  border-top: 1.5px solid #12111a;
+}
+.line2 {
+  display: grid;
+  gap: 6px 24px;
+  padding-block: clamp(20px, 2.2vw, 30px);
+  border-bottom: 1px solid rgb(18 17 26 / 14%);
+}
+@media (min-width: 860px) {
+  .line2 {
+    grid-template-columns: 4rem minmax(0, 22rem) minmax(0, 1fr);
+    align-items: baseline;
+  }
+}
+.lineNum {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgb(18 17 26 / 35%);
+  font-variant-numeric: tabular-nums;
+}
+.lineTitle {
+  font-size: clamp(17px, 1.6vw, 22px);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  color: #12111a;
+}
+.lineBody {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgb(18 17 26 / 62%);
+}
+
+/* ───────── цена ─────────
+
+   Самая громкая плита страницы и последняя: цена — то, чем читатель
+   заканчивает, и прятать её мелким шрифтом в углу значит заставить
+   искать. */
+
+.deal {
+  margin-block: clamp(40px, 5vw, 84px);
+  padding: clamp(28px, 4vw, 68px);
+  border-radius: 28px;
+  background: #12111a;
+  color: #f2f0ec;
+  display: grid;
+  gap: clamp(22px, 3vw, 48px);
+  align-items: end;
+}
+@media (min-width: 900px) {
+  .deal {
+    grid-template-columns: 1fr auto;
+  }
+}
+.dealLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(242 240 236 / 50%);
+}
+.dealValue {
+  margin-top: 12px;
+  font-size: clamp(52px, 9vw, 132px);
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.dealPeriod {
+  margin-top: 14px;
+  font-size: 15px;
+  color: rgb(242 240 236 / 66%);
+}
+.dealSide {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.dealCta {
+  padding: clamp(16px, 1.6vw, 22px) clamp(28px, 3vw, 46px);
+  border: 0;
+  border-radius: 999px;
+  background: #d7ff00;
+  color: #1a1626;
+  font-size: clamp(15px, 1.3vw, 19px);
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s ease;
+}
+.dealCta:hover {
+  filter: brightness(1.06);
+}
+.dealNote {
+  font-size: 13.5px;
+  color: rgb(242 240 236 / 55%);
+}
+
+/* ───────── подвал ───────── */
+
+.bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-block: 34px;
+  border-top: 1.5px solid #12111a;
+  font-size: 13.5px;
+  color: rgb(18 17 26 / 55%);
+}

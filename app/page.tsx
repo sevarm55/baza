@@ -114,98 +114,116 @@ export default async function Home() {
           </aside>
         </section>
 
-        <section className={`${s.container} ${s.line}`}>
-          <div className={s.numbers}>
+        {/* Числа — полосой во всю ширину, между двумя жирными
+            линиями. Тремя карточками они читались тремя утверждениями;
+            полосой читаются одним. */}
+        <section className={s.full}>
+          <div className={s.strip}>
             {L.stats(TRIAL_DAYS).map((stat) => (
-              <div key={stat.label} className={s.number}>
-                <div className={s.numberValue}>
+              <div key={stat.label} className={s.stripCell}>
+                <div className={s.stripValue}>
                   <span className="num">{stat.value}</span>{' '}
-                  <span className={s.numberUnit}>{stat.unit}</span>
+                  <span className={s.stripUnit}>{stat.unit}</span>
                 </div>
-                <div className={s.numberLabel}>{stat.label}</div>
+                <div className={s.stripLabel}>{stat.label}</div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Рабочий день одной лентой. Экраны продукта стоят прямо в ней —
-            там, где о них зашла речь, а не отдельной витриной. */}
-        {/* Рабочий день сеткой, а не лентой: четыре момента видно
-            разом, и человек складывает из них картину сам. Лентой их
-            приходилось листать, а последний — расчёт зарплаты, ради
-            которого сюда и приходят, — оказывался за краем экрана. */}
-        <section className={`${s.container} ${s.band} ${s.line}`}>
-          <h2 className={s.sectionTitle}>{L.dayTitle}</h2>
+        {/* Рабочий день — плитами встык, тонами продукта. Зазор
+            превратил бы их в четыре карточки на фоне, а это одна лента,
+            разделённая цветом. */}
+        <section className={s.full} id="day">
+          <h2 className={s.big}>{L.dayTitle}</h2>
 
-          <div className={s.map}>
-            {L.steps.map((step) => (
-              <div key={step.time} className={s.moment}>
-                <span className={`${s.time} num`}>{step.time}</span>
-                <h3 className={s.momentTitle}>{step.title}</h3>
-                <p className={s.momentBody}>{step.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Экраны продукта — во всю ширину, между рассказом и ценой:
-            показать раньше, чем назвать сумму. */}
-        <section className={`${s.container} ${s.band}`} style={{ paddingTop: 0 }}>
-          <div className={s.map}>
-            <WorkerScreen />
-            <OwnerScreen />
-          </div>
-        </section>
-
-        <section className={`${s.container} ${s.band} ${s.line}`} style={{ paddingTop: 'clamp(40px,5vw,72px)' }}>
-          <div>
-            <h2 className={s.sectionTitle}>{L.moreTitle}</h2>
-
-            <div className={s.moreList}>
-              {more.map((item, i) => (
-                <div key={item.title} className={s.moreItem}>
-                  <span className={`${s.moreNum} num`}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <h3 className={s.moreItemTitle}>{item.title}</h3>
-                  <p className={s.moreBody}>{item.body}</p>
+          <div className={s.slabs}>
+            {L.steps.map((step, i) => {
+              const tone = SLABS[i % SLABS.length];
+              return (
+                <div
+                  key={step.time}
+                  className={s.slab}
+                  style={{ background: tone.bg, color: tone.ink }}
+                >
+                  <span className={`${s.slabTime} num`}>{step.time}</span>
+                  <h3 className={s.slabTitle}>{step.title}</h3>
+                  <p className={s.slabBody}>{step.body}</p>
                 </div>
-              ))}
+              );
+            })}
+          </div>
+
+          {/* Снимки на своей тёмной плите: на светлом полотне они
+              выглядели вырезанными и наклеенными. */}
+          <div className={s.showcase}>
+            <div className={s.showcaseGrid}>
+              <WorkerScreen />
+              <OwnerScreen />
             </div>
           </div>
         </section>
 
-        <section className={`${s.container} ${s.band}`}>
-          <div className={s.price}>
+        {/* «И ещё» — строками во всю ширину. Сеткой карточек это
+            читалось перечнем возможностей, а нужен список ответов на
+            вопросы, которые задают. */}
+        <section className={s.full}>
+          <h2 className={s.big}>{L.moreTitle}</h2>
+
+          <div className={s.lines}>
+            {more.map((item, i) => (
+              <div key={item.title} className={s.line2}>
+                <span className={`${s.lineNum} num`}>{String(i + 1).padStart(2, '0')}</span>
+                <h3 className={s.lineTitle}>{item.title}</h3>
+                <p className={s.lineBody}>{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Цена — самая громкая плита и последняя. */}
+        <section className={s.full} id="price">
+          <div className={s.deal}>
             <div>
-              <p className={s.priceLabel}>{L.priceTitle}</p>
-              <p className={`${s.priceValue} num`}>{formatMoney(PRICE)}</p>
-              <p className={s.pricePeriod}>{L.pricePeriod}</p>
+              <p className={s.dealLabel}>{L.priceTitle}</p>
+              <p className={`${s.dealValue} num`}>{formatMoney(PRICE)}</p>
+              <p className={s.dealPeriod}>{L.pricePeriod}</p>
             </div>
-            <div className={s.priceSide}>
-              <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
+            <div className={s.dealSide}>
+              <AuthTrigger mode="register" niche={niche} className={s.dealCta}>
                 {L.ctaPrimary(TRIAL_DAYS)}
               </AuthTrigger>
-              <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
+              <p className={s.dealNote}>{L.priceNote(TRIAL_DAYS)}</p>
             </div>
           </div>
         </section>
+
+        <footer className={s.full}>
+          <div className={s.bottom}>
+            <span>{L.footer}</span>
+            {/* Обе ссылки обязательны для App Store, но им же и место:
+                единственная страница, куда человек придёт сам, — эта. */}
+            <span className={s.footerLinks}>
+              <Link href="/privacy">{hy.legal.privacy}</Link>
+              <Link href="/support">{hy.legal.support}</Link>
+            </span>
+          </div>
+        </footer>
       </main>
 
-      <footer className={`${s.container} ${s.line}`}>
-        <div className={s.footer}>
-          <span>{L.footer}</span>
-          {/* Обе ссылки обязательны для App Store, но им же и место:
-              единственная страница, куда человек придёт сам, — эта. */}
-          <div className={s.footerLinks}>
-            <Link href="/privacy">{hy.legal.privacy}</Link>
-            <Link href="/support">{hy.legal.support}</Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
+
+/* Тона плит рабочего дня — те же пять, которыми в продукте светятся
+   плитки. Витрина и прибор должны быть об одном: человек, дошедший до
+   кабинета, обязан узнать цвета, которые видел на странице. */
+const SLABS = [
+  { bg: '#5b21b6', ink: '#f2f0ec' },
+  { bg: '#0f766e', ink: '#f2f0ec' },
+  { bg: '#d7ff00', ink: '#1a1626' },
+  { bg: '#12111a', ink: '#f2f0ec' },
+] as const;
 
 /* Знаки первого экрана. Тот же контур 1.5 по сетке 16, что у всех
    значков продукта: витрина говорит громче кабинета, но говорит на его
