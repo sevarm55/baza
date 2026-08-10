@@ -318,7 +318,11 @@ extension Brand {
  * читается набором приборов, а не таблицей ячеек.
  */
 enum Tone {
-    case violet, teal, amber, lime, slate
+    /* Роза и индиго добавлены под сетку разделов: там две плитки подряд
+       выпадали на `slate`, и низ экрана читался одним чёрным прямоугольником
+       на две ячейки. Устройство у них то же, что у остальных, — очень
+       тёмная база и яркое пятно, — поэтому в ряду они не выбиваются. */
+    case violet, teal, amber, lime, slate, rose, indigo
 
     var base: Color {
         switch self {
@@ -327,6 +331,8 @@ enum Tone {
         case .amber: return Color(red: 0x4A / 255, green: 0x22 / 255, blue: 0x0A / 255)
         case .lime: return Brand.lime
         case .slate: return Color(red: 0x22 / 255, green: 0x21 / 255, blue: 0x2A / 255)
+        case .rose: return Color(red: 0x4C / 255, green: 0x0F / 255, blue: 0x2E / 255)
+        case .indigo: return Color(red: 0x12 / 255, green: 0x22 / 255, blue: 0x54 / 255)
         }
     }
 
@@ -338,6 +344,8 @@ enum Tone {
         case .amber: return Color(red: 0xFB / 255, green: 0xBF / 255, blue: 0x24 / 255)
         case .lime: return .white
         case .slate: return Color(red: 0x8B / 255, green: 0x88 / 255, blue: 0xA8 / 255)
+        case .rose: return Color(red: 0xF4 / 255, green: 0x72 / 255, blue: 0xB6 / 255)
+        case .indigo: return Color(red: 0x60 / 255, green: 0xA5 / 255, blue: 0xFA / 255)
         }
     }
 

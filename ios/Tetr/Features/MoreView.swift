@@ -68,10 +68,10 @@ struct MoreView: View {
                 }
 
                 HStack(spacing: gap) {
-                    tile(.slate, "Ծախսեր", "վարձ, ջուր, քիմիա", symbol: "arrow.down.circle.fill") {
+                    tile(.rose, "Ծախսեր", "վարձ, ջուր, քիմիա", symbol: "arrow.down.circle.fill") {
                         ExpensesView().navigationTitle("Ծախսեր")
                     }
-                    tile(.slate, "Պրոֆիլ", "անուն, PIN, մուտք", symbol: "person.crop.circle.fill") {
+                    tile(.indigo, "Պրոֆիլ", "անուն, PIN, մուտք", symbol: "person.crop.circle.fill") {
                         ProfileView().toolbar(.hidden, for: .navigationBar)
                     }
                 }
