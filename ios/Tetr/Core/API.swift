@@ -347,14 +347,38 @@ enum API {
         let count: Int?
     }
 
-    struct PayrollDue: Decodable, Identifiable {
-        let staffId: String?
-        let name: String?
-        let percent: Int
+    struct PayrollDay: Decodable, Identifiable {
+        /// день в часовом поясе мойки, `YYYY-MM-DD`
+        let day: String
         let count: Int
         let revenue: Int
         let earned: Int
+        var id: String { day }
+    }
+
+    struct PayrollDue: Decodable, Identifiable {
+        let staffId: String?
+        let name: String?
+        /// текущая ставка человека — НЕ та, по которой посчитано
+        let percent: Int
+        /* Ставки, по которым деньги посчитаны на самом деле. Каждая
+           запись хранит процент, который стоял в момент записи, поэтому
+           после смены ставки `percent` перестаёт объяснять `earned`.
+           Показывать надо эти две, а вилку — когда они разошлись. */
+        let pctFrom: Int?
+        let pctTo: Int?
+        let count: Int
+        let revenue: Int
+        let earned: Int
+        /// то же неоплаченное, разложенное по дням
+        let days: [PayrollDay]?
         var id: String { staffId ?? "—" }
+
+        /// Ставка строкой: одно число, если не менялась, иначе вилка.
+        var rateLabel: String {
+            guard let from = pctFrom, let to = pctTo else { return "\(percent)%" }
+            return from == to ? "\(from)%" : "\(from)–\(to)%"
+        }
     }
 
     struct Payout: Decodable, Identifiable {

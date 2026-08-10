@@ -160,7 +160,14 @@ struct PayrollView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
-                    Text("\(row.count) \(session.tenant?.unitOne ?? "") · \(money(row.revenue, currency)) · \(row.percent)%")
+                    /* Ставка — та, по которой деньги ПОСЧИТАНЫ, а не та,
+                       что стоит у человека сейчас. Стояла текущая, и
+                       после любой смены процента три числа в строке
+                       переставали перемножаться: «21 մեքենա · 133 500 ֏ ·
+                       20%» и рядом 600 ֏. Сумма верная — старые записи
+                       хранят свой процент, — но на зарплатах такое
+                       читается как обман. */
+                    Text("\(row.count) \(session.tenant?.unitOne ?? "") · \(money(row.revenue, currency)) · \(row.rateLabel)")
                         .font(.system(size: 11.5))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.72))
@@ -179,11 +186,90 @@ struct PayrollView: View {
                     .contentTransition(.numericText(value: Double(row.earned)))
             }
 
+            byDay(row)
+
             holdToSettle(row)
                 .padding(.top, 14)
         }
         .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 16)
         .accessibilityElement(children: .contain)
+    }
+
+    /**
+     * Разбивка по дням под суммой.
+     *
+     * Одна растущая сумма не читается: владелец не понимает, за сегодня
+     * она, за вчера или за месяц, а деньги, которые нельзя разложить на
+     * дни, вызывают ровно тот спор, ради устранения которого продукт и
+     * написан. День закрывается полночью в часовом поясе мойки — считает
+     * сервер, здесь только показываем.
+     *
+     * Дни без начисления сложены в одну строку, длинный хвост платных —
+     * тоже: у владельца, который сам мыл месяц по нулевой ставке,
+     * разбивка выходила в двадцать строк по нулю и хоронила под собой те
+     * два дня, за которые он действительно должен.
+     */
+    @ViewBuilder
+    private func byDay(_ row: API.PayrollDue) -> some View {
+        let all = row.days ?? []
+        if all.count > 1 {
+            let paying = all.filter { $0.earned > 0 }
+            let idle = all.filter { $0.earned == 0 }
+            let shown = Array(paying.prefix(6))
+            let rest = Array(paying.dropFirst(6))
+
+            VStack(spacing: 4) {
+                Divider().overlay(.white.opacity(0.18))
+                    .padding(.bottom, 6)
+
+                ForEach(shown) { d in
+                    dayRow(
+                        left: "\(short(d.day)) · \(d.count) \(session.tenant?.unitOne ?? "")",
+                        right: money(d.earned, currency),
+                        dim: 0.72
+                    )
+                }
+
+                if !rest.isEmpty {
+                    dayRow(
+                        left: "+ \(rest.count) օր",
+                        right: money(rest.reduce(0) { $0 + $1.earned }, currency),
+                        dim: 0.72
+                    )
+                }
+
+                if !idle.isEmpty {
+                    dayRow(
+                        left: "\(idle.count) օր · \(idle.reduce(0) { $0 + $1.count }) \(session.tenant?.unitOne ?? "")",
+                        right: money(0, currency),
+                        dim: 0.5
+                    )
+                }
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    private func dayRow(left: String, right: String, dim: Double) -> some View {
+        HStack(spacing: 8) {
+            Text(left)
+                .foregroundStyle(.white.opacity(dim))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 4)
+            Text(right)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white.opacity(min(1, dim + 0.15)))
+        }
+        .font(.system(size: 12))
+        .monospacedDigit()
+    }
+
+    /// `2026-08-10` → `10.08`. Год не показываем: неоплаченное за год —
+    /// не тот случай, ради которого стоит занимать место в строке.
+    private func short(_ iso: String) -> String {
+        let p = iso.split(separator: "-")
+        return p.count == 3 ? "\(p[2]).\(p[1])" : iso
     }
 
     /**
