@@ -21,11 +21,7 @@ import { useSyncExternalStore } from 'react';
  * произойдёт при нажатии.
  */
 
-const KEY = 'tetr_rail';
-const CLASS = 'rail-tight';
-
-/** Ставит класс до отрисовки. Вызывается из `<head>` строкой. */
-export const RAIL_BOOT = `try{if(localStorage.getItem('${KEY}')==='1')document.documentElement.classList.add('${CLASS}')}catch(e){}`;
+import { RAIL_CLASS as CLASS, RAIL_KEY as KEY } from '@/lib/rail-state';
 
 /* Подписчики на смену состояния. Своё состояние React здесь не держит:
    правда живёт классом на документе, поставленным до отрисовки, и

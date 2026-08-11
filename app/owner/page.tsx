@@ -197,11 +197,16 @@ export default async function TodayPage({
             принёс. Выручку уже назвала полоса наверху; вопрос, который
             остаётся, — кому из неё сколько, и звено «зарплата» из
             цепочки здесь раскладывается по именам. */}
-        <Panel
-          title={hy.owner.onShift}
-          count={crew.length}
-          className="lg:col-span-4 lg:self-start"
-        >
+        {/* Команда и разрез по оплате — одним столбцом рядом с графиком.
+
+            Порознь они стояли в разных рядах: команда наверху рядом с
+            графиком, оплата внизу рядом с лентой. Ряд задаёт высоту по
+            самому высокому в нём, а график высокий — под короткой
+            панелью команды оставалась дыра во весь его рост. Вдвоём они
+            этот рост занимают, а лента уходит вниз во всю ширину: ей
+            там и место, у неё семь колонок. */}
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+        <Panel title={hy.owner.onShift} count={crew.length}>
             {crew.length === 0 ? (
               <Empty />
             ) : (
@@ -240,13 +245,29 @@ export default async function TodayPage({
                 ))}
               </div>
             )}
-        </Panel>
+          </Panel>
+
+          {split.some((x) => x.revenue > 0) && (
+            <Panel title={hy.owner.colPayment}>
+              <PaymentSplit
+                currency={tenant.currency}
+                segments={split
+                  .filter((x) => passesEnabled() || x.payment !== 'pass')
+                  .map((x) => ({
+                    label: paymentLabel(x.payment),
+                    value: x.revenue,
+                    color: PAYMENT_COLORS[x.payment] ?? 'var(--board-muted)',
+                  }))}
+              />
+            </Panel>
+          )}
+        </div>
 
         {/* Лента машин таблицей: на широком экране строка помещается
             целиком, и тогда столбец — единственный способ сравнить
             соседние записи, не читая каждую. На телефоне та же лента
             остаётся списком в две строки. */}
-        <Panel title={hy.owner.feed} count={feed.length} className="lg:col-span-8 lg:self-start">
+        <Panel title={hy.owner.feed} count={feed.length} className="lg:col-span-12 lg:self-start">
           {feed.length === 0 ? (
             <Empty />
           ) : (
@@ -352,32 +373,6 @@ export default async function TodayPage({
           )}
         </Panel>
 
-        {/* Под таблицей и рядом с ней — из чего сложилась цифра и чем
-            платили. Кто намыл, стоит выше, у графика: это вопрос того же
-            взгляда, что и «сколько намыли». */}
-        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
-          {/* Здесь стоял разбор прибыли лестницей: выручка, минус
-              зарплата, минус расходы, итог. Он был нужен, пока наверху
-              висело одно показание выручки. Теперь ровно те же четыре
-              числа и ровно в том же порядке стоят полосой-цепочкой над
-              графиком — панель повторяла их слово в слово, второй раз
-              на том же экране, и держала под собой пустоту в полтысячи
-              пикселей. */}
-          {split.some((s) => s.revenue > 0) && (
-            <Panel title={hy.owner.colPayment}>
-              <PaymentSplit
-                currency={tenant.currency}
-                segments={split
-                  .filter((s) => passesEnabled() || s.payment !== 'pass')
-                  .map((s) => ({
-                    label: paymentLabel(s.payment),
-                    value: s.revenue,
-                    color: PAYMENT_COLORS[s.payment] ?? 'var(--board-muted)',
-                  }))}
-              />
-            </Panel>
-          )}
-        </div>
       </div>
     </>
   );

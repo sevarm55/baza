@@ -1,4 +1,4 @@
-import { RAIL_BOOT } from '@/components/rail-collapse';
+import { RAIL_BOOT } from '@/lib/rail-state';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
