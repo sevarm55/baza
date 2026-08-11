@@ -19,6 +19,8 @@ async function main() {
   const { db } = await import('../lib/db');
   const { sql } = await import('drizzle-orm');
 
+  /* Drizzle возвращает результат по-разному в зависимости от драйвера:
+     где-то это массив, где-то объект с `rows`. Скрипту нужен один вид. */
   const rows = async (q: any) => {
     const r: any = await db.execute(q);
     return (r.rows ?? r) as any[];

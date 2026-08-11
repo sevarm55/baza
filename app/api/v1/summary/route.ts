@@ -1,5 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { keyOf, padSeries } from '@/lib/series';
+import { padSeries } from '@/lib/series';
 import {
   getFeed,
   getPaymentSplit,
