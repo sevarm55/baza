@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import {
   getSettledUntil,
@@ -9,12 +9,23 @@ import {
 } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import { Panel, PersonTile, Reading, Row } from '@/components/board';
+import { Panel } from '@/components/board';
+import { FlowStrip } from '@/components/flow-strip';
 import { PageHead } from '@/components/page-head';
 import { personColor } from '@/lib/person-color';
 import { PayButton } from '@/components/pay-button';
 import { dayMonth } from '@/lib/time';
 
+/**
+ * Зарплаты.
+ *
+ * Пересобрана по тем же правилам, что и сводка: показание одно, приборы
+ * одинакового веса, плотность выше воздуха.
+ *
+ * Порядок чтения задан вопросами, с которыми сюда заходят, а не тем,
+ * что удобнее сверстать: сколько раздать всего → кому именно → на каком
+ * основании → что уже отдано. Первые три помещаются над сгибом.
+ */
 export default async function PayrollPage() {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
@@ -32,195 +43,224 @@ export default async function PayrollPage() {
   const money = (n: number) => formatMoney(n, tenant.currency);
   const due = rows.reduce((sum, r) => sum + r.earned, 0);
   const revenue = rows.reduce((sum, r) => sum + r.revenue, 0);
+  const cars = rows.reduce((sum, r) => sum + r.count, 0);
+  const owing = rows.filter((r) => r.earned > 0).length;
 
-  /* Слева — люди и суммы, справа — итог и история выплат. На телефоне
-     всё это шло подряд, и до истории доходили, пролистав всех
-     сотрудников; на широком экране она стоит рядом и видна сразу. */
   return (
     <>
       <PageHead title={hy.owner.tabPayroll} meta={hy.owner.payrollNote} />
 
-      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-        <div className="lg:col-span-8">
-          {rows.length === 0 ? (
-            <Panel>
-              <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                {hy.owner.nothingDue}
-              </p>
-            </Panel>
-          ) : (
-            /* Плитки людей в два ряда: на широком экране одна плитка на
-               всю ширину растягивает имя и сумму по разным краям
-               монитора, и связь между ними теряется. */
-            <div className="grid gap-[var(--seam)] sm:grid-cols-2">
-              {rows.map((r) => (
-                <PersonTile key={r.staffId ?? 'none'} color={personColor(r.name)}>
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[17px] font-bold">{r.name ?? '—'}</div>
-                      {/* Основание расчёта рядом с суммой, а не спрятано:
-                          это то, чем владелец проверяет цифру, прежде чем
-                          отдать деньги.
+      {/* Полоса той же формы, что на сводке: продукт должен отвечать
+          одинаково на всех своих экранах, иначе каждый раздел приходится
+          читать заново.
 
-                          Ставка здесь — та, по которой деньги ПОСЧИТАНЫ,
-                          а не та, что стоит у человека сейчас. Стояла
-                          текущая, и после любого изменения процента три
-                          числа в строке переставали перемножаться: у
-                          владельца с двадцатью старыми записями по нулю
-                          и одной новой по двадцати выходило «21 машина ·
-                          133 500 ֏ · 20%» и рядом 600 ֏. Сумма верная —
-                          старые записи хранят свой процент, — но читалось
-                          это как ошибка расчёта, а на зарплатах такое
-                          читается как обман.
+          Знаков вычитания здесь нет, и это честно: зарплата — не остаток
+          от выручки, а доля в ней, и «минус» между ними обещал бы
+          арифметику, которой не происходит. Итог всё равно выделен: он
+          и есть то, ради чего сюда заходят. */}
+      <FlowStrip
+        links={[
+          { label: tenant.staffRole, value: String(owing) },
+          { label: tenant.unitOne, value: String(cars) },
+          { label: hy.owner.revenue, value: money(revenue) },
+          { label: hy.owner.toPay, value: money(due), strong: true },
+        ]}
+      />
 
-                          Если ставка за период менялась, показываем
-                          вилку: одно число тут соврало бы в любом случае. */}
-                      <div className="num text-[12px] opacity-75">
-                        {r.count} {tenant.unitOne} · {money(r.revenue)} ·{' '}
-                        {r.pctFrom === r.pctTo
-                          ? `${r.pctFrom ?? r.percent ?? 0}%`
-                          : `${r.pctFrom}–${r.pctTo}%`}
-                      </div>
-                      {settled.has(r.staffId ?? '') && (
-                        <div className="num text-[12px] opacity-60">
-                          {hy.owner.sinceLastPayout}: {shortDate(settled.get(r.staffId ?? ''), tenant.timezone)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="num shrink-0 text-[24px] leading-none font-bold">
-                      {money(r.earned)}
-                    </div>
-                  </div>
-
-                  {/* По дням, а не одной кучей.
-
-                      Одна растущая сумма не читается: у мойщика, которому
-                      не платили неделю, в строке стоит «21 машина», и
-                      владелец не понимает, за что это — за сегодня, за
-                      вчера или за месяц. Деньги, которые нельзя разложить
-                      на дни, вызывают ровно тот спор, ради устранения
-                      которого продукт и написан.
-
-                      День закрывается полночью в часовом поясе мойки, а
-                      не в восемь вечера: час пришлось бы спрашивать у
-                      каждого — одна мойка закрывается в восемь, другая
-                      работает до полуночи, — и любой фиксированный час
-                      разрезал бы чью-нибудь смену пополам. */}
-                  {(() => {
-                    const all = daysOf(r.staffId);
-                    if (all.length < 2) return null;
-
-                    /* Дни без начисления — одной строкой, а не двадцатью.
-                       У владельца, который сам мыл месяц по нулевой
-                       ставке, разбивка выходила в двадцать строк «0 ֏» и
-                       хоронила под собой те два дня, за которые он
-                       действительно должен. Это ровно тот шум, ради
-                       которого разбивку и затевали.
-
-                       Строки не выброшены, а сложены: «18 օր · 0 ֏». Так
-                       машины по дням по-прежнему сходятся с числом в
-                       заголовке, а читать нужно шесть строк, не двадцать. */
-                    const paying = all.filter((d) => d.earned > 0);
-                    const idle = all.filter((d) => d.earned === 0);
-                    const shown = paying.slice(0, 6);
-                    const rest = paying.slice(6);
-
-                    return (
-                      <div className="mt-3 grid gap-1 border-t border-white/15 pt-2.5">
-                        {shown.map((d) => (
-                          <div
-                            key={d.day}
-                            className="num flex items-baseline justify-between gap-2 text-[12.5px]"
-                          >
-                            <span className="opacity-70">
-                              {dayLabel(d.day)} · {d.count} {tenant.unitOne}
-                            </span>
-                            <span className="font-semibold">{money(d.earned)}</span>
-                          </div>
-                        ))}
-
-                        {rest.length > 0 && (
-                          <div className="num flex items-baseline justify-between gap-2 text-[12.5px] opacity-70">
-                            <span>
-                              + {rest.length} {hy.owner.daysShort}
-                            </span>
-                            <span className="font-semibold">
-                              {money(rest.reduce((s, d) => s + d.earned, 0))}
-                            </span>
-                          </div>
-                        )}
-
-                        {idle.length > 0 && (
-                          <div className="num flex items-baseline justify-between gap-2 text-[12.5px] opacity-50">
-                            <span>
-                              {idle.length} {hy.owner.daysShort} ·{' '}
-                              {idle.reduce((s, d) => s + d.count, 0)} {tenant.unitOne}
-                            </span>
-                            <span>{money(0)}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {r.staffId && r.earned > 0 && (
-                    <div className="mt-3.5">
-                      <PayButton staffId={r.staffId} label={hy.owner.markPaid} />
-                    </div>
-                  )}
-                </PersonTile>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
-          {/* Сколько всего раздать сейчас — то, с чем сюда заходят.
-              Раньше владелец складывал строки в уме. */}
+      <div className="mt-[var(--seam)] grid gap-[var(--seam)]">
+        {rows.length === 0 ? (
           <Panel>
-            <Reading
-              caption={`${hy.owner.sinceLastPayout} · ${money(revenue)}`}
-              value={money(due)}
-            />
+            <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+              {hy.owner.nothingDue}
+            </p>
           </Panel>
+        ) : (
+          /* Люди — плоскими карточками в два-три ряда, а не градиентными
+             плитками во всю ширину.
 
-          {history.length > 0 && (
-            <Panel title={hy.owner.payoutHistory} count={history.length}>
-              <div className="board-journal">
-                {history.map((p) => (
-                  <Row key={p.id}>
+             Плитка светилась цветом человека и весила на экране втрое
+             больше всего остального: на странице, где всё содержимое —
+             деньги, самым громким оказывался фон. Цвет остался там, где
+             он работает, — точкой у имени, той же, что в ленте и на
+             смене; вес у карточек теперь одинаковый, и различает их
+             сумма, а не заливка. */
+          <div className="grid gap-[var(--seam)] sm:grid-cols-2 xl:grid-cols-3">
+            {rows.map((r) => (
+              <Panel key={r.staffId ?? 'none'} className="justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ background: personColor(r.name) }}
+                        aria-hidden
+                      />
+                      <span
+                        className="truncate text-[15px] font-semibold"
+                        style={{ color: 'var(--on-board)' }}
+                      >
+                        {r.name ?? '—'}
+                      </span>
+                    </span>
+
                     <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: personColor(p.staffName) }}
-                    />
-                    <span
-                      className="min-w-0 flex-1 truncate text-[15px] font-semibold"
+                      className="num shrink-0 text-[22px] leading-none font-bold tracking-[-0.03em]"
                       style={{ color: 'var(--on-board)' }}
                     >
-                      {p.staffName ?? '—'}
+                      {money(r.earned)}
                     </span>
-                    <span
-                      className="num shrink-0 text-[12px]"
-                      style={{ color: 'var(--board-muted)' }}
-                    >
+                  </div>
+
+                  {/* Основание расчёта рядом с суммой, а не спрятано: это
+                      то, чем владелец проверяет цифру, прежде чем отдать
+                      деньги.
+
+                      Ставка — та, по которой ПОСЧИТАНО, а не та, что
+                      стоит у человека сейчас. После смены процента три
+                      числа переставали перемножаться, и верная сумма
+                      читалась обманом. Менялась за период — показываем
+                      вилку. */}
+                  <div
+                    className="num mt-1.5 text-[12px]"
+                    style={{ color: 'var(--board-muted)' }}
+                  >
+                    {r.count} {tenant.unitOne} · {money(r.revenue)} ·{' '}
+                    {r.pctFrom === r.pctTo
+                      ? `${r.pctFrom ?? r.percent ?? 0}%`
+                      : `${r.pctFrom}–${r.pctTo}%`}
+                    {settled.has(r.staffId ?? '') && (
+                      <>
+                        {' · '}
+                        {hy.owner.sinceLastPayout}{' '}
+                        {shortDate(settled.get(r.staffId ?? ''), tenant.timezone)}
+                      </>
+                    )}
+                  </div>
+
+                  <Breakdown
+                    days={daysOf(r.staffId)}
+                    unit={tenant.unitOne}
+                    money={money}
+                  />
+                </div>
+
+                {r.staffId && r.earned > 0 && (
+                  <div className="mt-4">
+                    <PayButton staffId={r.staffId} label={hy.owner.markPaid} />
+                  </div>
+                )}
+              </Panel>
+            ))}
+          </div>
+        )}
+
+        {/* История — таблицей во всю ширину, а не списком в узкой колонке.
+
+            Она отвечает на вопрос «кому и когда я уже отдавал», и
+            отвечает сравнением строк: даты в столбец, суммы в столбец.
+            В колонке шириной в треть экрана период не помещался и
+            прижимался к имени, из-за чего две соседние выплаты
+            приходилось читать по отдельности. */}
+        {history.length > 0 && (
+          <Panel title={hy.owner.payoutHistory} count={history.length}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>{tenant.staffRole}</th>
+                  <th>{hy.owner.colPeriod}</th>
+                  <th className="end">{hy.owner.colPrice}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ background: personColor(p.staffName) }}
+                          aria-hidden
+                        />
+                        <span className="truncate font-medium">{p.staffName ?? '—'}</span>
+                      </span>
+                    </td>
+                    <td className="num" style={{ color: 'var(--board-muted)' }}>
                       {p.periodFrom.getTime() > 0
                         ? `${shortDate(p.periodFrom, tenant.timezone)} — ${shortDate(p.periodTo, tenant.timezone)}`
                         : `${hy.owner.upTo} ${shortDate(p.periodTo, tenant.timezone)}`}
-                    </span>
-                    <span
-                      className="num shrink-0 text-right text-[15px] font-semibold"
-                      style={{ color: 'var(--on-board)' }}
-                    >
-                      {money(p.amount)}
-                    </span>
-                  </Row>
+                    </td>
+                    <td className="num end font-semibold">{money(p.amount)}</td>
+                  </tr>
                 ))}
-              </div>
-            </Panel>
-          )}
-        </div>
+              </tbody>
+            </table>
+          </Panel>
+        )}
       </div>
     </>
+  );
+}
+
+/**
+ * Разбивка по дням под суммой.
+ *
+ * Одна растущая сумма не читается: у мойщика, которому не платили
+ * неделю, стоит «21 машина», и владелец не понимает, за что это — за
+ * сегодня, за вчера или за месяц. Деньги, которые нельзя разложить на
+ * дни, вызывают ровно тот спор, ради устранения которого продукт и
+ * написан.
+ *
+ * Дни без начисления сложены в одну строку, длинный хвост платных —
+ * тоже: у владельца, который сам мыл месяц по нулевой ставке, разбивка
+ * выходила в двадцать строк «0 ֏» и хоронила под собой те два дня, за
+ * которые он действительно должен.
+ */
+function Breakdown({
+  days,
+  unit,
+  money,
+}: {
+  days: { day: string; count: number; earned: number }[];
+  unit: string;
+  money: (n: number) => string;
+}) {
+  if (days.length < 2) return null;
+
+  const paying = days.filter((d) => d.earned > 0);
+  const idle = days.filter((d) => d.earned === 0);
+  const shown = paying.slice(0, 5);
+  const rest = paying.slice(5);
+
+  const line = (left: string, right: string, dim: number) => (
+    <div
+      key={left}
+      className="num flex items-baseline justify-between gap-2 text-[12px]"
+      style={{ color: 'var(--board-muted)', opacity: dim }}
+    >
+      <span>{left}</span>
+      <span className="font-semibold">{right}</span>
+    </div>
+  );
+
+  return (
+    <div
+      className="mt-3 grid gap-1 pt-2.5"
+      style={{ borderTop: '1px solid var(--hairline)' }}
+    >
+      {shown.map((d) => line(`${dayLabel(d.day)} · ${d.count} ${unit}`, money(d.earned), 1))}
+      {rest.length > 0 &&
+        line(
+          `+ ${rest.length} ${hy.owner.daysShort}`,
+          money(rest.reduce((s, d) => s + d.earned, 0)),
+          1,
+        )}
+      {idle.length > 0 &&
+        line(
+          `${idle.length} ${hy.owner.daysShort} · ${idle.reduce((s, d) => s + d.count, 0)} ${unit}`,
+          money(0),
+          0.6,
+        )}
+    </div>
   );
 }
 
