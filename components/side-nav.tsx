@@ -41,9 +41,13 @@ export function SideNav({ passes }: { passes: boolean }) {
           aria-current={active === s.href ? 'page' : undefined}
           data-pending={pending && active === s.href ? '' : undefined}
           className={`nav-item ${active === s.href ? 'nav-item-on' : ''}`}
+          /* Имя раздела в атрибуте: в свёрнутой колонке подписи нет, и
+             подсказку под курсором рисует CSS из этого значения — без
+             состояния, обработчиков и лишнего клиентского кода. */
+          data-name={s.label}
         >
           <span className="nav-mark">{s.icon}</span>
-          <span className="truncate">{s.label}</span>
+          <span className="rail-hide truncate">{s.label}</span>
         </Link>
       ))}
     </nav>

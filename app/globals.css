@@ -1780,3 +1780,146 @@ input[type='radio'] {
     font-size: 12.5px;
     white-space: nowrap;
   }
+
+  /* ─────────────── свёрнутая боковая колонка ───────────────
+
+     Ширину держит класс на документе, поставленный до отрисовки: React
+     узнал бы о выборе только после гидратации, и колонка успела бы
+     мигнуть развёрнутой. Переход по ширине — 220 мс: столько же, сколько
+     у остальных переключателей продукта, и достаточно, чтобы глаз
+     проследил движение, а не обнаружил новый макет. */
+  :root:has(.rail) { --rail-w: var(--rail); }
+  html.rail-tight { --rail: 68px; }
+
+  .shell,
+  .rail {
+    transition: grid-template-columns 220ms var(--ease), width 220ms var(--ease);
+  }
+
+  /* Подписи гаснут раньше, чем колонка дойдёт до края: текст, ужатый до
+     нечитаемой ширины, выглядит поломкой, а не сворачиванием. */
+  /* Спрятать мало — надо ещё освободить место. Погашенная подпись
+     остаётся коробкой своей ширины и не даёт колонке ужаться: слова
+     не видно, а шестьдесят восемь пикселей всё равно не получаются.
+     Поэтому вместе с прозрачностью схлопывается и ширина. */
+  html.rail-tight .rail-hide {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .rail-hide {
+    max-width: 100%;
+    opacity: 1;
+    white-space: nowrap;
+    transition: opacity 120ms var(--ease), max-width 220ms var(--ease);
+  }
+
+  html.rail-tight .rail {
+    padding-inline: 10px;
+    align-items: center;
+  }
+  html.rail-tight .nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  /* Свёрнутый активный пункт помечен полосой у края, а не заливкой во
+     всю кнопку: заливка в шестьдесят восемь пикселей превращается в
+     квадрат и спорит со значком. */
+  html.rail-tight .nav-item-on {
+    position: relative;
+    background: color-mix(in srgb, var(--board-ink) 10%, transparent);
+    color: var(--on-board);
+  }
+  html.rail-tight .nav-item-on::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -10px;
+    top: 50%;
+    translate: 0 -50%;
+    width: 3px;
+    height: 60%;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-strong);
+  }
+
+  .rail-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: var(--radius-chip);
+    color: var(--board-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .rail-collapse:hover {
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    color: var(--on-board);
+  }
+
+  /* Подсказка у свёрнутого пункта: имя раздела, которого не видно. */
+  html.rail-tight .nav-item::after {
+    content: attr(data-name);
+    position: absolute;
+    inset-inline-start: calc(100% + 12px);
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 30;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--radius-chip);
+    background: var(--on-board);
+    color: var(--board);
+    font-size: 12.5px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms var(--ease);
+  }
+  html.rail-tight .nav-item {
+    position: relative;
+  }
+  html.rail-tight .nav-item:hover::after {
+    opacity: 1;
+  }
+
+  /* Переключатель роли в свёрнутой колонке: от него остаются две точки
+     одна над другой. Подписи там всё равно не поместятся, а сам выбор
+     нужен — владелец на маленькой мойке ходит между половинами продукта
+     по десять раз за смену. */
+  html.rail-tight .rail nav[class*='grid'] {
+    padding: 4px;
+  }
+  html.rail-tight .rail nav[class*='grid'] .nav-item {
+    padding-block: 0.45rem;
+  }
+
+  /* Что ужимается вместе с колонкой.
+
+     Одной ширины мало: содержимое, сверстанное под 244 пикселя, в
+     шестьдесят восемь не влезает и вылезает наружу — марка обрезается
+     по букве, переключатель роли торчит за край. Поэтому каждый блок
+     говорит, во что он превращается. */
+  .rail-brand {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+  }
+  html.rail-tight .rail-brand {
+    width: 26px;
+  }
+
+  /* Переключатель роли — в один столбец: две подписи рядом не помещаются
+     ни при каком кегле, а сам выбор нужен и свёрнутым. */
+  html.rail-tight .rail nav[class*='grid-cols-2'] {
+    grid-template-columns: 1fr;
+  }
+
+  /* Тема и выход — друг под другом, по центру. */
+  html.rail-tight .rail-tools {
+    flex-direction: column;
+    align-items: center;
+  }

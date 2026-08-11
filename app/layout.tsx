@@ -1,3 +1,4 @@
+import { RAIL_BOOT } from '@/components/rail-collapse';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
@@ -78,7 +79,10 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             // тёмная по умолчанию: продукт выглядит так же, как приложение
-            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})()`,
+            /* Тема и ширина колонки ставятся до отрисовки. Оба — выбор
+               человека, которого сервер не знает: примени их после
+               гидратации, и экран мигнёт чужим состоянием. */
+            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})();${RAIL_BOOT}`,
           }}
         />
       </head>

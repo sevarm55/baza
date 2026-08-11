@@ -27,11 +27,27 @@ export function BillingBanner({ access, role }: { access: Access; role: 'owner' 
   // сотруднику про оплату знать незачем — это забота владельца
   if (role !== 'owner') return null;
 
+  /* Фишкой, а не полосой во всю ширину.
+
+     Предупреждение о сроке занимало ленту в шестьдесят пикселей поверх
+     всего экрана — столько же, сколько показание, ради которого кабинет
+     открывают. При этом сказать ему нужно одно короткое предложение, и
+     висит оно там неделями. Полоса такой ширины на второй день
+     перестаёт читаться и просто отнимает верх экрана.
+
+     Срок кончился — другое дело: там доступ уже закрыт, и объяснять
+     надо целым абзацем. Та плашка осталась во всю ширину. */
   return (
-    <div className="mb-3.5 rounded-[var(--radius-sm)] border border-warn-line bg-warn-bg px-3.5 py-2.5 text-[13.5px] text-warn-ink">
-      {access.state === 'trial'
-        ? hy.billing.trialLeft(access.daysLeft)
-        : hy.billing.paidLeft(access.daysLeft)}
+    <div className="mb-2.5 flex">
+      <span className="inline-flex items-center gap-2 rounded-[var(--radius-chip)] border border-warn-line bg-warn-bg px-2.5 py-1.5 text-[12.5px] text-warn-ink">
+        <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
+          <circle cx="8" cy="8" r="5.75" />
+          <path d="M8 5v3.4l2 1.4" />
+        </svg>
+        {access.state === 'trial'
+          ? hy.billing.trialLeft(access.daysLeft)
+          : hy.billing.paidLeft(access.daysLeft)}
+      </span>
     </div>
   );
 }

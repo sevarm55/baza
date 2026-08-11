@@ -5,6 +5,7 @@ import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
 import { SignOutButton } from '@/components/sign-out-button';
 import { SwitchMark } from '@/components/switch-mark';
+import { RailCollapse } from '@/components/rail-collapse';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { Point } from '@/lib/accounts';
 
@@ -40,15 +41,18 @@ export function Rail({
 
   return (
     <aside className="rail">
-      <div className="px-1.5 pb-4">
-        <Link href="/owner" aria-label={hy.app.name}>
+      {/* Марка и кнопка сворачивания одной строкой: кнопка живёт там,
+          где начинается сама колонка, а не внизу среди выхода. */}
+      <div className="flex items-center justify-between gap-2 px-1.5 pb-4">
+        <Link href="/owner" aria-label={hy.app.name} className="rail-brand">
           <Logo size={26} />
         </Link>
+        <RailCollapse labelExpand={hy.common.expand} labelCollapse={hy.common.collapse} />
       </div>
 
       {/* Куда вошли. Название точки крупнее имени: за день оно меняется
           чаще, чем человек за экраном. */}
-      <div className="mb-3 px-1.5">
+      <div className="rail-hide mb-3 px-1.5">
         {many ? (
           <PointSwitcher points={points!} currentId={currentTid!} subtitle={userName} />
         ) : (
@@ -75,7 +79,7 @@ export function Rail({
               <path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
             </svg>
           </span>
-          <span className="truncate">{hy.profile.title}</span>
+          <span className="rail-hide truncate">{hy.profile.title}</span>
         </Link>
 
         {/* Владелец на маленькой мойке моет и сам, поэтому переключение
@@ -125,12 +129,12 @@ export function Rail({
                   }}
                 />
               </span>
-              <span className="relative z-[1] truncate">{tab.label}</span>
+              <span className="rail-hide relative z-[1] truncate">{tab.label}</span>
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-1 px-0.5">
+        <div className="rail-tools flex items-center gap-1 px-0.5">
           <ThemeToggle />
           <SignOutButton />
         </div>
