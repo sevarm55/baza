@@ -73,17 +73,27 @@ export default async function ExpensesPage({
           вычет. */}
       <FlowStrip
         links={[
-          { label: hy.expenses.monthlyOnes, value: money(spentMonthly) },
+          {
+            label: hy.expenses.monthlyOnes,
+            value: money(spentMonthly),
+            /* «В день» стоит под ПОСТОЯННЫМИ, а не под итогом.
+
+               Стояло под итогом — и читалось как «305 000 в день это
+               9 677», хотя разовые в это число не входят вовсе: аренда
+               делится на все дни месяца, а канистра химии остаётся в
+               своём дне целиком. Подпись под чужим числом хуже, чем
+               отсутствие подписи: она не поясняет, а сбивает. */
+            note:
+              spentMonthly > 0
+                ? `${hy.expenses.perDay} ${money(Math.round(spentMonthly / days))}`
+                : undefined,
+          },
           { label: hy.expenses.oneOffs, value: money(spentOneOff), sign: '+' },
           {
             label: hy.owner.expensesTotal,
             value: money(spentMonthly + spentOneOff),
             sign: '=',
             strong: true,
-            note:
-              spentMonthly > 0
-                ? `${hy.expenses.perDay} ${money(Math.round(spentMonthly / days))}`
-                : undefined,
           },
         ]}
       />
