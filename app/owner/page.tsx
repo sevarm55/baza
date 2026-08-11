@@ -187,6 +187,62 @@ export default async function TodayPage({
           <DayChart points={points} currency={tenant.currency} />
         </Panel>
 
+        {/* Команда — рядом с графиком, а не под таблицей.
+
+            Справа от графика была дыра в четыре колонки: лента занимала
+            восемь, и правый столбец уезжал во второй ряд. Пустота на
+            первом экране и есть то, из-за чего сводка «не знает, куда
+            смотреть первым».
+
+            Сумма здесь — заработок человека, а не выручка, которую он
+            принёс. Выручку уже назвала полоса наверху; вопрос, который
+            остаётся, — кому из неё сколько, и звено «зарплата» из
+            цепочки здесь раскладывается по именам. */}
+        <Panel
+          title={hy.owner.onShift}
+          count={crew.length}
+          className="lg:col-span-4 lg:self-start"
+        >
+            {crew.length === 0 ? (
+              <Empty />
+            ) : (
+              <div className="board-journal">
+                {crew.map((s) => (
+                  <Row key={s.staffId ?? 'none'}>
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{
+                        background: s.present ? personColor(s.name) : 'transparent',
+                        boxShadow: s.present
+                          ? 'none'
+                          : `inset 0 0 0 1.5px ${personColor(s.name)}`,
+                      }}
+                      aria-label={s.present ? hy.owner.onShiftNow : undefined}
+                    />
+                    <span
+                      className="min-w-0 flex-1 truncate text-[15px] font-semibold"
+                      style={{ color: 'var(--on-board)' }}
+                    >
+                      {s.name ?? '—'}
+                    </span>
+                    <span
+                      className="num shrink-0 text-[13.5px]"
+                      style={{ color: 'var(--board-muted)' }}
+                    >
+                      {s.count} {tenant.unitOne}
+                    </span>
+                    <span
+                      className="num shrink-0 text-right text-[15px] font-semibold"
+                      style={{ color: 'var(--on-board)' }}
+                    >
+                      {money(s.earned)}
+                    </span>
+                  </Row>
+                ))}
+              </div>
+            )}
+        </Panel>
+
         {/* Лента машин таблицей: на широком экране строка помещается
             целиком, и тогда столбец — единственный способ сравнить
             соседние записи, не читая каждую. На телефоне та же лента
@@ -212,10 +268,7 @@ export default async function TodayPage({
                       >
                         {/* имя цветом человека: «кто помыл» читается по
                             цвету, до чтения строки */}
-                        <span
-                          className="font-semibold"
-                          style={{ color: personColor(o.staffName) }}
-                        >
+                        <span className="font-semibold" style={{ color: personColor(o.staffName) }}>
                           {o.staffName ?? '—'}
                         </span>{' '}
                         · {o.serviceName} · {paymentLabel(o.payment)}
@@ -259,16 +312,28 @@ export default async function TodayPage({
                     {feed.map((o) => (
                       <tr key={o.id}>
                         <td className="num font-semibold">{o.clientKey ?? '—'}</td>
+                        {/* Точка перед именем — тот же цвет человека, что
+                            в списке смены и на плитке зарплаты. В таблице
+                            из сорока строк по ней видно, кто мыл, до
+                            чтения имени: цвет читается раньше слова. */}
                         <td>
-                          <span
-                            className="font-semibold"
-                            style={{ color: personColor(o.staffName) }}
-                          >
-                            {o.staffName ?? '—'}
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{ background: personColor(o.staffName) }}
+                              aria-hidden
+                            />
+                            <span className="truncate font-medium">{o.staffName ?? '—'}</span>
                           </span>
                         </td>
                         <td style={{ color: 'var(--board-muted)' }}>{o.serviceName}</td>
-                        <td style={{ color: 'var(--board-muted)' }}>{paymentLabel(o.payment)}</td>
+                        {/* Способ оплаты меткой, а не словом в ряду с
+                            остальными: наличные и карта — это не описание
+                            услуги, а признак записи, и раздельно они
+                            пересчитываются глазами быстрее. */}
+                        <td>
+                          <span className="tag">{paymentLabel(o.payment)}</span>
+                        </td>
                         <td className="num end font-semibold">{money(o.price)}</td>
                         <td className="num end" style={{ color: 'var(--board-muted)' }}>
                           {o.staffPercent > 0 ? money(staffShare(o.price, o.staffPercent)) : '—'}
@@ -288,50 +353,10 @@ export default async function TodayPage({
           )}
         </Panel>
 
-        {/* Правая колонка объясняет цифру: кто её намыл, из чего она
-            сложилась и чем платили. */}
+        {/* Под таблицей и рядом с ней — из чего сложилась цифра и чем
+            платили. Кто намыл, стоит выше, у графика: это вопрос того же
+            взгляда, что и «сколько намыли». */}
         <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
-          <Panel title={hy.owner.onShift} count={crew.length}>
-            {crew.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="board-journal">
-                {crew.map((s) => (
-                  <Row key={s.staffId ?? 'none'}>
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{
-                        background: s.present ? personColor(s.name) : 'transparent',
-                        boxShadow: s.present
-                          ? 'none'
-                          : `inset 0 0 0 1.5px ${personColor(s.name)}`,
-                      }}
-                      aria-label={s.present ? hy.owner.onShiftNow : undefined}
-                    />
-                    <span
-                      className="min-w-0 flex-1 truncate text-[15px] font-semibold"
-                      style={{ color: 'var(--on-board)' }}
-                    >
-                      {s.name ?? '—'}
-                    </span>
-                    <span
-                      className="num shrink-0 text-[13.5px]"
-                      style={{ color: 'var(--board-muted)' }}
-                    >
-                      {s.count} {tenant.unitOne}
-                    </span>
-                    <span
-                      className="num shrink-0 text-right text-[15px] font-semibold"
-                      style={{ color: 'var(--on-board)' }}
-                    >
-                      {money(s.revenue)}
-                    </span>
-                  </Row>
-                ))}
-              </div>
-            )}
-          </Panel>
-
           {/* Разбор прибыли лестницей — строка на каждый вычет. Так
               устроен отчёт у всех бухгалтерских продуктов, и так
               владелец видит, где деньги ушли, а не только сколько
