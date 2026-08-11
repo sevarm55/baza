@@ -15,7 +15,6 @@ import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
-import { Profit } from '@/components/profit';
 import { Panel, Row } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
 import { PageHead } from '@/components/page-head';
@@ -357,22 +356,13 @@ export default async function TodayPage({
             платили. Кто намыл, стоит выше, у графика: это вопрос того же
             взгляда, что и «сколько намыли». */}
         <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
-          {/* Разбор прибыли лестницей — строка на каждый вычет. Так
-              устроен отчёт у всех бухгалтерских продуктов, и так
-              владелец видит, где деньги ушли, а не только сколько
-              осталось. */}
-          <Panel title={hy.owner.profitBreakdown}>
-            <Profit
-              revenue={stats.revenue}
-              payroll={stats.payroll}
-              oneOff={costs.oneOff}
-              monthlyShare={costs.monthlyShare}
-              profit={profit}
-              daily={period.key === 'today'}
-              money={money}
-            />
-          </Panel>
-
+          {/* Здесь стоял разбор прибыли лестницей: выручка, минус
+              зарплата, минус расходы, итог. Он был нужен, пока наверху
+              висело одно показание выручки. Теперь ровно те же четыре
+              числа и ровно в том же порядке стоят полосой-цепочкой над
+              графиком — панель повторяла их слово в слово, второй раз
+              на том же экране, и держала под собой пустоту в полтысячи
+              пикселей. */}
           {split.some((s) => s.revenue > 0) && (
             <Panel title={hy.owner.colPayment}>
               <PaymentSplit

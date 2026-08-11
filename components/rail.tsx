@@ -102,15 +102,16 @@ export function Rail({
         >
           {(
             [
-              { href: '/work', key: 'work', label: hy.roles.staff },
-              { href: '/owner', key: 'owner', label: hy.roles.owner },
+              { href: '/work', key: 'work', label: hy.roles.staff, icon: <IconSpray /> },
+              { href: '/owner', key: 'owner', label: hy.roles.owner, icon: <IconBoard /> },
             ] as const
           ).map((tab) => (
             <Link
               key={tab.key}
               href={tab.href}
               aria-current={active === tab.key ? 'page' : undefined}
-              className="nav-item relative !rounded-[7px]"
+              className="nav-item relative !rounded-[9px]"
+              data-name={tab.label}
               style={
                 active === tab.key
                   ? { color: 'var(--board)', fontWeight: 600 }
@@ -118,16 +119,12 @@ export function Rail({
               }
             >
               {active === tab.key && <SwitchMark id="rail-role" />}
-              {/* Точка вместо значка: у разделов значок говорит «что это»,
-                  здесь достаточно сказать «ты тут». */}
+              {/* Значок, а не точка. Развёрнутой колонке хватало точки —
+                  рядом стояло слово. Свёрнутой не хватает: две точки
+                  одна над другой не говорят ничего, и человек не
+                  понимает, между чем переключается. */}
               <span className="nav-mark relative z-[1] items-center" aria-hidden>
-                <span
-                  className="size-1.5 rounded-full"
-                  style={{
-                    background: 'currentColor',
-                    opacity: active === tab.key ? 1 : 0.35,
-                  }}
-                />
+                {tab.icon}
               </span>
               <span className="rail-hide relative z-[1] truncate">{tab.label}</span>
             </Link>
@@ -140,5 +137,24 @@ export function Rail({
         </div>
       </div>
     </aside>
+  );
+}
+
+/* Знаки половин продукта: пистолет мойщика и табло владельца. Тот же
+   контур 1.5 по сетке 16, что у разделов выше. */
+function IconSpray() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h4l3-2v6l-3-2H3z" />
+      <path d="M12 5.5v5M14 7v2" />
+    </svg>
+  );
+}
+
+function IconBoard() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 13V9M6.33 13V4M9.67 13V7M13 13v-2.5" />
+    </svg>
   );
 }

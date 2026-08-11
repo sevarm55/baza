@@ -1816,31 +1816,41 @@ input[type='radio'] {
   }
 
   html.rail-tight .rail {
-    padding-inline: 10px;
-    align-items: center;
+    padding-inline: 12px;
   }
+
+  /* Цель — квадрат сорок на сорок по центру колонки.
+
+     Была растянутая кнопка во всю ширину с текстом нулевой ширины
+     внутри: снаружи она выглядела сплющенным прямоугольником, значок в
+     ней стоял не по центру, а там, где кончилось поле. Квадрат ставится
+     по центру сам и не зависит от того, что внутри. */
   html.rail-tight .nav-item {
+    width: 40px;
+    height: 40px;
+    margin-inline: auto;
+    padding: 0;
     justify-content: center;
-    padding-inline: 0;
+    border-radius: 10px;
   }
-  /* Свёрнутый активный пункт помечен полосой у края, а не заливкой во
-     всю кнопку: заливка в шестьдесят восемь пикселей превращается в
-     квадрат и спорит со значком. */
+  html.rail-tight .nav-mark {
+    width: auto;
+  }
+
+  /* Активный — той же светлой заливкой, что и в развёрнутой колонке.
+     Полоска у края читалась отдельной деталью, висящей рядом с кнопкой:
+     свёрнутая колонка узкая, и любой второй знак в ней спорит со
+     значком. Заливка говорит то же самое и ничего не добавляет. */
   html.rail-tight .nav-item-on {
-    position: relative;
-    background: color-mix(in srgb, var(--board-ink) 10%, transparent);
-    color: var(--on-board);
+    background: var(--on-board);
+    color: var(--board);
   }
-  html.rail-tight .nav-item-on::before {
-    content: '';
-    position: absolute;
-    inset-inline-start: -10px;
-    top: 50%;
-    translate: 0 -50%;
-    width: 3px;
-    height: 60%;
-    border-radius: 0 3px 3px 0;
-    background: var(--accent-strong);
+
+  /* Жёлоб переключателя ролей ужимается до тех же сорока. */
+  html.rail-tight .rail nav[class*='grid'] {
+    width: 46px;
+    margin-inline: auto;
+    padding: 3px;
   }
 
   .rail-collapse {
