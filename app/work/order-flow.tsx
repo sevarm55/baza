@@ -17,6 +17,7 @@ import {
   type QueuedOrder,
 } from '@/lib/offline';
 import type { Payment } from '@/lib/orders';
+import { hhmm } from '@/lib/time';
 
 type Service = { id: string; name: string; price: number };
 type Recent = {
@@ -59,6 +60,7 @@ export function OrderFlow({
   addLabel,
   percent,
   recent,
+  timezone,
 }: {
   canWrite: boolean;
   services: Service[];
@@ -68,6 +70,11 @@ export function OrderFlow({
   addLabel: string;
   percent: number;
   recent: Recent[];
+  /* Часовой пояс мойки приходит пропом, а не берётся из браузера. Иначе
+     время записи меняется прямо на глазах: сервер собирает HTML в своей
+     зоне, гидратация пересчитывает его в зоне телефона, и «00:17»
+     мигает через «20:17». */
+  timezone: string;
 }) {
   const [step, setStep] = useState<Step>('home');
   const [clientKey, setClientKey] = useState('');
@@ -223,7 +230,7 @@ export function OrderFlow({
                     className="num block text-[12px]"
                     style={{ color: 'var(--board-muted)' }}
                   >
-                    {hhmm(new Date(q.at).toISOString())}
+                    {hhmm(q.at, timezone)}
                   </span>
                 </span>
               </Row>
@@ -242,7 +249,7 @@ export function OrderFlow({
                       className="block truncate text-[12.5px]"
                       style={{ color: 'var(--board-muted)' }}
                     >
-                      {paymentLabel(o.payment)} · {hhmm(o.at)}
+                      {paymentLabel(o.payment)} · {hhmm(o.at, timezone)}
                     </span>
                   </span>
                   <span className="num shrink-0 text-[14px] font-semibold">
@@ -435,11 +442,6 @@ function paymentLabel(p: string): string {
   if (p === 'card') return hy.payment.card;
   if (p === 'pass') return hy.payment.pass;
   return hy.payment.transfer;
-}
-
-function hhmm(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function agoLabel(iso: string): string {

@@ -9,6 +9,7 @@ import {
   startOfDay,
 } from '@/lib/queries';
 import { windowFor } from '@/lib/summary-window';
+import { hhmm } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
@@ -221,7 +222,7 @@ export default async function TodayPage({
                         style={{ color: 'var(--board-muted)' }}
                       >
                         {o.staffPercent > 0 && <>{money(staffShare(o.price, o.staffPercent))} · </>}
-                        {hhmm(o.createdAt)}
+                        {hhmm(o.createdAt, tenant.timezone)}
                       </span>
                     </span>
                     <CancelOrderButton orderId={o.id} />
@@ -262,7 +263,7 @@ export default async function TodayPage({
                           {o.staffPercent > 0 ? money(staffShare(o.price, o.staffPercent)) : '—'}
                         </td>
                         <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                          {hhmm(o.createdAt)}
+                          {hhmm(o.createdAt, tenant.timezone)}
                         </td>
                         <td className="end">
                           <CancelOrderButton orderId={o.id} />
@@ -440,17 +441,9 @@ function buildPoints(
   return points;
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
 function paymentLabel(p: string): string {
   if (p === 'cash') return hy.payment.cash;
   if (p === 'card') return hy.payment.card;
   if (p === 'pass') return hy.payment.pass;
   return hy.payment.transfer;
-}
-
-function hhmm(d: Date): string {
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

@@ -3,19 +3,27 @@ import SwiftUI
 /**
  * Кабинет владельца — вариант «Տաբլո».
  *
- * Приборное табло, а не список карточек. Три вещи делают его непохожим на
- * всё, что было раньше:
+ * Приборное табло, а не список карточек. Экран отвечает на шесть вопросов
+ * в том порядке, в каком их задают: сколько мне осталось → сколько принесли
+ * → сколько ушло людям и на расходы → сколько машин → что было последним.
+ * Всё, что не отвечает ни на один из них, отсюда убрано.
  *
- * 1. **Композиция по центру.** Главная цифра стоит по оси экрана, а не по
- *    левому краю: подпись над ней, единица под ней. Это осевая симметрия
- *    прибора, и она сама по себе читается «показание», а не «строка
- *    отчёта».
- * 2. **Волна вместо графика.** Ход периода — одна тонкая линия прямо под
- *    цифрой, без осей, рамки и подписей. Она не отвечает «сколько в 11:00»,
- *    она отвечает «ровно шёл день или рывками», и на это хватает линии.
- * 3. **Сетка мелких плиток.** Каждая плитка — ровно один показатель со
- *    своим градиентом. Ни одна не повторяет главную цифру: то, что стоит
- *    наверху, внизу не появляется.
+ * 1. **Показание, а не карточка.** Главная цифра стоит по оси экрана, без
+ *    подложки и рамки: осевая симметрия прибора читается «показание»
+ *    раньше, чем прочитано слово над ней.
+ * 2. **Вычитание под цифрой.** `886 300 − 122 419 − 335 882 = 427 999`.
+ *    Это единственная строка на экране, которая объясняет, ОТКУДА взялось
+ *    главное число, — раньше владелец сверял его с плитками сам и не
+ *    всегда сходился. Мелким и приглушённым: смотрят на неё раз в неделю,
+ *    но когда смотрят — она отвечает целиком.
+ * 3. **График низкий и подписанный.** Ход периода — линия в 60 точек с
+ *    подписями времени и лаймовыми точками там, где были деньги. Прежняя
+ *    волна занимала столько же места, но не говорила, когда именно; без
+ *    оси она отвечала только «ровно или рывками».
+ * 4. **Плитки одного ДНК.** Тон, два источника света, кромка стекла,
+ *    крупный полупрозрачный знак и лаймовая засечка — те же, что на экране
+ *    разделов, из общего `AuroraSurface`. Одна плитка — один показатель, и
+ *    ни одна не повторяет цифру наверху.
  */
 struct OwnerView: View {
     @EnvironmentObject private var session: Session
@@ -38,11 +46,11 @@ struct OwnerView: View {
 
     private let periods = [("today", "Այսօր"), ("month", "Այս ամիս"), ("prevmonth", "Անցյալ ամիս")]
 
-    private let gap: CGFloat = 10
+    private let gap: CGFloat = 12
 
     var body: some View {
         ScrollView {
-            VStack(spacing: gap) {
+            VStack(alignment: .leading, spacing: 0) {
                 if let failure {
                     // Нули вместо выручки — худшее, что может показать этот
                     // экран: неверные данные выглядят как верные, и владелец
@@ -55,7 +63,7 @@ struct OwnerView: View {
                     journal(s.feed)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -82,10 +90,18 @@ struct OwnerView: View {
     // ══════════════════════════ верхняя строка ══════════════════════════
 
     /**
-     * Период — ряд чипов, обновление — кружок справа.
+     * Период — ряд плашек, обновление — кружок справа.
      *
      * Ряд стоит на самом табло, без подложки и без карточки: это органы
      * прибора, а не панель над содержимым.
+     *
+     * Плашки прямоугольные со скруглением 11, а не капсулы: капсул в
+     * продукте нет нигде — ни на кнопках, ни на полях, ни на вкладках.
+     * Острая форма про точность, а этот экран про деньги.
+     *
+     * Невыбранные — тёплый серый, а не нейтральный: полотно табло тёплое,
+     * и холодный серый чип на нём выглядит вырезанным из чужого
+     * интерфейса.
      */
     private var chips: some View {
         HStack(spacing: 6) {
@@ -96,10 +112,10 @@ struct OwnerView: View {
                 } label: {
                     Text(label)
                         .font(.system(size: 13, weight: .semibold))
-                        /* Выбранный чип залит чернилами табло, поэтому текст
-                           на нём — цвет самого табло. `onBoard` здесь брать
-                           нельзя: он тех же чернил, и надпись пропадала
-                           начисто. */
+                        /* Выбранная плашка залита чернилами табло, поэтому
+                           текст на ней — цвет самого табло. `onBoard` здесь
+                           брать нельзя: он тех же чернил, и надпись
+                           пропадала начисто. */
                         .foregroundStyle(period == key ? Brand.board : Brand.boardMuted)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
@@ -107,15 +123,16 @@ struct OwnerView: View {
                         .padding(.vertical, 9)
                         .frame(minHeight: 38)
                         .background {
+                            let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
                             if period == key {
-                                Capsule()
+                                shape
                                     .fill(Brand.boardInk)
                                     .matchedGeometryEffect(id: "period", in: pill)
                             } else {
-                                Capsule().fill(Brand.boardInk.opacity(0.07))
+                                shape.fill(Brand.chipRest)
                             }
                         }
-                        .contentShape(Capsule())
+                        .contentShape(.rect(cornerRadius: 11))
                 }
                 .buttonStyle(.plain)
             }
@@ -129,7 +146,7 @@ struct OwnerView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+                    .background(Brand.chipRest, in: .circle)
                     // вращение и есть видимый признак «идёт запрос»
                     .rotationEffect(.degrees(loading && !reduceMotion ? 360 : 0))
                     .animation(
@@ -141,7 +158,7 @@ struct OwnerView: View {
             }
             .accessibilityLabel("Թարմացնել")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .top))
     }
@@ -159,19 +176,19 @@ struct OwnerView: View {
         VStack(spacing: 0) {
             HStack(spacing: 7) {
                 Text(periodDates)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
                     .contentTransition(.numericText())
-                crewDots
+                crewChip
             }
-            .foregroundStyle(Brand.boardMuted)
-            .padding(.top, 10)
+            .padding(.top, 4)
 
             Text(profitTitle)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6)
+                .padding(.top, 8)
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
                Убыток жёлтым, не красным — красный в продукте значит
@@ -182,14 +199,63 @@ struct OwnerView: View {
                 .foregroundStyle(s.profit < 0 ? Brand.warnOnBoard : Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
-                .padding(.top, 2)
+                .padding(.top, 1)
                 // значение передаётся внутрь: по нему система понимает, в
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(s.profit)))
 
+            breakdown(s)
             change
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /**
+     * Откуда взялось главное число: приход минус расходы минус доля людей.
+     *
+     * Единственная строка на экране, которую можно проверить арифметикой.
+     * Раньше её не было вовсе: три слагаемых лежали по разным плиткам, и
+     * чтобы понять, почему осталось именно столько, владелец складывал их
+     * сам — а половина ошибок доверия к продукту начинается ровно здесь,
+     * с «а почему так мало».
+     *
+     * Порядок тот же, в каком человек считает вслух: сколько принесли,
+     * сколько отдал, сколько вышло. Знак минуса настоящий, U+2212 —
+     * дефис между разрядами читается частью числа.
+     *
+     * Валюта только у результата: четыре значка ֏ в одной строке
+     * превращают вычитание в список сумм.
+     */
+    @ViewBuilder
+    private func breakdown(_ s: API.Summary) -> some View {
+        // Считать нечего: без прихода и расходов строка «0 − 0 = 0» это шум.
+        if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
+            /* Минус у результата тоже настоящий, U+2212. Через `money()` он
+               приходил дефисом, и в строке из трёх настоящих минусов
+               четвёртый выпадал коротким штрихом. */
+            Text(
+                "\(plain(s.stats.revenue)) − \(plain(s.costs.total)) − \(plain(s.stats.payroll)) = "
+                + (s.profit < 0 ? "−" : "") + money(abs(s.profit), currency)
+            )
+            .font(.system(size: 12))
+            .monospacedDigit()
+            .foregroundStyle(Brand.boardMuted)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.top, 4)
+            .accessibilityLabel(
+                "Հասույթ \(plain(s.stats.revenue)), ծախս \(plain(s.costs.total)),"
+                + " աշխատակիցներին \(plain(s.stats.payroll)), մնում է \(money(s.profit, currency))"
+            )
+        }
+    }
+
+    /// Число без валюты — для строки вычитания.
+    private func plain(_ amount: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "\u{202F}"
+        return f.string(from: NSNumber(value: amount)) ?? "\(amount)"
     }
 
     /**
@@ -213,57 +279,101 @@ struct OwnerView: View {
                 Text(c.diff)
                     .font(.system(size: 12.5, weight: .bold))
                     .monospacedDigit()
-                Text(c.base)
+                /* С ЧЕМ сравнили, а не «сколько было тогда». Раньше рядом
+                   стояло второе число — база, — и оно ничего не объясняло:
+                   два числа подряд без подписи читаются как ошибка. Слово
+                   отвечает на единственный вопрос, который тут возникает, —
+                   «по сравнению с чем». */
+                Text(c.label)
                     .font(.system(size: 12))
-                    .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.warnOnBoard)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(Brand.boardInk.opacity(0.07), in: .capsule)
-            .padding(.top, 8)
+            .background(Brand.chipRest, in: .rect(cornerRadius: 9))
+            .padding(.top, 9)
         }
     }
 
     /**
-     * Кто сейчас на площадке — точками рядом с датой.
+     * Кто сейчас на площадке — тёмной плашкой рядом с датой.
      *
      * Это не то же самое, что «работал сегодня»: человек мог встать час
      * назад и ещё ничего не намыть — по записям его не видно вовсе, а на
      * мойке он стоит.
+     *
+     * Плашка графитовая, и это не украшение. Лаймовая точка «сейчас на
+     * смене» по светлому полотну даёт контраст 1.06 — её там просто нет.
+     * Собственный тёмный фон — единственный способ пустить фирменный лайм
+     * в верх экрана; заодно плашка сама по себе читается органом
+     * управления, а не подписью, и по ней понятно, что сюда можно нажать.
+     *
+     * Ведёт к работникам: вопрос «кто на смене» и вопрос «а сколько он у
+     * меня получает» задают подряд.
      */
     @ViewBuilder
-    private var crewDots: some View {
+    private var crewChip: some View {
         if let present = summary?.onShift, !present.isEmpty {
-            HStack(spacing: 4) {
-                Text("·")
-                ForEach(present) { person in
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(Brand.person(person.name))
-                            .frame(width: 6, height: 6)
-                        Text(person.name)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Brand.person(person.name))
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(person.name) հերթափոխին \(since(person.openedAt))")
+            NavigationLink {
+                StaffView().navigationTitle(session.tenant?.staffRole ?? "Աշխատակիցներ")
+            } label: {
+                HStack(spacing: 5) {
+                    // единственный настоящий кружок в продукте: точка
+                    // состояния, а не форма
+                    Circle()
+                        .fill(Brand.lime)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: Brand.lime.opacity(0.6), radius: 3)
+
+                    Text(present.map(\.name).joined(separator: ", "))
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.5))
                 }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Tone.slate.base, in: .rect(cornerRadius: 9))
             }
+            .buttonStyle(.press)
+            .accessibilityLabel(
+                present.map { "\($0.name) հերթափոխին \(since($0.openedAt))" }.joined(separator: ", ")
+            )
         }
     }
 
     // ══════════════════════════ волна ══════════════════════════
 
     /**
-     * Ход периода — одна линия без осей, рамки и подписей.
+     * Ход периода — низкая линия с подписями времени.
      *
      * Она не отвечает «сколько было в одиннадцать»: для этого есть журнал
-     * внизу. Она отвечает на другой вопрос, которого в продукте не было
-     * вовсе, — ровно шёл день или рывками, и когда пришёл главный заезд. На
-     * это хватает линии, а тринадцать столбиков занимали треть экрана ради
-     * того же самого.
+     * внизу. Она отвечает на два других вопроса — ровно шёл день или
+     * рывками и когда пришёл главный заезд.
+     *
+     * Прежняя волна занимала столько же места, но висела без единой
+     * подписи: без оси линия говорит только «ровно или рывками», а «когда»
+     * приходилось угадывать по положению точки. Четыре подписи под ней
+     * стоят тринадцать точек высоты и снимают вопрос целиком.
+     *
+     * Подписи берутся из самих данных, а не прибиты к 08:00–20:00: ряд
+     * начинается с первой записи смены, и у мойки, открывающейся в семь,
+     * фиксированная сетка врала бы на час.
+     *
+     * Лаймовые точки там, где были деньги. Это и есть «сделки»: между ними
+     * линия лежит на нуле, и без точек не видно, две это помывки или
+     * двадцать. На длинном ряде точки гасятся — тридцать лаймовых пятен на
+     * месяце это уже не акцент, а сыпь; остаётся одна, на пике.
+     *
+     * Заливка под линией слабая, до полной прозрачности: она даёт графику
+     * низ, иначе линия в 60 точек читается царапиной на полотне.
      */
     @ViewBuilder
     private func wave(_ series: [API.SeriesPoint]) -> some View {
@@ -271,34 +381,111 @@ struct OwnerView: View {
             let peak = max(1, series.map(\.revenue).max() ?? 1)
             let peakIndex = series.firstIndex(where: { $0.revenue == peak }) ?? 0
             let values = series.map { Double($0.revenue) / Double(peak) }
+            let live = series.indices.filter { series[$0].revenue > 0 }
+            let marks = live.count <= 10 ? live : [peakIndex]
 
-            VStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(chartTitle)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(Brand.boardMuted)
+                    Spacer(minLength: 0)
+                    /* Пик подписью, а не догадкой по картинке. Со словом,
+                       а не голыми «07 · 146 500 ֏»: два числа через точку
+                       в углу графика каждый прочитает по-своему, и чаще
+                       всего — как итог за период. */
+                    Text("ամենաշատը՝ \(axis(series[peakIndex])) · \(money(peak, currency))")
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                }
+
                 GeometryReader { geo in
                     let pts = points(values, in: geo.size)
                     ZStack(alignment: .topLeading) {
+                        Wave(points: pts, closedTo: geo.size.height)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Brand.onBoard.opacity(0.13), Brand.onBoard.opacity(0)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                         Wave(points: pts)
                             .stroke(
-                                Brand.onBoard.opacity(0.55),
+                                Brand.onBoard.opacity(0.62),
                                 style: .init(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
                             )
-                        if pts.indices.contains(peakIndex) {
-                            Circle()
-                                .fill(Brand.lime)
-                                .frame(width: 8, height: 8)
-                                .position(pts[peakIndex])
+                        ForEach(marks, id: \.self) { i in
+                            if pts.indices.contains(i) {
+                                Circle()
+                                    .fill(Brand.lime)
+                                    .frame(
+                                        width: i == peakIndex ? 7 : 4.5,
+                                        height: i == peakIndex ? 7 : 4.5
+                                    )
+                                    /* Обводка цветом полотна: на светлой теме
+                                       лайм по светлому почти не виден, и точка
+                                       читается только тем, что вырезана из
+                                       линии. */
+                                    .overlay(
+                                        Circle().strokeBorder(Brand.board, lineWidth: i == peakIndex ? 1.5 : 1)
+                                    )
+                                    .position(pts[i])
+                            }
                         }
                     }
                 }
-                .frame(height: 54)
+                .frame(height: 60)
 
-                Text("\(axis(series[peakIndex])) · \(money(peak, currency))")
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
+                axisLabels(series)
             }
-            .padding(.top, 4)
-            .padding(.bottom, 6)
+            .padding(.top, 18)
         }
+    }
+
+    /**
+     * Четыре отметки по ширине: начало, две внутри, конец. Больше не нужно —
+     * подписи здесь дают масштаб, а не отсчёт.
+     *
+     * Номера точек подобраны под МЕСТА подписей, а не наоборот. Четыре
+     * равные колонки ставят свои середины на 0, 37.5, 62.5 и 100 процентов
+     * ширины; если брать точки через треть ряда, подпись «04» встаёт над
+     * пятым днём, и график начинает врать на четверть колонки — тем
+     * обиднее, что врёт он ровно в том, ради чего подписи и появились.
+     *
+     * Короткий ряд подписывается целиком: на трёх точках выбирать нечего.
+     */
+    @ViewBuilder
+    private func axisLabels(_ series: [API.SeriesPoint]) -> some View {
+        let last = series.count - 1
+        let picks: [Int] = last <= 3
+            ? Array(0...max(0, last))
+            : [
+                0,
+                Int((Double(last) * 0.375).rounded()),
+                Int((Double(last) * 0.625).rounded()),
+                last
+            ]
+
+        HStack(spacing: 0) {
+            ForEach(Array(picks.enumerated()), id: \.offset) { i, index in
+                Text(axis(series[min(max(index, 0), last)]))
+                    .font(.system(size: 10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted.opacity(0.85))
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: i == 0 ? .leading : (i == picks.count - 1 ? .trailing : .center)
+                    )
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var chartTitle: String {
+        period == "today" ? "Օրվա վճարումները" : "Ամսվա վճարումները"
     }
 
     private func axis(_ point: API.SeriesPoint?) -> String {
@@ -334,99 +521,159 @@ struct OwnerView: View {
     private func grid(_ s: API.Summary) -> some View {
         let base = max(1, s.stats.revenue)
         let keptShare = Double(max(0, s.profit)) / Double(base)
-        let perUnit = s.stats.count > 0 ? s.profit / s.stats.count : 0
+        let unit = session.tenant?.unitOne ?? ""
 
         return VStack(spacing: gap) {
-            // широкая: приход и доля, которая осталась
-            HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Հասույթ")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.7))
-                    Text(money(s.stats.revenue, currency))
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .contentTransition(.numericText(value: Double(s.stats.revenue)))
-                    if s.stats.count > 0 {
-                        // То, чего в продукте не было ни разу и что владелец
-                        // считает в уме каждый вечер.
-                        Text("ամեն \(session.tenant?.unitOne ?? "")-ից ձեզ \(money(perUnit, currency))")
-                            .font(.system(size: 11))
-                            .monospacedDigit()
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                }
-                Spacer(minLength: 0)
-                Ring(share: keptShare)
-                    .frame(width: 62, height: 62)
-                    .accessibilityLabel("Ձեզ մնում է")
-                    .accessibilityValue("\(Int((keptShare * 100).rounded())) տոկոս")
-            }
-            .tile(.violet)
+            paid(s, keptShare: keptShare)
 
             HStack(spacing: gap) {
-                small(.teal, "Աշխատավարձ", money(s.stats.payroll, currency),
-                      foot: "\(Int((Double(s.stats.payroll) / Double(base) * 100).rounded()))%",
-                      animate: Double(s.stats.payroll))
-                small(.amber, "Ծախսեր", money(s.costs.total, currency),
-                      foot: expensesNote(s),
-                      animate: Double(s.costs.total))
+                metric(
+                    .teal, "Աշխատակցին", money(s.stats.payroll, currency),
+                    foot: "վճարումների \(Int((Double(s.stats.payroll) / Double(base) * 100).rounded()))%-ը",
+                    symbol: "percent", animate: Double(s.stats.payroll)
+                )
+                metric(
+                    .amber, spentTitle, money(s.costs.total, currency),
+                    foot: expensesNote(s),
+                    symbol: "arrow.down", animate: Double(s.costs.total)
+                )
             }
 
             HStack(spacing: gap) {
-                small(.indigo, session.tenant?.unitOne ?? "", "\(s.stats.count)",
-                      foot: "", animate: Double(s.stats.count))
-                small(.slate, "Միջին չեկ", money(s.stats.avgCheck, currency),
-                      foot: "", animate: Double(s.stats.avgCheck))
+                /* Единица приходит с сервера: у мойки это машина, у барбера
+                   клиент. Слово подставляется к числу, а не берётся
+                   заголовком, — «Սպասարկվել է 2 մեքենա» это предложение, а
+                   «մեքենա / 2» было подписью к цифре. */
+                metric(
+                    .lime, "Սպասարկվել է", "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
+                    foot: "", symbol: "car.fill", animate: Double(s.stats.count)
+                )
+                metric(
+                    .indigo, "Միջին վճարումը", money(s.stats.avgCheck, currency),
+                    foot: unit.isEmpty ? "" : "մեկ \(ablative(unit))",
+                    symbol: "creditcard.fill", animate: Double(s.stats.avgCheck)
+                )
             }
         }
+        .padding(.top, 20)
     }
 
-    private func small(
+    /**
+     * Приход и доля, которая от него осталась.
+     *
+     * Кольцо и есть весь разбор: заполненная дуга — то, что осталось,
+     * пустая — то, что ушло. Под ним обязательна подпись: процент без
+     * объяснения — самая дорогая ошибка на таком экране, потому что каждый
+     * прочитает в нём своё. «Вам остаётся» отвечает раз и навсегда.
+     *
+     * Плитка одна широкая и единственная крупная в сетке: приход — второе
+     * по важности число после того, что осталось, и оно не должно спорить
+     * с четырьмя мелкими.
+     */
+    private func paid(_ s: API.Summary, keptShare: Double) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                ToneAccent(tone: .violet)
+                Text(paidTitle)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(money(s.stats.revenue, currency))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .contentTransition(.numericText(value: Double(s.stats.revenue)))
+            }
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 4) {
+                Ring(share: keptShare)
+                    .frame(width: 68, height: 68)
+                Text("ձեզ մնում է")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.white.opacity(0.72))
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Ձեզ մնում է")
+            .accessibilityValue("\(Int((keptShare * 100).rounded())) տոկոս")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .auroraTile(.violet, radius: 24)
+    }
+
+    /**
+     * Мелкая плитка показателя.
+     *
+     * Устройство ровно то же, что у плиток на экране разделов: засечка и
+     * подпись сверху, число внизу, крупный полупрозрачный знак в правом
+     * верхнем углу. Четыре плитки одного размера, одного скругления, с
+     * одним направлением света — набор приборов, а не четыре виджета.
+     *
+     * Знак приглушён сильнее, чем на разделах (`calm`): там он опознавал
+     * раздел, здесь на плитке уже стоит число, и второй крупный объект
+     * рядом с ним начинает спорить.
+     */
+    private func metric(
         _ tone: Tone,
         _ title: String,
         _ value: String,
         foot: String,
+        symbol: String,
         animate: Double
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 11.5))
-                .foregroundStyle(tone.ink.opacity(0.72))
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(tone.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .contentTransition(.numericText(value: animate))
-            if !foot.isEmpty {
-                Text(foot)
-                    .font(.system(size: 10.5))
+        ZStack(alignment: .topTrailing) {
+            ToneMark(symbol: symbol, tone: tone, size: 54, offset: CGSize(width: 10, height: -4), calm: true)
+
+            VStack(alignment: .leading, spacing: 0) {
+                ToneAccent(tone: tone).padding(.bottom, 7)
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundStyle(tone.ink.opacity(0.72))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Spacer(minLength: 8)
+
+                Text(value)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(tone.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .contentTransition(.numericText(value: animate))
+                /* Пустая приписка занимает свою строку пробелом, а не
+                   исчезает. Иначе у плитки без приписки число опускается
+                   на её высоту ниже соседней, и четыре показателя в сетке
+                   стоят на четырёх разных уровнях. */
+                Text(foot.isEmpty ? " " : foot)
+                    .font(.system(size: 11))
                     .monospacedDigit()
                     .foregroundStyle(tone.ink.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .padding(.top, 1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 96, alignment: .topLeading)
-        .tile(tone)
+        .padding(15)
+        .frame(height: 118, alignment: .topLeading)
+        .frame(maxWidth: .infinity)
+        .auroraTile(tone, radius: 24)
         .accessibilityElement(children: .combine)
     }
 
     private func expensesNote(_ s: API.Summary) -> String {
         // Без этой приписки владелец скажет «я столько сегодня не тратил», и
-        // будет прав: в сумме сидит доля месячной аренды.
+        // будет прав: в сумме сидит доля месячной аренды. Она важнее общего
+        // «все расходы» и потому стоит первой.
         if s.costs.monthlyShare > 0 && period == "today" { return "ամսականից օրվա բաժինը" }
         if s.costs.oneOff > 0 && s.costs.monthlyShare == 0 { return "միանվագ" }
-        return ""
+        return "բոլոր ծախսերը"
     }
 
     // ══════════════════════════ журнал ══════════════════════════
@@ -434,26 +681,32 @@ struct OwnerView: View {
     /**
      * Записи — строками прямо на табло, без карточки.
      *
-     * Кто помыл — цветом номера: на мойке два-три работника, и цвет
-     * различает их быстрее, чем текст, а строка остаётся в одну высоту.
+     * Номер машины поднят в первую строку и набран крупнее всего
+     * остального: это единственный опознавательный знак записи. Раньше
+     * первым по левому краю стояло время, и колонка одинаковых «17:00»
+     * забирала вход в строку у того, ради чего в неё смотрят.
+     *
+     * Кто помыл — цветом имени: на мойке два-три работника, и цвет
+     * различает их быстрее, чем текст. Тот же цвет у этого человека в
+     * ленте смены и в списке зарплат — цвет здесь имя, а не украшение.
      */
     @ViewBuilder
     private func journal(_ feed: [API.FeedItem]) -> some View {
         if !feed.isEmpty {
             VStack(spacing: 0) {
                 HStack {
-                    Text("Հոսք")
+                    Text("Վերջին սպասարկումները")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer()
-                    Text("\(feed.count)")
+                    Text("\(feed.count) \(session.tenant?.unitOne ?? "")".trimmingCharacters(in: .whitespaces))
                         .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                 }
-                .padding(.horizontal, 6)
-                .padding(.top, 14)
-                .padding(.bottom, 6)
+                .padding(.horizontal, 4)
+                .padding(.top, 22)
+                .padding(.bottom, 4)
 
                 ForEach(feed) { item in
                     journalRow(item)
@@ -469,62 +722,61 @@ struct OwnerView: View {
 
     private func journalRow(_ item: API.FeedItem) -> some View {
         let who = item.staffName ?? "—"
-        return HStack(spacing: 10) {
-            Text(at(item.createdAt))
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-                .frame(width: 42, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 5) {
-                    Text(item.clientKey ?? "—")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-                    Image(systemName: paymentSymbol(item.payment))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .accessibilityLabel(paymentLabel(item.payment))
-                }
-                /* Имя и услуга одной строкой.
-                   Имя — потому что вопрос «КТО помыл эту машину», и цвет на
-                   него отвечает лишь «тот же или другой». Цветом имя и
-                   набрано: два признака вместо одного, и на выгоревшем под
-                   солнцем экране остаётся хотя бы один.
-                   Услуга — потому что без неё цена необъяснима: 2 500 и
-                   12 000 в соседних строках выглядят ошибкой, пока не
-                   видно, что одно это кузов, а другое химчистка. */
-                HStack(spacing: 4) {
-                    Text(who)
-                        .foregroundStyle(Brand.person(who))
-                    Text("·")
-                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
-                    Text(item.serviceName)
-                        .foregroundStyle(Brand.boardMuted)
-                }
-                .font(.system(size: 11))
-                .lineLimit(1)
-                .truncationMode(.tail)
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(item.clientKey ?? "—")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(money(item.price, currency))
+                    .font(.system(size: 15, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onBoard)
             }
 
-            Spacer(minLength: 8)
-
-            // При нулевой ставке доли нет: у владельца, который записывает
-            // сам, процента нет, и «ему 0 ֏» в каждой строке — шум.
-            if (item.staffPercent ?? 0) > 0 {
-                Text("նրան \(money(item.earned, currency))")
-                    .font(.system(size: 11))
+            HStack(spacing: 4) {
+                Text(at(item.createdAt))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
+                Text("·")
+                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                Text(who)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Brand.person(who))
             }
+            .font(.system(size: 12))
+            .lineLimit(1)
 
-            Text(money(item.price, currency))
-                .font(.system(size: 14, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+            /* Услуга — потому что без неё цена необъяснима: 2 500 и 12 000 в
+               соседних строках выглядят ошибкой, пока не видно, что одно это
+               кузов, а другое химчистка. Способ оплаты словом, а не значком:
+               значок карты и значок перевода на 10 точках различаются только
+               если знать, что они разные.
+               Доля работника — там же, третьей мелочью: она уже посчитана в
+               «Աշխատակցին» наверху, и отдельной колонки не стоит, но по
+               конкретной записи её спрашивают чаще всего. */
+            HStack(spacing: 4) {
+                Text(item.serviceName)
+                Text("·")
+                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                Text(paymentLabel(item.payment).lowercased())
+                // При нулевой ставке доли нет: у владельца, который
+                // записывает сам, процента нет, и «ему 0 ֏» в каждой
+                // строке — шум.
+                if (item.staffPercent ?? 0) > 0 {
+                    Text("·")
+                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                    Text("նրան \(money(item.earned, currency))")
+                        .monospacedDigit()
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Brand.boardMuted)
+            .lineLimit(1)
+            .truncationMode(.tail)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 4)
         .padding(.vertical, 11)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
@@ -568,6 +820,26 @@ struct OwnerView: View {
         case "month": return isLoss ? "Այս ամիս մինուսի մեջ եք" : "Այս ամիս ձեզ մնում է"
         case "prevmonth": return isLoss ? "Անցյալ ամիս մինուսում էիք" : "Անցյալ ամիս ձեզ մնացել է"
         default: return isLoss ? "Այսօր մինուսի մեջ եք" : "Այսօր ձեզ մնում է"
+        }
+    }
+
+    /* «Заплатили», а не «выручка»: `հասույթ` отличается от `շահույթ` одной
+       буквой, и два похожих слова с разными числами на одном экране путают
+       даже автора продукта. Обычная речь ни на что не похожа и потому
+       читается однозначно. */
+    private var paidTitle: String {
+        switch period {
+        case "month": return "Այս ամիս վճարել են"
+        case "prevmonth": return "Անցյալ ամիս վճարել են"
+        default: return "Այսօր վճարել են"
+        }
+    }
+
+    private var spentTitle: String {
+        switch period {
+        case "month": return "Այս ամիս ծախսվել է"
+        case "prevmonth": return "Անցյալ ամիս ծախսվել է"
+        default: return "Այսօր ծախսվել է"
         }
     }
 

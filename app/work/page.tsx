@@ -120,6 +120,7 @@ export default async function WorkPage() {
             clientIdType={tenant.clientIdType}
             addLabel={`+ ${tenant.unitOne}`}
             percent={me.percent}
+            timezone={tenant.timezone}
             recent={shift.orders.map((o) => ({
               id: o.id,
               serviceName: o.serviceName,

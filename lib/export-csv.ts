@@ -2,6 +2,7 @@ import type { Tenant } from './db/schema';
 import { exportOrders } from './queries';
 import { toMajor } from './money';
 import { hy } from './i18n/hy';
+import { hhmm, ymd } from './time';
 
 /**
  * Выгрузка в CSV для Excel.
@@ -39,9 +40,13 @@ export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
     hy.settings.exportCanceled,
   ];
 
+  /* Дата и время — в часовом поясе мойки, а не сервера. Через `getHours()`
+     выгрузка сдвигалась на часы контейнера: у ереванской мойки ночная
+     запись уезжала во вчерашний день, и сумма за день в файле не сходилась
+     с суммой за день на экране. */
   const body = rows.map((r) => [
-    isoDate(r.createdAt),
-    hhmm(r.createdAt),
+    ymd(r.createdAt, tenant.timezone),
+    hhmm(r.createdAt, tenant.timezone),
     r.clientKey ?? '',
     r.serviceName,
     String(toMajor(r.price, tenant.currency)),
@@ -57,25 +62,13 @@ export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
   return {
     // BOM обязателен, иначе Excel прочитает армянский как мусор
     content: '﻿' + csv,
-    filename: `bazis-${isoDate(new Date())}.csv`,
+    filename: `bazis-${ymd(new Date(), tenant.timezone)}.csv`,
     rows: rows.length,
   };
 }
 
 function escape(value: string): string {
   return /[";\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function hhmm(d: Date): string {
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
 }
 
 function paymentLabel(p: string): string {

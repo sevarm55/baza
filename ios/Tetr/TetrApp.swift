@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// Сирень под выбранной вкладкой: светлая по светлой теме, глубокая по
+/// тёмной. Не грейп в полную силу — на нём грейповый значок пропал бы.
+private let adaptiveTabSelection = UIColor { traits in
+    traits.userInterfaceStyle == .dark
+        ? UIColor(red: 0x4C / 255, green: 0x1D / 255, blue: 0x95 / 255, alpha: 0.55)
+        : UIColor(red: 0x6D / 255, green: 0x28 / 255, blue: 0xD9 / 255, alpha: 0.14)
+}
+
 /// Делегат нужен ровно ради одного: токен устройства система отдаёт
 /// только сюда, до SwiftUI он не доходит.
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -41,6 +49,20 @@ struct TetrApp: App {
            серым. Красим через appearance, другого входа к нему SwiftUI не
            даёт. Цвет адаптивный — иначе в тёмной теме он потонет. */
         UIRefreshControl.appearance().tintColor = Brand.grapeUI
+
+        /* Плашка выбранной вкладки — сиреневая, а не системная серая.
+           Значок и подпись на ней и так грейповые; серая подложка под ними
+           единственное место внизу экрана, где марки нет вовсе.
+
+           Через appearance, потому что SwiftUI до этого слоя не дотягивается:
+           `.tint` красит содержимое вкладки, но не выделение под ним.
+           Фон настраивается `configureWithDefaultBackground()` — стекло
+           панели остаётся системным, меняется только заливка выделения. */
+        let tabs = UITabBarAppearance()
+        tabs.configureWithDefaultBackground()
+        tabs.selectionIndicatorTintColor = adaptiveTabSelection
+        UITabBar.appearance().standardAppearance = tabs
+        UITabBar.appearance().scrollEdgeAppearance = tabs
 
         #if DEBUG
         /* Проверки чистой логики прогоняются запуском с флагом:

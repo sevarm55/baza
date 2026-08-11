@@ -13,6 +13,7 @@ import { Panel, PersonTile, Reading, Row } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { personColor } from '@/lib/person-color';
 import { PayButton } from '@/components/pay-button';
+import { dayMonth } from '@/lib/time';
 
 export default async function PayrollPage() {
   const session = await requireOwner();
@@ -82,7 +83,7 @@ export default async function PayrollPage() {
                       </div>
                       {settled.has(r.staffId ?? '') && (
                         <div className="num text-[12px] opacity-60">
-                          {hy.owner.sinceLastPayout}: {shortDate(settled.get(r.staffId ?? ''))}
+                          {hy.owner.sinceLastPayout}: {shortDate(settled.get(r.staffId ?? ''), tenant.timezone)}
                         </div>
                       )}
                     </div>
@@ -203,8 +204,8 @@ export default async function PayrollPage() {
                       style={{ color: 'var(--board-muted)' }}
                     >
                       {p.periodFrom.getTime() > 0
-                        ? `${shortDate(p.periodFrom)} — ${shortDate(p.periodTo)}`
-                        : `${hy.owner.upTo} ${shortDate(p.periodTo)}`}
+                        ? `${shortDate(p.periodFrom, tenant.timezone)} — ${shortDate(p.periodTo, tenant.timezone)}`
+                        : `${hy.owner.upTo} ${shortDate(p.periodTo, tenant.timezone)}`}
                     </span>
                     <span
                       className="num shrink-0 text-right text-[15px] font-semibold"
@@ -230,10 +231,16 @@ function dayLabel(iso: string): string {
   return `${d}.${m}`;
 }
 
-/** Дата без локали: Intl расходится между сервером и браузером. */
-function shortDate(d?: Date | null): string {
+/**
+ * Дата в часовом поясе мойки.
+ *
+ * Раньше здесь стояло `getDate()` с припиской «без локали: Intl
+ * расходится между сервером и браузером». Расхождение было настоящим, но
+ * лечили не то: `getDate()` тоже читает зону того, кто считает, — просто
+ * молча, и выплата, отмеченная сразу после полуночи, показывалась
+ * вчерашним числом. Зона передаётся явно — см. `dayMonth`.
+ */
+function shortDate(d: Date | null | undefined, timezone: string): string {
   if (!d || d.getTime() <= 0) return '—';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}.${mm}`;
+  return dayMonth(d, timezone);
 }

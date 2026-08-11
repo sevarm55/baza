@@ -1,5 +1,6 @@
 ﻿import { notFound, redirect } from 'next/navigation';
 import { passesEnabled } from '@/lib/features';
+import { dayMonth } from '@/lib/time';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listServices, startOfDay } from '@/lib/queries';
 import { getPassSales, listPasses } from '@/lib/passes';
@@ -74,7 +75,7 @@ export default async function PassesPage() {
                         </div>
                         <div className="truncate text-[13.5px] text-muted">
                           {p.serviceName} · {money(p.price)}
-                          {p.expiresAt && ` · ${hy.passes.until} ${shortDate(p.expiresAt)}`}
+                          {p.expiresAt && ` · ${hy.passes.until} ${dayMonth(p.expiresAt, tenant.timezone)}`}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
@@ -85,7 +86,7 @@ export default async function PassesPage() {
                         >
                           {left} {hy.passes.of} {p.totalUses}
                         </div>
-                        <div className="text-xs text-muted">{shortDate(p.soldAt)}</div>
+                        <div className="text-xs text-muted">{dayMonth(p.soldAt, tenant.timezone)}</div>
                       </div>
                     </div>
                   );
@@ -113,6 +114,3 @@ export default async function PassesPage() {
   );
 }
 
-function shortDate(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
