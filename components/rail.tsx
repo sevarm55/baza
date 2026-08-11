@@ -43,7 +43,7 @@ export function Rail({
     <aside className="rail">
       {/* Марка и кнопка сворачивания одной строкой: кнопка живёт там,
           где начинается сама колонка, а не внизу среди выхода. */}
-      <div className="flex items-center justify-between gap-2 px-1.5 pb-4">
+      <div className="rail-top flex items-center justify-between gap-2 px-1.5 pb-4">
         <Link href="/owner" aria-label={hy.app.name} className="rail-brand">
           <Logo size={26} />
         </Link>
