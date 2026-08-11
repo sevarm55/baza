@@ -574,6 +574,7 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
       id: clients.id,
       key: clients.key,
       name: clients.name,
+      phone: clients.phone,
       visits: clients.visits,
       total: clients.total,
       lastSeenAt: clients.lastSeenAt,

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { clientHistory } from '@/app/actions';
+import { useEffect, useRef, useState } from 'react';
+import { clientHistory, saveClientContact } from '@/app/actions';
 import { IconClose } from '@/components/icons';
 import { hy } from '@/lib/i18n/hy';
 import { personColor } from '@/lib/person-color';
+import { formatPhone } from '@/lib/phone';
 
 type History = Awaited<ReturnType<typeof clientHistory>>;
 
@@ -28,42 +29,59 @@ export function ClientDrawer({
   plate,
   onClose,
   money,
+  lostAfter,
 }: {
   /** какая машина открыта; `null` — панель закрыта */
   plate: string | null;
   onClose: () => void;
   money: (n: number) => string;
+  /** сколько дней молчания считается «пропал» */
+  lostAfter: number;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [data, setData] = useState<History>(null);
-  const [pending, start] = useTransition();
 
-  /* Эффект только открывает и закрывает окно — то, что нельзя выразить
-     разметкой: `showModal` это императивный вызов браузера. */
+  /* Загруженное хранится ВМЕСТЕ с номером, для которого загружено.
+
+     Так решаются сразу две вещи. Чужая история под новым номером
+     показаться не может: если номер в хранимом не совпадает с открытым,
+     данных просто нет — сверка идёт при отрисовке, без сброса состояния
+     и без лишнего кадра. И сбрасывать нечего, а значит в эффекте не
+     нужен синхронный setState.
+
+     До этого стояло два состояния и сверка прямо в теле компонента с
+     вызовом `startTransition`. React такой вызов во время отрисовки
+     запрещает — панель падала с ошибкой на первом же нажатии. Ошибка
+     моя и ровно та, от которой правило и защищает: попытка сделать
+     работу там, где положено только описывать результат. */
+  const [entry, setEntry] = useState<{ plate: string; data: History } | null>(null);
+  const data = entry && entry.plate === plate ? entry.data : null;
+  const loading = plate !== null && data === null;
+
+  /* Эффект открывает окно и просит данные. Синхронного setState в нём
+     нет: состояние ставится в ответе, когда он придёт. */
   useEffect(() => {
     const dialog = ref.current;
-    if (!dialog) return;
-    if (plate && !dialog.open) dialog.showModal();
-    if (!plate && dialog.open) dialog.close();
+    if (dialog) {
+      if (plate && !dialog.open) dialog.showModal();
+      if (!plate && dialog.open) dialog.close();
+    }
+    if (!plate) return;
+
+    /* Ответ на закрытую или уже смененную панель выбрасываем: два
+       быстрых нажатия подряд могут вернуться в обратном порядке, и
+       поздний ответ на ранний номер затёр бы правильный. */
+    let alive = true;
+    clientHistory(plate).then((d) => {
+      if (alive) setEntry({ plate, data: d });
+    });
+    return () => {
+      alive = false;
+    };
   }, [plate]);
-
-  /* А загрузка привязана к смене номера, а не к эффекту.
-
-     Через эффект это выглядело короче, но означало лишний проход
-     отрисовки: React рисует панель со старым содержимым, потом эффект
-     сбрасывает состояние и рисует ещё раз. На экране это кадр, где под
-     новым номером стоит чужая история — худшая ошибка из возможных
-     там, где считают деньги. Сверка прямо в теле снимает и кадр, и
-     жалобу линтера на setState в эффекте. */
-  const [shown, setShown] = useState<string | null>(null);
-  if (shown !== plate) {
-    setShown(plate);
-    setData(null);
-    if (plate) start(async () => setData(await clientHistory(plate)));
-  }
 
   const c = data?.client;
   const avg = c && c.visits > 0 ? Math.round(c.total / c.visits) : 0;
+  const lost = c ? c.daysSince > lostAfter : false;
 
   return (
     <dialog
@@ -114,7 +132,20 @@ export function ClientDrawer({
           </div>
         )}
 
-        {pending && !data && (
+        {/* Контакты и то, ради чего они заводятся.
+
+            Телефон при записи машины не спрашивают и не будут: мойщик
+            вводит номер, услугу и оплату мокрыми руками, с очередью за
+            спиной. Владелец же заходит в карточку постоянного спокойно —
+            вот здесь номер и вписывается, чтобы потом было куда звонить,
+            когда человек пропал.
+
+            Кнопки «позвонить» и «написать» — обычные `tel:` и `sms:`:
+            телефон и сообщения умеет сам телефон, и своего набора
+            номера продукту заводить незачем. */}
+        {c && <Contacts plate={c.key} name={c.name} phone={c.phone} lost={lost} />}
+
+        {loading && (
           <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
             {hy.common.loading}
           </p>
@@ -151,6 +182,121 @@ export function ClientDrawer({
         )}
       </div>
     </dialog>
+  );
+}
+
+/** Имя, телефон и две кнопки к нему. */
+function Contacts({
+  plate,
+  name,
+  phone,
+  lost,
+}: {
+  plate: string;
+  name: string | null;
+  phone: string | null;
+  lost: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  /* Ключом на форме стоит номер машины: у неё своё имя и свой телефон,
+     и при переходе к другой машине поля обязаны сброситься, а не
+     донести чужое значение. */
+  if (!editing) {
+    return (
+      <div
+        className="mb-4 rounded-[var(--radius-card)] p-4"
+        style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
+              {hy.owner.clientContacts}
+            </div>
+            <div className="mt-1 truncate text-[15px] font-semibold">
+              {name || plate}
+            </div>
+            <div className="num mt-0.5 text-[13px]" style={{ color: 'var(--board-muted)' }}>
+              {phone ? formatPhone(phone) : hy.owner.clientNoPhone}
+            </div>
+          </div>
+
+          <button type="button" className="btn-inline" onClick={() => setEditing(true)}>
+            {hy.common.edit}
+          </button>
+        </div>
+
+        {phone && (
+          <div className="mt-3 flex gap-2">
+            <a className="btn-inline btn-inline-primary" href={`tel:${phone}`}>
+              {hy.owner.clientCall}
+            </a>
+            <a className="btn-inline" href={`sms:${phone}`}>
+              {hy.owner.clientWrite}
+            </a>
+          </div>
+        )}
+
+        {/* Подсказка только пропавшему: у того, кто был вчера, она
+            превращается в фон, который перестают замечать — и не
+            сработает в тот день, когда понадобится. */}
+        {lost && (
+          <p className="mt-3 text-[12.5px]" style={{ color: 'var(--warn-on-board)' }}>
+            {hy.owner.clientLostHint}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      key={plate}
+      className="mb-4 grid gap-2.5 rounded-[var(--radius-card)] p-4"
+      style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
+      action={async (form: FormData) => {
+        setSaving(true);
+        await saveClientContact(
+          plate,
+          String(form.get('name') ?? ''),
+          String(form.get('phone') ?? ''),
+        );
+        setSaving(false);
+        setEditing(false);
+      }}
+    >
+      <label className="grid gap-1.5">
+        <span className="label">{hy.owner.clientName}</span>
+        <input className="field" name="name" defaultValue={name ?? ''} autoFocus />
+      </label>
+
+      <label className="grid gap-1.5">
+        <span className="label">{hy.owner.clientPhone}</span>
+        <input
+          className="field num"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          defaultValue={phone ?? ''}
+          placeholder="+374 77 123 456"
+        />
+      </label>
+
+      <div className="mt-1 flex gap-2">
+        <button className="btn-inline btn-inline-primary" disabled={saving}>
+          {saving ? hy.common.loading : hy.settings.save}
+        </button>
+        <button
+          type="button"
+          className="btn-inline"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+        >
+          {hy.common.cancel}
+        </button>
+      </div>
+    </form>
   );
 }
 

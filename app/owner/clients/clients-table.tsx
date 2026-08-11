@@ -139,21 +139,42 @@ export function ClientsTable({
             {found.map((c) => {
               const gone = c.days > lostAfter;
               return (
-                <tr key={c.id}>
+                /* Нажимается вся строка, а не только номер. Клик по
+                   номеру требовал целиться в шесть символов, тогда как
+                   открыть надо строку целиком — так это и работает
+                   везде, где строка что-то открывает. Кнопки внутри
+                   убраны: вложенная кнопка в кликабельной строке даёт
+                   два разных попадания в одном месте. */
+                /* Нажимается вся строка: целиться в шесть символов
+                   номера незачем, открыть надо строку целиком.
+
+                   Без `role` и `tabIndex` на `<tr>`, и это не забывчивость.
+                   С ними страница переставала оживать целиком: React
+                   бросал гидратацию этого поддерева, молча, без ошибки в
+                   консоли — таблица оставалась серверной разметкой, и не
+                   работали ни поиск, ни сортировка. Клавиатуре служит
+                   настоящая кнопка в конце строки, у неё и фокус, и имя
+                   для читалки экрана. */
+                <tr key={c.id} className="row-click" onClick={() => setOpen(c.key)}>
                   {/* Вся строка ведёт в историю этой машины. Номер —
                       ссылка, а не просто текст: строка без знака
                       перехода читается подписью, и по ней не пробуют
                       нажать. Шеврон в конце говорит то же самое ещё раз,
                       уже формой. */}
                   <td>
-                    <button
-                      type="button"
-                      onClick={() => setOpen(c.key)}
-                      className="num text-[15px] font-bold tracking-wide"
-                      style={{ color: 'var(--on-board)' }}
-                    >
-                      {c.key}
-                    </button>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="num text-[15px] font-bold tracking-wide"
+                        style={{ color: 'var(--on-board)' }}
+                      >
+                        {c.key}
+                      </span>
+                      {/* Метка постоянного прямо в строке: до неё это
+                          читалось только счётчиком визитов, а «сколько
+                          раз был» и «свой ли это человек» — разные
+                          вопросы, и второй решается взглядом. */}
+                      {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+                    </span>
                   </td>
                   <td className="num end" style={{ color: 'var(--board-muted)' }}>
                     {c.visits}
@@ -176,7 +197,7 @@ export function ClientsTable({
                     <button
                       type="button"
                       onClick={() => setOpen(c.key)}
-                      aria-label={c.key}
+                      aria-label={`${c.key} · ${hy.owner.clientHistory}`}
                       style={{ color: 'var(--board-muted)' }}
                     >
                       <svg
@@ -204,7 +225,12 @@ export function ClientsTable({
         {found.length} / {rows.length} · {unit}
       </p>
 
-      <ClientDrawer plate={open} onClose={() => setOpen(null)} money={money} />
+      <ClientDrawer
+        plate={open}
+        onClose={() => setOpen(null)}
+        money={money}
+        lostAfter={lostAfter}
+      />
     </>
   );
 }

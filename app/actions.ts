@@ -6,7 +6,7 @@ import { refresh, revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { tenants, users } from '@/lib/db/schema';
+import { clients, tenants, users } from '@/lib/db/schema';
 import { findClient, getClientHistory, getTenant, getUser, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { dayMonth, hhmm } from '@/lib/time';
@@ -421,6 +421,38 @@ export async function saveBusiness(formData: FormData): Promise<void> {
  * `Date` через границу сервер-клиент проходит, но час пересчёта на той
  * стороне будет чужой.
  */
+/**
+ * Вписать имя и телефон клиента.
+ *
+ * Отдельным действием, а не частью записи машины. Мойщик вводит номер,
+ * услугу и оплату мокрыми руками, с очередью за спиной — просить у него
+ * ещё и телефон значит либо получать пустое поле, либо задерживать
+ * машину. Владелец же заходит в карточку постоянного спокойно, и там
+ * телефон записать некуда только потому, что поля не было.
+ *
+ * Пустая строка стирает: человек попросил себя не беспокоить — это
+ * должно выполняться одним движением, а не поиском кнопки «удалить».
+ */
+export async function saveClientContact(
+  key: string,
+  name: string,
+  phone: string,
+): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  const cleanPhone = phone.trim();
+  await db
+    .update(clients)
+    .set({
+      name: name.trim() || null,
+      phone: cleanPhone ? normalizePhone(cleanPhone) : null,
+    })
+    .where(and(eq(clients.tenantId, session.tid), eq(clients.key, key)));
+
+  revalidatePath('/owner/clients');
+}
+
 export async function clientHistory(key: string) {
   const session = await requireOwner();
   await ensureDb();
@@ -434,6 +466,8 @@ export async function clientHistory(key: string) {
   return {
     client: {
       key: found.client.key,
+      name: found.client.name,
+      phone: found.client.phone,
       visits: found.client.visits,
       total: found.client.total,
       daysSince: found.client.daysSince,
