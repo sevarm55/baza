@@ -16,7 +16,8 @@ import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { Profit } from '@/components/profit';
-import { Grid, Panel, Reading, Row, Tile } from '@/components/board';
+import { Panel, Row } from '@/components/board';
+import { FlowStrip } from '@/components/flow-strip';
 import { PageHead } from '@/components/page-head';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
@@ -128,53 +129,63 @@ export default async function TodayPage({
         <PeriodTabs current={period.key} />
       </PageHead>
 
-      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-        <Panel className="lg:col-span-8 lg:justify-center lg:p-6">
-          <Reading
-            caption={hy.owner.revenue}
-            value={money(stats.revenue)}
-            compare={
-              prevStats.count === 0
+      {/* Полоса-цепочка: пять чисел одним рядом, и между ними видно,
+          что из чего вычитается. Раньше здесь стояло показание выручки
+          во всю треть экрана и рядом пять разноцветных плиток — глаз
+          читал шесть отдельных утверждений и складывал их сам. */}
+      <FlowStrip
+        links={[
+          { label: tenant.unitOne, value: String(stats.count) },
+          { label: hy.owner.revenue, value: money(stats.revenue) },
+          { label: hy.owner.payroll, value: money(stats.payroll), sign: '−' },
+          {
+            label: hy.owner.costs,
+            value: money(costs.oneOff + costs.monthlyShare),
+            sign: '−',
+          },
+          {
+            label: hy.owner.profit,
+            value: money(profit),
+            sign: '=',
+            strong: true,
+            note:
+              stats.count > 0
+                ? `${kept}% ${hy.owner.kept} · ${money(perUnit)} ${hy.owner.perUnit}`
+                : undefined,
+          },
+        ]}
+      />
+
+      <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
+        {/* График во всю ширину рабочей части: он единственное на экране,
+            что показывает не итог, а ход дня, и мелким он бесполезен.
+            Сравнение с прошлым отрезком ушло к нему в заголовок — это
+            подпись к линии, а не самостоятельное показание. */}
+        <Panel
+          title={hy.owner.revenue}
+          className="lg:col-span-8 lg:self-start"
+          actions={
+            <span
+              className="num text-[12.5px] font-semibold"
+              style={{
+                color:
+                  prevStats.count === 0
+                    ? 'var(--board-muted)'
+                    : diff >= 0
+                      ? 'var(--good-on-board)'
+                      : 'var(--warn-on-board)',
+              }}
+            >
+              {prevStats.count === 0
                 ? hy.owner.noBase
                 : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
                     period.key === 'today' ? hy.owner.vsLastWeek : hy.owner.vsPrev
-                  }`
-            }
-            tone={prevStats.count === 0 ? undefined : diff >= 0 ? 'good' : 'warn'}
-          />
+                  }`}
+            </span>
+          }
+        >
           <DayChart points={points} currency={tenant.currency} />
         </Panel>
-
-        <Grid className="content-start lg:col-span-4">
-          {/* Прибыль во всю ширину: это ответ, остальное — как он
-              получился. Рядом доля, которая осталась, и сколько
-              приносит одна машина: без них цифра не с чем сравнить. */}
-          <Tile
-            tone="violet"
-            wide
-            label={hy.owner.profit}
-            value={money(profit)}
-            note={
-              stats.count > 0
-                ? `${kept}% ${hy.owner.kept} · ${money(perUnit)} ${hy.owner.perUnit}`
-                : undefined
-            }
-          />
-
-          <Tile tone="lime" label={tenant.unitOne} value={stats.count} />
-          <Tile tone="slate" label={hy.owner.avgCheck} value={money(stats.avgCheck)} />
-          <Tile
-            tone="teal"
-            label={hy.payment.cash}
-            value={money(split.find((x) => x.payment === 'cash')?.revenue ?? 0)}
-          />
-          <Tile
-            tone="amber"
-            label={hy.owner.costs}
-            value={money(stats.payroll + costs.oneOff + costs.monthlyShare)}
-            note={`${hy.owner.payroll} ${money(stats.payroll)}`}
-          />
-        </Grid>
 
         {/* Лента машин таблицей: на широком экране строка помещается
             целиком, и тогда столбец — единственный способ сравнить
