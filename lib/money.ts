@@ -32,6 +32,24 @@ export function formatMoney(amount: number, currency = 'AMD'): string {
   return `${out}${BEFORE_SYMBOL}${SYMBOLS[currency] ?? currency}`;
 }
 
+/**
+ * То же число, но без знака валюты.
+ *
+ * Нужно там, где знак уже нарисован рядом отдельным цветом — в строках
+ * списков. Разряды при этом обязаны разбиваться так же: «300000» рядом с
+ * «305 000 ֏» в той же таблице читается опечаткой, а не другой суммой.
+ */
+export function formatAmount(amount: number, currency = 'AMD'): string {
+  const decimals = DECIMALS[currency] ?? 2;
+  const negative = amount < 0;
+  const abs = Math.abs(Math.round(amount));
+  const scale = 10 ** decimals;
+
+  let out = group(Math.floor(abs / scale));
+  if (decimals > 0) out += DECIMAL + String(abs % scale).padStart(decimals, '0');
+  return negative ? '−' + out : out;
+}
+
 function group(n: number): string {
   const s = String(n);
   let out = '';

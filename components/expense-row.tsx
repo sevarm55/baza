@@ -18,6 +18,7 @@ export function ExpenseRow({
   id,
   category,
   amount,
+  display,
   monthly,
   when,
   currencySymbol,
@@ -26,6 +27,10 @@ export function ExpenseRow({
   id: string;
   category: string;
   amount: number;
+  /* Та же сумма, но уже разбитая на разряды. Раздельно, потому что в
+     строке её читают, а в поле правки — набирают: «300 000» в поле
+     ввода числа браузер не примет. */
+  display: string;
   monthly: boolean;
   when: string;
   currencySymbol: string;
@@ -51,7 +56,7 @@ export function ExpenseRow({
           <span className="num block text-[13.5px] text-muted">{when}</span>
         </span>
         <span className="num text-[15px] tabular-nums">
-          {amount} <span className="text-faint">{currencySymbol}</span>
+          {display} <span className="text-faint">{currencySymbol}</span>
         </span>
       </button>
 
