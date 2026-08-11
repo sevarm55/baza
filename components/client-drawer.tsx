@@ -79,6 +79,18 @@ export function ClientDrawer({
     };
   }, [plate]);
 
+  /* Перечитать после правки контактов.
+
+     Без этого сохранённое имя появлялось только со второго открытия
+     панели: `revalidatePath` обновляет страницу под ней, а сама панель
+     держит свой ответ, загруженный при открытии, и о правке не знает.
+     Человек нажимал «сохранить», видел прежнее — и не понимал,
+     сохранилось ли вообще. */
+  async function refresh() {
+    if (!plate) return;
+    setEntry({ plate, data: await clientHistory(plate) });
+  }
+
   const c = data?.client;
   const avg = c && c.visits > 0 ? Math.round(c.total / c.visits) : 0;
   const lost = c ? c.daysSince > lostAfter : false;
@@ -143,7 +155,15 @@ export function ClientDrawer({
             Кнопки «позвонить» и «написать» — обычные `tel:` и `sms:`:
             телефон и сообщения умеет сам телефон, и своего набора
             номера продукту заводить незачем. */}
-        {c && <Contacts plate={c.key} name={c.name} phone={c.phone} lost={lost} />}
+        {c && (
+          <Contacts
+            plate={c.key}
+            name={c.name}
+            phone={c.phone}
+            lost={lost}
+            onSaved={refresh}
+          />
+        )}
 
         {loading && (
           <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
@@ -191,11 +211,13 @@ function Contacts({
   name,
   phone,
   lost,
+  onSaved,
 }: {
   plate: string;
   name: string | null;
   phone: string | null;
   lost: boolean;
+  onSaved: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -262,6 +284,10 @@ function Contacts({
           String(form.get('name') ?? ''),
           String(form.get('phone') ?? ''),
         );
+        /* Сначала перечитать, потом закрыть форму: закрой раньше — и
+           человек на мгновение увидит старое значение под новой формой,
+           то есть ровно то, чего он и боится, нажимая «сохранить». */
+        await onSaved();
         setSaving(false);
         setEditing(false);
       }}
