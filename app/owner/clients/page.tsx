@@ -45,10 +45,6 @@ export default async function ClientsPage() {
   const loyal = rows.filter((c) => c.visits > 1);
   const avg = rows.length ? Math.round(rows.reduce((s, c) => s + c.total, 0) / rows.length) : 0;
 
-  /* Суммы форматирует сервер: валюта и разряды — свойство бизнеса, и
-     решаться они должны там, где бизнес известен, а не в браузере. */
-  const formatted = Object.fromEntries(rows.map((c) => [c.id, money(c.total)]));
-
   return (
     <>
       <PageHead title={hy.owner.tabClients} />
@@ -83,7 +79,7 @@ export default async function ClientsPage() {
             <ClientsTable
               rows={rows}
               lostAfter={LOST_AFTER_DAYS}
-              money={formatted}
+              currency={tenant.currency}
               unit={hy.owner.tabClients}
             />
           )}

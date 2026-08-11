@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { ClientDrawer } from '@/components/client-drawer';
+import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 
 export type ClientRow = {
@@ -35,18 +36,21 @@ const SORTS: { key: Sort; label: string }[] = [
 export function ClientsTable({
   rows,
   lostAfter,
-  money,
+  currency,
   unit,
 }: {
   rows: ClientRow[];
   lostAfter: number;
-  /* Форматирование приходит готовым: валюта и разряды считаются на
-     сервере, где известен бизнес, а не подбираются в браузере. */
-  money: Record<string, string>;
+  /* Валюта строкой, а не готовые суммы таблицей: панель тоже считает
+     деньги, а передать ей функцию через границу сервер-клиент нельзя. */
+  currency: string;
   unit: string;
 }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>('recent');
+  const [open, setOpen] = useState<string | null>(null);
+
+  const money = (n: number) => formatMoney(n, currency);
 
   /* Пробелы и регистр не в счёт: номер диктуют вслух и записывают как
      придётся — «93LM227» и «93 lm 227» это одна машина. */
@@ -142,18 +146,19 @@ export function ClientsTable({
                       нажать. Шеврон в конце говорит то же самое ещё раз,
                       уже формой. */}
                   <td>
-                    <Link
-                      href={`/owner/clients/${encodeURIComponent(c.key)}`}
+                    <button
+                      type="button"
+                      onClick={() => setOpen(c.key)}
                       className="num text-[15px] font-bold tracking-wide"
                       style={{ color: 'var(--on-board)' }}
                     >
                       {c.key}
-                    </Link>
+                    </button>
                   </td>
                   <td className="num end" style={{ color: 'var(--board-muted)' }}>
                     {c.visits}
                   </td>
-                  <td className="num end font-semibold">{money[c.id]}</td>
+                  <td className="num end font-semibold">{money(c.total)}</td>
                   <td
                     className="num end"
                     style={{
@@ -168,8 +173,9 @@ export function ClientsTable({
                     {c.days === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(c.days)}
                   </td>
                   <td className="end">
-                    <Link
-                      href={`/owner/clients/${encodeURIComponent(c.key)}`}
+                    <button
+                      type="button"
+                      onClick={() => setOpen(c.key)}
                       aria-label={c.key}
                       style={{ color: 'var(--board-muted)' }}
                     >
@@ -185,7 +191,7 @@ export function ClientsTable({
                       >
                         <path d="m6.5 4 4 4-4 4" />
                       </svg>
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               );
@@ -197,6 +203,8 @@ export function ClientsTable({
       <p className="mt-3 text-[12px]" style={{ color: 'var(--board-muted)' }}>
         {found.length} / {rows.length} · {unit}
       </p>
+
+      <ClientDrawer plate={open} onClose={() => setOpen(null)} money={money} />
     </>
   );
 }

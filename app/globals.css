@@ -1986,3 +1986,91 @@ input[type='radio'] {
     flex-direction: column;
     align-items: center;
   }
+
+  /* ───────────────────── выдвижная панель ─────────────────────
+
+     Тот же `<dialog>`, что у окна правки, но прижатый к правому краю во
+     всю высоту. Причина не в моде на «шторки»: список клиентов длинный,
+     и уход на отдельную страницу теряет место, на котором человек
+     стоял, вместе с набранным поиском и выбранным порядком. Панель
+     оставляет список на экране — закрыл и продолжил с той же строки.
+
+     Живёт на `<dialog>`, а не на своём слое: ловушка фокуса, Escape,
+     затемнение и верхний слой достаются готовыми и работают правильно
+     с клавиатурой. */
+
+  .drawer {
+    position: fixed;
+    inset: 0 0 0 auto;
+    margin: 0;
+    width: min(560px, 100vw);
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    border-start-start-radius: var(--radius-card);
+    border-end-start-radius: var(--radius-card);
+    background: var(--board-surface);
+    color: var(--on-board);
+
+    --field-fill: var(--field-gray);
+    --surface: var(--board-surface);
+    --surface2: var(--board-surface2);
+    --line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    --ink: var(--on-board);
+    --muted: var(--board-muted);
+    --faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+    --color-surface: var(--board-surface);
+    --color-surface2: var(--board-surface2);
+    --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --color-ink: var(--on-board);
+    --color-muted: var(--board-muted);
+    --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+
+    /* Выезжает сбоку, а не проявляется: панель приходит с того края, к
+       которому прижата, и по движению видно, откуда она и куда уйдёт.
+       Выезд быстрее въезда — система отвечает быстрее, чем человек
+       решает. */
+    translate: 100% 0;
+    transition: translate 260ms var(--ease), overlay 260ms allow-discrete,
+      display 260ms allow-discrete;
+  }
+
+  .drawer[open] {
+    translate: 0 0;
+  }
+
+  @starting-style {
+    .drawer[open] {
+      translate: 100% 0;
+    }
+  }
+
+  .drawer::backdrop {
+    background: rgb(12 9 20 / 46%);
+    opacity: 0;
+    transition: opacity 220ms var(--ease), overlay 220ms allow-discrete,
+      display 220ms allow-discrete;
+  }
+  .drawer[open]::backdrop {
+    opacity: 1;
+  }
+  @starting-style {
+    .drawer[open]::backdrop {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drawer,
+    .drawer[open] {
+      transition-duration: 1ms;
+      translate: 0 0;
+    }
+  }

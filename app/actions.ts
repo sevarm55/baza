@@ -7,8 +7,9 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { tenants, users } from '@/lib/db/schema';
-import { findClient, getTenant, getUser, startOfDay } from '@/lib/queries';
+import { findClient, getClientHistory, getTenant, getUser, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
+import { dayMonth, hhmm } from '@/lib/time';
 import { settleStaff } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
@@ -407,6 +408,47 @@ export async function saveBusiness(formData: FormData): Promise<void> {
 }
 
 /* --------------------------- зарплаты --------------------------- */
+
+/**
+ * История одной машины — для выдвижной панели на списке клиентов.
+ *
+ * Серверным действием, а не запросом к `/api/v1/clients/:key`: тот
+ * маршрут проверяет предъявителя по токену, а веб живёт на cookie, и
+ * добывать токен в браузере ради чтения собственных данных значило бы
+ * заводить второй способ доказать, кто ты. Действие уже знает сессию.
+ *
+ * Отдаёт только то, что рисует панель, и с уже посчитанными датами:
+ * `Date` через границу сервер-клиент проходит, но час пересчёта на той
+ * стороне будет чужой.
+ */
+export async function clientHistory(key: string) {
+  const session = await requireOwner();
+  await ensureDb();
+
+  const found = await getClientHistory(session.tid, key);
+  if (!found) return null;
+
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return null;
+
+  return {
+    client: {
+      key: found.client.key,
+      visits: found.client.visits,
+      total: found.client.total,
+      daysSince: found.client.daysSince,
+    },
+    orders: found.orders.map((o) => ({
+      id: o.id,
+      serviceName: o.serviceName,
+      price: o.price,
+      payment: o.payment,
+      staffName: o.staffName,
+      day: dayMonth(o.createdAt, tenant.timezone),
+      time: hhmm(o.createdAt, tenant.timezone),
+    })),
+  };
+}
 
 /**
  * Отметить расчёт с сотрудником.
