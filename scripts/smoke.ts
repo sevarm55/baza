@@ -905,7 +905,7 @@ async function main() {
      Через реальные записи это уже проверялось и падало сразу после
      местной полуночи: девять утра и два часа дня оказывались в будущем,
      а будущее график справедливо не рисует. */
-  const { padSeries } = await import('../app/api/v1/summary/route');
+  const { padSeries } = await import('../lib/series');
   const dayFrom = new Date('2026-08-01T00:00:00+04:00');
   const filled = padSeries(
     [

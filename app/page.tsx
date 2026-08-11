@@ -1,5 +1,6 @@
-import Link from 'next/link';
+import type { Metadata } from 'next';
 import Image from 'next/image';
+import Link from 'next/link';
 import localFont from 'next/font/local';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
@@ -8,217 +9,243 @@ import { hy } from '@/lib/i18n/hy';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
 import { ACTIVE_NICHES } from '@/lib/niches';
 import { AuthTrigger } from '@/components/auth-buttons';
-import { Reveal, RevealMedia } from './landing-motion';
+import { CampaignReveal } from './campaign-motion';
 import s from './landing.module.css';
 
-/**
- * Витрина.
- *
- * Плакат: сплошные плиты цвета во всю ширину, огромный плотный заголовок
- * и один предмет на кадре. Плиты чередуются, и смена цвета сама отбивает
- * экраны друг от друга — линейки и заголовки разделов не нужны.
- *
- * Кадры сняты под этот приём: у каждого сплошная заливка ровно того
- * цвета, на который он ложится, поэтому снимок не «картинка в блоке», а
- * часть плиты. Сама мойка на них сгенерирована — это иллюстрация, а не
- * свидетельство (PRODUCT.md). Экраны продукта, наоборот, настоящие:
- * сняты с демо-бизнеса, армянский интерфейс, живые числа.
- *
- * Страница остаётся серверной. Клиентского здесь два: кнопки, которые
- * открывают окно входа, и появление блоков при прокрутке.
- */
-
-/* Плотный гротеск витрины. Два вызова, а не один с двумя файлами:
-   подстановка по глифам должна идти списком font-family, где порядок
-   определён стандартом. У Anton нет армянского, у Noto — латиницы в
-   этой подрезке, и вместе они закрывают всё, что есть на странице. */
-const anton = localFont({
-  src: './fonts/Anton-Regular.woff2',
-  variable: '--font-anton',
-  display: 'swap',
-});
-
-const armDisplay = localFont({
+const display = localFont({
   src: './fonts/NotoSansArmenian-XCondBlack.woff2',
-  variable: '--font-arm-display',
+  variable: '--font-campaign-display',
   display: 'swap',
 });
 
-/* Кадр и экран для каждого шага. Порядок совпадает с hy.landing.steps.
-   Цвет плиты подобран под заливку снимка: синий кадр ложится на синюю
-   плиту, лаймовый — на лаймовую. */
-const STEPS = [
-  // fade — там, где модель обрезала человека и низ кадра надо растворить
-  { photo: '/landing/bright/phone.jpg', screen: '/landing/screen-staff.png', tone: 'lime', shape: 'tall', fade: true },
-  { photo: '/landing/bright/worker.jpg', screen: '/landing/screen-feed.png', tone: 'blue', shape: 'square', fade: true },
-  { photo: '/landing/bright/cash.jpg', screen: '/landing/screen-payroll.png', tone: 'blue', shape: 'square', fade: true },
-  { photo: '/landing/bright/chem.jpg', screen: '/landing/screen-today.png', tone: 'lime', shape: 'tall', fade: false },
-] as const;
+export const metadata: Metadata = {
+  title: 'Tetrin | Ավտոլվացումը ձեր վերահսկողության տակ',
+  description:
+    'Մեքենաները, աշխատողները, աշխատավարձն ու մաքուր արդյունքը մեկ պարզ համակարգում։',
+};
 
-/* Снимок экрана — 390×844 при тройной плотности, ужат до 780 по ширине. */
-const SCREEN_W = 780;
-const SCREEN_H = 1688;
+const photo = (name: string) => `/landing/v2/${name}`;
 
 export default async function Home() {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
 
-  const L = hy.landing;
-  /* Ниша известна заранее: пока продаётся только автомойка, выбирать
-     нечего, и окно регистрации открывается сразу с ней. */
   const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
 
   return (
-    <div className={`${s.page} ${anton.variable} ${armDisplay.variable}`}>
-      <header className={s.bar}>
-        <span className={`${s.brand} ${s.wordmark}`}>{hy.app.name}</span>
-        <div className={s.barActions}>
-          <AuthTrigger mode="signIn" niche={niche} className={s.ghost}>
-            {hy.auth.signInTitle}
-          </AuthTrigger>
-          <AuthTrigger mode="register" niche={niche} className={s.cta}>
-            {L.ctaPrimary(TRIAL_DAYS)}
-          </AuthTrigger>
-        </div>
+    <div className={`${s.page} ${display.variable}`}>
+      <a className={s.skipLink} href="#main">
+        Անցնել հիմնական բովանդակությանը
+      </a>
+
+      <header className={s.navWrap}>
+        <nav className={s.nav} aria-label="Հիմնական նավիգացիա">
+          <Link className={s.wordmark} href="/" aria-label="Tetrin գլխավոր էջ">
+            <span className={s.mark} aria-hidden="true"><i /><i /></span>
+            <span>TETRIN</span>
+          </Link>
+
+          <div className={s.navCenter}>
+            <a href="#how">Ինչպես է աշխատում</a>
+            <a href="#price">Գին</a>
+          </div>
+
+          <div className={s.navActions}>
+            <AuthTrigger mode="signIn" niche={niche} className={s.signIn}>
+              {hy.auth.signInTitle}
+            </AuthTrigger>
+            <AuthTrigger mode="register" niche={niche} className={s.navCta}>
+              Սկսել <span aria-hidden="true">↗</span>
+            </AuthTrigger>
+          </div>
+        </nav>
       </header>
 
-      <main>
-        <section className={`${s.hero} ${s.blue}`}>
-          <Reveal onMount>
-            <p className={s.eyebrow}>{L.eyebrow}</p>
-            <h1 className={s.h1}>{L.headline}</h1>
-            <p className={s.lead}>{L.lead}</p>
-            <div className={s.actions}>
-              <AuthTrigger
-                mode="register"
-                niche={niche}
-                className={`${s.cta} ${s.ctaBig}`}
-              >
-                {L.ctaPrimary(TRIAL_DAYS)}
-              </AuthTrigger>
-              <span className={s.note}>{L.ctaNote}</span>
+      <main id="main">
+        <section className={s.hero}>
+          <div className={s.heroFrame}>
+            <div className={s.heroPhoto}>
+              <Image
+                className={s.photoImage}
+                src={photo('carwash-01.png')}
+                alt="Թաց գրաֆիտագույն մեքենա և աշխատող ավտոլվացման մութ բոքսում"
+                fill
+                preload
+                sizes="(max-width: 760px) 100vw, 82vw"
+              />
             </div>
-          </Reveal>
 
-          {/* Единственный снимок, который человек видит до прокрутки, —
-              значит единственный, который стоит грузить заранее. */}
-          <RevealMedia onMount delay={0.12} className={s.heroShot}>
-            <Image
-              src="/landing/bright/hero.jpg"
-              alt={L.heroAlt}
-              fill
-              preload
-              sizes="100vw"
-            />
-          </RevealMedia>
+            <h1 className={s.heroTitle}>
+              <span>ԱՄԵՆ ՄԵՔԵՆԱՆ՝</span>
+              <span>ԳՐԱՆՑՎԱԾ։</span>
+            </h1>
+
+            <div className={s.heroCtaCutout}>
+              <AuthTrigger mode="register" niche={niche} className={s.heroCta}>
+                Սկսել <span aria-hidden="true">↗</span>
+              </AuthTrigger>
+              <small>{TRIAL_DAYS} օր անվճար</small>
+            </div>
+
+            <aside className={s.todayRail} aria-label="Այսօրվա հիմնական թվերը">
+              <div className={s.railLabel}>TODAY / 10:17</div>
+              <div className={s.railMetric}><strong>37</strong><span>մեքենա</span></div>
+              <div className={s.railMetric}><strong>245 000 ֏</strong><span>հասույթ</span></div>
+              <div className={`${s.railMetric} ${s.railNet}`}><strong>151 500 ֏</strong><span>մաքուր</span></div>
+            </aside>
+          </div>
         </section>
 
-        {L.steps.slice(0, 2).map((step, i) => (
-          <StepBlock key={step.title} step={step} index={i} />
-        ))}
+        <section className={s.tapsScene} id="how">
+          <CampaignReveal className={s.tapsPanel}>
+            <div className={s.sceneLabel}>01 / ԳՐԱՆՑՈՒՄ</div>
+            <div className={s.tapsHeading}>
+              <span aria-hidden="true">3</span>
+              <h2>ՀՊՈՒՄ</h2>
+            </div>
 
-        {/* Полоса с машиной: вдох между шагами. Одна строка и кадр во всю
-            ширину — читать тут нечего, только смотреть. */}
-        <section className={`${s.band} ${s.lime}`}>
-          <Reveal className={s.bandText}>
-            <h2 className={s.h2}>{L.headlineAccent}</h2>
-          </Reveal>
-          <RevealMedia className={s.bandShot}>
-            <Image
-              src="/landing/bright/car.jpg"
-              alt={L.priceAlt}
-              fill
-              sizes="100vw"
-            />
-          </RevealMedia>
+            <div className={s.tapsPhoto}>
+              <Image
+                className={s.photoImage}
+                src={photo('carwash-02.png')}
+                alt="Ճնշման ջրի շիթը մեքենայի վրա և աշխատողի ձեռքում հեռախոս"
+                fill
+                sizes="(max-width: 760px) 100vw, 48vw"
+              />
+            </div>
+
+            <ol className={s.touchRail}>
+              <li><b>01</b><span>Համարանիշ</span></li>
+              <li><b>02</b><span>Ծառայություն</span></li>
+              <li><b>03</b><span>Վճարում</span></li>
+            </ol>
+
+            <div className={s.tapFinish}>
+              <span>Գրանցված է</span>
+              <b aria-hidden="true">✓</b>
+            </div>
+          </CampaignReveal>
         </section>
 
-        {L.steps.slice(2).map((step, i) => (
-          <StepBlock key={step.title} step={step} index={i + 2} />
-        ))}
-
-        <section className={`${s.price} ${s.blue}`} id="price">
-          <Reveal>
-            <p className={s.eyebrow}>{L.priceTitle}</p>
-            <p className={s.priceSum}>{formatMoney(PRICE, 'AMD')}</p>
-            <p className={s.pricePeriod}>{L.pricePeriod}</p>
-            <p className={s.priceNote}>{L.priceNote(TRIAL_DAYS)}</p>
-            <div className={s.priceActions}>
-              <AuthTrigger
-                mode="register"
-                niche={niche}
-                className={`${s.cta} ${s.ctaBig}`}
-              >
-                {L.ctaPrimary(TRIAL_DAYS)}
-              </AuthTrigger>
-              <span className={s.note}>{L.ctaNote}</span>
+        <section className={s.operationScene}>
+          <CampaignReveal className={s.operationPanel}>
+            <div className={s.operationPhoto}>
+              <Image
+                className={s.photoImage}
+                src={photo('carwash-03.png')}
+                alt="Երկու աշխատող մութ ավտոլվացման բոքսում լվանում են մեքենաները"
+                fill
+                sizes="100vw"
+              />
             </div>
-          </Reveal>
+            <div className={s.operationLabel}>02 / ԱՅՍՕՐ</div>
+            <h2 className={s.operationTitle}>
+              <span>ԱՄԵՆ ԻՆՉ</span>
+              <span>ՏԵՍԱՆԵԼԻ Է։</span>
+            </h2>
+            <div className={s.operationCount}>
+              <strong>37</strong>
+              <span>մեքենա</span>
+            </div>
+          </CampaignReveal>
+        </section>
+
+        <section className={s.moneyScene}>
+          <CampaignReveal className={s.moneyPoster}>
+            <div className={s.moneyTopline}>
+              <span>03 / ՕՐԸ ԹՎԵՐՈՎ</span>
+              <span>AMD</span>
+            </div>
+
+            <div className={s.moneyRevenue}>
+              <span>Հասույթ</span>
+              <strong><span dir="ltr">245 000</span><b>֏</b></strong>
+            </div>
+
+            <div className={s.moneyDeductions}>
+              <div><strong>− 62 000</strong><span>աշխատավարձ</span></div>
+              <div><strong>− 31 500</strong><span>ծախսեր</span></div>
+            </div>
+
+            <div className={s.moneyNet}>
+              <span>Ձեզ մնում է։</span>
+              <strong>151 500 ֏</strong>
+            </div>
+          </CampaignReveal>
+        </section>
+
+        <section className={s.workersScene}>
+          <CampaignReveal className={s.workersPanel}>
+            <div className={s.workerPhoto}>
+              <Image
+                className={s.photoImage}
+                src={photo('carwash-04.png')}
+                alt="Ավտոլվացման աշխատողը թաց մեքենայի կողքին նայում է հեռախոսին"
+                fill
+                sizes="(max-width: 760px) 100vw, 43vw"
+              />
+            </div>
+
+            <div className={s.workerCopy}>
+              <div className={s.sceneLabel}>04 / ԹԻՄ</div>
+              <h2>ՈՉ ՄԻ<br />ՀԱՇՎԻՉ։</h2>
+              <p>Աշխատավարձը հաշվվում է ինքն իրեն։</p>
+
+              <div className={s.salaryLines} aria-label="Աշխատողների հաշվարկված աշխատավարձերը">
+                <div><span>Արման</span><small>18 մեքենա</small><strong>27 000 ֏</strong></div>
+                <div><span>Գոռ</span><small>14 մեքենա</small><strong>21 000 ֏</strong></div>
+                <div><span>Հայկ</span><small>21 մեքենա</small><strong>31 500 ֏</strong></div>
+              </div>
+            </div>
+          </CampaignReveal>
+        </section>
+
+        <section className={s.closingScene}>
+          <CampaignReveal className={s.closingPanel}>
+            <div className={s.closingPhoto}>
+              <Image
+                className={s.photoImage}
+                src={photo('carwash-05.png')}
+                alt="Մաքուր գրաֆիտագույն մեքենան դուրս է գալիս ավտոլվացումից դեպի լույս"
+                fill
+                sizes="100vw"
+              />
+            </div>
+            <div className={s.closingLabel}>05 / ՊԱՐԶ ԱՐԴՅՈՒՆՔ</div>
+            <h2>ՕՐԸ<br />ՊԱՐԶ Է։</h2>
+            <p>Մեքենաները, գումարն ու թիմը՝ մեկ տեղում։</p>
+          </CampaignReveal>
+        </section>
+
+        <section className={s.priceScene} id="price">
+          <div className={s.pricePoster}>
+            <div className={s.priceIntro}>ՊԱՐԶ ԳԻՆ</div>
+            <div className={s.priceValue}>{formatMoney(PRICE, 'AMD')}</div>
+            <div className={s.priceMeta}>
+              <span>ամսական</span>
+              <span>մեկ մասնաճյուղի համար</span>
+            </div>
+            <div className={s.trial}>{TRIAL_DAYS} օր անվճար</div>
+            <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
+              ՍԿՍԵԼ <span aria-hidden="true">↗</span>
+            </AuthTrigger>
+          </div>
+
+          <footer className={s.footer}>
+            <Link className={s.wordmark} href="/">
+              <span className={s.mark} aria-hidden="true"><i /><i /></span>
+              <span>TETRIN</span>
+            </Link>
+            <span>Հաշվառում ավտոլվացումների համար</span>
+            <nav aria-label="Իրավական և աջակցություն">
+              <Link href="/privacy">{hy.legal.privacy}</Link>
+              <Link href="/support">{hy.legal.support}</Link>
+            </nav>
+          </footer>
         </section>
       </main>
-
-      <footer className={`${s.footer} ${s.blue}`}>
-        <span>{L.footer}</span>
-        <nav className={s.footerLinks}>
-          <Link href="/privacy">{hy.legal.privacy}</Link>
-          <Link href="/support">{hy.legal.support}</Link>
-        </nav>
-      </footer>
     </div>
   );
 }
 
-/** Шаг рабочего дня: слово слева, кадр с экраном продукта справа. */
-function StepBlock({
-  step,
-  index,
-}: {
-  step: (typeof hy.landing.steps)[number];
-  index: number;
-}) {
-  const media = STEPS[index];
-  if (!media) return null;
 
-  /* Стороны меняются местами через одну: четыре одинаковых разворота
-     подряд читаются как один длинный. */
-  const flip = index % 2 === 1;
-
-  return (
-    <section
-      className={`${s.step} ${flip ? s.stepFlip : ''} ${
-        media.tone === 'lime' ? s.lime : s.blue
-      }`}
-    >
-      <Reveal className={s.stepText}>
-        <p className={s.stepIndex}>{`0${index + 1}`}</p>
-        <h2 className={s.h2}>{step.title}</h2>
-        <p className={s.stepBody}>{step.body}</p>
-      </Reveal>
-
-      {/* Кадр отстаёт от слова на восьмую секунды: сначала понятно, о чём
-          речь, потом показывают. */}
-      <RevealMedia
-        className={`${s.stepMedia} ${media.shape === 'square' ? s.mediaSquare : s.mediaTall}`}
-        delay={0.12}
-      >
-        <figure className={`${s.stepPhoto} ${media.fade ? s.fadeOut : ''}`}>
-          <Image
-            src={media.photo}
-            alt={step.alt}
-            fill
-            sizes="(max-width: 860px) 100vw, 46vw"
-          />
-        </figure>
-        <figure className={s.stepScreen}>
-          <Image
-            src={media.screen}
-            alt={step.caption}
-            width={SCREEN_W}
-            height={SCREEN_H}
-            sizes="(max-width: 860px) 118px, 210px"
-          />
-        </figure>
-      </RevealMedia>
-    </section>
-  );
-}
