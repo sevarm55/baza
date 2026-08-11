@@ -34,6 +34,7 @@ export async function GET(
         id: client.id,
         key: client.key,
         name: client.name,
+        phone: client.phone,
         visits: client.visits,
         total: client.total,
         lastSeenAt: client.lastSeenAt,

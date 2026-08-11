@@ -539,6 +539,7 @@ export async function listClients(tenantId: string, limit = 500) {
       id: clients.id,
       key: clients.key,
       name: clients.name,
+      phone: clients.phone,
       visits: clients.visits,
       total: clients.total,
       lastSeenAt: clients.lastSeenAt,

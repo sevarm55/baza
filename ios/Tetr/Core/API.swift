@@ -397,6 +397,10 @@ enum API {
         let id: String
         let key: String
         let name: String?
+        /* Телефон вписывает владелец из карточки — при записи машины его
+           не спрашивают. Необязательное: сервер может оказаться старше
+           приложения, а на пустом поле экран падать не должен. */
+        let phone: String?
         let visits: Int
         let total: Int
         let daysSince: Int

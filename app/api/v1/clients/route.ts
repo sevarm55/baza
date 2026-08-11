@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         id: c.id,
         key: c.key,
         name: c.name,
+        phone: c.phone,
         visits: c.visits,
         total: c.total,
         lastSeenAt: c.lastSeenAt,

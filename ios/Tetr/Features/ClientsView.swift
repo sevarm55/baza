@@ -274,10 +274,25 @@ struct ClientsView: View {
     private func plainRow(_ client: API.Client) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(client.key)
-                    .font(.system(size: 14.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(client.key)
+                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+
+                    /* Метка постоянного. До неё это читалось только
+                       счётчиком визитов, а «сколько раз был» и «свой ли
+                       это человек» — разные вопросы, и второй решается
+                       взглядом. */
+                    if client.visits > 1 {
+                        Text("մշտական")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(Brand.goodOnBoard)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5))
+                    }
+                }
                 Text(visitLine(client))
                     .font(.system(size: 11.5))
                     .monospacedDigit()

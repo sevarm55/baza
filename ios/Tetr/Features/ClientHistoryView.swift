@@ -25,12 +25,18 @@ struct ClientHistoryView: View {
 
     @State private var orders: [API.ClientOrder] = []
     @State private var loaded = false
+    @State private var name = ""
+    @State private var phone = ""
+    @State private var editing = false
+    @State private var saving = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 10) {
                     reading
+
+                    contacts
 
                     if !orders.isEmpty {
                         VStack(spacing: 0) {
@@ -100,6 +106,130 @@ struct ClientHistoryView: View {
         .padding(.bottom, 6)
     }
 
+    /**
+     * Имя, телефон и две кнопки к нему.
+     *
+     * Телефон при записи машины не спрашивают и не будут: мойщик вводит
+     * номер, услугу и оплату мокрыми руками, с очередью за спиной.
+     * Владелец заходит в карточку постоянного спокойно — вот здесь номер
+     * и вписывается, чтобы потом было куда позвонить, когда человек
+     * пропал.
+     *
+     * «Զանգել» и «Գրել» открывают телефон и сообщения: звонить и писать
+     * умеет сам аппарат, своего набора номера продукту заводить незачем.
+     */
+    @ViewBuilder
+    private var contacts: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if editing {
+                TextField("Անուն", text: $name)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.onBoard)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 10))
+
+                TextField("+374 77 123 456", text: $phone)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .monospacedDigit()
+                    .keyboardType(.phonePad)
+                    .foregroundStyle(Brand.onBoard)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 10))
+
+                HStack(spacing: 8) {
+                    Button {
+                        Task { await saveContact() }
+                    } label: {
+                        Text(saving ? "…" : "Պահպանել")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Brand.onLime)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(Brand.lime, in: .rect(cornerRadius: 10))
+                    }
+                    .buttonStyle(.press)
+                    .disabled(saving)
+
+                    Button("Չեղարկել") { editing = false }
+                        .font(.system(size: 14))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Կապ")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.boardMuted)
+                        Text(name.isEmpty ? client.key : name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                        Text(phone.isEmpty ? "Հեռախոսը գրված չէ" : phone)
+                            .font(.system(size: 13))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Button("Փոխել") { editing = true }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+
+                if !phone.isEmpty {
+                    HStack(spacing: 8) {
+                        link("Զանգել", "tel:\(phone)", filled: true)
+                        link("Գրել", "sms:\(phone)", filled: false)
+                    }
+                }
+
+                /* Подсказка только пропавшему: у того, кто был вчера, она
+                   превратилась бы в фон, который перестают замечать. */
+                if client.daysSince > 21 {
+                    Text("Վաղուց չի եղել — զանգեք կամ առաջարկեք զեղչ")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.warnOnBoard)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 16))
+    }
+
+    private func link(_ title: String, _ url: String, filled: Bool) -> some View {
+        Link(destination: URL(string: url) ?? URL(string: "tel:0")!) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(filled ? Brand.onLime : Brand.onBoard)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(
+                    filled ? Brand.lime : Brand.boardInk.opacity(0.09),
+                    in: .rect(cornerRadius: 10)
+                )
+        }
+    }
+
+    private func saveContact() async {
+        saving = true
+        let escaped = client.key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? client.key
+        _ = try? await session.authed { token in
+            try await APIClient.shared.raw(
+                "clients/\(escaped)/contact",
+                method: "PATCH",
+                body: ["name": name, "phone": phone],
+                token: token
+            )
+        }
+        saving = false
+        editing = false
+    }
+
     private var subtitle: String {
         let avg = client.visits > 0 ? client.total / client.visits : 0
         let last = client.daysSince == 0 ? "այսօր" : "\(client.daysSince) օր առաջ"
@@ -158,7 +288,11 @@ struct ClientHistoryView: View {
         let result: API.ClientHistory? = try? await session.authed { token in
             try await APIClient.shared.send("clients/\(escaped)", token: token, as: API.ClientHistory.self)
         }
-        if let result { orders = result.orders }
+        if let result {
+            orders = result.orders
+            name = result.client.name ?? ""
+            phone = result.client.phone ?? ""
+        }
         loaded = true
     }
 }
