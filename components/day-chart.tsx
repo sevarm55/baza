@@ -1,14 +1,28 @@
-﻿import { formatMoney } from '@/lib/money';
+'use client';
+
+import { useState } from 'react';
+import { formatMoney } from '@/lib/money';
 
 export type ChartPoint = { label: string; value: number; peak?: boolean };
 type SplitSegment = { label: string; value: number; color: string };
 
 /**
- * Рельеф периода столбиками.
+ * Ход дня: сколько накопилось и когда пришло.
  *
- * Не SVG, а обычные блоки: так график тянется по ширине без искажений
- * и остаётся чётким на любом экране. Подписи ставим не под каждым
- * столбиком, а через один-два — иначе на телефоне они слипаются в кашу.
+ * Здесь два вопроса, и они разные. «Как идёт день» — это накопление:
+ * линия растёт, и по её наклону видно, догоняет день вчерашний или
+ * отстаёт. «Когда у меня заезд» — это рельеф: где столбик выше, туда и
+ * приходят, а провал между ними и есть тот час, в который мойка стояла.
+ *
+ * Раньше был только рельеф. Он отвечал на второй вопрос и молчал про
+ * первый: по стопке одинаковых палок нельзя сказать, сколько всего
+ * набежало к трём часам. Теперь линия идёт поверх столбиков — один
+ * прибор на оба вопроса, и ни один не пришлось выбрасывать.
+ *
+ * Линия рисуется в SVG, а столбики остаются блоками. Смешение нарочное:
+ * растянутый по ширине SVG искажает толщину штриха, и лечится это
+ * `vector-effect`, а вот прямоугольники блоками тянутся без искажений
+ * вовсе и остаются чёткими на любом экране.
  */
 export function DayChart({
   points,
@@ -17,56 +31,156 @@ export function DayChart({
   points: ChartPoint[];
   currency: string;
 }) {
+  /* Что под курсором. `null` — курсора нет, и тогда подпись внизу
+     показывает пик: экран, на который просто смотрят, обязан отвечать
+     без наведения. */
+  const [at, setAt] = useState<number | null>(null);
+
   if (points.length === 0) return null;
 
   const max = Math.max(...points.map((p) => p.value));
   const peakIndex = points.findIndex((p) => p.value === max && max > 0);
 
+  /* Накопление считается один раз и здесь: то же самое в разметке
+     превратилось бы в сумму, пересчитываемую на каждой точке. */
+  const running: number[] = [];
+  points.reduce((sum, p) => {
+    const next = sum + p.value;
+    running.push(next);
+    return next;
+  }, 0);
+  const total = running[running.length - 1] ?? 0;
+
+  const W = 1000;
+  const H = 260;
+  const step = points.length > 1 ? W / (points.length - 1) : 0;
+  const y = (v: number) => (total > 0 ? H - (v / total) * (H - 12) - 6 : H - 6);
+  const x = (i: number) => (points.length > 1 ? i * step : W / 2);
+
+  const line = running.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join(' ');
+  const area = `${line} L${x(points.length - 1)},${H} L${x(0)},${H} Z`;
+
+  const shown = at ?? peakIndex;
+  const active = points[shown];
+
   return (
-    /* Волна, а не карточка с диаграммой.
-    
-       Столбики остались, но полотна вокруг них больше нет: на табло
-       график — это рельеф под показанием, а не отдельный прибор в
-       рамке. Рамка требовала заголовка, заголовок требовал места, и
-       вместе они отнимали высоту у того, ради чего сюда смотрят. */
     <div className="mt-1 mb-2">
-      {/* На компьютере волна выше: в широком блоке рельеф в 64 пикселя
-          сплющивается в линию, и провал между заездами перестаёт
-          читаться — а он и есть то, ради чего сюда смотрят. */}
-      <div className="flex h-[64px] items-end gap-[3px] lg:h-[136px]">
-        {points.map((p, i) => {
-          const height = max > 0 ? Math.max(2, Math.round((p.value / max) * 100)) : 2;
-          const isPeak = i === peakIndex && max > 0;
-          return (
+      <div
+        className="relative h-[96px] lg:h-[176px]"
+        onPointerLeave={() => setAt(null)}
+        onPointerMove={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          const ratio = (e.clientX - box.left) / box.width;
+          const i = Math.round(ratio * (points.length - 1));
+          setAt(Math.min(points.length - 1, Math.max(0, i)));
+        }}
+      >
+        {/* Рельеф. Приглушён до фона: он подложка под линией, а не
+            второй график — два одинаково громких слоя спорили бы за
+            взгляд, и не читался бы ни один. */}
+        <div className="absolute inset-0 flex items-end gap-[3px]">
+          {points.map((p, i) => (
             <div
               key={`${p.label}-${i}`}
-              className="flex-1 rounded-t-[3px]"
+              className="flex-1 rounded-t-[3px] transition-opacity"
               style={{
-                height: `${height}%`,
-                /* Пик выделен: именно он отвечает на вопрос «когда у меня
-                   заезд», ради которого сюда и смотрят. Остальные —
-                   приглушённым чернилом полотна, чтобы волна читалась
-                   рельефом, а не набором палок. */
-                background: isPeak
-                  ? 'var(--tone-violet-glow)'
-                  : 'color-mix(in srgb, var(--board-ink) 14%, transparent)',
+                height: `${max > 0 ? Math.max(1.5, (p.value / max) * 74) : 1.5}%`,
+                background: 'color-mix(in srgb, var(--board-ink) 13%, transparent)',
+                opacity: at === null || at === i ? 1 : 0.45,
               }}
-              title={`${p.label} · ${formatMoney(p.value, currency)}`}
             />
-          );
-        })}
+          ))}
+        </div>
+
+        {/* Линия накопления. `preserveAspectRatio` снят, чтобы полотно
+            тянулось по ширине блока; толщину штриха при этом держит
+            `vector-effect` — иначе на широком экране линия расплывается
+            в полосу. */}
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <defs>
+            <linearGradient id="dayFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--tone-violet-glow)" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="var(--tone-violet-glow)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Три линии сетки. Больше не нужно: точные значения даёт
+              подсказка, а сетка тут только чтобы глаз держал высоту. */}
+          {[0.25, 0.5, 0.75].map((f) => (
+            <line
+              key={f}
+              x1="0"
+              x2={W}
+              y1={H * f}
+              y2={H * f}
+              stroke="color-mix(in srgb, var(--board-ink) 8%, transparent)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+
+          <path d={area} fill="url(#dayFill)" />
+          <path
+            d={line}
+            fill="none"
+            stroke="var(--tone-violet-glow)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+
+        {/* Отвес и точка под курсором — блоками, а не в SVG: круг в
+            растянутом полотне превратился бы в овал. */}
+        {at !== null && points.length > 1 && (
+          <>
+            <div
+              className="pointer-events-none absolute top-0 bottom-0 w-px"
+              style={{
+                left: `${(at / (points.length - 1)) * 100}%`,
+                background: 'color-mix(in srgb, var(--board-ink) 22%, transparent)',
+              }}
+            />
+            <div
+              className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                left: `${(at / (points.length - 1)) * 100}%`,
+                top: `${(y(running[at]) / H) * 100}%`,
+                background: 'var(--tone-violet-glow)',
+                boxShadow: '0 0 0 3px var(--board)',
+              }}
+            />
+          </>
+        )}
       </div>
 
-      {/* Подписи под волной: время слева, пик справа. Больше ничего —
-          читают тут форму, а не значения. */}
-      <div className="mt-1.5 flex items-baseline justify-between">
+      {/* Подпись под графиком — она же подсказка.
+
+          Всплывающее окно поверх линии закрывало бы её собой на узком
+          экране, и палец на телефоне закрывал бы вместе с ним. Строка
+          под графиком стоит на месте, ничего не перекрывает и меняется
+          на лету: без курсора показывает пик, под курсором — точку. */}
+      <div className="mt-2 flex items-baseline justify-between gap-3">
         <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
           {points[0]?.label}
           {points.length > 1 && ` — ${points[points.length - 1]?.label}`}
         </span>
-        {max > 0 && (
-          <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
-            {points[peakIndex]?.label} · {formatMoney(max, currency)}
+
+        {active && (max > 0 || at !== null) && (
+          <span className="num flex items-baseline gap-2 text-[12px]">
+            <span style={{ color: 'var(--board-muted)' }}>{active.label}</span>
+            <span className="font-semibold" style={{ color: 'var(--on-board)' }}>
+              +{formatMoney(active.value, currency)}
+            </span>
+            <span style={{ color: 'var(--board-muted)' }}>
+              {formatMoney(running[shown] ?? 0, currency)}
+            </span>
           </span>
         )}
       </div>
