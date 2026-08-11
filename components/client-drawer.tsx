@@ -276,7 +276,17 @@ function Contacts({
     <form
       key={plate}
       className="mb-4 grid gap-2.5 rounded-[var(--radius-card)] p-4"
-      style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
+      /* Поля внутри карточки — светлее её, а не того же тона.
+
+         Панель ставит серую заливку полям, потому что сама она белая. Но
+         карточка контактов тоже серая, и на ней поле пропадало: человек
+         видел подпись «Անուն» и пустоту под ней, не понимая, есть там
+         поле или нет. Правило одно на весь продукт — поле не совпадает
+         с подложкой, — и здесь подложка другая, значит и заливка другая. */
+      style={{
+        background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)',
+        ['--field-fill' as string]: 'var(--board-surface)',
+      }}
       action={async (form: FormData) => {
         setSaving(true);
         await saveClientContact(

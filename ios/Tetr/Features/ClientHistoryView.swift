@@ -128,7 +128,7 @@ struct ClientHistoryView: View {
                     .foregroundStyle(Brand.onBoard)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
-                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 10))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10))
 
                 TextField("+374 77 123 456", text: $phone)
                     .textFieldStyle(.plain)
@@ -138,7 +138,10 @@ struct ClientHistoryView: View {
                     .foregroundStyle(Brand.onBoard)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
-                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 10))
+                    /* Светлее карточки, а не того же тона: на общей
+                       серой подложке поле пропадало, и человек не
+                       понимал, есть там ввод или нет. */
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10))
 
                 HStack(spacing: 8) {
                     Button {
