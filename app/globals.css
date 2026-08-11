@@ -2098,3 +2098,30 @@ input[type='radio'] {
     font-weight: 600;
     white-space: nowrap;
   }
+
+  /* Звено полосы, за которым есть список. Подсветка под курсором и
+     стрелка в углу: без знака нажимаемое звено ничем не отличается от
+     соседнего, и по нему не пробуют нажать. */
+  .flow-link-open {
+    cursor: pointer;
+    text-align: start;
+    transition: background var(--t-micro) var(--ease);
+  }
+  .flow-link-open:hover {
+    background: color-mix(in srgb, var(--board-ink) 9%, transparent);
+  }
+  .flow-link-strong.flow-link-open:hover {
+    background: color-mix(in srgb, var(--on-board) 88%, var(--board));
+  }
+  .flow-link-open::after {
+    content: '';
+    position: absolute;
+    top: 0.9rem;
+    inset-inline-end: 0.9rem;
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-start: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    opacity: 0.35;
+  }

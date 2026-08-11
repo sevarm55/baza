@@ -23,6 +23,7 @@ struct ClientsView: View {
     @State private var query = ""
     @State private var sort: Sort = .recent
     @State private var opened: API.Client?
+    @State private var group: ClientGroupView.Group?
 
     /** Чем упорядочен список.
 
@@ -64,6 +65,14 @@ struct ClientsView: View {
     private var lost: [API.Client] { found.filter { $0.daysSince > lostAfter } }
     private var rest: [API.Client] { found.filter { $0.daysSince <= lostAfter } }
 
+    /* Счётчики в шапке считают по всей базе, а не по найденному.
+       Это показания продукта — «сколько у меня всего», «сколько
+       постоянных», — и они не должны меняться от того, что человек
+       набрал в поиске три буквы номера. Деление списка ниже, наоборот,
+       идёт по найденному: там речь ровно о том, что сейчас на экране. */
+    private var loyalAll: [API.Client] { clients.filter { $0.visits > 1 } }
+    private var lostAll: [API.Client] { clients.filter { $0.daysSince > lostAfter } }
+
     /// Разделять на «стоит позвонить» и остальных имеет смысл только в
     /// полном списке по умолчанию. При поиске или другом порядке человек
     /// уже сказал, что ищет, и деление мешает.
@@ -98,6 +107,15 @@ struct ClientsView: View {
             ClientHistoryView(client: client, currency: currency)
                 .environmentObject(session)
         }
+        .sheet(item: $group) { which in
+            ClientGroupView(
+                group: which,
+                clients: clients,
+                lostAfter: lostAfter,
+                currency: currency
+            )
+            .environmentObject(session)
+        }
     }
 
     /**
@@ -118,22 +136,7 @@ struct ClientsView: View {
      */
     private var head: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(clients.count) հաճախորդ")
-                    .font(.system(size: 17, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-                    .contentTransition(.numericText(value: Double(clients.count)))
-
-                if !lost.isEmpty && grouped {
-                    Text("· \(lost.count) չի եղել \(lostAfter) օրից ավել")
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.warnOnBoard)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
+            counters
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -190,6 +193,77 @@ struct ClientsView: View {
         .padding(.horizontal, 4)
         .padding(.top, 6)
         .padding(.bottom, 2)
+    }
+
+    /**
+     * Три счётчика, и по каждому можно нажать.
+     *
+     * Число без списка за собой — тупик: «մշտական 12» видно, а кто эти
+     * двенадцать — нет, и владелец шёл сортировать список и считать
+     * строки глазами. Теперь за каждым числом открывается ровно его
+     * список.
+     *
+     * «Վաղուց չեն եղել 0» не нажимается: за нулём списка нет. Кнопка,
+     * которая ничего не открывает, хуже обычного текста — по ней жмут и
+     * не понимают, сломалось или так задумано.
+     */
+    private var counters: some View {
+        HStack(spacing: 6) {
+            counter("Բազայում", clients.count, tone: Brand.onBoard) { group = .all }
+            counter("Մշտական", loyalAll.count, tone: Brand.goodOnBoard) { group = .loyal }
+            counter(
+                "Վաղուց չեն եղել",
+                lostAll.count,
+                tone: lostAll.isEmpty ? Brand.onBoard : Brand.warnOnBoard
+            ) {
+                group = lostAll.isEmpty ? nil : .lost
+            }
+        }
+    }
+
+    private func counter(
+        _ label: String,
+        _ value: Int,
+        tone: Color,
+        _ tap: @escaping () -> Void
+    ) -> some View {
+        let live = !(label == "Վաղուց չեն եղել" && value == 0)
+
+        return Button(action: tap) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 3) {
+                    Text(label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Spacer(minLength: 0)
+
+                    /* Шеврон, а не просто нажимаемая плитка: без знака
+                       она читается подписью, по ней не пробуют тапнуть
+                       и не узнают, что за числом что-то есть. */
+                    if live {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundStyle(Brand.boardMuted.opacity(0.55))
+                    }
+                }
+
+                Text("\(value)")
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(tone)
+                    .contentTransition(.numericText(value: Double(value)))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 12))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+        .disabled(!live)
     }
 
     private func empty(_ text: String) -> some View {

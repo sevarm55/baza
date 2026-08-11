@@ -28,13 +28,25 @@ export type Link = {
   note?: string;
   /** итог: тёмная заливка, крупнее прочих */
   strong?: boolean;
+  /** звено открывает список за собой; без него это просто число */
+  onOpen?: () => void;
 };
 
 export function FlowStrip({ links }: { links: Link[] }) {
   return (
     <div className="flow">
-      {links.map((l) => (
-        <div key={l.label} className={`flow-link${l.strong ? ' flow-link-strong' : ''}`}>
+      {links.map((l) => {
+        /* Нажимаемое звено — настоящая кнопка, а не div с обработчиком:
+           так оно попадает в обход по клавиатуре и объявляется читалкой
+           экрана само, без единого атрибута руками. */
+        const Tag = l.onOpen ? 'button' : 'div';
+        return (
+        <Tag
+          key={l.label}
+          type={l.onOpen ? 'button' : undefined}
+          onClick={l.onOpen}
+          className={`flow-link${l.strong ? ' flow-link-strong' : ''}${l.onOpen ? ' flow-link-open' : ''}`}
+        >
           {/* Знак живёт в шве между звеньями, а не внутри карточки:
               он про связь, а не про число. На узком экране, где
               звенья складываются в столбец, он уезжает влево и
@@ -49,8 +61,9 @@ export function FlowStrip({ links }: { links: Link[] }) {
             <NumericText>{l.value}</NumericText>
           </span>
           {l.note && <span className="flow-note num">{l.note}</span>}
-        </div>
-      ))}
+        </Tag>
+        );
+      })}
     </div>
   );
 }

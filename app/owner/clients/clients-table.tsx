@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { ClientDrawer } from '@/components/client-drawer';
+import { GroupDrawer, type Group } from '@/components/group-drawer';
+import { FlowStrip } from '@/components/flow-strip';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 
@@ -49,8 +51,13 @@ export function ClientsTable({
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>('recent');
   const [open, setOpen] = useState<string | null>(null);
+  const [group, setGroup] = useState<Group | null>(null);
 
   const money = (n: number) => formatMoney(n, currency);
+
+  const loyal = rows.filter((c) => c.visits > 1);
+  const lost = rows.filter((c) => c.days > lostAfter);
+  const avg = rows.length ? Math.round(rows.reduce((s, c) => s + c.total, 0) / rows.length) : 0;
 
   /* Пробелы и регистр не в счёт: номер диктуют вслух и записывают как
      придётся — «93LM227» и «93 lm 227» это одна машина. */
@@ -69,6 +76,32 @@ export function ClientsTable({
 
   return (
     <>
+      {/* Полоса живёт здесь, а не на серверной странице: по её плиткам
+          нажимают, а нажатие — это состояние. Каждая открывает свой
+          список тем же приёмом, что и карточка машины: панелью справа,
+          не уводя со страницы и не теряя набранный поиск.
+
+          «Средний чек» не нажимается: за ним нет списка, это одно число
+          про всех сразу. Кнопка, которая ничего не открывает, хуже
+          обычного текста — по ней жмут и не понимают, сломалось или так
+          задумано. */}
+      <div className="mb-[var(--seam)]">
+        <FlowStrip
+          links={[
+            { label: hy.owner.clientsTotal, value: String(rows.length), onOpen: () => setGroup('all') },
+            { label: hy.owner.clientsLoyal, value: String(loyal.length), onOpen: () => setGroup('loyal') },
+            { label: hy.owner.clientsAvg, value: money(avg) },
+            {
+              label: hy.owner.clientsLost,
+              value: String(lost.length),
+              strong: lost.length > 0,
+              note: lost.length > 0 ? hy.owner.comeBack : undefined,
+              onOpen: lost.length > 0 ? () => setGroup('lost') : undefined,
+            },
+          ]}
+        />
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <label className="relative min-w-0 flex-1">
           <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
@@ -213,6 +246,21 @@ export function ClientsTable({
       <p className="mt-3 text-[12px]" style={{ color: 'var(--board-muted)' }}>
         {found.length} / {rows.length} · {unit}
       </p>
+
+      <GroupDrawer
+        group={group}
+        rows={rows}
+        lostAfter={lostAfter}
+        money={money}
+        onClose={() => setGroup(null)}
+        /* Из списка группы — сразу в карточку машины: группа отвечает
+           «кто это», карточка «что он у меня брал», и второй вопрос
+           всегда следует за первым. */
+        onPick={(key) => {
+          setGroup(null);
+          setOpen(key);
+        }}
+      />
 
       <ClientDrawer
         plate={open}
