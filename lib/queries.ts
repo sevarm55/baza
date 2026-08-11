@@ -535,7 +535,21 @@ export async function findClient(tenantId: string, key: string) {
 
 export async function listClients(tenantId: string, limit = 500) {
   return db
-    .select()
+    .select({
+      id: clients.id,
+      key: clients.key,
+      name: clients.name,
+      visits: clients.visits,
+      total: clients.total,
+      lastSeenAt: clients.lastSeenAt,
+      /* Дни молчания считает база, а не страница.
+
+         `Date.now()` в разметке — это чтение часов во время отрисовки:
+         у сервера и браузера они разные, и «3 օր առաջ» на сервере
+         превращалось в «4 օր առաջ» после гидратации. Тот же приём уже
+         применён к простою бизнесов в админке. */
+      daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
+    })
     .from(clients)
     .where(and(eq(clients.tenantId, tenantId), realClient))
     .orderBy(desc(clients.lastSeenAt))
@@ -556,7 +570,16 @@ export async function listClients(tenantId: string, limit = 500) {
  */
 export async function getClientHistory(tenantId: string, key: string, limit = 200) {
   const [client] = await db
-    .select()
+    .select({
+      id: clients.id,
+      key: clients.key,
+      name: clients.name,
+      visits: clients.visits,
+      total: clients.total,
+      lastSeenAt: clients.lastSeenAt,
+      // считает база — см. listClients
+      daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
+    })
     .from(clients)
     .where(and(eq(clients.tenantId, tenantId), eq(clients.key, key)));
 
