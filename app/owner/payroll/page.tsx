@@ -14,7 +14,7 @@ import { FlowStrip } from '@/components/flow-strip';
 import { PageHead } from '@/components/page-head';
 import { personColor } from '@/lib/person-color';
 import { PayButton } from '@/components/pay-button';
-import { dayMonth } from '@/lib/time';
+import { dayMonth, hhmm } from '@/lib/time';
 
 /**
  * Зарплаты.
@@ -184,10 +184,24 @@ export default async function PayrollPage() {
                         <span className="truncate font-medium">{p.staffName ?? '—'}</span>
                       </span>
                     </td>
+                    {/* Период — и когда за него отдали.
+
+                        «11.08 — 11.08» одного дня читалось как ошибка, а
+                        пять строк с одинаковыми датами — как одна выплата,
+                        напечатанная пять раз. День, повторённый дважды,
+                        сжат в одну дату; под ней стоит момент выдачи, и
+                        соседние строки перестают быть близнецами. */}
                     <td className="num" style={{ color: 'var(--board-muted)' }}>
-                      {p.periodFrom.getTime() > 0
-                        ? `${shortDate(p.periodFrom, tenant.timezone)} — ${shortDate(p.periodTo, tenant.timezone)}`
-                        : `${hy.owner.upTo} ${shortDate(p.periodTo, tenant.timezone)}`}
+                      {p.periodFrom.getTime() === 0
+                        ? `${hy.owner.upTo} ${shortDate(p.periodTo, tenant.timezone)}`
+                        : shortDate(p.periodFrom, tenant.timezone) ===
+                            shortDate(p.periodTo, tenant.timezone)
+                          ? shortDate(p.periodTo, tenant.timezone)
+                          : `${shortDate(p.periodFrom, tenant.timezone)} — ${shortDate(p.periodTo, tenant.timezone)}`}
+                      <span className="block text-[11.5px]" style={{ opacity: 0.7 }}>
+                        {hy.owner.paidAt} {dayMonth(p.paidAt, tenant.timezone)}{' '}
+                        {hhmm(p.paidAt, tenant.timezone)}
+                      </span>
                     </td>
                     <td className="num end font-semibold">{money(p.amount)}</td>
                   </tr>

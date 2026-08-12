@@ -124,6 +124,18 @@ struct PayrollView: View {
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .padding(.top, 6)
+
+                /* За какой срок это число.
+
+                   Владелец видел «5 մեքենա», знал, что сегодня помыли
+                   две, и не понимал, откуда остальные. Экран считает
+                   накопленное с последней выплаты, а не сегодняшнее, и
+                   сказать это надо тут же — иначе он проверяет цифру
+                   памятью и не сходится. */
+                Text("վերջին վճարումից ի վեր")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Brand.boardMuted.opacity(0.85))
+                    .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity)
