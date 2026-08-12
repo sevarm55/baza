@@ -91,6 +91,8 @@
      прибор на панели: он светится одинаково и днём, и ночью, иначе на
      светлой теме свечение выродилось бы в грязное пятно. */
   --board: #ffffff;
+  /* Чем подкрашена боковая колонка: на светлой теме чернилами. */
+  --rail-fill: var(--board-ink);
   --on-board: #14121a;
   --board-muted: #6b6577;
   --board-ink: #14121a;
@@ -158,6 +160,9 @@
 }
 
 :root[data-theme='dark'] {
+  /* Тон боковой колонки: на тёмной теме она глубже полотна, а не
+     светлее — иначе рамка вокруг страницы начинает светиться. */
+  --rail-fill: #000000;
   --bg: #120f1a;
   --surface: #1b1726;
   --surface2: #262032;
@@ -1706,7 +1711,13 @@ input[type='radio'] {
     flex-direction: column;
     gap: 0.25rem;
     padding: 1.15rem 0.85rem 1rem;
-    background: color-mix(in srgb, var(--board-ink) 4%, var(--board));
+    /* Колонка темнее полотна, а не чуть-чуть. На светлой теме четыре
+       процента чернил давали белое по белому: край продукта угадывался
+       только по волоску границы, и разделы висели в воздухе. Колонка —
+       не часть страницы, а рамка вокруг неё, и сказать это должен тон.
+       На тёмной теме те же проценты, наоборот, высветляли её, поэтому
+       там подмешивается не чернило, а чернота. */
+    background: color-mix(in srgb, var(--rail-fill, var(--board-ink)) 7%, var(--board));
     border-inline-end: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
   }
 
@@ -2053,6 +2064,87 @@ input[type='radio'] {
     .flow-link-strong .flow-sign {
       display: none;
     }
+  }
+
+  /* ─────────────── выбор услуги при записи ───────────────
+
+     Услуги стояли столбцом широких кнопок и занимали пол-экрана: до
+     оплаты приходилось листать, а названия у них короткие. Фишкой с
+     ценой под именем помещаются все сразу, и выбор виден, не уходя со
+     страницы. */
+  .pick {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-card);
+    background: var(--field-fill, var(--field-gray));
+    color: var(--ink);
+    text-align: start;
+    cursor: pointer;
+    transition:
+      background var(--t-micro) var(--ease),
+      color var(--t-micro) var(--ease);
+  }
+  .pick:hover {
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+  }
+  .pick[data-on] {
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  .pick-name {
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+  .pick-price {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .pick[data-on] .pick-price {
+    color: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+
+  /* ─────────────── способ оплаты ───────────────
+
+     Плитка с тоном, а не строка списка: касание по ней и есть запись,
+     и попадать в неё надо не глядя — по цветному пятну, а не по слову.
+     Тона те же, что в приложении. */
+  .pay {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    padding: 0.85rem 0.4rem;
+    border-radius: var(--radius-card);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      opacity var(--t-micro) var(--ease),
+      transform var(--t-press) var(--ease);
+  }
+  .pay:active {
+    transform: scale(0.98);
+  }
+  /* Погашены, пока не набран номер и не выбрана услуга: нажатие здесь
+     необратимо — оно записывает машину. */
+  .pay:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .pay[data-tone='lime'] {
+    background: var(--tone-lime);
+    color: var(--tone-ink-on-lime);
+  }
+  .pay[data-tone='violet'] {
+    background: var(--tone-violet);
+    color: var(--tone-ink);
+  }
+  .pay[data-tone='slate'] {
+    background: var(--tone-slate);
+    color: var(--tone-ink);
   }
 
   /* Метка в строке таблицы: способ оплаты, тип записи — короткое слово,

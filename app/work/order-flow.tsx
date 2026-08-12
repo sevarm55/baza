@@ -40,15 +40,29 @@ type Known = {
   passes: ActivePass[];
 };
 
-type Step = 'home' | 'client' | 'service' | 'payment' | 'done';
+/**
+ * Что на экране.
+ *
+ * Мастера из трёх шагов больше нет. Он стоил тех же трёх касаний, но
+ * между ними были три смены страницы: мойщик не видел, что уже выбрал,
+ * не мог поправить номер, не вернувшись назад, и не знал суммы, пока не
+ * дошёл до оплаты. Теперь номер, услуга и оплата стоят на одном экране —
+ * в том порядке, в каком идёт работа, — и запись по-прежнему занимает
+ * три касания. Так же устроена запись в приложении.
+ */
+type Step = 'home' | 'compose' | 'done';
 
 /** Подложка прибора — та же, что рисует `Panel`. */
 const PANEL = { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' } as const;
 
-const PAYMENTS: { key: Payment; label: string; Icon: typeof IconCash }[] = [
-  { key: 'cash', label: hy.payment.cash, Icon: IconCash },
-  { key: 'card', label: hy.payment.card, Icon: IconCard },
-  { key: 'transfer', label: hy.payment.transfer, Icon: IconTransfer },
+/* Тон у каждого способа свой — тот же, что в приложении: наличные
+   лаймовые, карта фиолетовая, перевод серый. Цвет здесь не украшение, а
+   способ попасть пальцем не глядя: мойщик знает, где «наличные», по
+   пятну, а не по слову. */
+const PAYMENTS: { key: Payment; label: string; Icon: typeof IconCash; tone: string }[] = [
+  { key: 'cash', label: hy.payment.cash, Icon: IconCash, tone: 'lime' },
+  { key: 'card', label: hy.payment.card, Icon: IconCard, tone: 'violet' },
+  { key: 'transfer', label: hy.payment.transfer, Icon: IconTransfer, tone: 'slate' },
 ];
 
 export function OrderFlow({
@@ -116,7 +130,7 @@ export function OrderFlow({
   /* Подсказка о клиенте ищется во время набора. Задержка нужна, чтобы
      не бить в сервер на каждую букву, но 250 мс человек не замечает. */
   useEffect(() => {
-    if (step !== 'client') return;
+    if (step !== 'compose') return;
     const key = clientKey.trim();
     if (key.length < 3) {
       setKnown(null);
@@ -131,7 +145,7 @@ export function OrderFlow({
   }, [clientKey, step]);
 
   useEffect(() => {
-    if (step === 'client') inputRef.current?.focus();
+    if (step === 'compose') inputRef.current?.focus();
   }, [step]);
 
   function reset() {
@@ -186,7 +200,6 @@ export function OrderFlow({
           return;
         }
         setError(hy.errors.generic);
-        setStep('payment');
       }
     });
   }
@@ -199,7 +212,7 @@ export function OrderFlow({
             Погашенная кнопка вне смены читалась поломкой; теперь вне
             смены на её месте стоит начало смены — см. ShiftToggle. */}
         {canWrite && (
-          <button className="btn btn-big" onClick={() => setStep('client')}>
+          <button className="btn btn-big" onClick={() => setStep('compose')}>
             {addLabel}
           </button>
         )}
@@ -294,143 +307,119 @@ export function OrderFlow({
     );
   }
 
-  /* ------------------------------ мастер ------------------------------ */
-  const stepIndex = step === 'client' ? 1 : step === 'service' ? 2 : 3;
+  /* ----------------------------- запись ------------------------------ */
   const activePass = service
     ? known?.passes?.find((p) => p.serviceId === service.id)
     : undefined;
+  const ready = clientKey.trim().length > 0 && service !== null;
 
-  /* Мастер записи — на той же подложке, что журнал на его месте.
-     Иначе при переходе с главной прибор исчезает, и три шага висят на
-     голом полотне: экран выглядит так, будто разметка сломалась. */
+  /* Запись — на той же подложке, что журнал на её месте. Иначе при
+     переходе с главной прибор исчезает, и форма висит на голом
+     полотне: экран выглядит так, будто разметка сломалась. */
   return (
     <div className="panel-pad rounded-[var(--radius-card)]" style={PANEL}>
-      {/* Полоска шагов — прямая, а не из трёх таблеток: капсула в три
-          пикселя высотой всё равно не читается как капсула, зато рядом
-          с прямоугольными полями выглядит деталью из другого набора. */}
-      <div className="mb-4 flex gap-1">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`h-[3px] flex-1 rounded-[2px] transition-colors ${
-              i <= stepIndex ? 'bg-accent-strong' : 'bg-line'
-            }`}
-          />
+      {/* Номер первым: сначала подъехала машина, потом решают, что с
+          ней делают. */}
+      <label className="grid gap-1.5">
+        <span className="label">{clientIdLabel}</span>
+        <input
+          ref={inputRef}
+          className="field field-key auth-field"
+          value={clientKey}
+          onChange={(e) => setClientKey(e.target.value)}
+          inputMode={clientIdType === 'phone' ? 'tel' : 'text'}
+          autoComplete="off"
+          autoCapitalize="characters"
+        />
+      </label>
+
+      {/* Узнавание постоянного прямо при наборе — то, ради чего экран и
+          существует: мойщик видит, что машина уже была, до того как
+          назовёт цену. */}
+      {known && (
+        <div className="hint-good mt-2">
+          {hy.work.knownClient(
+            known.visits,
+            agoLabel(known.lastSeenAt),
+            formatMoney(known.total, currency),
+          )}
+        </div>
+      )}
+
+      <div className="label mt-4 mb-2">{hy.work.stepService}</div>
+      {/* Услуги фишками, а не столбцом кнопок: их пять-шесть, названия
+          разной длины, и в столбце они занимали пол-экрана — до оплаты
+          приходилось листать. Повторное нажатие снимает выбор. */}
+      <div className="flex flex-wrap gap-2">
+        {services.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className="pick"
+            data-on={service?.id === s.id ? '' : undefined}
+            aria-pressed={service?.id === s.id}
+            onClick={() => setService((cur) => (cur?.id === s.id ? null : s))}
+          >
+            <span className="pick-name">{s.name}</span>
+            <span className="num pick-price">{formatMoney(s.price, currency)}</span>
+          </button>
         ))}
       </div>
 
-      {step === 'client' && (
-        <>
-          <div className="card">
-            <div className="mb-2.5 text-xs text-muted">{clientIdLabel}</div>
-            <input
-              ref={inputRef}
-              className="field field-key"
-              value={clientKey}
-              onChange={(e) => setClientKey(e.target.value)}
-              inputMode={clientIdType === 'phone' ? 'tel' : 'text'}
-              autoComplete="off"
-              autoCapitalize="characters"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && clientKey.trim()) setStep('service');
-              }}
-            />
-            {known && (
-              <div className="hint-good mt-2.5">
-                {hy.work.knownClient(
-                  known.visits,
-                  agoLabel(known.lastSeenAt),
-                  formatMoney(known.total, currency),
-                )}
-              </div>
-            )}
-          </div>
+      {/* Итог и оплата — низом, у большого пальца руки, которой держат
+          телефон. Касание по способу оплаты и есть запись: отдельной
+          кнопки «сохранить» нет, потому что деньги берут один раз. */}
+      <div className="mt-4 border-t pt-3.5" style={{ borderColor: 'var(--hairline)' }}>
+        <div className="mb-2.5 flex items-baseline justify-between gap-3">
+          <span className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
+            {hy.owner.clientsTotalSpent}
+          </span>
+          <span className="num text-[24px] leading-none font-bold tracking-[-0.03em]">
+            {formatMoney(service?.price ?? 0, currency)}
+          </span>
+        </div>
 
+        {/* Абонемент идёт первым и во всю ширину: если он у клиента
+            есть, брать деньги повторно — прямая ошибка. */}
+        {activePass && (
           <button
-            className="btn mt-2.5"
-            disabled={!clientKey.trim()}
-            onClick={() => setStep('service')}
-          >
-            {hy.common.next}
-          </button>
-          <button className="btn btn-ghost mt-2" onClick={reset}>
-            {hy.common.cancel}
-          </button>
-        </>
-      )}
-
-      {step === 'service' && (
-        <>
-          <div className="mb-2.5 text-xs text-muted">{hy.work.stepService}</div>
-          <div className="grid gap-2">
-            {services.map((s) => (
-              <button
-                key={s.id}
-                className="opt"
-                onClick={() => {
-                  setService(s);
-                  setStep('payment');
-                }}
-              >
-                <span className="font-semibold">{s.name}</span>
-                <span className="text-muted">{formatMoney(s.price, currency)}</span>
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-ghost mt-2.5" onClick={() => setStep('client')}>
-            {hy.common.back}
-          </button>
-        </>
-      )}
-
-      {step === 'payment' && (
-        <>
-          <div className="mb-2.5 text-xs text-muted">{hy.work.stepPayment}</div>
-          <div className="grid gap-2">
-            {/* Абонемент идёт первым и выделен: если у клиента он есть,
-                брать с него деньги повторно — прямая ошибка. */}
-            {activePass && (
-              <button
-                className="opt !border-good-line !bg-good-bg"
-                disabled={pending}
-                onClick={() => confirm('pass', activePass.id)}
-              >
-                <span className="flex items-center gap-2.5 font-semibold">
-                  <IconTicket className="size-[18px] shrink-0 text-good" />
-                  {hy.payment.pass}
-                </span>
-                <span className="num text-good">
-                  {hy.passes.remaining} {activePass.remaining}
-                </span>
-              </button>
-            )}
-            {PAYMENTS.map((p) => (
-              <button
-                key={p.key}
-                className="opt"
-                disabled={pending}
-                onClick={() => confirm(p.key)}
-              >
-                <span className="flex items-center gap-2.5 font-semibold">
-                  <p.Icon className="size-[18px] shrink-0 text-muted" />
-                  {p.label}
-                </span>
-                {service && (
-                  <span className="num text-muted">{formatMoney(service.price, currency)}</span>
-                )}
-              </button>
-            ))}
-          </div>
-          {error && <p className="alert mt-2.5">{error}</p>}
-          <button
-            className="btn btn-ghost mt-2.5"
+            type="button"
+            className="opt mb-2 !border-good-line !bg-good-bg"
             disabled={pending}
-            onClick={() => setStep('service')}
+            onClick={() => confirm('pass', activePass.id)}
           >
-            {hy.common.back}
+            <span className="flex items-center gap-2.5 font-semibold">
+              <IconTicket className="size-[18px] shrink-0 text-good" />
+              {hy.payment.pass}
+            </span>
+            <span className="num text-good">
+              {hy.passes.remaining} {activePass.remaining}
+            </span>
           </button>
-        </>
-      )}
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {PAYMENTS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className="pay"
+              data-tone={p.tone}
+              disabled={!ready || pending}
+              onClick={() => confirm(p.key)}
+            >
+              <p.Icon className="size-[18px]" />
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && <p className="alert mt-2.5">{error}</p>}
+
+      <button className="btn btn-ghost mt-2.5" disabled={pending} onClick={reset}>
+        {hy.common.cancel}
+      </button>
     </div>
   );
 }
