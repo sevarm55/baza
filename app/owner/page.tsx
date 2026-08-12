@@ -17,6 +17,13 @@ import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { Panel, Row } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
+import {
+  IconCar,
+  IconIncome,
+  IconOutcome,
+  IconPeople,
+  IconWallet,
+} from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
 import { CancelOrderButton } from '@/components/cancel-order-button';
@@ -134,19 +141,29 @@ export default async function TodayPage({
           читал шесть отдельных утверждений и складывал их сам. */}
       <FlowStrip
         links={[
-          { label: tenant.unitOne, value: String(stats.count) },
-          { label: hy.owner.revenue, value: money(stats.revenue) },
-          { label: hy.owner.payroll, value: money(stats.payroll), sign: '−' },
+          { label: tenant.unitOne, value: String(stats.count), icon: IconCar, tone: 'teal' },
+          { label: hy.owner.revenue, value: money(stats.revenue), icon: IconIncome, tone: 'violet' },
+          {
+            label: hy.owner.payroll,
+            value: money(stats.payroll),
+            sign: '−',
+            icon: IconPeople,
+            tone: 'teal',
+          },
           {
             label: hy.owner.costs,
             value: money(costs.oneOff + costs.monthlyShare),
             sign: '−',
+            icon: IconOutcome,
+            tone: 'amber',
           },
           {
             label: hy.owner.profit,
             value: money(profit),
             sign: '=',
             strong: true,
+            icon: IconWallet,
+            tone: 'lime',
             note:
               stats.count > 0
                 ? `${kept}% ${hy.owner.kept} · ${money(perUnit)} ${hy.owner.perUnit}`

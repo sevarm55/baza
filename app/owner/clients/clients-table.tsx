@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ClientDrawer } from '@/components/client-drawer';
 import { GroupDrawer, type Group } from '@/components/group-drawer';
 import { FlowStrip } from '@/components/flow-strip';
+import { IconClock, IconPeople, IconPerson, IconStar } from '@/components/flow-icons';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { formatPhone } from '@/lib/phone';
@@ -101,13 +102,27 @@ export function ClientsTable({
       <div className="mb-[var(--seam)]">
         <FlowStrip
           links={[
-            { label: hy.owner.clientsTotal, value: String(rows.length), onOpen: () => setGroup('all') },
-            { label: hy.owner.clientsLoyal, value: String(loyal.length), onOpen: () => setGroup('loyal') },
-            { label: hy.owner.clientsAvg, value: money(avg) },
+            {
+              label: hy.owner.clientsTotal,
+              value: String(rows.length),
+              onOpen: () => setGroup('all'),
+              icon: IconPeople,
+              tone: 'teal',
+            },
+            {
+              label: hy.owner.clientsLoyal,
+              value: String(loyal.length),
+              onOpen: () => setGroup('loyal'),
+              icon: IconStar,
+              tone: 'violet',
+            },
+            { label: hy.owner.clientsAvg, value: money(avg), icon: IconPerson, tone: 'violet' },
             {
               label: hy.owner.clientsLost,
               value: String(lost.length),
               strong: lost.length > 0,
+              icon: IconClock,
+              tone: lost.length > 0 ? 'lime' : 'amber',
               note: lost.length > 0 ? hy.owner.comeBack : undefined,
               onOpen: lost.length > 0 ? () => setGroup('lost') : undefined,
             },

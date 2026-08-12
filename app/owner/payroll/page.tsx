@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { Panel } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
+import { IconCar, IconIncome, IconPeople, IconWallet } from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { personColor } from '@/lib/person-color';
 import { PayButton } from '@/components/pay-button';
@@ -60,10 +61,16 @@ export default async function PayrollPage() {
           и есть то, ради чего сюда заходят. */}
       <FlowStrip
         links={[
-          { label: tenant.staffRole, value: String(owing) },
-          { label: tenant.unitOne, value: String(cars) },
-          { label: hy.owner.revenue, value: money(revenue) },
-          { label: hy.owner.toPay, value: money(due), strong: true },
+          { label: tenant.staffRole, value: String(owing), icon: IconPeople, tone: 'teal' },
+          { label: tenant.unitOne, value: String(cars), icon: IconCar, tone: 'teal' },
+          { label: hy.owner.revenue, value: money(revenue), icon: IconIncome, tone: 'violet' },
+          {
+            label: hy.owner.toPay,
+            value: money(due),
+            strong: true,
+            icon: IconWallet,
+            tone: 'lime',
+          },
         ]}
       />
 

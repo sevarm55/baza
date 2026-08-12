@@ -1761,7 +1761,7 @@ input[type='radio'] {
      разъезжаются по левому краю между пунктами со значком и без. */
   .nav-mark {
     display: inline-flex;
-    width: 1.1rem;
+    width: 1.25rem;
     justify-content: center;
     flex: none;
     opacity: 0.85;
@@ -1929,6 +1929,44 @@ input[type='radio'] {
     padding: 1rem 1.1rem;
     border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+
+  /* Значок звена — плашка с тоном.
+
+     Тон берётся из свечения плиток табло, а не из нового набора
+     цветов: продукт уже знает, что фиолетовый это выручка, янтарный —
+     расход, бирюзовый — люди, лайм — итог. Заливка того же цвета в
+     двенадцать процентов: значок должен читаться, а не спорить с
+     числом рядом. */
+  .flow-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin-bottom: 0.55rem;
+    border-radius: var(--radius-chip);
+  }
+  .flow-mark[data-tone='violet'] {
+    color: var(--tone-violet-glow);
+    background: color-mix(in srgb, var(--tone-violet-glow) 14%, transparent);
+  }
+  .flow-mark[data-tone='teal'] {
+    color: var(--tone-teal-glow);
+    background: color-mix(in srgb, var(--tone-teal-glow) 16%, transparent);
+  }
+  .flow-mark[data-tone='amber'] {
+    color: var(--tone-amber-glow);
+    background: color-mix(in srgb, var(--tone-amber-glow) 18%, transparent);
+  }
+  .flow-mark[data-tone='lime'] {
+    color: var(--tone-lime);
+    background: color-mix(in srgb, var(--tone-lime) 18%, transparent);
+  }
+  /* На тёмной плите итога значок светится сам: заливка под ним
+     растворилась бы в чернилах. */
+  .flow-link-strong .flow-mark {
+    background: color-mix(in srgb, var(--board) 14%, transparent);
   }
 
   /* Знак связи в шве слева. Позиционируется в зазор между карточками,

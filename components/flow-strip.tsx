@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { NumericText } from '@/components/numeric-text';
 
 /**
@@ -30,6 +31,18 @@ export type Link = {
   strong?: boolean;
   /** звено открывает список за собой; без него это просто число */
   onOpen?: () => void;
+  /**
+   * Знак звена и его тон.
+   *
+   * Значок здесь не украшение: полоса из четырёх чисел читается слева
+   * направо словами, а по знаку нужное звено находится раньше, чем
+   * прочитана подпись. Тон при этом несёт смысл, а не раскрашивает:
+   * деньги пришли — фиолетовый, ушли — янтарный, доля людей —
+   * бирюзовый, итог — лайм на тёмной плите. Пятого тона в продукте
+   * нет, и пятое значение придумывать нельзя.
+   */
+  icon?: ReactNode;
+  tone?: 'violet' | 'teal' | 'amber' | 'lime';
 };
 
 export function FlowStrip({ links }: { links: Link[] }) {
@@ -54,6 +67,11 @@ export function FlowStrip({ links }: { links: Link[] }) {
           {l.sign && (
             <span className="flow-sign" aria-hidden>
               {l.sign}
+            </span>
+          )}
+          {l.icon && (
+            <span className="flow-mark" data-tone={l.tone ?? 'violet'} aria-hidden>
+              {l.icon}
             </span>
           )}
           <span className="flow-label">{l.label}</span>

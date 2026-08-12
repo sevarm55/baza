@@ -8,6 +8,7 @@ import { dayMonth, daysInMonthOf } from '@/lib/time';
 import { ExpenseRow } from '@/components/expense-row';
 import { Panel } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
+import { IconCart, IconOutcome, IconRepeat } from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { AddExpenseForm } from './add-expense-form';
 import { MonthTabs, type MonthKey } from './month-tabs';
@@ -63,42 +64,14 @@ export default async function ExpensesPage({
         <MonthTabs current={month} />
       </PageHead>
 
-      {/* Итог покрывает всё, что показано ниже.
+      {/* Полоса живёт в левой колонке, а не над всей страницей.
 
-          Стояло «Ամսական ծախս» одним числом, а под ним лежали ещё и
-          разовые: верхняя цифра отвечала не на тот вопрос, с которым
-          сюда заходят, и человек читал её как «столько я потратил»,
-          недосчитываясь разовых. Полоса складывает обе части на глазах —
-          знаки здесь плюс и равно, потому что тут именно сложение, а не
-          вычет. */}
-      <FlowStrip
-        links={[
-          {
-            label: hy.expenses.monthlyOnes,
-            value: money(spentMonthly),
-            /* «В день» стоит под ПОСТОЯННЫМИ, а не под итогом.
-
-               Стояло под итогом — и читалось как «305 000 в день это
-               9 677», хотя разовые в это число не входят вовсе: аренда
-               делится на все дни месяца, а канистра химии остаётся в
-               своём дне целиком. Подпись под чужим числом хуже, чем
-               отсутствие подписи: она не поясняет, а сбивает. */
-            note:
-              spentMonthly > 0
-                ? `${hy.expenses.perDay} ${money(Math.round(spentMonthly / days))}`
-                : undefined,
-          },
-          { label: hy.expenses.oneOffs, value: money(spentOneOff), sign: '+' },
-          {
-            label: hy.owner.expensesTotal,
-            value: money(spentMonthly + spentOneOff),
-            sign: '=',
-            strong: true,
-          },
-        ]}
-      />
-
-      <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
+          Над страницей она занимала две трети ширины, и справа от неё —
+          ровно над формой — оставалась пустая полка в полтораста точек:
+          форма начиналась ниже списка, хотя ей там делать нечего. Теперь
+          обе колонки начинаются от одной линии, а полоса стоит над тем,
+          что она и суммирует. */}
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         {/* Два раздела вместо одного списка вперемешку.
 
             Раньше постоянные и разовые лежали рядом и различались словом
@@ -106,6 +79,51 @@ export default async function ExpensesPage({
             различались вовсе. Это разные деньги: одни уходят каждый
             месяц сами, другие потрачены один раз и больше не повторятся. */}
         <div className="grid content-start gap-[var(--seam)] lg:col-span-8">
+          {/* Итог покрывает всё, что показано ниже.
+
+              Стояло «Ամսական ծախս» одним числом, а под ним лежали ещё и
+              разовые: верхняя цифра отвечала не на тот вопрос, с которым
+              сюда заходят, и человек читал её как «столько я потратил»,
+              недосчитываясь разовых. Полоса складывает обе части на глазах —
+              знаки здесь плюс и равно, потому что тут именно сложение, а не
+              вычет. */}
+          <FlowStrip
+            links={[
+              {
+                label: hy.expenses.monthlyOnes,
+                value: money(spentMonthly),
+                icon: IconRepeat,
+                tone: 'amber',
+                /* «В день» стоит под ПОСТОЯННЫМИ, а не под итогом.
+
+                   Стояло под итогом — и читалось как «305 000 в день это
+                   9 677», хотя разовые в это число не входят вовсе: аренда
+                   делится на все дни месяца, а канистра химии остаётся в
+                   своём дне целиком. Подпись под чужим числом хуже, чем
+                   отсутствие подписи: она не поясняет, а сбивает. */
+                note:
+                  spentMonthly > 0
+                    ? `${hy.expenses.perDay} ${money(Math.round(spentMonthly / days))}`
+                    : undefined,
+              },
+              {
+                label: hy.expenses.oneOffs,
+                value: money(spentOneOff),
+                sign: '+',
+                icon: IconCart,
+                tone: 'amber',
+              },
+              {
+                label: hy.owner.expensesTotal,
+                value: money(spentMonthly + spentOneOff),
+                sign: '=',
+                strong: true,
+                icon: IconOutcome,
+                tone: 'lime',
+              },
+            ]}
+          />
+
           {rows.length === 0 && (
             <Panel>
               <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>

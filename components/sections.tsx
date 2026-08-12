@@ -32,7 +32,7 @@ const S = {
 
 function Icon({ children }: { children: ReactNode }) {
   return (
-    <svg viewBox="0 0 16 16" className="size-4" aria-hidden {...S}>
+    <svg viewBox="0 0 16 16" className="size-[18px]" aria-hidden {...S}>
       {children}
     </svg>
   );
@@ -97,11 +97,14 @@ export const SECTIONS: Section[] = [
   {
     href: '/owner/staff',
     label: hy.settings.staff,
-    // человек
+    /* Двое, а не один: раздел о людях во множественном числе, а
+       одиночная фигура уже занята «моей страницей» внизу колонки. Два
+       одинаковых значка в одном столбце — это не значки, а орнамент. */
     icon: (
       <Icon>
-        <circle cx="8" cy="6" r="2.25" />
-        <path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
+        <circle cx="6" cy="6" r="2.1" />
+        <path d="M2 13c0-2.1 1.8-3.4 4-3.4s4 1.3 4 3.4" />
+        <path d="M11 5.6a2.1 2.1 0 0 1 0 4M12.2 9.9c1.2.5 1.9 1.6 1.9 3.1" />
       </Icon>
     ),
   },

@@ -6,6 +6,7 @@ import { hy } from '@/lib/i18n/hy';
 import { ServicesTable, type ServiceRow } from '@/components/services-table';
 import { Panel } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
+import { IconCar, IconIncome, IconTag } from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { AddServiceForm } from './add-service-form';
 import { BusinessForm } from './business-form';
@@ -69,14 +70,28 @@ export default async function SettingsPage({
           прейскуранте, средняя цена и что он принёс за месяц. */}
       <FlowStrip
         links={[
-          { label: hy.owner.colService, value: String(services.length) },
-          { label: hy.settings.price, value: money(avgPrice), note: hy.owner.avgShort },
-          { label: tenant.unitOne, value: String(cars), note: hy.owner.periodMonth.toLowerCase() },
+          { label: hy.owner.colService, value: String(services.length), icon: IconTag, tone: 'violet' },
+          {
+            label: hy.settings.price,
+            value: money(avgPrice),
+            note: hy.owner.avgShort,
+            icon: IconTag,
+            tone: 'violet',
+          },
+          {
+            label: tenant.unitOne,
+            value: String(cars),
+            note: hy.owner.periodMonth.toLowerCase(),
+            icon: IconCar,
+            tone: 'teal',
+          },
           {
             label: hy.owner.revenue,
             value: money(revenue),
             note: hy.owner.periodMonth.toLowerCase(),
             strong: true,
+            icon: IconIncome,
+            tone: 'lime',
           },
         ]}
       />

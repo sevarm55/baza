@@ -74,7 +74,7 @@ export function Rail({
             наверху этому не место, там живёт то, куда ходят каждый день. */}
         <Link href="/owner/profile" className="nav-item mb-2">
           <span className="nav-mark" aria-hidden>
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="8" cy="6" r="2.25" />
               <path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
             </svg>
@@ -144,17 +144,21 @@ export function Rail({
    контур 1.5 по сетке 16, что у разделов выше. */
 function IconSpray() {
   return (
-    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h4l3-2v6l-3-2H3z" />
       <path d="M12 5.5v5M14 7v2" />
     </svg>
   );
 }
 
+/* Ключ, а не столбики: столбиками уже помечен раздел «Сегодня», и в
+   свёрнутой колонке две одинаковые иконки одна над другой читались
+   ошибкой. Владелец — это доступ ко всему, ключ говорит именно это. */
 function IconBoard() {
   return (
-    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 13V9M6.33 13V4M9.67 13V7M13 13v-2.5" />
+    <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5.5" cy="10.5" r="2.5" />
+      <path d="M7.4 8.8 12.5 3.7M10.8 5.4l1.4 1.4M12.5 3.7l1.3 1.3" />
     </svg>
   );
 }

@@ -7,6 +7,7 @@ import { hy } from '@/lib/i18n/hy';
 import { StaffTable, type StaffPerson } from '@/components/staff-table';
 import { Panel } from '@/components/board';
 import { FlowStrip } from '@/components/flow-strip';
+import { IconCar, IconPeople, IconShift, IconWallet } from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { AddStaffForm } from './add-staff-form';
 
@@ -66,14 +67,22 @@ export default async function StaffPage() {
           них. */}
       <FlowStrip
         links={[
-          { label: hy.settings.staff, value: String(staff.length) },
-          { label: hy.owner.onShift, value: String(present.length) },
-          { label: tenant.unitOne, value: String(cars), note: hy.owner.periodMonth.toLowerCase() },
+          { label: hy.settings.staff, value: String(staff.length), icon: IconPeople, tone: 'teal' },
+          { label: hy.owner.onShift, value: String(present.length), icon: IconShift, tone: 'violet' },
+          {
+            label: tenant.unitOne,
+            value: String(cars),
+            note: hy.owner.periodMonth.toLowerCase(),
+            icon: IconCar,
+            tone: 'teal',
+          },
           {
             label: hy.owner.tabPayroll,
             value: money(payroll),
             note: hy.owner.periodMonth.toLowerCase(),
             strong: true,
+            icon: IconWallet,
+            tone: 'lime',
           },
         ]}
       />

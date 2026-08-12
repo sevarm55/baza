@@ -316,7 +316,7 @@ export const hy = {
     feed: 'Հոսք',
     earned: 'նրան',
     payrollDue: 'Վճարման ենթակա',
-    markPaid: 'Նշել վճարվածը',
+    markPaid: 'Նշել վճարված աշխատավարձը',
     rate: 'դրույք',
     clientsTotal: 'Բազայում',
     clientsLoyal: 'Մշտական',
