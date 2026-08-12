@@ -63,9 +63,23 @@ export function DayChart({
   const shown = at ?? peakIndex;
   const active = points[shown];
 
+  /* Одна точка — это не график.
+
+     Пока за день отработан один час, рельеф вырождается в серую плиту во
+     всю ширину, а линия накопления — в точку: прибор занимает сто
+     пикселей и не отвечает ни на один из двух своих вопросов. Остаётся
+     подпись под ним, а она и так говорит час и сумму — ровно всё, что в
+     этот момент известно.
+
+     Прячется атрибутом, а не веткой в разметке: у прибора один вид и
+     одно место в потоке, и «нечего рисовать» — это его состояние, а не
+     второй компонент. */
+  const drawable = points.length > 1;
+
   return (
     <div className="mt-1 mb-2">
       <div
+        hidden={!drawable}
         className="relative h-[96px] lg:h-[176px]"
         onPointerLeave={() => setAt(null)}
         onPointerMove={(e) => {
@@ -167,10 +181,14 @@ export function DayChart({
           под графиком стоит на месте, ничего не перекрывает и меняется
           на лету: без курсора показывает пик, под курсором — точку. */}
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
-          {points[0]?.label}
-          {points.length > 1 && ` — ${points[points.length - 1]?.label}`}
-        </span>
+        {/* Границы периода — только когда есть что ограничивать: при
+            одной точке «08» слева и «08» справа это одно и то же число,
+            напечатанное дважды. */}
+        {drawable && (
+          <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
+            {points[0]?.label} — {points[points.length - 1]?.label}
+          </span>
+        )}
 
         {active && (max > 0 || at !== null) && (
           <span className="num flex items-baseline gap-2 text-[12px]">

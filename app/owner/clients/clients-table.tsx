@@ -131,7 +131,10 @@ export function ClientsTable({
 
         {/* Порядок — жёлобом, как период на сводке. */}
         <div
-          className="flex gap-0.5 rounded-[8px] p-[3px]"
+          /* Жёлоб прокручивается вбок: три армянских слова в строку на
+             телефоне не помещаются, а перенос превратил бы переключатель
+             в абзац. Так же устроена полоса разделов наверху. */
+          className="scroll-x flex max-w-full gap-0.5 rounded-[8px] p-[3px]"
           style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
         >
           {SORTS.map((s) => (
@@ -158,7 +161,64 @@ export function ClientsTable({
           {query ? hy.owner.clientsNotFound : hy.common.empty}
         </p>
       ) : (
-        <table className="tbl">
+        <>
+          {/* Телефон: строками, а не таблицей.
+
+              Пять колонок на экране в ладонь шириной делят его так, что
+              «վերջինը՝ այսօր» переносится в два слова на строку, а номер
+              машины — то единственное, что здесь ищут глазами, —
+              оказывается зажат между ними. Таблица нужна там, где
+              столбцы сравнивают; на телефоне сравнивать нечем, там
+              читают строку за строкой.
+
+              Порядок тот же, что в панели группы и в приложении: номер и
+              метка, под ними визиты и давность, справа сумма. Один и тот
+              же список не должен выглядеть в трёх местах по-разному. */}
+          <div className="board-journal lg:hidden">
+            {found.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setOpen(c.key)}
+                aria-label={`${c.key} · ${hy.owner.clientHistory}`}
+                className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="num flex items-center gap-2">
+                    <span className="truncate text-[14.5px] font-bold tracking-wide">{c.key}</span>
+                    {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+                  </span>
+                  <span
+                    className="num block truncate text-[12px]"
+                    style={{
+                      color: c.days > lostAfter ? 'var(--warn-on-board)' : 'var(--board-muted)',
+                    }}
+                  >
+                    {c.visits} {hy.owner.visits} · {hy.owner.lastVisitPrefix}{' '}
+                    {c.days === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(c.days)}
+                  </span>
+                </span>
+
+                <span className="num shrink-0 text-[14px] font-semibold">{money(c.total)}</span>
+
+                <svg
+                  viewBox="0 0 16 16"
+                  className="size-3.5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--board-muted)' }}
+                  aria-hidden
+                >
+                  <path d="m6.5 4 4 4-4 4" />
+                </svg>
+              </button>
+            ))}
+          </div>
+
+          <table className="tbl hidden lg:table">
           <thead>
             <tr>
               <th>{hy.owner.tabClients}</th>
@@ -240,7 +300,8 @@ export function ClientsTable({
               );
             })}
           </tbody>
-        </table>
+          </table>
+        </>
       )}
 
       <p className="mt-3 text-[12px]" style={{ color: 'var(--board-muted)' }}>
