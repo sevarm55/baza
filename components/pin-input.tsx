@@ -84,24 +84,29 @@ export function PinInput({
   }
 
   return (
-    <div className="flex gap-2.5" role="group">
+    <div className="pin" role="group">
       <input ref={hidden} type="hidden" name={name} value={value} readOnly />
       {digits.map((digit, i) => (
-        <input
-          key={i}
-          ref={(el) => {
-            refs.current[i] = el;
-          }}
-          className="field field-key !px-0 !py-3.5 flex-1"
-          value={digit}
-          onChange={(e) => handleChange(i, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          onFocus={(e) => e.target.select()}
-          inputMode="numeric"
-          autoComplete="off"
-          aria-label={`PIN ${i + 1}`}
-          maxLength={LENGTH}
-        />
+        /* Обёртка нужна ради точки: она рисуется псевдоэлементом, а у
+           поля ввода псевдоэлементов нет. Заодно на ней держится
+           признак «клетка занята» — по нему меняется и точка, и вид
+           самой клетки. */
+        <span key={i} className="pin-slot" data-filled={digit ? '' : undefined}>
+          <input
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            className="pin-cell"
+            value={digit}
+            onChange={(e) => handleChange(i, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(i, e)}
+            onFocus={(e) => e.target.select()}
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`PIN ${i + 1}`}
+            maxLength={LENGTH}
+          />
+        </span>
       ))}
     </div>
   );

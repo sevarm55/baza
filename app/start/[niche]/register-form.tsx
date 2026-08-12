@@ -25,7 +25,7 @@ export function RegisterForm({
       <label className="grid gap-2">
         <span className="label">{hy.onboarding.bizName}</span>
         <input
-          className="field !text-[16px]"
+          className="field auth-field !text-[16px]"
           name="businessName"
           defaultValue={defaultName}
           required
@@ -35,7 +35,7 @@ export function RegisterForm({
 
       <label className="grid gap-2">
         <span className="label">{hy.onboarding.ownerName}</span>
-        <input className="field !text-[16px]" name="ownerName" required autoComplete="name" />
+        <input className="field auth-field !text-[16px]" name="ownerName" required autoComplete="name" />
       </label>
 
       <label className="grid gap-2">
@@ -45,7 +45,7 @@ export function RegisterForm({
             +374
           </span>
           <input
-            className="field num !ps-[4.4rem] !text-[16px]"
+            className="field auth-field num !ps-[4.4rem] !text-[16px]"
             name="phone"
             type="tel"
             inputMode="tel"

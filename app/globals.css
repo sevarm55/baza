@@ -1123,6 +1123,101 @@ input[type='radio'] {
     font-variant-numeric: tabular-nums;
   }
 
+  /* ───────────────────────── клетки PIN ─────────────────────────
+
+     Четыре одинаковых серых прямоугольника ничем не отличались от поля
+     телефона над ними: человек видел два похожих поля и не понимал, что
+     во второе код вводится по цифре в клетку.
+
+     Клетка теперь читается клеткой. Она выше строки и почти квадратная,
+     а пока пуста — держит точку на месте будущей цифры. Набранная цифра
+     встаёт вместо точки, клетка светлеет и обводится: по ряду видно,
+     сколько уже введено, не считая символов. Это и есть работа такого
+     поля — показывать прогресс, чего обычное поле пароля не умеет.
+
+     Активная клетка поднимается кольцом, а не рамкой: рамка меняет
+     размеры и сдвигает соседей на пиксель, а ряд набирают мокрыми
+     пальцами и вслепую. */
+  /* Высота полей формы входа. Одна на строку телефона и на клетки
+     кода: их набирают подряд, и разная высота читается как разные по
+     важности поля, хотя без обоих не войти. */
+  .shell,
+  .board,
+  .sheet,
+  .drawer,
+  body {
+    --auth-field-h: 3.5rem;
+  }
+
+  .auth-field {
+    height: var(--auth-field-h);
+  }
+
+  .pin {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .pin-slot {
+    position: relative;
+    display: block;
+  }
+
+  /* Точка стоит под цифрой и гаснет, когда та появляется. Гаснет и под
+     курсором: иначе в пустой активной клетке рядом с мигающей чертой
+     висит точка, и непонятно, введено уже что-то или нет. */
+  .pin-slot::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    translate: -50% -50%;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 20%, transparent);
+    pointer-events: none;
+    transition:
+      opacity var(--t-micro) var(--ease),
+      scale var(--t-micro) var(--ease);
+  }
+  .pin-slot[data-filled]::after,
+  .pin-slot:focus-within::after {
+    opacity: 0;
+    scale: 0.4;
+  }
+
+  /* Клетка — то же поле, что строка телефона над ней: та же заливка,
+     тот же радиус, та же высота. Разное поведение при разном виде
+     сбивало бы: человек видел бы два разных предмета там, где два поля
+     одной формы. */
+  .pin-cell {
+    width: 100%;
+    height: var(--auth-field-h);
+    padding: 0;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    background: var(--field-fill, var(--field-gray));
+    border: 1px solid transparent;
+    border-radius: var(--radius-chip);
+    caret-color: var(--accent-strong);
+    transition:
+      box-shadow var(--t-micro) var(--ease),
+      background var(--t-micro) var(--ease);
+  }
+
+  .pin-cell:focus {
+    outline: none;
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 26%, transparent);
+  }
+
   /* Вариант выбора: услуга, способ оплаты.
 
      Тени больше нет. Тень обещает, что предмет лежит НАД страницей и

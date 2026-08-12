@@ -20,7 +20,7 @@ export function LoginForm() {
             +374
           </span>
           <input
-            className="field num !ps-[4.4rem] !text-[16px]"
+            className="field auth-field num !ps-[4.4rem] !text-[16px]"
             name="phone"
             type="tel"
             inputMode="tel"
