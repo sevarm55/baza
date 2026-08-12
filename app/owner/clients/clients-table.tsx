@@ -6,10 +6,16 @@ import { GroupDrawer, type Group } from '@/components/group-drawer';
 import { FlowStrip } from '@/components/flow-strip';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
+import { formatPhone } from '@/lib/phone';
 
 export type ClientRow = {
   id: string;
   key: string;
+  /* Имя и телефон вписывает владелец из карточки — при записи машины их
+     не спрашивают. Есть они далеко не у всех, поэтому в строке
+     появляются только когда заполнены. */
+  name: string | null;
+  phone: string | null;
   visits: number;
   total: number;
   days: number;
@@ -60,11 +66,18 @@ export function ClientsTable({
   const avg = rows.length ? Math.round(rows.reduce((s, c) => s + c.total, 0) / rows.length) : 0;
 
   /* Пробелы и регистр не в счёт: номер диктуют вслух и записывают как
-     придётся — «93LM227» и «93 lm 227» это одна машина. */
+     придётся — «93LM227» и «93 lm 227» это одна машина.
+
+     Ищем и по имени с телефоном: раз владелец их вписал, он будет искать
+     человека так, как его помнит, а не по номеру машины. */
   const found = useMemo(() => {
     const q = query.replace(/\s/g, '').toUpperCase();
     const base = q
-      ? rows.filter((r) => r.key.replace(/\s/g, '').toUpperCase().includes(q))
+      ? rows.filter((r) =>
+          [r.key, r.name ?? '', r.phone ?? ''].some((v) =>
+            v.replace(/\s/g, '').toUpperCase().includes(q),
+          ),
+        )
       : rows;
 
     const sorted = [...base];
@@ -184,10 +197,27 @@ export function ClientsTable({
                 className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
               >
                 <span className="min-w-0 flex-1">
+                  {/* Имя стоит рядом с номером, а не строкой под ним.
+
+                      Строкой под номером оно делало запись с контактами
+                      выше соседних, и список получался рваным: у одной
+                      машины две строки, у другой три. Ряд одинаковых
+                      строк читается сверху вниз одним движением, рваный
+                      приходится разбирать по одной.
+
+                      Телефона на телефоне нет: в строку он не помещается
+                      и обрывался бы многоточием посреди цифр, а звонить
+                      всё равно из карточки — там кнопка. */}
                   <span className="num flex items-center gap-2">
-                    <span className="truncate text-[14.5px] font-bold tracking-wide">{c.key}</span>
+                    <span className="shrink-0 text-[14.5px] font-bold tracking-wide">{c.key}</span>
                     {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+                    {c.name && (
+                      <span className="truncate text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
+                        {c.name}
+                      </span>
+                    )}
                   </span>
+
                   <span
                     className="num block truncate text-[12px]"
                     style={{
@@ -244,9 +274,9 @@ export function ClientsTable({
                    для читалки экрана. */
                 <tr key={c.id} className="row-click" onClick={() => setOpen(c.key)}>
                   <td>
-                    <span className="flex items-center gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
                       <span
-                        className="num text-[15px] font-bold tracking-wide"
+                        className="num shrink-0 text-[15px] font-bold tracking-wide"
                         style={{ color: 'var(--on-board)' }}
                       >
                         {c.key}
@@ -256,6 +286,19 @@ export function ClientsTable({
                           раз был» и «свой ли это человек» — разные
                           вопросы, и второй решается взглядом. */}
                       {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+
+                      {/* Контакты в той же строке: на широком экране
+                          колонка номера занимает половину таблицы, места
+                          хватает, а вторая строка сделала бы записи с
+                          контактами выше остальных. */}
+                      {contactLine(c.name, c.phone) && (
+                        <span
+                          className="num truncate text-[13px]"
+                          style={{ color: 'var(--board-muted)' }}
+                        >
+                          {contactLine(c.name, c.phone)}
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td className="num end" style={{ color: 'var(--board-muted)' }}>
@@ -331,4 +374,18 @@ export function ClientsTable({
       />
     </>
   );
+}
+
+/**
+ * «Արամ · +374 77 445 566» — то, что владелец вписал сам.
+ *
+ * При записи машины телефон не спрашивают: мойщик вводит номер, услугу
+ * и оплату мокрыми руками. Контакты появляются позже, из карточки
+ * постоянного клиента, — и раз уж владелец их вписал, он этого человека
+ * так и ищет: имя помнится лучше, чем шесть символов номера. Поэтому
+ * они и в строке, и в поиске, а у машин без контактов не занимают
+ * места вовсе.
+ */
+function contactLine(name: string | null, phone: string | null): string {
+  return [name, phone ? formatPhone(phone) : null].filter(Boolean).join(' · ');
 }

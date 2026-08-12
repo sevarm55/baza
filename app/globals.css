@@ -674,6 +674,10 @@ input[type='radio'] {
        строка — кнопка, а кнопка без ширины сжимается по содержимому. */
     width: calc(100% + var(--pad-panel, 1.05rem) * 2);
     margin-inline: calc(var(--pad-panel, 1.05rem) * -1);
+    position: relative;
+    /* Свой слой: без него подложка подсветки с отрицательным
+       z-index уходит ПОД фон карточки и не видна вовсе. */
+    isolation: isolate;
     border-radius: 0;
     text-align: start;
     font: inherit;
@@ -698,10 +702,26 @@ input[type='radio'] {
   .row-open:hover::after {
     border-color: var(--muted);
   }
-  .row-open:hover {
+  /* Подсветка не доходит до краёв карточки.
+
+     Строка нарочно шире подложки — чтобы нажатие ловилось от края до
+     края, — но заливка той же ширины упиралась в углы карточки и
+     читалась выделением: будто строку выбрали, а не навели на неё
+     курсор. Поэтому цвет кладёт отдельный слой под содержимым: он
+     скруглён и отступает от краёв, а зона нажатия остаётся прежней. */
+  .row-open::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0 calc(var(--pad-panel, 1.05rem) / 2);
+    border-radius: var(--radius-chip);
+    background: transparent;
+    transition: background var(--t-micro) var(--ease);
+  }
+  .row-open:hover::before {
     background: var(--hover);
   }
-  .row-open:active {
+  .row-open:active::before {
     background: color-mix(in srgb, var(--board-ink) 8%, transparent);
   }
 
@@ -953,6 +973,14 @@ input[type='radio'] {
        строки на свой пиксель при каждом наведении. */
     box-shadow: inset 0 1px 0 var(--hairline);
   }
+  /* Окно правки стоит в списке рядом со своей строкой, но строкой не
+     является: ни полей списка, ни линии над ним. */
+  .rows > dialog {
+    margin-inline: 0;
+    padding: 0;
+    min-height: 0;
+    box-shadow: none;
+  }
   /* Подсветка строки под курсором — на компьютере. Кнопки при этом
      никуда не прячутся: спрятанное удаление приходится искать наугад,
      а список из десяти строк не то место, где стоит играть в прятки. */
@@ -967,9 +995,9 @@ input[type='radio'] {
        мышью», читается как выбранная. `:focus-visible` показывает
        подсветку только тому, кто пришёл с клавиатуры, — ему она
        действительно нужна. */
-    .rows > *:hover,
-    .rows > *:focus-visible,
-    .rows > *:has(:focus-visible) {
+    .rows > *:hover::before,
+    .rows > *:focus-visible::before,
+    .rows > *:has(:focus-visible)::before {
       background: var(--hover);
     }
   }
@@ -2259,7 +2287,15 @@ input[type='radio'] {
      затемнение и верхний слой достаются готовыми и работают правильно
      с клавиатурой. */
 
+  /* Закрытая панель не существует. Свой `display` тут обязателен —
+     он же и гасит панель: правило браузера «закрытый диалог не
+     показывать» перебивается любым авторским, и панель оставалась в
+     потоке — сдвинутая за правый край, но живая: её ловил Tab, её
+     видел скринридер, а на узком экране она добавляла странице лишнюю
+     ширину. `allow-discrete` в переходе ниже гасит её не сразу, а
+     после выезда. */
   .drawer {
+    display: none;
     position: fixed;
     inset: 0 0 0 auto;
     margin: 0;
@@ -2267,7 +2303,6 @@ input[type='radio'] {
     max-width: 100vw;
     height: 100dvh;
     max-height: 100dvh;
-    display: flex;
     flex-direction: column;
     overflow: hidden;
     padding: 0;
@@ -2303,6 +2338,7 @@ input[type='radio'] {
   }
 
   .drawer[open] {
+    display: flex;
     translate: 0 0;
   }
 

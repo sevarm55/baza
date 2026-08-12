@@ -44,15 +44,18 @@ struct ClientsView: View {
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
-    /// Поиск по номеру. Пробелы и регистр не в счёт: номер диктуют
-    /// вслух и записывают как придётся — «93LM227» и «93 lm 227» это
-    /// одна машина.
+    /// Поиск по номеру, имени и телефону. Пробелы и регистр не в счёт:
+    /// номер диктуют вслух и записывают как придётся — «93LM227» и
+    /// «93 lm 227» это одна машина. Имя с телефоном владелец вписывает
+    /// сам и человека помнит по ним, а не по шести символам номера.
     private var found: [API.Client] {
         let q = query.replacingOccurrences(of: " ", with: "").uppercased()
         let base = q.isEmpty
             ? clients
-            : clients.filter {
-                $0.key.replacingOccurrences(of: " ", with: "").uppercased().contains(q)
+            : clients.filter { client in
+                [client.key, client.name ?? "", client.phone ?? ""].contains {
+                    $0.replacingOccurrences(of: " ", with: "").uppercased().contains(q)
+                }
             }
 
         switch sort {
@@ -365,6 +368,18 @@ struct ClientsView: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
                             .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5))
+                    }
+
+                    /* Имя рядом с номером, а не строкой под ним: строкой
+                       оно делало запись с контактами выше соседних, и
+                       список получался рваным. Телефон остаётся в
+                       карточке — в строку он не помещается, а звонят всё
+                       равно оттуда. */
+                    if let name = client.name, !name.isEmpty {
+                        Text(name)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
                     }
                 }
                 Text(visitLine(client))
