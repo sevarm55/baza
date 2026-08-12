@@ -782,27 +782,50 @@
   .workersPanel { grid-template-columns: minmax(300px,.8fr) 1.2fr; }
 }
 
+/* ─────────────── телефон: одна сцена — один экран ───────────────
+
+   Высоты внутри сцен стояли в пикселях: 900 у первой, 980 у второй, 800
+   у третьей, 590 + 740 у четвёртой. На экране в 812 точек каждая была
+   выше него на треть, и низ сцены — рельс с числами, кнопка, подпись —
+   оставался за сгибом. Человек листал и не видел, чем сцена кончается;
+   у первой за краем оказывалось ровно то, ради чего лендинг и написан:
+   выручка и чистыми.
+
+   Теперь высоту задаёт сам экран (`--scene`), а всё внутри считается от
+   неё: доли вместо пикселей, размеры шрифтов через vh и vw. Сцена
+   помещается целиком и на 812, и на 640, и с раскрытой панелью
+   браузера — `svh` берёт наименьшую высоту, а не ту, что бывает при
+   спрятанной адресной строке. */
 @media (max-width: 760px) {
-  .page { --edge: 8px; }
+  .page { --edge: 8px; --scene: calc(100svh - 16px); }
   .navWrap { top: 8px; }
   .nav { min-height: 56px; grid-template-columns: 1fr auto; border-radius: 20px; }
   .navCenter,
   .navCta { display: none; }
   .signIn { padding: 10px; }
 
-  .hero { min-height: auto; padding-top: 72px; }
-  .heroFrame { min-height: 900px; grid-template-columns: 1fr; grid-template-rows: minmax(0,1fr) auto; gap: 8px; padding: 8px; border-radius: 32px; }
-  .heroPhoto { grid-row: 1; border-radius: 25px 25px 10px 10px; }
+  .hero { min-height: 100svh; padding: 72px 8px 8px; }
+  .heroFrame { height: calc(100svh - 80px); min-height: 0; grid-template-columns: 1fr; grid-template-rows: minmax(0,1fr) auto; gap: 8px; padding: 8px; border-radius: 32px; }
+  .heroPhoto { grid-row: 1; min-height: 0; border-radius: 25px 25px 10px 10px; }
   .heroPhoto .photoImage { object-position: 56% center; }
-  .todayRail { grid-row: 2; grid-template-columns: repeat(3,1fr); grid-template-rows: auto 1fr; border-radius: 10px 10px 25px 25px; }
-  .railLabel { grid-column: 1 / -1; padding: 14px 16px; }
-  .railMetric { min-height: 118px; padding: 16px 12px; border-top: 1px solid rgba(255,255,255,.13); border-left: 1px solid rgba(255,255,255,.13); }
+
+  /* Рельс: три числа в ряд и ни одного переноса.
+
+     «245 000 ֏» в колонке шириной в треть экрана не помещалось, и знак
+     драма уезжал на вторую строку — число выглядело сломанным. Кегль
+     теперь считается от ширины экрана, а перенос запрещён: пусть цифра
+     будет меньше, чем разорвана. */
+  .todayRail { grid-row: 2; grid-template-columns: repeat(3,1fr); grid-template-rows: auto auto; border-radius: 10px 10px 25px 25px; }
+  .railLabel { grid-column: 1 / -1; padding: 10px 14px; font-size: .6rem; }
+  .railMetric { min-height: 0; padding: 10px 10px 12px; border-top: 1px solid rgba(255,255,255,.13); border-left: 1px solid rgba(255,255,255,.13); }
   .railMetric:nth-child(2) { border-left: 0; }
-  .railMetric strong { font-size: clamp(1.65rem, 8vw, 2.5rem); }
-  .railMetric span { font-size: .62rem; }
-  .heroTitle { left: 22px; right: 22px; bottom: 250px; font-size: clamp(4.1rem, 18vw, 5.5rem); }
-  .heroCtaCutout { right: auto; left: 20px; bottom: 188px; gap: 10px; padding-left: 12px; }
+  .railMetric strong { font-size: clamp(.9rem, 4.9vw, 1.5rem); white-space: nowrap; }
+  .railMetric span { margin-top: 3px; font-size: .58rem; }
+
+  .heroTitle { left: 18px; right: 18px; bottom: 168px; font-size: clamp(2.8rem, 14.4vw, 5.5rem); }
+  .heroCtaCutout { right: auto; left: 16px; bottom: 100px; gap: 10px; padding-left: 12px; }
   .heroCtaCutout small { display: none; }
+  .heroCta { min-height: 46px; gap: 22px; }
 
   .tapsScene,
   .operationScene,
@@ -810,63 +833,80 @@
   .workersScene,
   .closingScene { padding-block: 8px; }
 
-  .tapsPanel {
-    min-height: 980px;
-    display: block;
-    padding: 28px 18px;
-    border-radius: 32px;
-  }
-
-  .tapsHeading { position: absolute; top: 72px; left: 12px; height: 260px; }
-  .tapsHeading > span { font-size: 19rem; }
-  .tapsHeading h2 { margin-bottom: 10px; font-size: 4.4rem; }
-  .tapsPhoto { position: absolute; top: 320px; left: 8px; right: 8px; height: 465px; border-radius: 110px 22px 22px 22px; }
+  .tapsPanel { height: var(--scene); min-height: 0; display: block; padding: 22px 16px; border-radius: 32px; }
+  .tapsHeading { position: absolute; top: 7%; left: 10px; height: 24%; }
+  .tapsHeading > span { font-size: clamp(7rem, 29vh, 19rem); }
+  .tapsHeading h2 { margin-bottom: 8px; font-size: clamp(2.2rem, 8.4vh, 4.4rem); }
+  .tapsPhoto { position: absolute; top: 33%; left: 8px; right: 8px; height: 40%; border-radius: 90px 22px 22px 22px; }
   .tapsPhoto .photoImage { object-position: center 45%; }
-  .touchRail { position: absolute; left: 20px; right: 20px; bottom: 106px; }
-  .touchRail span { font-size: .67rem; }
-  .tapFinish { right: 18px; bottom: 18px; width: 210px; min-height: 74px; padding-inline: 20px; border-radius: 25px 8px 25px 8px; font-size: .78rem; }
+  .touchRail { position: absolute; left: 18px; right: 18px; bottom: 106px; }
+  .touchRail li { gap: 6px; padding-top: 12px; }
+  .touchRail span { font-size: .65rem; }
+  .tapFinish { right: 16px; bottom: 16px; width: 190px; min-height: 66px; padding-inline: 18px; border-radius: 25px 8px 25px 8px; font-size: .76rem; }
 
-  .operationPanel { min-height: 800px; border-radius: 26px 42px 26px 42px; }
+  .operationPanel { height: var(--scene); min-height: 0; border-radius: 26px 42px 26px 42px; }
   .operationPhoto .photoImage { object-position: 63% center; }
   .operationPhoto::before { background: linear-gradient(0deg, rgba(5,8,5,.78), transparent 58%), linear-gradient(90deg, rgba(5,8,5,.5), transparent 72%); }
-  .operationTitle { left: 18px; bottom: 36px; font-size: clamp(4.7rem, 20vw, 6.4rem); }
-  .operationCount { top: 70px; right: 16px; bottom: auto; width: 126px; padding: 18px; }
-  .operationCount strong { font-size: 4.5rem; }
+  .operationTitle { left: 18px; right: 18px; bottom: 32px; font-size: clamp(2.6rem, 12.8vw, 6.4rem); }
+  .operationCount { top: 62px; right: 16px; bottom: auto; width: clamp(96px, 28vw, 126px); padding: 14px; }
+  .operationCount strong { font-size: clamp(2.4rem, 11vw, 4.5rem); }
+  .operationCount span { margin-top: 8px; font-size: .62rem; }
 
-  .moneyPoster { min-height: auto; display: block; border-radius: 32px; }
-  .moneyTopline { padding: 24px 20px; }
-  .moneyRevenue { min-height: 390px; padding: 34px 20px; justify-content: flex-end; }
-  .moneyRevenue strong { font-size: clamp(5.5rem, 25vw, 7.2rem); }
-  .moneyDeductions { grid-template-columns: 1fr 1fr; grid-template-rows: auto; border-top: 1px solid rgba(255,255,255,.13); border-left: 0; }
-  .moneyDeductions > div { min-height: 165px; padding: 20px; }
+  /* Постер денег складывается в столбец, и доли высоты держат его в
+     экране: выручка крупнее вычетов, остаток крупнее выручки. */
+  .moneyPoster { height: var(--scene); min-height: 0; display: flex; flex-direction: column; border-radius: 32px; }
+  .moneyTopline { flex: 0 0 auto; padding: 13px 16px; }
+  .moneyRevenue { flex: 1.1; min-height: 0; justify-content: center; padding: 12px 16px; }
+  .moneyRevenue > span, .moneyNet > span { margin-bottom: 10px; font-size: .7rem; }
+  .moneyRevenue strong { font-size: clamp(3rem, 19vw, 7.2rem); }
+  .moneyDeductions { flex: 0 0 auto; grid-template-columns: 1fr 1fr; grid-template-rows: auto; border-top: 1px solid rgba(255,255,255,.13); border-left: 0; }
+  .moneyDeductions > div { min-height: 0; padding: 12px 14px; }
   .moneyDeductions > div + div { border-top: 0; border-left: 1px solid rgba(255,255,255,.13); }
-  .moneyDeductions strong { font-size: 1.6rem; }
-  .moneyNet { min-height: 290px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; padding: 28px 20px; border-radius: 30px 30px 0 0; }
-  .moneyNet strong { align-self: flex-end; font-size: clamp(5.5rem, 24vw, 7rem); }
+  .moneyDeductions strong { font-size: clamp(1.1rem, 6.4vw, 1.7rem); white-space: nowrap; }
+  .moneyDeductions span { margin-top: 6px; font-size: .64rem; }
+  .moneyNet { flex: 1.3; min-height: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 0; padding: 12px 16px 20px; border-radius: 28px 28px 0 0; }
+  .moneyNet strong { align-self: flex-end; font-size: clamp(2.9rem, 18vw, 7rem); }
 
-  .workersPanel { min-height: auto; display: block; }
-  .workerPhoto { height: 590px; border-radius: 38px 38px 12px 12px; }
+  .workersPanel { height: var(--scene); min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .workerPhoto { flex: 0 0 42%; height: auto; border-radius: 32px 32px 12px 12px; }
   .workerPhoto .photoImage { object-position: 48% center; }
-  .workerCopy { min-height: 740px; margin-top: 8px; padding: 30px 20px; border-radius: 12px 12px 38px 38px; }
-  .workerCopy h2 { margin: 90px 0 20px; font-size: clamp(5.5rem, 23vw, 7.4rem); }
-  .workerCopy p { margin-bottom: 70px; }
-  .salaryLines > div { grid-template-columns: .6fr .7fr 1fr; gap: 8px; }
-  .salaryLines strong { font-size: 2.2rem; }
+  .workerCopy { flex: 1; min-height: 0; overflow: hidden; margin-top: 0; padding: 18px; border-radius: 12px 12px 32px 32px; }
+  /* Заголовок отжат вниз: подпись сцены остаётся наверху, а имена с
+     суммами стоят у нижнего края — иначе под ними висела бы треть
+     пустой карточки. */
+  .workerCopy h2 { margin: auto 0 10px; font-size: clamp(2.6rem, 14vw, 7.4rem); }
+  .workerCopy p { margin-bottom: 14px; font-size: .84rem; }
+  .salaryLines > div { grid-template-columns: .6fr .7fr 1fr; gap: 8px; padding: 9px 0; }
+  .salaryLines strong { font-size: clamp(1.1rem, 6vw, 2.2rem); white-space: nowrap; }
 
-  .closingPanel { min-height: 720px; border-radius: 32px; }
+  .closingPanel { height: var(--scene); min-height: 0; border-radius: 32px; }
   .closingPhoto .photoImage { object-position: 63% center; }
   .closingPhoto::before { background: linear-gradient(0deg, rgba(8,11,8,.75), transparent 66%), linear-gradient(90deg, rgba(8,11,8,.42), transparent 72%); }
-  .closingPanel h2 { left: 18px; bottom: 82px; font-size: clamp(5.7rem, 25vw, 7.8rem); }
-  .closingPanel p { left: 20px; bottom: 30px; max-width: 28ch; line-height: 1.45; }
+  .closingPanel h2 { left: 18px; right: 18px; bottom: 74px; font-size: clamp(3rem, 16vw, 7.8rem); }
+  .closingPanel p { left: 20px; right: 20px; bottom: 26px; max-width: none; line-height: 1.45; }
 
-  .priceScene { padding-bottom: 20px; }
-  .pricePoster { min-height: 820px; grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; gap: 20px; padding: 28px 18px; border-radius: 32px; }
-  .priceValue { font-size: clamp(5.7rem, 26vw, 7.2rem); white-space: normal; }
-  .priceMeta { flex-direction: column; gap: 4px; }
-  .trial { justify-self: start; font-size: 2.8rem; }
-  .priceCta { min-height: 82px; padding-inline: 22px; border-radius: 23px 8px 23px 8px; font-size: 2.6rem; }
-  .footer { grid-template-columns: 1fr; gap: 18px; }
-  .footer nav { flex-direction: column; gap: 9px; }
+  /* Последняя сцена делит экран с подвалом: цена сверху, подвал под
+     ней — вместе ровно один экран, а не полтора. */
+  /* Цена и подвал делят экран, но постер тянуть на всю высоту нельзя:
+     в нём пять коротких блоков, и растянутый он превращался в лимонное
+     поле с ценой у нижнего края. Он занимает столько, сколько нужно
+     содержимому, а свободное место сцена делит поровну сверху и снизу. */
+  .priceScene { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding-bottom: 8px; }
+  .pricePoster { height: auto; min-height: 56svh; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; padding: 22px 16px; border-radius: 32px; }
+  /* Столбец вместо сетки: `align-self: end`, которое в сетке прижимало
+     цену к низу ячейки, во flex-колонке прижало бы её к правому краю. */
+  .priceIntro,
+  .priceValue,
+  .priceMeta,
+  .trial { align-self: flex-start; }
+  .priceCta { align-self: stretch; }
+  .priceValue { font-size: clamp(3rem, 19vw, 7.2rem); white-space: nowrap; }
+  .priceMeta { flex-direction: column; gap: 2px; }
+  .priceMeta span { max-width: none; }
+  .trial { justify-self: start; font-size: clamp(1.3rem, 6.6vw, 2.8rem); }
+  .priceCta { min-height: 64px; padding-inline: 18px; border-radius: 23px 8px 23px 8px; font-size: clamp(1.2rem, 6.2vw, 2.6rem); }
+  .footer { grid-template-columns: 1fr; gap: 12px; padding-top: 16px; }
+  .footer nav { flex-direction: row; gap: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
