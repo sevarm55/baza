@@ -432,6 +432,11 @@ enum API {
         let role: String
         let percent: Int
         let isMe: Bool
+        /* Что человек сделал за этот месяц. Необязательные: сервер может
+           оказаться старше приложения, а список людей должен работать и
+           без чисел. */
+        let cars: Int?
+        let earned: Int?
     }
 
     struct Staff: Decodable {

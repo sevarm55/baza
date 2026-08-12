@@ -1,5 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { listStaff } from '@/lib/queries';
+import { getPeriodStats, listStaff, startOfMonth } from '@/lib/queries';
 import { addStaff, ValidationError } from '@/lib/catalog';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
@@ -11,7 +11,17 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
-    const rows = await listStaff(ctx.tenant.id);
+    /* Вместе с людьми — что каждый сделал за месяц.
+       Список одних имён отвечает «кто заведён» и молчит о том, ради чего
+       этих людей держат: за этим приходилось уходить на сводку и в
+       зарплаты. Месяц, а не день: за один день «чего стоит человек» не
+       видно. */
+    const [rows, month] = await Promise.all([
+      listStaff(ctx.tenant.id),
+      getPeriodStats(ctx.tenant.id, startOfMonth(ctx.tenant.timezone)),
+    ]);
+    const worked = new Map(month.byStaff.map((s) => [s.staffId ?? '', s]));
+
     return ok({
       staff: rows.map((u) => ({
         id: u.id,
@@ -22,6 +32,8 @@ export async function GET(request: Request) {
         // себя владелец отключить не может — приложение не должно даже
         // показывать такую кнопку
         isMe: u.id === ctx.user.id,
+        cars: worked.get(u.id)?.count ?? 0,
+        earned: worked.get(u.id)?.earned ?? 0,
       })),
     });
   } catch (e) {

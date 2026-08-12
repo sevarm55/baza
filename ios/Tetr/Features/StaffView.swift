@@ -84,6 +84,19 @@ struct StaffView: View {
                         .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.72))
+
+                    /* Что человек сделал за месяц. Без этого экран
+                       отвечал «кто заведён» и молчал о том, ради чего
+                       этих людей держат: за числами приходилось уходить
+                       в сводку и в зарплаты. Месяц, а не день: за один
+                       день «чего стоит человек» не видно. */
+                    if let cars = person.cars, let earned = person.earned, cars > 0 {
+                        Text("\(cars) \(session.tenant?.unitOne ?? "") · \(money(earned, session.tenant?.currency ?? "AMD"))")
+                            .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.top, 2)
+                    }
                 }
 
                 Spacer(minLength: 8)
