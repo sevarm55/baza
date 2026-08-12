@@ -333,30 +333,45 @@
 .tapsScene,
 .priceScene { scroll-margin-top: 84px; }
 
+/* Рамка на две плиты — тот же приём, что на первом экране: поле панели
+   держит одинаковый зазор со всех сторон, а содержимое живёт внутри
+   плит и отступает от их краёв уже само. Раньше подпись, заголовок и
+   шаги лежали прямо на поле, и край сцены проходил по трём линиям
+   сразу. */
 .tapsPanel {
   position: relative;
   min-height: 94dvh;
   display: grid;
   grid-template-columns: minmax(0, .88fr) minmax(420px, 1.12fr);
-  grid-template-rows: auto 1fr auto;
-  gap: 26px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 10px;
   overflow: hidden;
-  padding: clamp(28px, 4.2vw, 68px);
+  padding: 10px;
   background: var(--milk-2);
   border-radius: clamp(36px, 4vw, 62px);
 }
 
-.tapsPanel > .sceneLabel {
+.tapsSide {
   position: relative;
   z-index: 4;
-  grid-column: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 26px;
+  padding: clamp(24px, 3.4vw, 58px);
+  background: var(--milk);
+  border-radius: clamp(28px, 3.4vw, 52px) 18px 18px clamp(28px, 3.4vw, 52px);
+}
+
+.tapsSide .sceneLabel {
+  position: relative;
+  z-index: 4;
   color: var(--soft-ink);
 }
 
 .tapsHeading {
   position: relative;
   z-index: 4;
-  grid-column: 1;
   align-self: center;
   display: flex;
   align-items: flex-end;
@@ -384,11 +399,11 @@
 .tapsPhoto {
   position: relative;
   grid-column: 2;
-  grid-row: 1 / 4;
+  grid-row: 1;
   min-height: 0;
   overflow: hidden;
   background: #202520;
-  border-radius: 180px 28px 28px 28px;
+  border-radius: 18px clamp(28px, 3.4vw, 52px) clamp(28px, 3.4vw, 52px) 18px;
 }
 
 .tapsPhoto::before { background: linear-gradient(0deg, rgba(7,10,7,.5), transparent 50%); }
@@ -397,7 +412,6 @@
 .touchRail {
   position: relative;
   z-index: 5;
-  grid-column: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
@@ -423,8 +437,8 @@
 .tapFinish {
   position: absolute;
   z-index: 6;
-  right: 3.2%;
-  bottom: 4.5%;
+  right: clamp(26px, 3vw, 44px);
+  bottom: clamp(26px, 3vw, 44px);
   width: min(320px, 26vw);
   min-height: 92px;
   display: flex;
@@ -833,26 +847,99 @@
   .workersScene,
   .closingScene { padding-block: 8px; }
 
-  /* Все края сцены на одной линии.
+  /* Вторая сцена собрана как первая.
 
-     Фотография стояла в восьми точках от края панели, полоса шагов — в
-     восемнадцати, подпись — в шестнадцати, а лимонная плашка вылезала
-     за фотографию вправо. Четыре разных отступа на одной сцене читаются
-     как небрежность даже когда их не считают: край панели должен быть
-     один. */
-  .tapsPanel { --pad: 16px; height: var(--scene); min-height: 0; display: block; padding: 22px var(--pad); border-radius: 32px; }
-  .tapsHeading { position: absolute; top: 7%; left: var(--pad); height: 24%; }
-  .tapsHeading > span { font-size: clamp(7rem, 29vh, 19rem); }
-  .tapsHeading h2 { margin-bottom: 8px; font-size: clamp(2.2rem, 8.4vh, 4.4rem); }
-  /* Низ фотографии считается от полосы шагов, а не долей высоты: доля
-     на коротком экране заезжала на неё, потому что сама полоса стоит на
-     постоянном расстоянии от края. */
-  .tapsPhoto { position: absolute; top: 33%; left: var(--pad); right: var(--pad); bottom: 176px; height: auto; border-radius: 90px 22px 22px 22px; }
+     Раньше это был светлый лист, на котором в разных местах лежали
+     подпись, заголовок, фотография, полоса шагов и плашка — каждый со
+     своим отступом от края. Теперь схема та же, что у первого экрана:
+     фотография занимает весь блок, под ней плитой полоса шагов, поля
+     одинаковые со всех сторон, а подпись, «3 ՀՊՈՒՄ» и «Գրանցված է»
+     лежат поверх снимка. Две первые сцены читаются одним приёмом, а не
+     двумя разными.
+
+     Надписи поверх фотографии становятся светлыми: на снимке тёмного
+     бокса чернильный текст не виден. Плёнка сверху и снизу — чтобы они
+     держались и на светлом кадре. */
+  .tapsPanel {
+    --pad: 8px;
+    height: var(--scene);
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: var(--pad);
+    padding: var(--pad);
+    border-radius: 32px;
+  }
+
+  /* Обёртка растворяется: на телефоне подпись, заголовок и шаги
+     возвращаются в сетку панели по отдельности — снимок здесь во весь
+     блок, и плите рядом с ним места нет. */
+  .tapsSide { display: contents; }
+
+  .tapsPanel .sceneLabel {
+    position: absolute;
+    z-index: 6;
+    top: 26px;
+    left: 26px;
+    color: rgba(240, 243, 237, .78);
+  }
+
+  .tapsHeading {
+    position: absolute;
+    z-index: 6;
+    top: 62px;
+    left: 22px;
+    height: auto;
+  }
+  .tapsHeading > span { font-size: clamp(7rem, 27vh, 19rem); }
+  .tapsHeading h2 { margin-bottom: 8px; color: #f2f3ed; font-size: clamp(2.2rem, 8vh, 4.4rem); }
+
+  .tapsPhoto {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+    inset: auto;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    border-radius: 25px 25px 10px 10px;
+  }
   .tapsPhoto .photoImage { object-position: center 45%; }
-  .touchRail { position: absolute; left: var(--pad); right: var(--pad); bottom: 106px; }
-  .touchRail li { gap: 6px; padding-top: 12px; }
+  .tapsPhoto::before {
+    background:
+      linear-gradient(0deg, rgba(7,10,7,.55), transparent 46%),
+      linear-gradient(180deg, rgba(7,10,7,.5), transparent 34%);
+  }
+
+  /* Полоса шагов — плита под снимком, как рельс с числами на первом
+     экране: тот же зазор, те же скругления наружу и внутрь. */
+  .touchRail {
+    position: relative;
+    grid-column: 1;
+    grid-row: 2;
+    inset: auto;
+    padding: 14px 4px 16px;
+    background: var(--milk);
+    border-top: 0;
+    border-radius: 10px 10px 25px 25px;
+  }
+  .touchRail li { gap: 6px; padding: 0 12px; }
+  .touchRail li + li { padding-left: 12px; }
   .touchRail span { font-size: .65rem; }
-  .tapFinish { right: var(--pad); bottom: 18px; width: 190px; min-height: 66px; padding-inline: 18px; border-radius: 25px 8px 25px 8px; font-size: .76rem; }
+
+  .tapFinish {
+    right: 22px;
+    bottom: auto;
+    top: 62px;
+    width: auto;
+    min-height: 0;
+    padding: 10px 14px;
+    border-radius: 18px 6px 18px 6px;
+    font-size: .72rem;
+    gap: 10px;
+  }
+  .tapFinish b { font-size: 1.05rem; }
 
   .operationPanel { height: var(--scene); min-height: 0; border-radius: 26px 42px 26px 42px; }
   .operationPhoto .photoImage { object-position: 63% center; }

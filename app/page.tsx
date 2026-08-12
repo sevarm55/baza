@@ -98,10 +98,21 @@ export default async function Home() {
 
         <section className={s.tapsScene} id="how">
           <CampaignReveal className={s.tapsPanel}>
-            <div className={s.sceneLabel}>01 / ԳՐԱՆՑՈՒՄ</div>
-            <div className={s.tapsHeading}>
-              <span aria-hidden="true">3</span>
-              <h2>ՀՊՈՒՄ</h2>
+            {/* Подпись, заголовок и шаги — одной плитой, как рельс с
+                числами на первом экране. Иначе они лежат прямо на поле
+                панели, и её край проходит по трём разным линиям. */}
+            <div className={s.tapsSide}>
+              <div className={s.sceneLabel}>01 / ԳՐԱՆՑՈՒՄ</div>
+              <div className={s.tapsHeading}>
+                <span aria-hidden="true">3</span>
+                <h2>ՀՊՈՒՄ</h2>
+              </div>
+
+              <ol className={s.touchRail}>
+                <li><b>01</b><span>Համարանիշ</span></li>
+                <li><b>02</b><span>Ծառայություն</span></li>
+                <li><b>03</b><span>Վճարում</span></li>
+              </ol>
             </div>
 
             <div className={s.tapsPhoto}>
@@ -113,12 +124,6 @@ export default async function Home() {
                 sizes="(max-width: 760px) 100vw, 48vw"
               />
             </div>
-
-            <ol className={s.touchRail}>
-              <li><b>01</b><span>Համարանիշ</span></li>
-              <li><b>02</b><span>Ծառայություն</span></li>
-              <li><b>03</b><span>Վճարում</span></li>
-            </ol>
 
             <div className={s.tapFinish}>
               <span>Գրանցված է</span>
