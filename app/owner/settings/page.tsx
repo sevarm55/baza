@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
-import { getTenant, listServices } from '@/lib/queries';
-import { currencySymbol, toMajor } from '@/lib/money';
+import { getServiceStats, getTenant, listServices, startOfMonth } from '@/lib/queries';
+import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import { ServiceRow } from '@/components/service-row';
+import { ServicesTable, type ServiceRow } from '@/components/services-table';
 import { Panel } from '@/components/board';
+import { FlowStrip } from '@/components/flow-strip';
 import { PageHead } from '@/components/page-head';
 import { AddServiceForm } from './add-service-form';
 import { BusinessForm } from './business-form';
@@ -30,9 +31,31 @@ export default async function SettingsPage({
           ? hy.settings.deleteFailed
           : null;
 
-  const services = await listServices(tenant.id);
+  /* Рядом с прейскурантом — что из него берут за месяц: цену правят
+     оглядываясь на спрос, а не на сам список. */
+  const [services, month] = await Promise.all([
+    listServices(tenant.id),
+    getServiceStats(tenant.id, startOfMonth(tenant.timezone)),
+  ]);
   const symbol = currencySymbol(tenant.currency);
   const step = toMajor(1, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency);
+  const sold = new Map(month.map((m) => [m.serviceId ?? '', m]));
+
+  const rows: ServiceRow[] = services.map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: toMajor(s.price, tenant.currency),
+    display: formatAmount(s.price, tenant.currency),
+    count: sold.get(s.id)?.count ?? 0,
+    revenue: money(sold.get(s.id)?.revenue ?? 0),
+  }));
+
+  const cars = month.reduce((sum, m) => sum + m.count, 0);
+  const revenue = month.reduce((sum, m) => sum + m.revenue, 0);
+  const avgPrice = services.length
+    ? Math.round(services.reduce((sum, s) => sum + s.price, 0) / services.length)
+    : 0;
 
   /* Слева то, что правят каждую неделю, — цены. Справа то, что трогают
      раз в год: название, точки, выгрузка и удаление. На телефоне всё это
@@ -42,23 +65,26 @@ export default async function SettingsPage({
     <>
       <PageHead title={hy.owner.tabSettings} meta={hy.settings.priceNote} />
 
-      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+      {/* Полоса той же формы, что на остальных экранах: сколько услуг в
+          прейскуранте, средняя цена и что он принёс за месяц. */}
+      <FlowStrip
+        links={[
+          { label: hy.owner.colService, value: String(services.length) },
+          { label: hy.settings.price, value: money(avgPrice), note: hy.owner.avgShort },
+          { label: tenant.unitOne, value: String(cars), note: hy.owner.periodMonth.toLowerCase() },
+          {
+            label: hy.owner.revenue,
+            value: money(revenue),
+            note: hy.owner.periodMonth.toLowerCase(),
+            strong: true,
+          },
+        ]}
+      />
+
+      <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
         <div className="grid content-start gap-[var(--seam)] lg:col-span-8">
           <Panel title={hy.settings.services} count={services.length}>
-            {/* Список, а не стопка форм: границу между услугами держит
-                волосяная линия, а не воздух в полтора сантиметра. */}
-            <div className="rows">
-              {services.map((s) => (
-                <ServiceRow
-                  key={s.id}
-                  id={s.id}
-                  name={s.name}
-                  price={toMajor(s.price, tenant.currency)}
-                  step={step}
-                  currencySymbol={symbol}
-                />
-              ))}
-            </div>
+            <ServicesTable rows={rows} step={step} currencySymbol={symbol} />
           </Panel>
 
           <Panel title={hy.settings.newService}>

@@ -148,6 +148,37 @@ export async function listStaff(tenantId: string) {
     .orderBy(users.name);
 }
 
+/**
+ * Сколько раз услугу брали и сколько она принесла.
+ *
+ * Прейскурант сам по себе отвечает «сколько стоит» и молчит о том, что
+ * из него берут. Владелец правит цену вслепую: поднять на комплексе,
+ * который заказывают дважды в месяц, — это ничего; поднять на мойке
+ * кузова, которых сорок шесть, — это другие деньги.
+ *
+ * Считаем по `service_id`, а не по названию: услугу переименовывают, и
+ * записи со старым именем должны остаться при ней. Отменённые записи не
+ * в счёт — за них не платили.
+ */
+export async function getServiceStats(tenantId: string, from: Date, to?: Date) {
+  return db
+    .select({
+      serviceId: orders.serviceId,
+      count: sql<number>`count(*)::int`,
+      revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        gte(orders.createdAt, from),
+        to ? lt(orders.createdAt, to) : undefined,
+        notCanceled,
+      ),
+    )
+    .groupBy(orders.serviceId);
+}
+
 export async function listServices(tenantId: string) {
   return db
     .select()
