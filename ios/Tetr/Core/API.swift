@@ -425,6 +425,28 @@ enum API {
         let clients: [Client]
     }
 
+    /**
+     * Повод для колокольчика.
+     *
+     * Не событие, а состояние мойки: «пятеро не были три недели» правда,
+     * пока они не приедут. Считает его сервер — той же сборкой, что и
+     * кабинет в браузере: два места, считающие поводы по-разному, врут
+     * в одном из двух.
+     */
+    struct Alert: Decodable, Identifiable {
+        let key: String
+        let title: String
+        let note: String
+        let action: String
+        /// `warn` — то, что теряет деньги прямо сейчас
+        let tone: String
+        var id: String { key }
+    }
+
+    struct Alerts: Decodable {
+        let alerts: [Alert]
+    }
+
     struct StaffMember: Decodable, Identifiable {
         let id: String
         let name: String

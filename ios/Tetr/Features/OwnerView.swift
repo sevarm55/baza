@@ -30,6 +30,10 @@ struct OwnerView: View {
 
     @State private var summary: API.Summary?
     @State private var period = "today"
+    /// Поводы, требующие внимания: колокольчик в шапке.
+    @State private var alerts: [API.Alert] = []
+    @State private var showAlerts = false
+    @State private var showClients = false
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
     /// Идёт запрос. Виден только знаком обновления: отдельный индикатор
@@ -71,6 +75,24 @@ struct OwnerView: View {
         .safeAreaInset(edge: .top) { chips }
         .task { await reload() }
         .refreshable { await reload() }
+        .sheet(isPresented: $showAlerts) {
+            /* Куда ведёт повод, решает приложение: у него свои разделы,
+               и адрес страницы браузера здесь не при чём. Зарплата —
+               соседняя вкладка, клиенты живут в «Ավելին», поэтому их
+               список открывается прямо отсюда листом: лишний переход
+               через меню к звонку не приближает. */
+            AlertsView(onOpen: { key in
+                if key == "payroll-due" {
+                    NotificationCenter.default.post(name: .openPayroll, object: nil)
+                } else {
+                    showClients = true
+                }
+            })
+            .environmentObject(session)
+        }
+        .sheet(isPresented: $showClients) {
+            ClientsView().environmentObject(session)
+        }
         .alert(
             "Չեղարկե՞լ այս գրանցումը",
             isPresented: .init(get: { cancelling != nil }, set: { if !$0 { cancelling = nil } })
@@ -138,6 +160,33 @@ struct OwnerView: View {
             }
 
             Spacer(minLength: 8)
+
+            /* Колокольчик рядом с обновлением: это не раздел, а
+               состояние продукта — «требует ли что-нибудь внимания».
+               Тихий, пока поводов нет: значок с вечной единицей
+               перестают замечать за неделю. */
+            Button {
+                showAlerts = true
+            } label: {
+                Image(systemName: "bell")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(alerts.isEmpty ? Brand.boardMuted : Brand.onBoard)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.chipRest, in: .circle)
+                    .overlay(alignment: .topTrailing) {
+                        if !alerts.isEmpty {
+                            Text("\(alerts.count)")
+                                .font(.system(size: 10, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.board)
+                                .padding(.horizontal, 4)
+                                .frame(minWidth: 16, minHeight: 16)
+                                .background(Brand.warnOnBoard, in: .capsule)
+                                .offset(x: 2, y: -2)
+                        }
+                    }
+            }
+            .accessibilityLabel("Ուշադրություն")
 
             Button {
                 Task { await reload() }
@@ -937,6 +986,17 @@ struct OwnerView: View {
     private func reload() async {
         loading = true
         defer { loading = false }
+
+        /* Поводы тянем вместе со сводкой и молча: колокольчик — не то,
+           ради чего открывают экран, и его отказ не должен мешать
+           показать выручку. */
+        Task {
+            let fresh: API.Alerts? = try? await session.authed { token in
+                try await APIClient.shared.send("alerts", token: token, as: API.Alerts.self)
+            }
+            if let fresh { alerts = fresh.alerts }
+        }
+
         do {
             let fresh = try await session.authed { token in
                 try await APIClient.shared.send(

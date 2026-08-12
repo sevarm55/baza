@@ -291,6 +291,13 @@ struct MainTabs: View {
            цифры чужой мойки — а это не выглядит ошибкой вовсе. */
         .id(session.generation)
         .onChange(of: session.generation) { _, _ in tab = .shift }
+        /* Повод «зарплата копится» ведёт на соседнюю вкладку. Через
+           уведомление, а не через привязку: вкладку держит этот вид, а
+           повод открывают двумя экранами ниже, и тянуть привязку через
+           всё дерево ради одного перехода — дороже, чем одно имя. */
+        .onReceive(NotificationCenter.default.publisher(for: .openPayroll)) { _ in
+            tab = .payroll
+        }
     }
 
     @ToolbarContentBuilder
@@ -304,4 +311,9 @@ struct MainTabs: View {
             }
         }
     }
+}
+
+extension Notification.Name {
+    /// Повод «зарплата копится» просит открыть свою вкладку.
+    static let openPayroll = Notification.Name("tetr.openPayroll")
 }
