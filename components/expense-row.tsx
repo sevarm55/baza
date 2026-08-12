@@ -65,6 +65,7 @@ export function ExpenseRow({
         onClose={() => setOpen(false)}
         title={category}
         subtitle={when}
+        side
         footer={
           <>
             <button form={`rm-${id}`} className="btn-inline btn-inline-danger me-auto">

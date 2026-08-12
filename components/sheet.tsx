@@ -34,6 +34,7 @@ export function Sheet({
   onClose,
   title,
   subtitle,
+  side,
   footer,
   children,
 }: {
@@ -42,6 +43,15 @@ export function Sheet({
   title: string;
   /** вторая строка шапки: чей это телефон, за какое число расход */
   subtitle?: string;
+  /**
+   * Панелью справа, а не окном по центру.
+   *
+   * Там, где правят строку длинного списка, окно по центру закрывает
+   * собой сам список: человек теряет из виду, что он открыл и что
+   * стоит вокруг. Панель приходит от края, список остаётся на месте —
+   * так же, как карточка машины у клиентов.
+   */
+  side?: boolean;
   /** действия окна: слева убрать, справа сохранить */
   footer?: ReactNode;
   children: ReactNode;
@@ -81,21 +91,27 @@ export function Sheet({
   return (
     <dialog
       ref={ref}
-      className="sheet"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        margin: 'auto',
-        width: 'min(440px, calc(100vw - 2rem))',
-        maxHeight: 'calc(100dvh - 3rem)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        padding: 0,
-        borderRadius: 'var(--radius-card)',
-        background: 'var(--board-surface)',
-        color: 'var(--on-board)',
-      }}
+      className={side ? 'drawer' : 'sheet'}
+      /* Каркас панели держит её собственный класс: он и так задаёт край,
+         ширину и выезд, а повтор этого в разметке спорил бы с ним. */
+      style={
+        side
+          ? undefined
+          : {
+              position: 'fixed',
+              inset: 0,
+              margin: 'auto',
+              width: 'min(440px, calc(100vw - 2rem))',
+              maxHeight: 'calc(100dvh - 3rem)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              padding: 0,
+              borderRadius: 'var(--radius-card)',
+              background: 'var(--board-surface)',
+              color: 'var(--on-board)',
+            }
+      }
       onCancel={(e) => {
         e.preventDefault();
         onClose();

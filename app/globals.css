@@ -1218,6 +1218,89 @@ input[type='radio'] {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 26%, transparent);
   }
 
+  /* ─────────────── фишка готового значения ───────────────
+
+     Шесть названий расхода лежали в выпадающем списке: чтобы увидеть
+     «Ջուր», надо было сначала нажать на поле и узнать, что список
+     вообще есть. Фишки показывают все шесть сразу и стоят ровно
+     столько, сколько занимают слова. Своё название при этом никто не
+     отменял — поле под ними принимает любое. */
+  .chip {
+    padding: 0.4rem 0.7rem;
+    border-radius: var(--radius-chip);
+    background: var(--field-fill, var(--field-gray));
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.15;
+    cursor: pointer;
+    transition:
+      background var(--t-micro) var(--ease),
+      color var(--t-micro) var(--ease);
+  }
+  .chip:hover {
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
+  .chip[data-on] {
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  /* ─────────────── вид расхода двумя карточками ───────────────
+
+     Флажок «Ամսական» требовал знать заранее, что он делает: постоянный
+     и разовый — это два разных расхода, а не галочка у одного. У
+     карточки объяснение внутри неё самой, и ошибиться, не читая,
+     труднее. Тот же приём, что в приложении. */
+  .kind {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .kind-card {
+    display: grid;
+    align-content: start;
+    gap: 0.15rem;
+    padding: 0.8rem 0.85rem 0.85rem;
+    border-radius: var(--radius-card);
+    background: var(--field-fill, var(--field-gray));
+    color: var(--ink);
+    text-align: start;
+    cursor: pointer;
+    transition:
+      background var(--t-micro) var(--ease),
+      color var(--t-micro) var(--ease);
+  }
+  .kind-card svg {
+    margin-bottom: 1.1rem;
+    color: var(--accent-strong);
+  }
+  .kind-card:hover {
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+  }
+
+  .kind-title {
+    font-size: 14.5px;
+    font-weight: 700;
+  }
+  .kind-note {
+    font-size: 11.5px;
+    line-height: 1.25;
+    color: var(--muted);
+  }
+
+  /* Выбранный — чернильная плита. Лайм тут не годится: в продукте он
+     значит «нажми меня», а выбранная карточка уже нажата. */
+  .kind-card[data-on] {
+    background: var(--ink);
+    color: var(--surface);
+  }
+  .kind-card[data-on] svg,
+  .kind-card[data-on] .kind-note {
+    color: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+
   /* Вариант выбора: услуга, способ оплаты.
 
      Тени больше нет. Тень обещает, что предмет лежит НАД страницей и
@@ -1584,6 +1667,13 @@ input[type='radio'] {
     display: none;
     position: sticky;
     top: 0;
+    /* Липкая колонка создаёт свой слой всегда, даже без z-index. Из-за
+       этого подсказка свёрнутого пункта со своим z-index: 30 оставалась
+       внутри рейки, а полотно рядом — соседний слой того же уровня,
+       нарисованный позже, — закрывало её собой: имя раздела уезжало под
+       карточку. Слой рейки поднят целиком; окна это не задевает, они
+       живут в верхнем слое браузера. */
+    z-index: 20;
     height: 100dvh;
     flex-direction: column;
     gap: 0.25rem;
