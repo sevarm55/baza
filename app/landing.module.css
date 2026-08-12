@@ -833,16 +833,26 @@
   .workersScene,
   .closingScene { padding-block: 8px; }
 
-  .tapsPanel { height: var(--scene); min-height: 0; display: block; padding: 22px 16px; border-radius: 32px; }
-  .tapsHeading { position: absolute; top: 7%; left: 10px; height: 24%; }
+  /* Все края сцены на одной линии.
+
+     Фотография стояла в восьми точках от края панели, полоса шагов — в
+     восемнадцати, подпись — в шестнадцати, а лимонная плашка вылезала
+     за фотографию вправо. Четыре разных отступа на одной сцене читаются
+     как небрежность даже когда их не считают: край панели должен быть
+     один. */
+  .tapsPanel { --pad: 16px; height: var(--scene); min-height: 0; display: block; padding: 22px var(--pad); border-radius: 32px; }
+  .tapsHeading { position: absolute; top: 7%; left: var(--pad); height: 24%; }
   .tapsHeading > span { font-size: clamp(7rem, 29vh, 19rem); }
   .tapsHeading h2 { margin-bottom: 8px; font-size: clamp(2.2rem, 8.4vh, 4.4rem); }
-  .tapsPhoto { position: absolute; top: 33%; left: 8px; right: 8px; height: 40%; border-radius: 90px 22px 22px 22px; }
+  /* Низ фотографии считается от полосы шагов, а не долей высоты: доля
+     на коротком экране заезжала на неё, потому что сама полоса стоит на
+     постоянном расстоянии от края. */
+  .tapsPhoto { position: absolute; top: 33%; left: var(--pad); right: var(--pad); bottom: 176px; height: auto; border-radius: 90px 22px 22px 22px; }
   .tapsPhoto .photoImage { object-position: center 45%; }
-  .touchRail { position: absolute; left: 18px; right: 18px; bottom: 106px; }
+  .touchRail { position: absolute; left: var(--pad); right: var(--pad); bottom: 106px; }
   .touchRail li { gap: 6px; padding-top: 12px; }
   .touchRail span { font-size: .65rem; }
-  .tapFinish { right: 16px; bottom: 16px; width: 190px; min-height: 66px; padding-inline: 18px; border-radius: 25px 8px 25px 8px; font-size: .76rem; }
+  .tapFinish { right: var(--pad); bottom: 18px; width: 190px; min-height: 66px; padding-inline: 18px; border-radius: 25px 8px 25px 8px; font-size: .76rem; }
 
   .operationPanel { height: var(--scene); min-height: 0; border-radius: 26px 42px 26px 42px; }
   .operationPhoto .photoImage { object-position: 63% center; }
