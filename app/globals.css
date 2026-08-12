@@ -2217,6 +2217,103 @@ input[type='radio'] {
     color: var(--tone-ink);
   }
 
+  /* ─────────────── колокольчик и поводы ───────────────
+
+     Колокольчик стоит в подвале рейки рядом с темой и выходом: это не
+     раздел, а состояние продукта. Тихий, пока поводов нет, — иначе его
+     перестают замечать раньше, чем он понадобится. */
+  .rail-bell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: var(--radius-chip);
+    color: var(--board-muted);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      background var(--t-micro) var(--ease),
+      color var(--t-micro) var(--ease);
+  }
+  .rail-bell:hover {
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    color: var(--on-board);
+  }
+  /* Есть повод — колокольчик перестаёт быть тихим. */
+  .rail-bell[data-on] {
+    color: var(--on-board);
+  }
+
+  .rail-bell-count {
+    position: absolute;
+    top: -0.15rem;
+    inset-inline-end: -0.15rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding-inline: 0.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--warn-on-board);
+    color: var(--board);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Повод строкой — тем же приёмом, что список машин: значок, две
+     строки текста, шеврон. Ни цветной полосы слева, ни залитой кнопки:
+     это кабинет, а не почтовый ящик. */
+  .alert-row {
+    padding-block: 0.55rem;
+  }
+
+  .alert-hit {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    color: inherit;
+  }
+  .alert-hit .flow-mark {
+    margin-bottom: 0;
+  }
+
+  /* Шеврон вместо подписи действия: куда ведёт строка, видно по самой
+     строке, а слово «открыть» рядом с ней ничего не добавляет. */
+  .alert-go {
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid var(--faint);
+    border-block-start: 1.5px solid var(--faint);
+    transform: rotate(45deg);
+    transition: border-color var(--t-micro) var(--ease);
+  }
+  .alert-hit:hover .alert-go {
+    border-color: var(--muted);
+  }
+
+  /* Отложить — отказ, а не равноправный выбор: тихой подписью под
+     строкой, а не второй кнопкой рядом с первой. */
+  .alert-later {
+    margin-inline-start: calc(1.9rem + 0.75rem);
+    margin-top: 0.15rem;
+    padding: 0.1rem 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: color var(--t-micro) var(--ease);
+  }
+  .alert-later:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   /* Метка в строке таблицы: способ оплаты, тип записи — короткое слово,
      которое читают как признак, а не как текст. Тише обычного текста,
      чтобы в колонке из сорока строк не спорить с ценой. */

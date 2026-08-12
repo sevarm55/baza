@@ -678,6 +678,35 @@ export const pushTokens = pgTable(
   ],
 );
 
+/**
+ * Отложенные поводы для колокольчика.
+ *
+ * Повод здесь — это состояние, а не событие: «пятеро не были три
+ * недели» правда, пока они не приедут. Отмечать такое «прочитанным»
+ * нечестно — оно никуда не делось, — поэтому его можно только отложить,
+ * и в таблице лежит срок, до которого повод молчит.
+ *
+ * Строка на пару «участие + повод»: у владельца двух моек поводы свои
+ * на каждой, и отложенный на одной не должен гасить другую.
+ */
+export const alertSnoozes = pgTable(
+  'alert_snoozes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** какой повод: `lost-clients`, `open-shift`, `payroll-due` */
+    key: text('key').notNull(),
+    /** до какого момента молчит */
+    until: timestamp('until', { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex('alert_snoozes_user_key_uniq').on(t.userId, t.key)],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;

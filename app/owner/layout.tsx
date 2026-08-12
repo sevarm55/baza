@@ -8,6 +8,7 @@ import { OwnerTabs } from '@/components/owner-tabs';
 import { Rail } from '@/components/rail';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
+import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,11 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
 
   const points = me.accountId ? await listPoints(me.accountId) : [];
   const passes = passesEnabled();
+
+  /* Поводы считаются здесь, в раскладке: колокольчик стоит на каждой
+     странице кабинета, и число на нём должно совпадать с тем, что
+     человек увидит внутри, на какой бы странице он ни нажал. */
+  const alerts = await getAlerts(tenant.id, me.id);
 
   /* Два способа показать одно и то же.
 
@@ -43,6 +49,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         currentTid={tenant.id}
         passes={passes}
         active="owner"
+        alerts={alerts}
       />
 
       <div className="min-w-0">
@@ -54,6 +61,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
             active="owner"
             points={points}
             currentTid={tenant.id}
+            alerts={alerts}
           />
         </div>
 

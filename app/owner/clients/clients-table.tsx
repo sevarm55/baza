@@ -47,6 +47,7 @@ export function ClientsTable({
   lostAfter,
   currency,
   unit,
+  initialGroup = null,
 }: {
   rows: ClientRow[];
   lostAfter: number;
@@ -54,11 +55,13 @@ export function ClientsTable({
      деньги, а передать ей функцию через границу сервер-клиент нельзя. */
   currency: string;
   unit: string;
+  /** группа, открытая сразу: сюда приводит колокольчик */
+  initialGroup?: Group | null;
 }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>('recent');
   const [open, setOpen] = useState<string | null>(null);
-  const [group, setGroup] = useState<Group | null>(null);
+  const [group, setGroup] = useState<Group | null>(initialGroup);
 
   const money = (n: number) => formatMoney(n, currency);
 

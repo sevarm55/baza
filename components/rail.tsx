@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { hy } from '@/lib/i18n/hy';
+import { Bell } from '@/components/bell';
+import type { Alert } from '@/lib/alerts';
 import { Logo } from '@/components/logo';
 import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
@@ -27,6 +29,7 @@ export function Rail({
   currentTid,
   passes,
   active,
+  alerts,
 }: {
   tenantName: string;
   userName: string;
@@ -35,6 +38,8 @@ export function Rail({
   passes: boolean;
   /** где мы сейчас: в кабинете или на экране записи */
   active: 'owner' | 'work';
+  /** поводы для колокольчика; у мойщика их нет вовсе */
+  alerts?: Alert[];
 }) {
   // у кого одна мойка, тот не должен узнать, что бывают вторые
   const many = !!points && points.length > 1 && !!currentTid;
@@ -131,7 +136,10 @@ export function Rail({
           ))}
         </nav>
 
+        {/* Колокольчик рядом с темой и выходом: это не раздел, а
+            состояние продукта — «требует ли что-нибудь внимания». */}
         <div className="rail-tools flex items-center gap-1 px-0.5">
+          {alerts && <Bell alerts={alerts} />}
           <ThemeToggle />
           <SignOutButton />
         </div>

@@ -21,12 +21,21 @@ const LOST_AFTER_DAYS = 21;
  * вопрос, с которым сюда заходят, другой: найти конкретную машину или
  * понять, кому позвонить. Число осталось строкой в полосе.
  */
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  /* Колокольчик приводит сюда с уже выбранной группой: повод «пятеро
+     давно не были» обязан открыть именно этих пятерых, а не список из
+     двухсот, в котором их надо искать. */
+  searchParams: Promise<{ group?: string }>;
+}) {
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/session-ended');
 
   const clients = await listClients(tenant.id);
+  const asked = (await searchParams).group;
+  const initialGroup = asked === 'lost' || asked === 'loyal' || asked === 'all' ? asked : null;
 
   /* Дни молчания приходят из базы: часы читает она, а не страница —
      иначе число на сервере и в браузере разъезжается. */
@@ -55,6 +64,7 @@ export default async function ClientsPage() {
             </p>
           ) : (
             <ClientsTable
+              initialGroup={initialGroup}
               rows={rows}
               lostAfter={LOST_AFTER_DAYS}
               currency={tenant.currency}

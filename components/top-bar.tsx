@@ -6,6 +6,8 @@ import { Logo } from '@/components/logo';
 import { PointSwitcher } from '@/components/point-switcher';
 import type { Point } from '@/lib/accounts';
 import type { Role } from '@/lib/auth';
+import { Bell } from '@/components/bell';
+import type { Alert } from '@/lib/alerts';
 
 export function TopBar({
   tenantName,
@@ -14,11 +16,14 @@ export function TopBar({
   active,
   points,
   currentTid,
+  alerts,
 }: {
   tenantName: string;
   subtitle: string;
   role: Role;
   active?: 'work' | 'owner';
+  /** поводы для колокольчика; у мойщика их нет вовсе */
+  alerts?: Alert[];
   /** точки человека; одна или ни одной — переключателя нет */
   points?: Point[];
   currentTid?: string;
@@ -59,6 +64,7 @@ export function TopBar({
         </div>
 
         <div className="order-2 flex shrink-0 items-center gap-1">
+          {alerts && <Bell alerts={alerts} />}
           <ThemeToggle />
           <SignOutButton />
         </div>
