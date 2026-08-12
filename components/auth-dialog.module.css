@@ -216,11 +216,35 @@
     transform: translateY(18px);
   }
 
-  .form {
-    padding: 18px 18px calc(20px + env(safe-area-inset-bottom));
+  /* Полоска у верхнего края — знак, что это лист, а не страница,
+     которая почему-то началась с середины экрана. */
+  .panel::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    top: 9px;
+    inset-inline-start: 50%;
+    width: 38px;
+    height: 4px;
+    translate: -50% 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 13%, transparent);
   }
 
+  .form {
+    padding: 24px 18px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* На листе высоты не равняем.
+
+     Лист приходит от нижнего края и растёт вверх: кнопка остаётся под
+     пальцем в обоих случаях, и разная высота форм читается как разный
+     объём работы, а не как скачок. Общая же высота оставляла посреди
+     листа полторы сотни точек белизны — на узком экране это не воздух,
+     а дыра. Равнять имеет смысл карточку по центру экрана, где прыгает
+     сам переключатель; здесь он стоит у края листа. */
   .body {
+    min-height: 0;
     margin-inline: -18px;
     padding-inline: 18px;
   }
