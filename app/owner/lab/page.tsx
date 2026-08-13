@@ -136,7 +136,7 @@ export default async function LabPage({
   ];
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="lab-ui flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{hy.owner.tabToday}</h1>
@@ -178,7 +178,7 @@ export default async function LabPage({
           дашбордов shadcn. Все одного веса, включая итог. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <Card key={c.label}>
+          <Card key={c.label} className="bg-muted/40 transition-colors hover:bg-muted/70">
             <CardHeader>
               <CardDescription>{c.label}</CardDescription>
               <CardTitle className="text-2xl tabular-nums">{c.value}</CardTitle>
@@ -203,7 +203,7 @@ export default async function LabPage({
         </AlertDescription>
       </Alert>
 
-      <Card>
+      <Card className="bg-muted/40">
         <CardHeader>
           <CardDescription>{hy.owner.profit}</CardDescription>
           <CardTitle className="text-4xl tabular-nums">{money(profit)}</CardTitle>
@@ -222,7 +222,7 @@ export default async function LabPage({
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="bg-muted/40 lg:col-span-2">
           <CardHeader>
             <CardTitle>{hy.owner.revenue}</CardTitle>
             <CardDescription>{period.label}</CardDescription>
@@ -236,7 +236,7 @@ export default async function LabPage({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-muted/40">
           <CardHeader>
             <CardTitle>{hy.owner.onShift}</CardTitle>
             <CardDescription>{crew.length}</CardDescription>
@@ -248,7 +248,7 @@ export default async function LabPage({
             {crew.map((s, i) => (
               <div key={s.id}>
                 {i > 0 && <Separator className="mb-3" />}
-                <div className="flex items-center justify-between gap-3">
+                <div className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1 transition-colors hover:bg-accent">
                   <div className="flex min-w-0 items-center gap-2">
                     {/* Аватар библиотеки: буква имени вместо точки цвета,
                         которой человек отмечен у нас в ленте и на смене. */}
@@ -284,7 +284,7 @@ export default async function LabPage({
         </Card>
       </div>
 
-      <Card>
+      <Card className="bg-muted/40">
         <CardHeader>
           <CardTitle>{hy.owner.feed}</CardTitle>
           <CardDescription>{feed.length}</CardDescription>
