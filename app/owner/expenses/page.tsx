@@ -129,6 +129,11 @@ export default async function ExpensesPage({
                 strong: true,
                 icon: IconOutcome,
                 tone: 'lime',
+                /* Срок под итогом. Слово «Ծախսեր» стоит и на сводке, и
+                   здесь, а числа под ним разные: там день, тут месяц. Без
+                   названия срока это выглядит расхождением в расчётах, и
+                   владелец перестаёт верить обоим. */
+                note: prev ? hy.owner.periodPrevMonth : hy.owner.periodMonth,
               },
             ]}
           />
