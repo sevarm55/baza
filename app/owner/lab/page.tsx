@@ -15,7 +15,11 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   Card,
   CardAction,
@@ -34,6 +38,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { RevenueChart } from './revenue-chart';
+import { PeriodTabsLab } from './period-tabs';
+import { FeedRowActions } from './row-actions';
 import { getPeriod, PERIODS } from '../periods';
 
 /**
@@ -115,11 +121,18 @@ export default async function LabPage({
     value: s.revenue,
   }));
 
+  /* Доля от выручки полосой: `Progress` библиотеки на настоящем числе.
+     У «машин» доли нет — там полосе взяться неоткуда, и её там нет. */
+  const share = (n: number) => (stats.revenue > 0 ? Math.round((n / stats.revenue) * 100) : 0);
   const cards = [
-    { label: tenant.unitOne, value: String(stats.count) },
-    { label: hy.owner.revenue, value: money(stats.revenue) },
-    { label: hy.owner.payroll, value: money(stats.payroll) },
-    { label: hy.owner.costs, value: money(costs.oneOff + costs.monthlyShare) },
+    { label: tenant.unitOne, value: String(stats.count), share: null as number | null },
+    { label: hy.owner.revenue, value: money(stats.revenue), share: 100 },
+    { label: hy.owner.payroll, value: money(stats.payroll), share: share(stats.payroll) },
+    {
+      label: hy.owner.costs,
+      value: money(costs.oneOff + costs.monthlyShare),
+      share: share(costs.oneOff + costs.monthlyShare),
+    },
   ];
 
   return (
@@ -130,15 +143,35 @@ export default async function LabPage({
           <p className="text-muted-foreground text-sm">{period.label}</p>
         </div>
 
-        {/* Период — ссылками с бейджами: стандартный приём библиотеки
-            вместо нашей дорожки с переезжающей плашкой. */}
-        <div className="flex gap-2">
-          {PERIODS.map((x) => (
-            <Link key={x.key} href={x.key === 'today' ? '/owner/lab' : `/owner/lab?p=${x.key}`}>
-              <Badge variant={period.key === x.key ? 'default' : 'outline'}>{x.label}</Badge>
-            </Link>
-          ))}
-        </div>
+        {/* Период — `Tabs` библиотеки: дорожка с подсветкой, роли для
+            читалки и переход стрелками достаются даром. */}
+        <PeriodTabsLab periods={PERIODS} current={period.key} />
+      </div>
+
+      {/* Кнопки библиотеки во всех видах — на настоящих действиях
+          страницы, а не на образцах. Видно, что «главное» и «опасное»
+          отличаются только заливкой: иерархию задаёт не компонент, а
+          тот, кто расставляет их по экрану. */}
+      <div className="flex flex-wrap gap-2">
+        {/* `render` вместо `asChild`: кнопка здесь из Base UI, и ссылку
+            она принимает именно так. `nativeButton={false}` обязателен —
+            иначе библиотека честно ругается, что под видом кнопки ей
+            подсунули ссылку и native-семантика кнопки потеряна. */}
+        <Button nativeButton={false} render={<Link href="/work" />}>
+          + {tenant.unitOne}
+        </Button>
+        <Button nativeButton={false} variant="secondary" render={<Link href="/owner/expenses" />}>
+          {hy.expenses.add}
+        </Button>
+        <Button nativeButton={false} variant="outline" render={<Link href="/owner/payroll" />}>
+          {hy.owner.tabPayroll}
+        </Button>
+        <Button nativeButton={false} variant="ghost" render={<Link href="/owner/reports" />}>
+          {hy.reports.title}
+        </Button>
+        <Button nativeButton={false} variant="link" render={<Link href="/owner/export?days=30" />}>
+          {hy.settings.exportCsv}
+        </Button>
       </div>
 
       {/* Четыре карточки в ряд плюс пятая с итогом — как в примерах
@@ -150,9 +183,25 @@ export default async function LabPage({
               <CardDescription>{c.label}</CardDescription>
               <CardTitle className="text-2xl tabular-nums">{c.value}</CardTitle>
             </CardHeader>
+            {c.share !== null && (
+              <CardContent className="flex items-center gap-3">
+                <Progress value={c.share} className="flex-1" />
+                <span className="text-muted-foreground text-xs tabular-nums">{c.share}%</span>
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
+
+      {/* `Alert` библиотеки на настоящем месте: чем считается разница
+          под итогом. У нас это подпись под числом, здесь — отдельная
+          полоса во всю ширину. */}
+      <Alert>
+        <AlertTitle>{period.label}</AlertTitle>
+        <AlertDescription>
+          {prevStats.count > 0 ? hy.owner.vsPrevPeriod : hy.owner.noBase}
+        </AlertDescription>
+      </Alert>
 
       <Card>
         <CardHeader>
@@ -201,6 +250,11 @@ export default async function LabPage({
                 {i > 0 && <Separator className="mb-3" />}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
+                    {/* Аватар библиотеки: буква имени вместо точки цвета,
+                        которой человек отмечен у нас в ленте и на смене. */}
+                    <Avatar className="size-7">
+                      <AvatarFallback>{(s.name ?? '—').slice(0, 1)}</AvatarFallback>
+                    </Avatar>
                     <span className="truncate text-sm font-medium">{s.name ?? '—'}</span>
                     {s.present && <Badge variant="secondary">{hy.owner.onShift}</Badge>}
                   </div>
@@ -245,6 +299,7 @@ export default async function LabPage({
                 <TableHead>{hy.owner.colPayment}</TableHead>
                 <TableHead className="text-right">{hy.owner.colPrice}</TableHead>
                 <TableHead className="text-right">{hy.owner.colTime}</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -259,6 +314,9 @@ export default async function LabPage({
                   <TableCell className="text-right tabular-nums">{money(o.price)}</TableCell>
                   <TableCell className="text-muted-foreground text-right tabular-nums">
                     {hhmm(o.createdAt, tenant.timezone)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <FeedRowActions plate={o.clientKey ?? '—'} />
                   </TableCell>
                 </TableRow>
               ))}
