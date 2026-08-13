@@ -249,11 +249,15 @@ enum API {
         let note: String?
         let monthly: Bool
         let at: Date
+        /// Заполнено только у завершённого постоянного расхода.
+        let endedAt: Date?
     }
 
     struct Expenses: Decodable {
         let hints: [String]
         let expenses: [Expense]
+        /// Optional: старое приложение продолжает работать со старым сервером.
+        let costs: Costs?
     }
 
     struct FeedItem: Decodable, Identifiable {

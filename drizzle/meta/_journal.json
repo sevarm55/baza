@@ -120,6 +120,13 @@
       "when": 1786221326494,
       "tag": "0016_alert_snoozes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786622029000,
+      "tag": "0017_canonical_client_plates",
+      "breakpoints": true
     }
   ]
 }

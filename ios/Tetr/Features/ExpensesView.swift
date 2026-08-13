@@ -22,8 +22,10 @@ struct ExpensesView: View {
 
     @State private var items: [API.Expense] = []
     @State private var hints: [String] = []
+    @State private var costs: API.Costs?
     @State private var adding = false
     @State private var editing: API.Expense?
+    @State private var confirmingRemoval: API.Expense?
     @State private var loaded = false
     /// Какой месяц смотрим. Считает сервер — здесь только выбор.
     @State private var month: Month = .current
@@ -68,11 +70,18 @@ struct ExpensesView: View {
                     .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
 
                 ForEach(monthlyOnes) { item in
-                    card(item)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
-                        .swipeActions(edge: .trailing) { erase(item) }
+                    if month == .current {
+                        card(item)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+                            .swipeActions(edge: .trailing) { erase(item) }
+                    } else {
+                        card(item)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+                    }
                 }
             }
 
@@ -86,11 +95,18 @@ struct ExpensesView: View {
                    между двумя подложками — вторая граница там, где
                    хватает одной. */
                 ForEach(oneOffs) { item in
-                    row(item)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
-                        .swipeActions(edge: .trailing) { erase(item) }
+                    if month == .current {
+                        row(item)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
+                            .swipeActions(edge: .trailing) { erase(item) }
+                    } else {
+                        row(item)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
+                    }
                 }
             }
 
@@ -127,6 +143,27 @@ struct ExpensesView: View {
         }
         .sheet(item: $editing) { item in
             ExpenseEditor(editing: item, hints: hints, currency: currency) { await reload() }
+        }
+        .alert(
+            "Հեռացնե՞լ ծախսը",
+            isPresented: .init(
+                get: { confirmingRemoval != nil },
+                set: { if !$0 { confirmingRemoval = nil } }
+            )
+        ) {
+            Button("Չեղարկել", role: .cancel) { confirmingRemoval = nil }
+            Button("Հեռացնել", role: .destructive) {
+                if let item = confirmingRemoval { Task { await remove(item) } }
+                confirmingRemoval = nil
+            }
+        } message: {
+            if let item = confirmingRemoval {
+                Text(
+                    item.monthly
+                        ? "Այսօրվանից այն այլևս չի հաշվարկվի։ Նախորդ օրերի ծախսերը կմնան։"
+                        : "Այս ծախսը կջնջվի հաշվառումից։"
+                )
+            }
         }
         .task { await reload() }
         .refreshable { await reload() }
@@ -202,8 +239,12 @@ struct ExpensesView: View {
         .padding(.bottom, 4)
     }
 
-    private var spentMonthly: Int { monthlyOnes.reduce(0) { $0 + $1.amount } }
-    private var spentOneOff: Int { oneOffs.reduce(0) { $0 + $1.amount } }
+    private var spentMonthly: Int {
+        costs?.monthlyShare ?? monthlyOnes.reduce(0) { $0 + $1.amount }
+    }
+    private var spentOneOff: Int {
+        costs?.oneOff ?? oneOffs.reduce(0) { $0 + $1.amount }
+    }
     private var spentTotal: Int { spentMonthly + spentOneOff }
 
     /// Длина текущего месяца — тот же знаменатель, которым сервер делит
@@ -245,19 +286,30 @@ struct ExpensesView: View {
      * сказано словом, и это ровно та подробность, которой оно и
      * является.
      */
+    @ViewBuilder
     private func card(_ item: API.Expense) -> some View {
-        Button {
-            editing = item
-        } label: {
+        if month == .current && item.endedAt == nil {
+            Button {
+                editing = item
+            } label: {
+                line(
+                    title: item.category,
+                    badge: "ամսական",
+                    note: "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
+                    amount: item.amount
+                )
+            }
+            .buttonStyle(.press)
+            .accessibilityElement(children: .combine)
+        } else {
             line(
                 title: item.category,
                 badge: "ամսական",
-                note: "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
+                note: item.endedAt.map { "դադարեցվել է \(day($0))" }
+                    ?? "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
                 amount: item.amount
             )
         }
-        .buttonStyle(.press)
-        .accessibilityElement(children: .combine)
     }
 
     /// Общая строка расхода. Одна на оба вида — в этом весь смысл.
@@ -320,14 +372,19 @@ struct ExpensesView: View {
      * названию; разовых за месяц набирается два десятка одинаковых
      * «Քիմիա» и «Ջուր», и по значку список листается глазами, без чтения.
      */
+    @ViewBuilder
     private func row(_ item: API.Expense) -> some View {
-        Button {
-            editing = item
-        } label: {
+        if month == .current {
+            Button {
+                editing = item
+            } label: {
+                line(title: item.category, badge: nil, note: day(item.at), amount: item.amount)
+            }
+            .buttonStyle(.press)
+            .accessibilityElement(children: .combine)
+        } else {
             line(title: item.category, badge: nil, note: day(item.at), amount: item.amount)
         }
-        .buttonStyle(.press)
-        .accessibilityElement(children: .combine)
     }
 
     /// Значок по названию. Совпадение по подсказкам из `EXPENSE_HINTS` —
@@ -386,25 +443,21 @@ struct ExpensesView: View {
      * сеть, глядя на неудалённое, — значит сомневаться, сработало ли.
      * Если запрос не прошёл, `reload` вернёт её на место.
      *
-     * Постоянный расход удаляется целиком, вместе с прошлым: это не то же,
-     * что изменить сумму — там прошлые дни остаются со старой. Здесь
-     * владелец говорит «такого расхода у меня не было».
+     * Постоянный расход после подтверждения перестаёт начисляться с
+     * сегодняшнего дня. Уже прожитые дни остаются в истории: удаление
+     * аренды не должно задним числом увеличивать прибыль прошлых дней.
      */
     /**
      * Кнопка, которая появляется из-под строки.
      *
-     * Подтверждения нет намеренно: система и так требует двух движений —
-     * смахнуть и нажать. Третье было бы недоверием к пальцу.
-     *
-     * Красный проставлен явно. Общий цвет приложения перекрывает
-     * системный, и «удалить» выходит грейповым — то есть неотличимым от
-     * обычного действия. Расход из приложения не вернуть, и предупредить
-     * об этом должен цвет, а не только слово.
+     * Свайп и красная кнопка показывают намерение, но постоянный расход
+     * влияет на прибыль каждого следующего дня. Поэтому после жеста есть
+     * системное destructive-подтверждение с прямым описанием результата.
      */
     @ViewBuilder
     private func erase(_ item: API.Expense) -> some View {
         Button(role: .destructive) {
-            Task { await remove(item) }
+            confirmingRemoval = item
         } label: {
             Label("Ջնջել", systemImage: "trash")
         }
@@ -427,6 +480,7 @@ struct ExpensesView: View {
         if let result {
             items = result.expenses
             hints = result.hints
+            costs = result.costs
         }
         loaded = true
     }

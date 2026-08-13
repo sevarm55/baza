@@ -24,6 +24,7 @@ struct ShiftView: View {
     @State private var handingOver = false
     @State private var recording = false
     @State private var loading = false
+    @State private var newestOrderID: String?
     /// Номер обновления. Экран открывается и сразу тянут вниз — два
     /// обновления идут одновременно, и то, что стартовало раньше, может
     /// ответить позже. Без этого счётчика старый ответ затирает свежий, и
@@ -142,6 +143,16 @@ struct ShiftView: View {
         }
         // не прошло — честно откатываемся, а не делаем вид, что встали
         onShift = done?.onShift ?? previous
+        if onShift {
+            if let openedAt = done?.openedAt, let tenant = session.tenant {
+                await ShiftLiveActivity.shared.start(
+                    openedAt: openedAt,
+                    tenant: tenant,
+                    worker: session.me
+                )
+            }
+            await reload()
+        }
     }
 
     private func leaveShift(cash: Int?) async {
@@ -156,7 +167,13 @@ struct ShiftView: View {
                 as: API.ShiftState.self
             )
         }
-        if done == nil { onShift = true }
+        if done == nil {
+            onShift = true
+        } else if done?.onShift == false, let tenantID = session.tenant?.id {
+            // Закрытие уже подтверждено. Не ждём повторный GET: если связь
+            // исчезнет после POST, остров всё равно обязан пропасть.
+            await ShiftLiveActivity.shared.end(for: tenantID)
+        }
         await reload()
     }
 
@@ -183,44 +200,54 @@ struct ShiftView: View {
 
     private var reading: some View {
         let value = takesShare ? (shift?.earned ?? 0) : (shift?.revenue ?? 0)
-        return VStack(spacing: 0) {
-            Text(greeting)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-                .padding(.top, 10)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Text(greeting)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
 
-            Text(takesShare ? "Քո հերթափոխն այսօր" : "Հերթափոխի հասույթ")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
+                Spacer()
+
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(onShift ? Brand.mintInk : Brand.boardMuted)
+                        .frame(width: 6, height: 6)
+                    Text(onShift ? "ԲԱՑ Է" : "ՓԱԿ Է")
+                        .font(.system(size: 9.5, weight: .black, design: .rounded))
+                        .tracking(0.8)
+                }
+                .foregroundStyle(onShift ? Brand.mintInk : Brand.boardMuted)
+            }
+
+            Text(takesShare ? "Քո վաստակը" : "Հերթափոխի հասույթ")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .padding(.top, 14)
 
             Text(money(value, currency))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
+                .font(.system(size: 46, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
-                .padding(.top, 2)
-                // значение передаётся внутрь: по нему система понимает, в
-                // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(value)))
 
-            /* Из чего вышло число. Без этой строки «твой заработок» — сумма
-               без опоры: неясно, от какой выручки и по какой ставке она
-               посчитана, и проверить её нечем. */
             if takesShare {
-                Text("\(money(shift?.revenue ?? 0, currency)) հասույթից քո \(shift?.percent ?? 0)%")
-                    .font(.system(size: 12))
+                Text("\(money(shift?.revenue ?? 0, currency)) հասույթ × \(shift?.percent ?? 0)%")
+                    .font(.system(size: 11.5, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 6)
-                    .background(Brand.boardInk.opacity(0.07), in: .capsule)
-                    .padding(.top, 8)
+                    .foregroundStyle(Brand.lavenderInk)
+                    .padding(.top, 4)
             }
         }
-        .frame(maxWidth: .infinity)
+        .padding(17)
+        .frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 25))
+        .overlay {
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
     }
 
     // ══════════════════════════ волна ══════════════════════════
@@ -319,93 +346,96 @@ struct ShiftView: View {
         let revenue = shift?.revenue ?? 0
         let percent = shift?.percent ?? 0
 
-        return VStack(spacing: gap) {
-            if takesShare {
-                wide(
-                    title: "Հերթափոխի հասույթ",
-                    value: money(revenue, currency),
-                    foot: "քո \(percent)%",
-                    animate: Double(revenue),
-                    ring: Double(percent) / 100
+        return HStack(spacing: gap) {
+            shiftPrimary(
+                title: takesShare ? "Հերթափոխի հասույթ" : "Կանխիկ ձեռքին",
+                value: money(takesShare ? revenue : cash, currency),
+                note: takesShare ? "քո \(percent)%-ի հիմքը" : "հանձնելու է վերջում",
+                background: Brand.lavenderCard,
+                ink: Brand.lavenderInk,
+                animate: Double(takesShare ? revenue : cash)
+            )
+
+            VStack(spacing: gap) {
+                shiftSmall(
+                    title: session.tenant?.unitOne ?? "Գրանցում",
+                    value: "\(count)",
+                    background: Brand.mintCard,
+                    ink: Brand.mintInk,
+                    animate: Double(count)
                 )
-                HStack(spacing: gap) {
-                    small(.lime, session.tenant?.unitOne ?? "", "\(count)", animate: Double(count))
-                    small(.slate, "Կանխիկ ձեռքին", money(cash, currency), animate: Double(cash))
-                }
-            } else {
-                wide(
-                    title: "Կանխիկ ձեռքին",
-                    value: money(cash, currency),
-                    foot: "հանձնելու է հերթափոխի վերջում",
-                    animate: Double(cash),
-                    ring: nil
+                shiftSmall(
+                    title: takesShare ? "Կանխիկ" : "Միջին չեկ",
+                    value: takesShare
+                        ? money(cash, currency)
+                        : money(count > 0 ? revenue / count : 0, currency),
+                    background: Brand.sandCard,
+                    ink: Brand.sandInk,
+                    animate: Double(takesShare ? cash : (count > 0 ? revenue / count : 0))
                 )
-                HStack(spacing: gap) {
-                    small(.lime, session.tenant?.unitOne ?? "", "\(count)", animate: Double(count))
-                    small(
-                        .slate, "Միջին չեկ",
-                        money(count > 0 ? revenue / count : 0, currency),
-                        animate: Double(count > 0 ? revenue / count : 0)
-                    )
-                }
             }
         }
     }
 
-    private func wide(
+    private func shiftPrimary(
         title: String,
         value: String,
-        foot: String,
-        animate: Double,
-        ring: Double?
+        note: String,
+        background: Color,
+        ink: Color,
+        animate: Double
     ) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.7))
-                Text(value)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText(value: animate))
-                Text(foot)
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            Spacer(minLength: 0)
-            if let ring {
-                Ring(share: ring)
-                    .frame(width: 62, height: 62)
-                    .accessibilityHidden(true)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            Image(systemName: "wallet.bifold.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 34, height: 34)
+                .background(ink.opacity(0.1), in: .rect(cornerRadius: 11))
+            Spacer()
+            Text(title)
+                .font(.system(size: 11.5, weight: .medium))
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText(value: animate))
+            Text(note)
+                .font(.system(size: 10.5))
+                .opacity(0.68)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .tile(.violet)
+        .foregroundStyle(ink)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 176, alignment: .leading)
+        .background(background, in: .rect(cornerRadius: 22))
     }
 
-    private func small(_ tone: Tone, _ title: String, _ value: String, animate: Double) -> some View {
+    private func shiftSmall(
+        title: String,
+        value: String,
+        background: Color,
+        ink: Color,
+        animate: Double
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.system(size: 11.5))
-                .foregroundStyle(tone.ink.opacity(0.72))
+                .foregroundStyle(ink.opacity(0.72))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer(minLength: 6)
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(tone.ink)
+                .foregroundStyle(ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .contentTransition(.numericText(value: animate))
         }
-        .frame(height: 92, alignment: .topLeading)
-        .tile(tone)
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 83, alignment: .topLeading)
+        .background(background, in: .rect(cornerRadius: 19))
         .accessibilityElement(children: .combine)
     }
 
@@ -415,9 +445,11 @@ struct ShiftView: View {
     /// сделана и не пропадёт, просто ещё не ушла.
     private var pending: some View {
         HStack(spacing: 10) {
-            Image(systemName: "arrow.triangle.2.circlepath")
+            Image(systemName: loading ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark")
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
+                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                .symbolEffect(.drawOn, options: .nonRepeating, isActive: loading && !reduceMotion)
             Text("\(queue.waiting(at: session.tenant?.id).count) գրանցում սպասում է կապի")
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
@@ -484,39 +516,56 @@ struct ShiftView: View {
             .padding(.bottom, 6)
 
             ForEach(orders) { order in
-                HStack(spacing: 10) {
-                    Text(at(order.createdAt))
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(width: 42, alignment: .leading)
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Text(at(order.createdAt))
+                            .font(.system(size: 12))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+                            .frame(width: 42, alignment: .leading)
 
-                    Text(order.serviceName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
+                        Text(order.serviceName)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
 
-                    Image(systemName: paymentSymbol(order.payment))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .accessibilityLabel(paymentLabel(order.payment))
+                        Image(systemName: newestOrderID == order.id ? "checkmark" : paymentSymbol(order.payment))
+                            .font(.system(size: 10.5, weight: newestOrderID == order.id ? .bold : .regular))
+                            .foregroundStyle(newestOrderID == order.id ? Brand.goodOnBoard : Brand.boardMuted)
+                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                            .symbolEffect(
+                                .drawOn,
+                                options: .nonRepeating,
+                                isActive: newestOrderID == order.id && !reduceMotion
+                            )
+                            .accessibilityLabel(paymentLabel(order.payment))
 
-                    Spacer(minLength: 8)
+                        Spacer(minLength: 8)
 
-                    Text(money(order.price, currency))
-                        .font(.system(size: 14, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
+                        Text(money(order.price, currency))
+                            .font(.system(size: 14, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 11)
+                    .background(
+                        newestOrderID == order.id ? Brand.lime.opacity(0.1) : Color.clear,
+                        in: .rect(cornerRadius: 12)
+                    )
+                    .accessibilityElement(children: .combine)
+
+                    if order.id != orders.last?.id {
+                        Rectangle()
+                            .fill(Brand.boardInk.opacity(0.07))
+                            .frame(height: 1)
+                    }
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 11)
-                .accessibilityElement(children: .combine)
-
-                if order.id != orders.last?.id {
-                    Rectangle()
-                        .fill(Brand.boardInk.opacity(0.07))
-                        .frame(height: 1)
-                }
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .move(edge: .top).combined(with: .opacity)
+                )
             }
         }
     }
@@ -589,16 +638,46 @@ struct ShiftView: View {
         }
 
         // применяем только если за это время не начали новое обновление
-        guard id == loadID, let fresh else { return }
+        guard id == loadID else { return }
 
-        /* Первая загрузка без анимации: прокрутка от нуля к сумме на старте
-           читается как индикатор загрузки, а не как смысл. */
-        if shift == nil || reduceMotion {
-            shift = fresh
-        } else {
-            withAnimation(.snappy(duration: 0.45)) { shift = fresh }
+        if let fresh {
+            let oldIDs = Set(shift?.orders.map(\.id) ?? [])
+            let inserted = shift == nil ? nil : fresh.orders.first { !oldIDs.contains($0.id) }
+
+            /* Первая загрузка без анимации: прокрутка от нуля к сумме на старте
+               читается как индикатор загрузки, а не как смысл. */
+            if shift == nil || reduceMotion {
+                shift = fresh
+                newestOrderID = inserted?.id
+            } else {
+                /* Один transaction обновляет строку, счётчик и деньги: так
+                   запись ощущается причиной новых итогов, а не отдельным
+                   декоративным эффектом. */
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.94)) {
+                    shift = fresh
+                    newestOrderID = inserted?.id
+                }
+            }
+            onShift = fresh.onShift
+
+            if inserted != nil {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(850))
+                    withAnimation(.easeOut(duration: 0.18)) { newestOrderID = nil }
+                }
+            }
         }
-        onShift = fresh.onShift
+
+        // Даже если GET не прошёл из-за связи, локальная очередь уже знает
+        // про только что записанную машину и обновляет Dynamic Island.
+        if let shift, let tenant = session.tenant {
+            await ShiftLiveActivity.shared.sync(
+                shift: shift,
+                tenant: tenant,
+                worker: session.me,
+                pending: queue.waiting(at: tenant.id)
+            )
+        }
     }
 }
 

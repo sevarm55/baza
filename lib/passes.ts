@@ -2,6 +2,7 @@ import { and, desc, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { audit, clients, passes, services, users } from './db/schema';
 import { NotFoundError } from './orders';
+import { normalizeClientKey } from './client-key';
 
 export type SellPassInput = {
   tenantId: string;
@@ -23,7 +24,7 @@ export type SellPassInput = {
  * от номинала потом считается процент мойщика.
  */
 export async function sellPass(input: SellPassInput) {
-  const key = input.clientKey.trim().toUpperCase();
+  const key = normalizeClientKey(input.clientKey);
   if (!key) throw new NotFoundError('EMPTY_CLIENT_KEY');
   if (!Number.isInteger(input.totalUses) || input.totalUses < 1) {
     throw new NotFoundError('BAD_USES');

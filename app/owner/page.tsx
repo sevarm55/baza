@@ -141,7 +141,9 @@ export default async function TodayPage({
           читал шесть отдельных утверждений и складывал их сам. */}
       <FlowStrip
         links={[
-          { label: tenant.unitOne, value: String(stats.count), icon: IconCar, tone: 'teal' },
+          ...(period.key === 'today'
+            ? []
+            : [{ label: tenant.unitOne, value: String(stats.count), icon: IconCar, tone: 'teal' as const }]),
           { label: hy.owner.revenue, value: money(stats.revenue), icon: IconIncome, tone: 'violet' },
           {
             label: hy.owner.payroll,
@@ -171,6 +173,32 @@ export default async function TodayPage({
           },
         ]}
       />
+
+      {period.key === 'today' && (
+        <section
+          className="mt-[var(--seam)] grid grid-cols-3 rounded-[var(--radius-card)] bg-[color-mix(in_srgb,var(--board-ink)_5%,transparent)] px-2 py-4 sm:px-4"
+          aria-label="Այսօրվա արագ ամփոփում"
+        >
+          {[
+            { label: 'Սպասարկվել է', value: String(stats.count) },
+            { label: 'Կանխիկ', value: money(stats.cash) },
+            { label: hy.owner.onShift, value: String(present.length) },
+          ].map((item, index) => (
+            <div
+              key={item.label}
+              className="min-w-0 px-2 text-center sm:px-5"
+              style={index === 0 ? undefined : { borderInlineStart: '1px solid var(--hairline)' }}
+            >
+              <div className="num truncate text-[clamp(17px,2vw,22px)] font-bold tracking-[-0.03em]">
+                {item.value}
+              </div>
+              <div className="mt-1 truncate text-[11.5px] font-medium" style={{ color: 'var(--board-muted)' }}>
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
         {/* График во всю ширину рабочей части: он единственное на экране,
@@ -444,14 +472,32 @@ function buildPoints(
 
   if (byHour) {
     const hours = series.map((s) => Number(s.key.slice(11, 13)));
-    if (hours.length === 0) return [];
-    const day = series[0].key.slice(0, 10);
-    const start = Math.min(...hours);
-    const end = Math.max(...hours);
+    const day = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(from);
+    const currentHour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date()),
+    );
+
+    /* Сегодняшняя шкала существует и до второй записи. Раньше диапазон
+       строился от первого до последнего часа с продажей: одна продажа
+       давала одну точку, а компонент справедливо отказывался называть её
+       графиком. Теперь ось начинается с 08:00 (или раньше, если мойка уже
+       работала) и заканчивается текущим часом. Будущие часы не рисуем —
+       накопленная линия не обещает ещё не наступившее время. */
+    const start = Math.min(8, currentHour, ...(hours.length > 0 ? hours : [currentHour]));
+    const end = Math.max(currentHour, start + 1, ...(hours.length > 0 ? hours : [currentHour]));
     const points: ChartPoint[] = [];
     for (let h = start; h <= end; h++) {
       const key = `${day} ${String(h).padStart(2, '0')}`;
-      points.push({ label: String(h).padStart(2, '0'), value: found.get(key) ?? 0 });
+      points.push({ label: `${String(h).padStart(2, '0')}:00`, value: found.get(key) ?? 0 });
     }
     return points;
   }

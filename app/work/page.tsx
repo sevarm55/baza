@@ -1,5 +1,6 @@
 ﻿import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
+import { cookies } from 'next/headers';
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
 import { currentShift } from '@/lib/shifts';
@@ -8,6 +9,8 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
 import { Rail } from '@/components/rail';
+import { Logo } from '@/components/logo';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Grid, Reading, Tile } from '@/components/board';
 import { passesEnabled } from '@/lib/features';
 import { BillingBanner } from '@/components/billing-banner';
@@ -40,6 +43,9 @@ export default async function WorkPage() {
      ему колонка не нужна, у него шапка. */
   const owner = session.role === 'owner';
   const onShift = Boolean(open);
+  const sidebarOpen = owner
+    ? (await cookies()).get('sidebar_state')?.value !== 'false'
+    : true;
 
   /* Экран смены на языке табло — одной колонкой, а не разложенный по
      ширине монитора.
@@ -136,9 +142,9 @@ export default async function WorkPage() {
     </>
   );
 
-  return (
-    <div className={`shell ${owner ? '' : 'shell-solo'}`}>
-      {owner && (
+  if (owner) {
+    return (
+      <SidebarProvider defaultOpen={sidebarOpen}>
         <Rail
           tenantName={tenant.name}
           userName={me.name}
@@ -147,20 +153,34 @@ export default async function WorkPage() {
           passes={passesEnabled()}
           active="work"
         />
-      )}
+        <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
+          <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
+            <SidebarTrigger aria-label={hy.common.expand} title={hy.common.expand} />
+            <Logo size={24} withName={false} />
+            <div className="min-w-0">
+              <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>
+              <div className="truncate text-[11.5px] text-sidebar-foreground/55">{me.name}</div>
+            </div>
+          </header>
+          <div className="canvas">
+            <div className="canvas-inner">{body}</div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    );
+  }
 
+  return (
+    <div className="shell shell-solo">
       <div className="min-w-0">
-        <div className={owner ? 'lg:hidden' : undefined}>
-          <TopBar
-            tenantName={tenant.name}
-            subtitle={me.name}
-            role={session.role}
-            active="work"
-            points={points}
-            currentTid={tenant.id}
-          />
-        </div>
-
+        <TopBar
+          tenantName={tenant.name}
+          subtitle={me.name}
+          role={session.role}
+          active="work"
+          points={points}
+          currentTid={tenant.id}
+        />
         <main className="canvas">
           <div className="canvas-inner">{body}</div>
         </main>

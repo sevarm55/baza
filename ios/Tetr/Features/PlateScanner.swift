@@ -12,6 +12,18 @@ import VisionKit
 /// и цифра похожи, и позиция в номере говорит, что из них правильно.
 /// Без этой поправки сканер бесполезен: «77FF477» приезжает как «7TFF4T7».
 enum PlateReader {
+    /// Единая форма для ручного ввода, камеры, очереди и поиска.
+    /// Если это не армянский госномер, сохраняем введённый идентификатор,
+    /// только убирая случайные края и повторные пробелы.
+    static func canonical(_ raw: String) -> String {
+        if let plate = parse(raw) { return plate }
+        return raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+    }
+
     /// Похоже ли на номер и как он выглядит в нормальном виде.
     static func parse(_ raw: String) -> String? {
         let cleaned = raw.uppercased().filter { $0.isLetter || $0.isNumber }

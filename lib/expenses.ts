@@ -56,7 +56,12 @@ export async function addExpense(input: NewExpense) {
  * Постоянные не фильтруются по дате: аренда, заведённая полгода назад,
  * действует и сегодня, и не увидеть её в списке было бы странно.
  */
-export async function listExpenses(tenantId: string, from: Date, to?: Date) {
+export async function listExpenses(
+  tenantId: string,
+  from: Date,
+  to?: Date,
+  { activeMonthlyOnly = false }: { activeMonthlyOnly?: boolean } = {},
+) {
   /* Верхняя граница нужна закрытому месяцу.
 
      Без неё окно было скользящим — «последние тридцать дней», — и
@@ -68,6 +73,10 @@ export async function listExpenses(tenantId: string, from: Date, to?: Date) {
      заведён до конца месяца и не закрыт до его начала. Проверять только
      `endedAt is null` нельзя — закрытая в июле аренда обязана остаться в
      июльском счёте, иначе прошлый месяц задним числом дешевеет. */
+  const monthlyEnd = activeMonthlyOnly
+    ? isNull(expenses.endedAt)
+    : or(isNull(expenses.endedAt), gte(expenses.endedAt, from));
+
   return db
     .select()
     .from(expenses)
@@ -78,7 +87,7 @@ export async function listExpenses(tenantId: string, from: Date, to?: Date) {
           and(
             eq(expenses.monthly, true),
             to ? lt(expenses.at, to) : undefined,
-            or(isNull(expenses.endedAt), gte(expenses.endedAt, from)),
+            monthlyEnd,
           ),
           and(
             eq(expenses.monthly, false),
@@ -129,49 +138,55 @@ export async function editExpense(params: {
     throw new BadExpenseError('BAD_AMOUNT');
   }
 
-  const [row] = await db
-    .select()
-    .from(expenses)
-    .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
+  /* Закрытие старой суммы и создание новой — одно действие. Без
+     транзакции обрыв между двумя запросами оставлял бессрочный расход
+     закрытым, но без замены: именно так аренда могла внезапно перестать
+     учитываться после неудачной правки. */
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(expenses)
+      .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
 
-  if (!row || row.endedAt) return null;
+    if (!row || row.endedAt) return null;
 
-  const note = params.note?.trim() || null;
-  const sameAmount = row.amount === params.amount;
+    const note = params.note?.trim() || null;
+    const sameAmount = row.amount === params.amount;
 
-  if (!row.monthly || sameAmount) {
-    const [updated] = await db
+    if (!row.monthly || sameAmount) {
+      const [updated] = await tx
+        .update(expenses)
+        .set({ amount: params.amount, category, note })
+        .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)))
+        .returning();
+      return updated;
+    }
+
+    /* Заведён сегодня и сегодня же исправлен — это опечатка, а не подорожание.
+       Старая строка закрывается тем же мгновением, с которого началась, и
+       не стоит бизнесу ни дня. */
+    const endedAt = row.at > params.dayStart ? row.at : params.dayStart;
+
+    await tx
       .update(expenses)
-      .set({ amount: params.amount, category, note })
-      .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)))
+      .set({ endedAt })
+      .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
+
+    const [fresh] = await tx
+      .insert(expenses)
+      .values({
+        tenantId: params.tenantId,
+        createdBy: params.userId,
+        amount: params.amount,
+        category,
+        note,
+        monthly: true,
+        at: endedAt,
+      })
       .returning();
-    return updated;
-  }
 
-  /* Заведён сегодня и сегодня же исправлен — это опечатка, а не подорожание.
-     Старая строка закрывается тем же мгновением, с которого началась, и
-     не стоит бизнесу ни дня. */
-  const endedAt = row.at > params.dayStart ? row.at : params.dayStart;
-
-  await db
-    .update(expenses)
-    .set({ endedAt })
-    .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)));
-
-  const [fresh] = await db
-    .insert(expenses)
-    .values({
-      tenantId: params.tenantId,
-      createdBy: params.userId,
-      amount: params.amount,
-      category,
-      note,
-      monthly: true,
-      at: endedAt,
-    })
-    .returning();
-
-  return fresh;
+    return fresh;
+  });
 }
 
 /**

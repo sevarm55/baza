@@ -1,4 +1,8 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is([data-theme='dark'] *));
 
 /* ─────────────────────────────────────────────────────────────
    Палитра.
@@ -291,6 +295,39 @@
   --color-brand-2: var(--brand-2);
   --color-brand-3: var(--brand-3);
 
+  /* shadcn/ui primitives mapped onto Tetrin's existing design tokens.
+     No second palette is introduced: the library owns behavior and
+     composition, while the product still owns color and typography. */
+  --color-background: var(--board);
+  --color-foreground: var(--on-board);
+  --color-card: var(--board-surface);
+  --color-card-foreground: var(--on-board);
+  --color-popover: var(--board-surface);
+  --color-popover-foreground: var(--on-board);
+  --color-primary: var(--accent2);
+  --color-primary-foreground: var(--accent2-on);
+  --color-secondary: var(--board-surface2);
+  --color-secondary-foreground: var(--on-board);
+  --color-muted-foreground: var(--board-muted);
+  --color-accent-foreground: var(--accent2-on);
+  --color-destructive: var(--bad);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent);
+  --color-sidebar: var(--board);
+  --color-sidebar-foreground: var(--on-board);
+  --color-sidebar-primary: var(--accent2);
+  --color-sidebar-primary-foreground: var(--accent2-on);
+  --color-sidebar-accent: var(--board-surface2);
+  --color-sidebar-accent-foreground: var(--on-board);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--accent);
+
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+
   /* Скругление.
 
      Капсулы больше нет ни у одного элемента. Радиус 999 у кнопки — самый
@@ -387,7 +424,7 @@ input[type='radio'] {
    не обводки, а самого элемента: капсула вкладки на фокусе становилась
    почти прямоугольной и прыгала обратно, стоило увести клавиатуру.
    Обводка и без того обходит скругление сама. */
-:focus-visible:not(.field) {
+:focus-visible:not(.field):not([data-sidebar='rail']) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

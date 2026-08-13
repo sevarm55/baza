@@ -109,6 +109,17 @@ enum Brand {
      */
     static let warmCard = adaptive(light: 0xFCF8EF, dark: 0x1C1826)
 
+    /* Спокойные информационные поверхности. Это не новые акцентные цвета:
+       ими нельзя красить кнопки или состояние. Мята принадлежит объёму
+       работы, лаванда — денежному контексту, песок — расходам. Низкая
+       насыщенность удерживает их в одной семье с тёплым полотном. */
+    static let mintCard = adaptive(light: 0xE3EEE9, dark: 0x152B27)
+    static let mintInk = adaptive(light: 0x176B59, dark: 0x78D8BF)
+    static let lavenderCard = adaptive(light: 0xECE8F3, dark: 0x282231)
+    static let lavenderInk = adaptive(light: 0x66557F, dark: 0xC9B8E3)
+    static let sandCard = adaptive(light: 0xF1E9DC, dark: 0x30271D)
+    static let sandInk = adaptive(light: 0x8A5D24, dark: 0xE2B776)
+
     /**
      * Невыбранная плашка переключателя периода.
      *
@@ -297,23 +308,6 @@ struct LimeButton: ButtonStyle {
             .background(Brand.lime, in: RoundedRectangle(cornerRadius: 22))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
-
-/// Стеклянная карточка — поверхность, а не действие.
-struct GlassCard: ViewModifier {
-    var radius: CGFloat = 20
-
-    func body(content: Content) -> some View {
-        content
-            .padding(16)
-            .glassEffect(.regular, in: .rect(cornerRadius: radius))
-    }
-}
-
-extension View {
-    func glassCard(radius: CGFloat = 20) -> some View {
-        modifier(GlassCard(radius: radius))
     }
 }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getSession } from '@/lib/auth';
+import { getRememberedAccount, getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
 import { startHref } from '@/lib/niches';
 import { Modal } from '@/components/modal';
@@ -26,14 +26,17 @@ export default async function LoginModal() {
      перезагрузки страницы. Пустой слот безвреден: окно всё равно снимает
      себя, как только адрес перестал быть его. */
   if (session) return null;
+  const remembered = await getRememberedAccount();
 
   return (
     <Modal path="/login">
       <div className="mb-5">
         <Logo size={30} className="mb-4" />
-        <h1 className="text-[22px] font-bold">{hy.auth.signInTitle}</h1>
+        <h1 className="text-[22px] font-bold">
+          {remembered ? hy.auth.welcomeBack : hy.auth.signInTitle}
+        </h1>
       </div>
-      <LoginForm />
+      <LoginForm remembered={remembered} />
 
       {/* Окно не должно быть тупиком: у пришедшего впервые аккаунта ещё нет */}
       <p className="mt-6 text-center text-[13.5px] text-muted">

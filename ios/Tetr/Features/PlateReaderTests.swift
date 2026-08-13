@@ -26,6 +26,8 @@ enum PlateReaderTests {
         check("с пробелами", PlateReader.parse("12 AB 345"), "12 AB 345")
         check("в нижнем регистре", PlateReader.parse("34ss567"), "34 SS 567")
         check("с дефисом", PlateReader.parse("34-SS-567"), "34 SS 567")
+        check("ручной и камера — один ключ", PlateReader.canonical("77GG477"), "77 GG 477")
+        check("дефисы дают тот же ключ", PlateReader.canonical("77-GG-477"), "77 GG 477")
 
         // то, ради чего всё и написано: камера читает 0 как O, 1 как I
         check("O вместо нуля в цифрах", PlateReader.parse("O7FF477"), "07 FF 477")

@@ -3,7 +3,8 @@ import { requireOwner } from '@/lib/auth';
 import { getTenant, startOfMonth, startOfPrevMonth } from '@/lib/queries';
 import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import { EXPENSE_HINTS, listExpenses } from '@/lib/expenses';
+import { EXPENSE_HINTS, getPeriodCosts, listExpenses } from '@/lib/expenses';
+import { windowFor } from '@/lib/summary-window';
 import { dayMonth, daysInMonthOf } from '@/lib/time';
 import { ExpenseRow } from '@/components/expense-row';
 import { Panel } from '@/components/board';
@@ -43,9 +44,13 @@ export default async function ExpensesPage({
   const prev = month === 'prev';
 
   const from = prev ? startOfPrevMonth(tenant.timezone) : startOfMonth(tenant.timezone);
-  const to = prev ? startOfMonth(tenant.timezone) : undefined;
+  const period = windowFor(prev ? 'prevmonth' : 'month', tenant.timezone);
+  const to = period.to;
 
-  const rows = await listExpenses(tenant.id, from, to);
+  const [rows, costs] = await Promise.all([
+    listExpenses(tenant.id, from, to, { activeMonthlyOnly: !prev }),
+    getPeriodCosts(tenant.id, period.from, period.to, period.spread),
+  ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency);
   // у драма нет копеек, у рубля есть — шаг ввода берём из валюты
@@ -54,9 +59,16 @@ export default async function ExpensesPage({
 
   const monthly = rows.filter((e) => e.monthly);
   const oneOff = rows.filter((e) => !e.monthly);
-  const sum = (list: typeof rows) => list.reduce((s, e) => s + e.amount, 0);
-  const spentMonthly = sum(monthly);
-  const spentOneOff = sum(oneOff);
+  /* Верхняя сумма — сколько пришлось именно на выбранный период, а не
+     номиналы строк под ней. Месячная аренда, удалённая десятого числа,
+     остаётся в расходах первых девяти дней, но не превращается в полные
+     300 000 за месяц и не выглядит действующей после удаления. */
+  const spentMonthly = costs.monthlyShare;
+  const spentOneOff = costs.oneOff;
+  /* Номинал действующих постоянных: под накопленной долей должно стоять
+     то, из чего она набежала. «19 355» само по себе не говорит ничего,
+     «19 355 из 300 000» — говорит всё. */
+  const monthlyNominal = monthly.reduce((sum, e) => sum + e.amount, 0);
 
   return (
     <>
@@ -90,7 +102,7 @@ export default async function ExpensesPage({
           <FlowStrip
             links={[
               {
-                label: hy.expenses.monthlyOnes,
+                label: hy.expenses.monthlyAccrued,
                 value: money(spentMonthly),
                 icon: IconRepeat,
                 tone: 'amber',
@@ -101,10 +113,7 @@ export default async function ExpensesPage({
                    делится на все дни месяца, а канистра химии остаётся в
                    своём дне целиком. Подпись под чужим числом хуже, чем
                    отсутствие подписи: она не поясняет, а сбивает. */
-                note:
-                  spentMonthly > 0
-                    ? `${hy.expenses.perDay} ${money(Math.round(spentMonthly / days))}`
-                    : undefined,
+                note: monthlyNominal > 0 ? hy.expenses.outOf(money(monthlyNominal)) : undefined,
               },
               {
                 label: hy.expenses.oneOffs,
@@ -148,6 +157,7 @@ export default async function ExpensesPage({
                     )}`}
                     currencySymbol={currencySymbol(tenant.currency)}
                     step={step}
+                    readOnly={prev}
                   />
                 ))}
               </div>
@@ -168,6 +178,7 @@ export default async function ExpensesPage({
                     when={dayMonth(e.at, tenant.timezone)}
                     currencySymbol={currencySymbol(tenant.currency)}
                     step={step}
+                    readOnly={prev}
                   />
                 ))}
               </div>

@@ -1,6 +1,14 @@
 import Foundation
 import SwiftUI
 
+/// Только лицо сохранённого входа. PIN и токены сюда не попадают:
+/// метаданные лежат в UserDefaults, отдельный refresh — в Keychain.
+struct RememberedAccount: Codable, Equatable {
+    let name: String
+    let phone: String
+    let tenant: String
+}
+
 /// Состояние входа и всё, что зависит от сервера.
 ///
 /// Один объект на приложение. Он же владеет токенами и он же умеет их
@@ -20,6 +28,20 @@ final class Session: ObservableObject {
     @Published private(set) var me: API.Me?
     @Published private(set) var access: API.Access?
     @Published private(set) var services: [API.Service] = []
+    @Published private(set) var rememberedAccount: RememberedAccount?
+
+    /// Быстрый возврат после явного выхода. По умолчанию включён, но
+    /// выключается из профиля и тогда удаляет сохранённый вход сразу.
+    @Published var rememberLogin: Bool {
+        didSet {
+            UserDefaults.standard.set(rememberLogin, forKey: Self.rememberEnabledKey)
+            if rememberLogin {
+                rememberCurrentAccount()
+            } else {
+                clearRememberedAccount()
+            }
+        }
+    }
 
     /// Точки человека. Одна или ни одной — переключателя нет вовсе.
     @Published private(set) var points: [API.Point] = []
@@ -47,7 +69,13 @@ final class Session: ObservableObject {
 
     private let api = APIClient.shared
 
+    private static let rememberEnabledKey = "tetr.login.remember.enabled"
+    private static let rememberAccountKey = "tetr.login.remember.account"
+    private static let rememberedRefreshKey = "remembered-refresh"
+
     init() {
+        rememberLogin = UserDefaults.standard.object(forKey: Self.rememberEnabledKey) as? Bool ?? true
+        rememberedAccount = Self.loadRememberedAccount()
         accessToken = Keychain.get("access")
         refreshToken = Keychain.get("refresh")
     }
@@ -68,7 +96,7 @@ final class Session: ObservableObject {
     }
 
     func signIn(phone: String, pin: String) async throws {
-        let device = await UIDevice.current.name
+        let device = UIDevice.current.name
         let result: API.LoginResult = try await api.send(
             "auth/login",
             method: "POST",
@@ -79,7 +107,31 @@ final class Session: ObservableObject {
         refreshToken = result.refresh
 
         try await loadBootstrap()
+        rememberCurrentAccount()
         state = .signedIn
+    }
+
+    /// Вход по сохранённому профилю. Перед этим экран входа подтверждает
+    /// владельца через Face ID / Touch ID / код устройства.
+    func resumeRemembered() async throws {
+        guard rememberLogin,
+              rememberedAccount != nil,
+              let rememberedRefresh = Keychain.get(Self.rememberedRefreshKey)
+        else { throw APIError(status: 401, code: "NO_REMEMBERED_LOGIN", retryAfter: nil) }
+
+        accessToken = nil
+        refreshToken = rememberedRefresh
+
+        do {
+            _ = try await renew()
+            try await loadBootstrap()
+            rememberCurrentAccount()
+            state = .signedIn
+        } catch {
+            clearRememberedAccount()
+            forget(preserveRemembered: false)
+            throw error
+        }
     }
 
     /* Регистрации из приложения больше нет — только вход. Бизнес
@@ -96,7 +148,7 @@ final class Session: ObservableObject {
     /// новую пару на это устройство. Иначе человек, сменивший PIN, сам бы
     /// и вылетел из приложения, а вышвырнуть надо было остальных.
     func changePin(current: String, next: String) async throws {
-        let device = await UIDevice.current.name
+        let device = UIDevice.current.name
         let issued: API.Tokens = try await authed { token in
             try await self.api.send(
                 "profile/pin",
@@ -125,14 +177,24 @@ final class Session: ObservableObject {
     }
 
     func signOut() async {
+        // Смена не должна оставаться на Lock Screen после выхода из чужого
+        // аккаунта на общем телефоне мойки.
+        await ShiftLiveActivity.shared.endAll()
+
         // сначала отзываем токен устройства: телефон на мойке переходит из
         // рук в руки, и уведомления о чужой выручке приходить не должны
         await Push.shared.revoke()
 
-        if let refreshToken {
+        if rememberLogin {
+            /* Это «уйти с экрана», а не забыть устройство. Живой refresh
+               остаётся только в Keychain и открывается с проверкой самого
+               устройства. Если настройка выключена, поведение прежнее —
+               серверная сессия отзывается полностью. */
+            rememberCurrentAccount()
+        } else if let refreshToken {
             _ = try? await api.raw("auth/logout", method: "POST", body: ["refresh": refreshToken])
         }
-        forget()
+        forget(preserveRemembered: rememberLogin)
     }
 
     /// Удалить бизнес насовсем.
@@ -148,10 +210,11 @@ final class Session: ObservableObject {
         _ = try await authed { token in
             try await self.api.raw("account", method: "DELETE", body: ["pin": pin], token: token)
         }
-        forget()
+        clearRememberedAccount()
+        forget(preserveRemembered: false)
     }
 
-    private func forget() {
+    private func forget(preserveRemembered: Bool = true) {
         accessToken = nil
         refreshToken = nil
         tenant = nil
@@ -159,7 +222,35 @@ final class Session: ObservableObject {
         access = nil
         services = []
         points = []
+        if !preserveRemembered { clearRememberedAccount() }
         state = .signedOut
+    }
+
+    private func rememberCurrentAccount() {
+        guard rememberLogin,
+              let me,
+              let phone = me.phone,
+              let tenant,
+              let refreshToken
+        else { return }
+
+        let account = RememberedAccount(name: me.name, phone: phone, tenant: tenant.name)
+        rememberedAccount = account
+        Keychain.set(refreshToken, for: Self.rememberedRefreshKey)
+        if let data = try? JSONEncoder().encode(account) {
+            UserDefaults.standard.set(data, forKey: Self.rememberAccountKey)
+        }
+    }
+
+    private func clearRememberedAccount() {
+        rememberedAccount = nil
+        Keychain.set(nil, for: Self.rememberedRefreshKey)
+        UserDefaults.standard.removeObject(forKey: Self.rememberAccountKey)
+    }
+
+    private static func loadRememberedAccount() -> RememberedAccount? {
+        guard let data = UserDefaults.standard.data(forKey: rememberAccountKey) else { return nil }
+        return try? JSONDecoder().decode(RememberedAccount.self, from: data)
     }
 
     func loadBootstrap() async throws {
@@ -187,7 +278,7 @@ final class Session: ObservableObject {
 
         await queue.flush(using: self)
 
-        let device = await UIDevice.current.name
+        let device = UIDevice.current.name
         let result: API.Switched = try await authed { token in
             try await self.api.send(
                 "auth/switch",
@@ -201,6 +292,7 @@ final class Session: ObservableObject {
         refreshToken = result.refresh
 
         try await loadBootstrap()
+        rememberCurrentAccount()
         // токен устройства привязан к участию: без этого новая мойка молчит
         await Push.shared.reupload()
 

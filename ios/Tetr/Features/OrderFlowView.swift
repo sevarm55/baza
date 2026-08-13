@@ -35,6 +35,8 @@ struct OrderFlowView: View {
     @State private var known: API.KnownClient?
     @State private var saved = false
     @State private var scanning = false
+    @State private var detectedPlate: String?
+    @State private var committingPayment: String?
     /// Скидка: развёрнута ли строка и что в ней набрано.
     @State private var showDiscount = false
     @State private var discountText = ""
@@ -42,6 +44,7 @@ struct OrderFlowView: View {
     /// Выбранный тариф — номером в списке бизнеса. `nil`, когда тарифов
     /// нет вовсе.
     @State private var tier: Int?
+    @Namespace private var glass
 
     /// Тарифы бизнеса. Пусто — ряда классов на экране не будет.
     private var tiers: [String] { session.tenant?.tiers ?? [] }
@@ -55,16 +58,21 @@ struct OrderFlowView: View {
     ]
 
     var body: some View {
-        ZStack {
-            Brand.board.ignoresSafeArea()
+        GlassEffectContainer(spacing: 12) {
+            ZStack {
+                Brand.board.ignoresSafeArea()
 
-            if saved {
-                done
-            } else {
-                composer
+                if saved {
+                    done
+                } else {
+                    composer
+                }
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: saved)
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.4, dampingFraction: 0.9),
+            value: saved
+        )
     }
 
     // ══════════════════════════ страница записи ══════════════════════════
@@ -94,8 +102,7 @@ struct OrderFlowView: View {
                     if scanning {
                         PlateCameraPanel(
                             onFound: { plate in
-                                clientKey = plate
-                                scanning = false
+                                acceptDetected(plate)
                             },
                             onManual: { typing = true },
                             onClose: { scanning = false }
@@ -190,26 +197,72 @@ struct OrderFlowView: View {
                иностранный, и воевать с камерой вместо восьми символов
                человек не должен. */
             if session.tenant?.clientIdType == "plate", PlateScannerView.isAvailable {
-                Button {
-                    typing = false
-                    scanning.toggle()
-                } label: {
-                    Image(systemName: scanning ? "xmark" : "camera.viewfinder")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(scanning ? Brand.board : Brand.grape)
-                        .frame(width: 60, height: 60)
-                        .background(
-                            scanning ? Brand.boardInk : Brand.boardInk.opacity(0.07),
-                            in: .rect(cornerRadius: 18)
-                        )
+                if let detectedPlate {
+                    HStack(spacing: 7) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
+                        Text(detectedPlate)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .monospaced()
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Brand.onLime)
+                    .padding(.horizontal, 14)
+                    .frame(height: 60)
+                    .glassEffect(
+                        .regular.tint(Brand.lime).interactive(false),
+                        in: .rect(cornerRadius: 18)
+                    )
+                    .glassEffectID("plate-scan", in: glass)
+                    .glassEffectTransition(.matchedGeometry)
+                    .transition(.opacity)
+                } else {
+                    Button {
+                        typing = false
+                        withAnimation(
+                            reduceMotion
+                                ? .easeOut(duration: 0.16)
+                                : .spring(response: 0.34, dampingFraction: 0.92)
+                        ) {
+                            scanning.toggle()
+                        }
+                    } label: {
+                        Image(systemName: scanning ? "xmark" : "camera.viewfinder")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(scanning ? Brand.onBoard : Brand.grape)
+                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                            .symbolEffect(
+                                .drawOn,
+                                options: .nonRepeating,
+                                isActive: scanning && !reduceMotion
+                            )
+                            .frame(width: 60, height: 60)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(
+                        .regular
+                            .tint(scanning ? Brand.boardInk.opacity(0.12) : Brand.grape.opacity(0.08))
+                            .interactive(),
+                        in: .rect(cornerRadius: 18)
+                    )
+                    .glassEffectID("plate-scan", in: glass)
+                    .glassEffectTransition(.matchedGeometry)
+                    .accessibilityLabel(scanning ? "Փակել տեսախցիկը" : "Բացել տեսախցիկը")
                 }
-                .buttonStyle(.press)
-                .accessibilityLabel("Տեսախցիկ")
             }
         }
         .onAppear { typing = true }
         .onChange(of: clientKey) { _, value in
-            Task { await lookup(value) }
+            /* Как только ручной ввод стал полноценным номером, показываем
+               его ровно так же, как результат камеры. Это не только
+               косметика: очередь и поиск получают один и тот же ключ. */
+            if session.tenant?.clientIdType == "plate",
+               let plate = PlateReader.parse(value), plate != value {
+                clientKey = plate
+                return
+            }
+            Task { await lookup(normalizedClientKey(value)) }
         }
     }
 
@@ -404,9 +457,17 @@ struct OrderFlowView: View {
                         .foregroundStyle(pay.tone.ink)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .tile(pay.tone, radius: 18, pad: 0)
                     }
-                    .buttonStyle(.press)
+                    .buttonStyle(.plain)
+                    .glassEffect(
+                        .regular.tint(pay.tone.base.opacity(0.2)).interactive(),
+                        in: .rect(cornerRadius: 18)
+                    )
+                    .glassEffectID(
+                        committingPayment == pay.key ? "order-confirmation" : nil,
+                        in: glass
+                    )
+                    .glassEffectTransition(.matchedGeometry)
                 }
             }
             .disabled(!canRecord)
@@ -421,7 +482,7 @@ struct OrderFlowView: View {
     }
 
     private var canRecord: Bool {
-        !clientKey.trimmingCharacters(in: .whitespaces).isEmpty && !chosen.isEmpty
+        !normalizedClientKey(clientKey).isEmpty && !chosen.isEmpty
     }
 
     /// Сколько стоит по прайсу всё выбранное.
@@ -446,14 +507,17 @@ struct OrderFlowView: View {
                 .font(.system(size: 40, weight: .black))
                 .foregroundStyle(Brand.onLime)
                 .frame(width: 104, height: 104)
-                .background(Brand.lime, in: .circle)
-                .transition(.scale(scale: 0.5).combined(with: .opacity))
+                .glassEffect(.regular.tint(Brand.lime), in: .circle)
+                .glassEffectID("order-confirmation", in: glass)
+                .glassEffectTransition(.matchedGeometry)
+                .symbolEffect(.drawOn, options: .nonRepeating, isActive: saved && !reduceMotion)
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.72).combined(with: .opacity))
 
             Text("Գրանցված է")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Brand.onBoard)
 
-            Text(clientKey.uppercased())
+            Text(normalizedClientKey(clientKey))
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(Brand.boardMuted)
 
@@ -478,7 +542,7 @@ struct OrderFlowView: View {
     // ══════════════════════════ данные ══════════════════════════
 
     private func lookup(_ key: String) async {
-        let trimmed = key.trimmingCharacters(in: .whitespaces)
+        let trimmed = normalizedClientKey(key)
         guard trimmed.count >= 3 else {
             known = nil
             return
@@ -510,7 +574,7 @@ struct OrderFlowView: View {
         queue.add(
             .init(
                 ref: UUID().uuidString,
-                clientKey: clientKey.trimmingCharacters(in: .whitespaces).uppercased(),
+                clientKey: normalizedClientKey(clientKey),
                 // старое поле заполняем всегда: очередь могла быть записана
                 // этой версией, а отправлена — после отката на прежнюю
                 serviceId: first.id,
@@ -527,7 +591,49 @@ struct OrderFlowView: View {
                 at: Date()
             )
         )
-        saved = true
+        committingPayment = payment
+        if reduceMotion {
+            saved = true
+        } else {
+            /* Один кадр сохраняет выбранную оплату источником. На следующем
+               Liquid Glass превращает её в знак подтверждения. */
+            Task { @MainActor in
+                await Task.yield()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
+                    saved = true
+                }
+            }
+        }
+    }
+
+    private func acceptDetected(_ plate: String) {
+        clientKey = PlateReader.canonical(plate)
+        withAnimation(
+            reduceMotion
+                ? .easeOut(duration: 0.16)
+                : .spring(response: 0.34, dampingFraction: 0.92)
+        ) {
+            scanning = false
+            detectedPlate = plate
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 850))
+            withAnimation(
+                reduceMotion
+                    ? .easeOut(duration: 0.14)
+                    : .spring(response: 0.3, dampingFraction: 1)
+            ) {
+                detectedPlate = nil
+            }
+        }
+    }
+
+    private func normalizedClientKey(_ raw: String) -> String {
+        if session.tenant?.clientIdType == "plate" {
+            return PlateReader.canonical(raw)
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 }
 

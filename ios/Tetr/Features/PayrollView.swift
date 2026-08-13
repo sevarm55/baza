@@ -27,12 +27,6 @@ struct PayrollView: View {
     @State private var confirming: API.PayrollDue?
     @State private var failure: String?
     @State private var loading = false
-    /// Кого сейчас держат пальцем и насколько заполнилось.
-    @State private var holding: String?
-    @State private var progress: CGFloat = 0
-    /// Когда прошла последняя выплата. См. `press` — этим закрыт «цепной»
-    /// повтор на соседнем человеке.
-    @State private var locked: Date?
     @State private var settleFailed = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -101,45 +95,40 @@ struct PayrollView: View {
         let owed = p.due.filter { $0.earned > 0 }
         let total = owed.reduce(0) { $0 + $1.earned }
 
-        return VStack(spacing: 0) {
-            Text(total > 0 ? "Վճարելու է" : "Ամեն ինչ վճարված է")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 10)
+        return ZStack(alignment: .bottomLeading) {
+            Brand.grapeDeep
 
-            Text(money(total, currency))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.42)
-                .padding(.top, 2)
-                // значение передаётся внутрь: по нему система понимает, в
-                // какую сторону крутить разряды
-                .contentTransition(.numericText(value: Double(total)))
+            Image(systemName: "banknote.fill")
+                .font(.system(size: 108, weight: .black))
+                .foregroundStyle(.white.opacity(0.055))
+                .offset(x: 220, y: 30)
 
-            if !owed.isEmpty {
-                Text("\(owed.count) \(session.tenant?.staffRole ?? "աշխատակցի")")
-                    .font(.system(size: 12))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(total > 0 ? "ՎՃԱՐԵԼՈՒ Է" : "ԱՄԵՆ ԻՆՉ ՎՃԱՐՎԱԾ Է")
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .tracking(1.35)
+                    .foregroundStyle(Brand.lime)
+
+                Text(money(total, currency))
+                    .font(.system(size: 43, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .padding(.top, 6)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.42)
+                    .contentTransition(.numericText(value: Double(total)))
 
-                /* За какой срок это число.
-
-                   Владелец видел «5 մեքենա», знал, что сегодня помыли
-                   две, и не понимал, откуда остальные. Экран считает
-                   накопленное с последней выплаты, а не сегодняшнее, и
-                   сказать это надо тут же — иначе он проверяет цифру
-                   памятью и не сходится. */
-                Text("վերջին վճարումից ի վեր")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Brand.boardMuted.opacity(0.85))
-                    .padding(.top, 2)
+                if !owed.isEmpty {
+                    Text("\(owed.count) հոգու · վերջին վճարումից ի վեր")
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.58))
+                }
             }
+            .padding(18)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, minHeight: 158, alignment: .bottomLeading)
+        .clipShape(.rect(cornerRadius: 26))
+        .padding(.top, 8)
     }
 
     // ══════════════════════════ человек ══════════════════════════
@@ -163,28 +152,18 @@ struct PayrollView: View {
             HStack(alignment: .top, spacing: 12) {
                 Text(String(name.prefix(1)))
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(.white.opacity(0.22), in: .circle)
+                    .foregroundStyle(tone.base)
+                    .frame(width: 38, height: 38)
+                    .background(tone.glow.opacity(0.16), in: .rect(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
-                    /* Ставка — та, по которой деньги ПОСЧИТАНЫ, а не та,
-                       что стоит у человека сейчас. Стояла текущая, и
-                       после любой смены процента три числа в строке
-                       переставали перемножаться: «21 մեքենա · 133 500 ֏ ·
-                       20%» и рядом 600 ֏. Сумма верная — старые записи
-                       хранят свой процент, — но на зарплатах такое
-                       читается как обман. */
-                    Text("\(row.count) \(session.tenant?.unitOne ?? "") · \(money(row.revenue, currency)) · \(row.rateLabel)")
+                    Text("կուտակված աշխատավարձ")
                         .font(.system(size: 11.5))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.72))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        .foregroundStyle(Brand.boardMuted)
                 }
 
                 Spacer(minLength: 8)
@@ -192,19 +171,61 @@ struct PayrollView: View {
                 Text(money(row.earned, currency))
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .contentTransition(.numericText(value: Double(row.earned)))
             }
 
+            HStack(spacing: 0) {
+                payrollFact("Գրանցում", "\(row.count)")
+                payrollDivider
+                payrollFact("Հասույթ", money(row.revenue, currency))
+                payrollDivider
+                payrollFact("Տոկոս", row.rateLabel)
+            }
+            .padding(.vertical, 10)
+            .background(Brand.chipRest, in: .rect(cornerRadius: 15))
+            .padding(.top, 13)
+
             byDay(row)
 
-            holdToSettle(row)
+            settleButton(row)
                 .padding(.top, 14)
         }
-        .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 16)
+        .padding(16)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 24))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(tone.base)
+                .frame(width: 4)
+                .padding(.vertical, 18)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
         .accessibilityElement(children: .contain)
+    }
+
+    private func payrollFact(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(title)
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var payrollDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.09))
+            .frame(width: 1, height: 29)
     }
 
     /**
@@ -231,7 +252,7 @@ struct PayrollView: View {
             let rest = Array(paying.dropFirst(6))
 
             VStack(spacing: 4) {
-                Divider().overlay(.white.opacity(0.18))
+                Divider().overlay(Brand.boardInk.opacity(0.1))
                     .padding(.bottom, 6)
 
                 ForEach(shown) { d in
@@ -265,13 +286,13 @@ struct PayrollView: View {
     private func dayRow(left: String, right: String, dim: Double) -> some View {
         HStack(spacing: 8) {
             Text(left)
-                .foregroundStyle(.white.opacity(dim))
+                .foregroundStyle(Brand.boardMuted.opacity(dim + 0.2))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
             Spacer(minLength: 4)
             Text(right)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white.opacity(min(1, dim + 0.15)))
+                .foregroundStyle(Brand.onBoard.opacity(min(1, dim + 0.18)))
         }
         .font(.system(size: 12))
         .monospacedDigit()
@@ -301,104 +322,31 @@ struct PayrollView: View {
      * Заливка идёт слева направо по самой кнопке: она не украшение, а
      * единственный ответ на вопрос «сколько ещё держать».
      */
-    private func holdToSettle(_ row: API.PayrollDue) -> some View {
+    private func settleButton(_ row: API.PayrollDue) -> some View {
         let busy = settling == row.staffId
-        let active = holding == row.staffId
-
-        return HStack(spacing: 7) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-            Text("Պահեք՝ նշելու համար")
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        return Button {
+            confirming = row
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Նշել վճարված")
+                    .font(.system(size: 14, weight: .bold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(Brand.onLime)
+            .loading(busy, tint: Brand.onLime, size: 18)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 13)
+            .background(Brand.lime, in: .rect(cornerRadius: 14))
+            .contentShape(.rect(cornerRadius: 14))
         }
-        .foregroundStyle(.white)
-        .loading(busy, tint: .white, size: 18)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background { fill(active: active) }
-        .contentShape(.rect(cornerRadius: 14))
-        /* `minimumDuration` и длительность заливки — одно и то же число:
-           разойдись они, полоса дозаполнялась бы уже после срабатывания
-           или срабатывало бы раньше, чем полоса дошла до края. */
-        .onLongPressGesture(minimumDuration: hold) {
-            /* Платим только тому, кого держали с самого начала. Без этой
-               проверки достаточно, чтобы удержание началось само — а оно
-               умеет: см. `press`. */
-            guard !busy, holding == row.staffId else { return }
-            Task { await settle(row) }
-        } onPressingChanged: { pressing in
-            guard !busy else { return }
-            press(row, pressing)
-        }
+        .buttonStyle(.press)
         .disabled(settling != nil)
-        /* Удержание недоступно тем, кто ходит по экрану голосом или кому
-           тяжело держать палец. Для них остаётся прежний путь — обычное
-           действие с вопросом. */
-        .accessibilityElement()
         .accessibilityLabel("Նշել վճարվածը")
         .accessibilityValue(money(row.earned, currency))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { confirming = row }
-    }
-
-    /// Сколько держать. Больше секунды — чтобы случайное касание не
-    /// доходило до конца; меньше полутора — чтобы намеренное не бесило.
-    private var hold: Double { 1.1 }
-
-    /// Заливка наливается только у того, кого держат: `progress` один на
-    /// экран, и без проверки полоса ползла бы разом у всех.
-    @ViewBuilder
-    private func fill(active: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 14)
-        let done = active ? progress : 0
-        if reduceMotion {
-            /* «Уменьшение движения» запрещает движение, а не признак
-               работы: вместо ползущей полосы кнопка наливается целиком. */
-            shape.fill(.white.opacity(0.18 + 0.24 * done))
-        } else {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    shape.fill(.white.opacity(0.18))
-                    shape
-                        .fill(.white.opacity(0.42))
-                        .frame(width: geo.size.width * done)
-                }
-            }
-        }
-    }
-
-    /**
-     * Начало и конец удержания.
-     *
-     * Здесь же закрыт самый неприятный способ заплатить дважды. После
-     * выплаты строка человека уходит из списка, и следующая **уезжает вверх
-     * ровно под палец**. Палец с экрана не снимали — а на новой кнопке уже
-     * началось удержание, и через секунду деньги отданы второму человеку,
-     * которого никто не выбирал.
-     *
-     * Поэтому сразу после выплаты удержание не начинается: пока палец не
-     * отпустили, новое нажатие не считается нажатием. Запрет снимается сам
-     * через секунду — иначе непойманное отпускание оставило бы экран
-     * мёртвым до перезахода.
-     */
-    private func press(_ row: API.PayrollDue, _ pressing: Bool) {
-        guard pressing else {
-            locked = nil
-            holding = nil
-            // отпустили раньше времени — полоса возвращается быстро, чтобы
-            // отмена читалась отменой, а не подтормаживанием
-            withAnimation(.snappy(duration: 0.2)) { progress = 0 }
-            return
-        }
-
-        if let locked, Date().timeIntervalSince(locked) < 1 { return }
-
-        holding = row.staffId
-        // толчок в начале: палец узнаёт, что отсчёт пошёл, раньше глаза
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        withAnimation(.linear(duration: hold)) { progress = 1 }
     }
 
     private var settled: some View {
@@ -501,14 +449,6 @@ struct PayrollView: View {
         guard let staffId = row.staffId else { return }
         settling = staffId
         defer { settling = nil }
-
-        defer {
-            /* Список сейчас перестроится под пальцем, который могли и не
-               убрать. До отпускания новых удержаний нет — см. `press`. */
-            locked = Date()
-            holding = nil
-            progress = 0
-        }
 
         do {
             _ = try await session.authed { token in

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getRememberedAccount, getSession } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
 import { startHref } from '@/lib/niches';
 import { Logo } from '@/components/logo';
@@ -9,6 +9,7 @@ import { LoginForm } from './login-form';
 export default async function LoginPage() {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+  const remembered = await getRememberedAccount();
 
   /* Две половины экрана вместо формы посреди пустоты.
 
@@ -54,10 +55,12 @@ export default async function LoginPage() {
             {/* На компьютере знак уже стоит слева — второй раз он тут
                 лишний, и заголовок начинает страницу сам. */}
             <Logo size={28} className="mb-4 lg:hidden" />
-            <h1 className="text-2xl font-semibold">{hy.auth.signInTitle}</h1>
+            <h1 className="text-2xl font-semibold">
+              {remembered ? hy.auth.welcomeBack : hy.auth.signInTitle}
+            </h1>
           </header>
 
-          <LoginForm />
+          <LoginForm remembered={remembered} />
 
           <p className="mt-7 text-center text-sm text-muted">
             <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">

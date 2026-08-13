@@ -23,8 +23,11 @@ import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
 import {
   endSession,
+  rememberedLoginEnabled,
   requireOwner,
   requireSession,
+  resumeRememberedSession,
+  setRememberedLoginEnabled,
   startSession,
   switchSession,
   verifyPin,
@@ -140,8 +143,28 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 }
 
 export async function signOut() {
-  await endSession();
+  await endSession({ remember: await rememberedLoginEnabled() });
   redirect('/login');
+}
+
+/** Вход по сохранённому профилю: токен остаётся только в HttpOnly-cookie. */
+export async function resumeSavedAccount(
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  void _prev;
+  void _formData;
+  await ensureDb();
+  const role = await resumeRememberedSession();
+  if (!role) return { error: hy.auth.rememberedExpired };
+  redirect(role === 'owner' ? '/owner' : '/work');
+}
+
+/** Настройка браузера; Server Action всё равно проверяет активную сессию. */
+export async function setRememberLogin(enabled: boolean): Promise<void> {
+  await requireSession();
+  await setRememberedLoginEnabled(enabled);
+  revalidatePath('/owner/profile');
 }
 
 /**
@@ -704,21 +727,26 @@ export async function addExpenseAction(
   return { ok: true };
 }
 
-export async function removeExpenseAction(formData: FormData): Promise<void> {
+export async function removeExpenseAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return;
+  if (!tenant) return { error: hy.errors.generic };
 
-  await removeExpense(
+  const removed = await removeExpense(
     session.tid,
     String(formData.get('id') ?? ''),
     startOfDay(tenant.timezone),
   );
+  if (!removed) return { error: hy.errors.generic };
 
   revalidatePath('/owner/expenses');
   revalidatePath('/owner');
+  return { ok: true };
 }
 
 /**

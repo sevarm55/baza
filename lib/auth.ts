@@ -3,12 +3,15 @@ import { redirect } from 'next/navigation';
 import { SignJWT, jwtVerify } from 'jose';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from './db';
-import { accounts, sessions, users } from './db/schema';
+import { accounts, sessions, tenants, users } from './db/schema';
 
 export { hashPin, verifyPin } from './pin';
 
 const COOKIE = 'bz_session';
+const REMEMBERED_COOKIE = 'bz_remembered_session';
+const REMEMBER_ENABLED_COOKIE = 'bz_remember_login';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 дней — сотрудник не должен логиниться каждый день
+const REMEMBER_MAX_AGE = 60 * 60 * 24 * 180;
 
 /* Дефолтный ключ допустим только локально. На сервере без своего секрета
    сессии подписывались бы общеизвестной строкой — подделать cookie
@@ -25,6 +28,11 @@ export type Role = 'owner' | 'staff';
 export type Session = { uid: string; tid: string; role: Role };
 /** То же плюс поля, по которым сессию можно отозвать. */
 export type Claims = Session & { sid: string; ver: number };
+export type RememberedWebAccount = {
+  name: string;
+  tenant: string;
+  role: Role;
+};
 
 /* ---------------------------- токен ----------------------------- */
 
@@ -97,6 +105,9 @@ export async function startSession(
   });
 
   const jar = await cookies();
+  // Новый ручной вход всегда заменяет сохранённый профиль прошлого
+  // человека на этом браузере.
+  jar.delete(REMEMBERED_COOKIE);
   jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -108,14 +119,85 @@ export async function startSession(
   return row.id;
 }
 
-export async function endSession(): Promise<void> {
+export async function endSession({ remember = false }: { remember?: boolean } = {}): Promise<void> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   jar.delete(COOKIE);
 
-  // cookie удалена у себя, но токен мог быть скопирован — гасим и в базе
   const claims = token ? await readToken(token) : null;
+  if (remember && claims?.sid) {
+    /* Активную cookie убираем, но оставляем отдельный HttpOnly-пропуск.
+       Он не доступен JavaScript и всё равно сверяется с живой сессией и
+       поколением PIN перед возвращением в кабинет. */
+    const remembered = await signAccess(claims, '180d');
+    jar.set(REMEMBERED_COOKIE, remembered, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: REMEMBER_MAX_AGE,
+    });
+    return;
+  }
+
+  jar.delete(REMEMBERED_COOKIE);
+  // cookie удалена у себя, но токен мог быть скопирован — гасим и в базе
   if (claims?.sid) await revokeSession(claims.sid);
+}
+
+/** По умолчанию запоминаем, как в iOS. Настройка принадлежит браузеру. */
+export async function rememberedLoginEnabled(): Promise<boolean> {
+  const jar = await cookies();
+  return jar.get(REMEMBER_ENABLED_COOKIE)?.value !== '0';
+}
+
+export async function setRememberedLoginEnabled(enabled: boolean): Promise<void> {
+  const jar = await cookies();
+  jar.set(REMEMBER_ENABLED_COOKIE, enabled ? '1' : '0', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  if (!enabled) jar.delete(REMEMBERED_COOKIE);
+}
+
+/** Безопасные данные для аватара на странице входа, без телефона и токена. */
+export async function getRememberedAccount(): Promise<RememberedWebAccount | null> {
+  const jar = await cookies();
+  const token = jar.get(REMEMBERED_COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  if (!claims || !(await sessionAlive(claims))) return null;
+
+  const [row] = await db
+    .select({ name: users.name, tenant: tenants.name })
+    .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
+    .where(and(eq(users.id, claims.uid), eq(users.tenantId, claims.tid)));
+
+  return row ? { ...row, role: claims.role } : null;
+}
+
+/** Вернуть сохранённую сессию в активную cookie после нажатия аватара. */
+export async function resumeRememberedSession(): Promise<Role | null> {
+  const jar = await cookies();
+  const token = jar.get(REMEMBERED_COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  if (!claims || !(await sessionAlive(claims))) {
+    jar.delete(REMEMBERED_COOKIE);
+    return null;
+  }
+
+  const active = await signAccess(claims, '30d');
+  jar.set(COOKIE, active, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: MAX_AGE,
+  });
+  return claims.role;
 }
 
 export async function revokeSession(sid: string): Promise<void> {

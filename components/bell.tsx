@@ -2,11 +2,14 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { Bell as BellIcon } from 'lucide-react';
 import { snoozeAlert } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { hy } from '@/lib/i18n/hy';
 import { IconClock, IconWallet } from '@/components/flow-icons';
 import type { Alert } from '@/lib/alerts';
+import { Button } from '@/components/ui/button';
+import { SidebarMenuBadge, SidebarMenuButton } from '@/components/ui/sidebar';
 
 /**
  * Колокольчик владельца.
@@ -24,37 +27,37 @@ import type { Alert } from '@/lib/alerts';
  * Открывается панелью справа, как всё остальное в кабинете: список под
  * ней остаётся на месте, и видно, откуда пришёл.
  */
-export function Bell({ alerts }: { alerts: Alert[] }) {
+export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
     <>
-      <button
-        type="button"
-        className="rail-bell"
-        onClick={() => setOpen(true)}
-        aria-label={hy.alerts.title}
-        data-on={alerts.length > 0 ? '' : undefined}
-      >
-        <svg
-          viewBox="0 0 16 16"
-          className="size-[18px]"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
+      {sidebar ? (
+        <>
+          <SidebarMenuButton className="h-10 px-4" tooltip={hy.alerts.title} onClick={() => setOpen(true)}>
+            <BellIcon aria-hidden="true" />
+            <span>{hy.alerts.title}</span>
+          </SidebarMenuButton>
+          {alerts.length > 0 && <SidebarMenuBadge>{alerts.length}</SidebarMenuBadge>}
+        </>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="relative"
+          onClick={() => setOpen(true)}
+          aria-label={hy.alerts.title}
         >
-          <path d="M4 7a4 4 0 0 1 8 0c0 2.2.5 3.3 1.2 4H2.8C3.5 10.3 4 9.2 4 7Z" />
-          <path d="M6.6 13a1.6 1.6 0 0 0 2.8 0" />
-        </svg>
-
-        {/* Число, а не точка: «есть повод» и «поводов пять» — разные
-            новости, и вторая заставляет открыть сразу. */}
-        {alerts.length > 0 && <span className="num rail-bell-count">{alerts.length}</span>}
-      </button>
+          <BellIcon aria-hidden="true" />
+          {alerts.length > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-4 text-destructive-foreground">
+              {alerts.length}
+            </span>
+          )}
+        </Button>
+      )}
 
       <Sheet open={open} onClose={() => setOpen(false)} side title={hy.alerts.title}>
         {alerts.length === 0 ? (

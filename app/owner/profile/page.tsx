@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireSession } from '@/lib/auth';
+import { rememberedLoginEnabled, requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
@@ -10,6 +10,7 @@ import { Panel, Tile } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ChangePinForm } from './change-pin-form';
+import { RememberLoginToggle } from './remember-login-toggle';
 
 /**
  * Профиль — то же, что на телефоне.
@@ -28,9 +29,10 @@ export default async function ProfilePage() {
   const session = await requireSession();
   await ensureDb();
 
-  const [tenant, me] = await Promise.all([
+  const [tenant, me, rememberLogin] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
+    rememberedLoginEnabled(),
   ]);
   if (!tenant || !me) redirect('/session-ended');
 
@@ -98,7 +100,8 @@ export default async function ProfilePage() {
           )}
 
           <Panel title={hy.profile.session}>
-            <p className="note !mt-0 !border-0 !pt-0">{hy.profile.signOutNote}</p>
+            <RememberLoginToggle initial={rememberLogin} />
+            <p className="note !mt-3 !border-0 !pt-0">{hy.profile.signOutNote}</p>
             <div className="mt-3 flex items-center gap-2.5">
               <SignOutButton />
               <span className="text-[13.5px]" style={{ color: 'var(--board-muted)' }}>

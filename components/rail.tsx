@@ -1,27 +1,27 @@
 import Link from 'next/link';
+import { Building2 } from 'lucide-react';
 import { hy } from '@/lib/i18n/hy';
 import { Bell } from '@/components/bell';
 import type { Alert } from '@/lib/alerts';
 import { Logo } from '@/components/logo';
 import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
-import { SignOutButton } from '@/components/sign-out-button';
-import { SwitchMark } from '@/components/switch-mark';
-import { RailCollapse } from '@/components/rail-collapse';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { SidebarAccountMenu } from '@/components/sidebar-account-menu';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
 import type { Point } from '@/lib/accounts';
 
-/**
- * Боковая колонка кабинета — то, что делает веб рабочим местом.
- *
- * Всё постоянное собрано здесь: марка, точка, разделы, роль, выход.
- * Шапка поверх страницы больше не нужна — она отнимала верхнюю полосу
- * экрана у показания, ради которого кабинет открывают, и повторяла то,
- * что и так стоит слева.
- *
- * Колонка не прокручивается вместе со страницей: разделы должны быть
- * под курсором и на сороковой машине в ленте.
- */
+/** Tetrin navigation composed on the official shadcn Sidebar primitive. */
 export function Rail({
   tenantName,
   userName,
@@ -36,137 +36,85 @@ export function Rail({
   points?: Point[];
   currentTid?: string;
   passes: boolean;
-  /** где мы сейчас: в кабинете или на экране записи */
   active: 'owner' | 'work';
-  /** поводы для колокольчика; у мойщика их нет вовсе */
   alerts?: Alert[];
 }) {
-  // у кого одна мойка, тот не должен узнать, что бывают вторые
   const many = !!points && points.length > 1 && !!currentTid;
 
   return (
-    <aside className="rail">
-      {/* Марка и кнопка сворачивания одной строкой: кнопка живёт там,
-          где начинается сама колонка, а не внизу среди выхода. */}
-      <div className="rail-top flex items-center justify-between gap-2 px-1.5 pb-4">
-        <Link href="/owner" aria-label={hy.app.name} className="rail-brand">
-          <Logo size={26} />
-        </Link>
-        <RailCollapse labelExpand={hy.common.expand} labelCollapse={hy.common.collapse} />
-      </div>
-
-      {/* Куда вошли. Название точки крупнее имени: за день оно меняется
-          чаще, чем человек за экраном. */}
-      <div className="rail-hide mb-3 px-1.5">
-        {many ? (
-          <PointSwitcher points={points!} currentId={currentTid!} subtitle={userName} />
-        ) : (
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold">{tenantName}</div>
-            <div className="truncate text-[12px]" style={{ color: 'var(--board-muted)' }}>
-              {userName}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <SideNav passes={passes} />
-
-      {/* Всё, что жмут раз в день, — внизу, под растяжкой: сверху живут
-          разделы, и они не должны прыгать от появления плашки. */}
-      <div className="mt-auto pt-4">
-        {/* Своё — отдельно от рабочего: имя, PIN, срок. Восьмым разделом
-            наверху этому не место, там живёт то, куда ходят каждый день. */}
-        <Link href="/owner/profile" className="nav-item mb-2">
-          <span className="nav-mark" aria-hidden>
-            <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="8" cy="6" r="2.25" />
-              <path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
-            </svg>
-          </span>
-          <span className="rail-hide truncate">{hy.profile.title}</span>
-        </Link>
-
-        {/* Владелец на маленькой мойке моет и сам, поэтому переключение
-            между кабинетом и записью стоит рядом с выходом, а не среди
-            разделов: это не раздел, а вторая половина продукта. */}
-        {/* Две строки, а не две половины.
-
-            В два столбца это не помещается физически: рейка 244 пикселя,
-            половина — сотня, а «Սեփականատեր» в одиннадцать армянских
-            букв просит полторы. Обе подписи обрывались многоточием, и
-            переключатель показывал «Աշխատակ…» и «Սեփական…» — два огрызка,
-            по которым не прочесть, куда ты попадёшь.
-
-            Столбиком слова помещаются целиком, а цель под курсором
-            становится вдвое шире. Что это переключатель, а не ещё два
-            раздела, говорит жёлоб: разделы выше лежат прямо на рейке. */}
-        <nav
-          className="mb-3 grid gap-0.5 rounded-[10px] p-1"
-          style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
-        >
-          {(
-            [
-              { href: '/work', key: 'work', label: hy.roles.staff, icon: <IconSpray /> },
-              { href: '/owner', key: 'owner', label: hy.roles.owner, icon: <IconBoard /> },
-            ] as const
-          ).map((tab) => (
-            <Link
-              key={tab.key}
-              href={tab.href}
-              aria-current={active === tab.key ? 'page' : undefined}
-              className="nav-item relative !rounded-[9px]"
-              data-name={tab.label}
-              style={
-                active === tab.key
-                  ? { color: 'var(--board)', fontWeight: 600 }
-                  : { color: 'var(--board-muted)' }
-              }
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="relative gap-2 px-2 pt-3 pb-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href="/owner" aria-label={hy.app.name} />}
+              size="lg"
+              tooltip={hy.app.name}
             >
-              {active === tab.key && <SwitchMark id="rail-role" />}
-              {/* Значок, а не точка. Развёрнутой колонке хватало точки —
-                  рядом стояло слово. Свёрнутой не хватает: две точки
-                  одна над другой не говорят ничего, и человек не
-                  понимает, между чем переключается. */}
-              <span className="nav-mark relative z-[1] items-center" aria-hidden>
-                {tab.icon}
+              <Logo size={32} withName={false} className="shrink-0" />
+              <span className="truncate font-bold tracking-[.18em]">
+                {hy.app.name.toUpperCase()}
               </span>
-              <span className="rail-hide relative z-[1] truncate">{tab.label}</span>
-            </Link>
-          ))}
-        </nav>
+            </SidebarMenuButton>
+            <SidebarTrigger
+              aria-label={hy.common.collapse}
+              title={`${hy.common.collapse} · ⌘B`}
+              className="absolute right-2.5 top-2.5 group-data-[collapsible=icon]:hidden"
+            />
+          </SidebarMenuItem>
+        </SidebarMenu>
 
-        {/* Колокольчик рядом с темой и выходом: это не раздел, а
-            состояние продукта — «требует ли что-нибудь внимания». */}
-        <div className="rail-tools flex items-center gap-1 px-0.5">
-          {alerts && <Bell alerts={alerts} />}
-          <ThemeToggle />
-          <SignOutButton />
+        <SidebarSeparator className="mx-1 my-1" />
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            {many ? (
+              <PointSwitcher points={points!} currentId={currentTid!} subtitle={userName} sidebar />
+            ) : (
+              <SidebarMenuButton
+                render={<div />}
+                size="lg"
+                tooltip={tenantName}
+                aria-label={`${tenantName} · ${userName}`}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-sidebar-accent-foreground">
+                  <Building2 className="size-4" aria-hidden="true" />
+                </span>
+                <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{tenantName}</span>
+                  <span className="truncate text-xs text-sidebar-foreground/60">{userName}</span>
+                </span>
+              </SidebarMenuButton>
+            )}
+          </SidebarMenuItem>
+        </SidebarMenu>
+
+        <SidebarSeparator className="mx-1 mt-1" />
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SideNav passes={passes} />
+      </SidebarContent>
+
+      <SidebarFooter className="gap-2 pb-3">
+        {alerts && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <Bell alerts={alerts} sidebar />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
+        <SidebarSeparator className="mx-1" />
+        <SidebarAccountMenu userName={userName} active={active} />
+        <div className="hidden justify-center group-data-[collapsible=icon]:flex">
+          <SidebarTrigger
+            aria-label={hy.common.expand}
+            title={`${hy.common.expand} · ⌘B`}
+            className="size-10 rounded-md bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
+          />
         </div>
-      </div>
-    </aside>
-  );
-}
-
-/* Знаки половин продукта: пистолет мойщика и табло владельца. Тот же
-   контур 1.5 по сетке 16, что у разделов выше. */
-function IconSpray() {
-  return (
-    <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h4l3-2v6l-3-2H3z" />
-      <path d="M12 5.5v5M14 7v2" />
-    </svg>
-  );
-}
-
-/* Ключ, а не столбики: столбиками уже помечен раздел «Сегодня», и в
-   свёрнутой колонке две одинаковые иконки одна над другой читались
-   ошибкой. Владелец — это доступ ко всему, ключ говорит именно это. */
-function IconBoard() {
-  return (
-    <svg viewBox="0 0 16 16" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="5.5" cy="10.5" r="2.5" />
-      <path d="M7.4 8.8 12.5 3.7M10.8 5.4l1.4 1.4M12.5 3.7l1.3 1.3" />
-    </svg>
+      </SidebarFooter>
+      <SidebarRail className="outline-none" />
+    </Sidebar>
   );
 }

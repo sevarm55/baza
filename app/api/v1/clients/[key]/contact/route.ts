@@ -5,6 +5,7 @@ import { clients } from '@/lib/db/schema';
 import { normalizePhone } from '@/lib/phone';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
+import { normalizeClientKey } from '@/lib/client-key';
 
 /**
  * Имя и телефон клиента.
@@ -40,7 +41,12 @@ export async function PATCH(
         name: str(input.name) || null,
         phone: phone ? normalizePhone(phone) : null,
       })
-      .where(and(eq(clients.tenantId, ctx.tenant.id), eq(clients.key, decodeURIComponent(key))))
+      .where(
+        and(
+          eq(clients.tenantId, ctx.tenant.id),
+          eq(clients.key, normalizeClientKey(decodeURIComponent(key))),
+        ),
+      )
       .returning();
 
     if (!row) return fail('NOT_FOUND', 404);

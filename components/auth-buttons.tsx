@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AuthDialog, type AuthMode } from '@/components/auth-dialog';
+import type { RememberedWebAccount } from '@/lib/auth';
 
 /**
  * Кнопки лендинга, открывающие окно входа.
@@ -16,11 +17,13 @@ export function AuthTrigger({
   niche,
   className,
   children,
+  remembered,
 }: {
   mode: AuthMode;
   niche: string;
   className?: string;
   children: React.ReactNode;
+  remembered?: RememberedWebAccount | null;
 }) {
   const [open, setOpen] = useState<AuthMode | null>(null);
 
@@ -29,7 +32,13 @@ export function AuthTrigger({
       <button type="button" className={className} onClick={() => setOpen(mode)}>
         {children}
       </button>
-      <AuthDialog mode={open} niche={niche} onClose={() => setOpen(null)} />
+      <AuthDialog
+        key={open ?? 'closed'}
+        mode={open}
+        niche={niche}
+        remembered={remembered}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }

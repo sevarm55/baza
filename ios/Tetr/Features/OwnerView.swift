@@ -30,16 +30,22 @@ struct OwnerView: View {
 
     @State private var summary: API.Summary?
     @State private var period = "today"
+    /// Период именно тех цифр, которые уже пришли с сервера. Выбор в
+    /// segmented control меняется сразу, но подписи старых данных не имеют
+    /// права называться новым периодом, пока его ответ ещё в пути.
+    @State private var summaryPeriod = "today"
     /// Поводы, требующие внимания: колокольчик в шапке.
     @State private var alerts: [API.Alert] = []
     @State private var showAlerts = false
     @State private var showClients = false
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
-    /// Идёт запрос. Виден только знаком обновления: отдельный индикатор
-    /// занял бы место и сказал бы ровно то же.
+    /// Идёт запрос. На это время период фиксируется, чтобы второй быстрый
+    /// выбор не вернул на экран ответ от предыдущего периода.
     @State private var loading = false
-    @Namespace private var pill
+    @State private var detailsVisible = true
+    @State private var newestFeedID: String?
+    @State private var loadID = 0
 
     /* Прокрутку разрядов система сама по «Уменьшению движения» не гасит:
        withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
@@ -62,9 +68,9 @@ struct OwnerView: View {
                     problem(failure)
                 } else if let s = summary {
                     reading(s)
-                    wave(s.series)
-                    grid(s)
-                    journal(s.feed)
+                    details(s)
+                        .opacity(detailsVisible ? 1 : 0)
+                        .offset(y: detailsVisible || reduceMotion ? 0 : 8)
                 }
             }
             .padding(.horizontal, 16)
@@ -112,100 +118,48 @@ struct OwnerView: View {
     // ══════════════════════════ верхняя строка ══════════════════════════
 
     /**
-     * Период — ряд плашек, обновление — кружок справа.
-     *
-     * Ряд стоит на самом табло, без подложки и без карточки: это органы
-     * прибора, а не панель над содержимым.
-     *
-     * Плашки прямоугольные со скруглением 11, а не капсулы: капсул в
-     * продукте нет нигде — ни на кнопках, ни на полях, ни на вкладках.
-     * Острая форма про точность, а этот экран про деньги.
-     *
-     * Невыбранные — тёплый серый, а не нейтральный: полотно табло тёплое,
-     * и холодный серый чип на нём выглядит вырезанным из чужого
-     * интерфейса.
+     * Период — системный segmented picker. На iOS 26 он сам получает
+     * актуальную геометрию и материал и остаётся знакомым органом выбора.
+     * Ручное обновление не дублируем кнопкой: для него уже есть pull to
+     * refresh. Стекло остаётся только у действия с уведомлениями.
      */
     private var chips: some View {
-        HStack(spacing: 6) {
-            ForEach(periods, id: \.0) { key, label in
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { period = key }
-                    Task { await reload() }
-                } label: {
-                    Text(label)
-                        .font(.system(size: 13, weight: .semibold))
-                        /* Выбранная плашка залита чернилами табло, поэтому
-                           текст на ней — цвет самого табло. `onBoard` здесь
-                           брать нельзя: он тех же чернил, и надпись
-                           пропадала начисто. */
-                        .foregroundStyle(period == key ? Brand.board : Brand.boardMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 9)
-                        .frame(minHeight: 38)
-                        .background {
-                            let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            if period == key {
-                                shape
-                                    .fill(Brand.boardInk)
-                                    .matchedGeometryEffect(id: "period", in: pill)
-                            } else {
-                                shape.fill(Brand.chipRest)
-                            }
-                        }
-                        .contentShape(.rect(cornerRadius: 11))
+        HStack(spacing: 10) {
+            Picker(
+                "Ժամանակահատված",
+                selection: Binding(
+                    get: { period },
+                    set: { key in Task { await selectPeriod(key) } }
+                )
+            ) {
+                ForEach(periods, id: \.0) { key, label in
+                    Text(label).tag(key)
                 }
-                .buttonStyle(.plain)
             }
+            .pickerStyle(.segmented)
+            .disabled(loading)
 
-            Spacer(minLength: 8)
-
-            /* Колокольчик рядом с обновлением: это не раздел, а
-               состояние продукта — «требует ли что-нибудь внимания».
-               Тихий, пока поводов нет: значок с вечной единицей
-               перестают замечать за неделю. */
             Button {
                 showAlerts = true
             } label: {
-                Image(systemName: "bell")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(alerts.isEmpty ? Brand.boardMuted : Brand.onBoard)
+                Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
+                    .font(.system(size: 15, weight: .semibold))
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
                     .frame(width: 38, height: 38)
-                    .background(Brand.chipRest, in: .circle)
                     .overlay(alignment: .topTrailing) {
                         if !alerts.isEmpty {
                             Text("\(alerts.count)")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 9, weight: .bold))
                                 .monospacedDigit()
-                                .foregroundStyle(Brand.board)
-                                .padding(.horizontal, 4)
-                                .frame(minWidth: 16, minHeight: 16)
-                                .background(Brand.warnOnBoard, in: .capsule)
-                                .offset(x: 2, y: -2)
+                                .foregroundStyle(Brand.onLime)
+                                .frame(minWidth: 15, minHeight: 15)
+                                .background(Brand.lime, in: .circle)
+                                .offset(x: 3, y: -3)
                         }
                     }
             }
+            .buttonStyle(.glass)
             .accessibilityLabel("Ուշադրություն")
-
-            Button {
-                Task { await reload() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.chipRest, in: .circle)
-                    // вращение и есть видимый признак «идёт запрос»
-                    .rotationEffect(.degrees(loading && !reduceMotion ? 360 : 0))
-                    .animation(
-                        loading && !reduceMotion
-                            ? .linear(duration: 0.9).repeatForever(autoreverses: false)
-                            : .default,
-                        value: loading
-                    )
-            }
-            .accessibilityLabel("Թարմացնել")
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -259,44 +213,57 @@ struct OwnerView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /**
-     * Откуда взялось главное число: приход минус расходы минус доля людей.
-     *
-     * Единственная строка на экране, которую можно проверить арифметикой.
-     * Раньше её не было вовсе: три слагаемых лежали по разным плиткам, и
-     * чтобы понять, почему осталось именно столько, владелец складывал их
-     * сам — а половина ошибок доверия к продукту начинается ровно здесь,
-     * с «а почему так мало».
-     *
-     * Порядок тот же, в каком человек считает вслух: сколько принесли,
-     * сколько отдал, сколько вышло. Знак минуса настоящий, U+2212 —
-     * дефис между разрядами читается частью числа.
-     *
-     * Валюта только у результата: четыре значка ֏ в одной строке
-     * превращают вычитание в список сумм.
-     */
+    /** Три источника результата, без повторения самого результата.
+
+        Главное число уже стоит сверху. Повторять его ещё раз после `=` —
+        значит заставлять человека дважды прочитать один и тот же ответ.
+        Здесь остаётся только происхождение суммы: что вошло и что вышло. */
     @ViewBuilder
     private func breakdown(_ s: API.Summary) -> some View {
-        // Считать нечего: без прихода и расходов строка «0 − 0 = 0» это шум.
         if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
-            /* Минус у результата тоже настоящий, U+2212. Через `money()` он
-               приходил дефисом, и в строке из трёх настоящих минусов
-               четвёртый выпадал коротким штрихом. */
-            Text(
-                "\(plain(s.stats.revenue)) − \(plain(s.costs.total)) − \(plain(s.stats.payroll)) = "
-                + (s.profit < 0 ? "−" : "") + money(abs(s.profit), currency)
-            )
-            .font(.system(size: 12))
-            .monospacedDigit()
-            .foregroundStyle(Brand.boardMuted)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .padding(.top, 4)
+            HStack(spacing: 0) {
+                moneySource("Վճարել են", amount: s.stats.revenue, sign: "+", ink: Brand.mintInk)
+                sourceDivider
+                moneySource("Աշխատակիցներին", amount: s.stats.payroll, sign: "−", ink: Brand.lavenderInk)
+                sourceDivider
+                moneySource("Ծախսեր", amount: s.costs.total, sign: "−", ink: Brand.sandInk)
+            }
+            .padding(.vertical, 10)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 19))
+            .overlay {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
+            .padding(.top, 10)
+            .frame(maxWidth: 360)
             .accessibilityLabel(
                 "Հասույթ \(plain(s.stats.revenue)), ծախս \(plain(s.costs.total)),"
-                + " աշխատակիցներին \(plain(s.stats.payroll)), մնում է \(money(s.profit, currency))"
+                + " աշխատակիցներին \(plain(s.stats.payroll))"
             )
         }
+    }
+
+    private func moneySource(_ title: String, amount: Int, sign: String, ink: Color) -> some View {
+        VStack(spacing: 3) {
+            Text("\(sign) \(money(amount, currency))")
+                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+            Text(title)
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var sourceDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.09))
+            .frame(width: 1, height: 31)
     }
 
     /// Число без валюты — для строки вычитания.
@@ -398,6 +365,63 @@ struct OwnerView: View {
         }
     }
 
+    // ══════════════════════════ содержание периода ══════════════════════════
+
+    @ViewBuilder
+    private func details(_ s: API.Summary) -> some View {
+        if summaryPeriod == "today" {
+            todaySnapshot(s)
+            wave(s.series)
+            journal(s.feed)
+        } else {
+            wave(s.series)
+            grid(s)
+            journal(s.feed)
+        }
+    }
+
+    /**
+     * Быстрый ответ для сегодняшнего дня. Три показателя стоят одной
+     * строкой без трёх цветных карточек: сначала итог наверху, затем объём,
+     * наличные и люди. Приход уже объяснён над строкой и здесь не
+     * повторяется второй раз.
+     */
+    private func todaySnapshot(_ s: API.Summary) -> some View {
+        HStack(spacing: 0) {
+            snapshotValue("Սպասարկվել է", "\(s.stats.count)")
+            snapshotDivider
+            snapshotValue("Կանխիկ", money(s.stats.cash, currency))
+            snapshotDivider
+            snapshotValue("Հերթափոխին", "\(s.onShift.count)")
+        }
+        .padding(.top, 20)
+        .padding(.vertical, 13)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func snapshotValue(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(title)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var snapshotDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.1))
+            .frame(width: 1, height: 34)
+    }
+
     // ══════════════════════════ волна ══════════════════════════
 
     /**
@@ -426,7 +450,7 @@ struct OwnerView: View {
      */
     @ViewBuilder
     private func wave(_ series: [API.SeriesPoint]) -> some View {
-        if series.count > 1 {
+        if !series.isEmpty {
             let peak = max(1, series.map(\.revenue).max() ?? 1)
             let peakIndex = series.firstIndex(where: { $0.revenue == peak }) ?? 0
             let values = series.map { Double($0.revenue) / Double(peak) }
@@ -453,19 +477,21 @@ struct OwnerView: View {
                 GeometryReader { geo in
                     let pts = points(values, in: geo.size)
                     ZStack(alignment: .topLeading) {
-                        Wave(points: pts, closedTo: geo.size.height)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Brand.onBoard.opacity(0.13), Brand.onBoard.opacity(0)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                        if pts.count > 1 {
+                            Wave(points: pts, closedTo: geo.size.height)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Brand.onBoard.opacity(0.13), Brand.onBoard.opacity(0)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
                                 )
-                            )
-                        Wave(points: pts)
-                            .stroke(
-                                Brand.onBoard.opacity(0.62),
-                                style: .init(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
-                            )
+                            Wave(points: pts)
+                                .stroke(
+                                    Brand.onBoard.opacity(0.62),
+                                    style: .init(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
+                                )
+                        }
                         ForEach(marks, id: \.self) { i in
                             if pts.indices.contains(i) {
                                 Circle()
@@ -526,7 +552,9 @@ struct OwnerView: View {
                     .foregroundStyle(Brand.boardMuted.opacity(0.85))
                     .frame(
                         maxWidth: .infinity,
-                        alignment: i == 0 ? .leading : (i == picks.count - 1 ? .trailing : .center)
+                        alignment: picks.count == 1
+                            ? .center
+                            : (i == 0 ? .leading : (i == picks.count - 1 ? .trailing : .center))
                     )
             }
         }
@@ -534,195 +562,184 @@ struct OwnerView: View {
     }
 
     private var chartTitle: String {
-        period == "today" ? "Օրվա վճարումները" : "Ամսվա վճարումները"
+        summaryPeriod == "today" ? "Օրվա վճարումները" : "Ամսվա վճարումները"
     }
 
     private func axis(_ point: API.SeriesPoint?) -> String {
         guard let point else { return "" }
-        return period == "today" ? "\(point.hourLabel):00" : point.dayLabel
+        return summaryPeriod == "today" ? "\(point.hourLabel):00" : point.dayLabel
     }
 
-    /// Точки волны. Единственное значение не рисуется вовсе — линия по
-    /// одной точке это не линия.
+    /// У единственного часа нет линии, но есть точка и подпись: сегодняшний
+    /// график не должен исчезать только потому, что обе машины приехали в
+    /// один час.
     private func points(_ values: [Double], in size: CGSize) -> [CGPoint] {
-        guard values.count > 1 else { return [] }
-        let step = size.width / CGFloat(values.count - 1)
         let top: CGFloat = 6
         let usable = size.height - top * 2
+        if values.count == 1 {
+            return [CGPoint(x: size.width / 2, y: top + usable * (1 - CGFloat(values[0])))]
+        }
+        guard values.count > 1 else { return [] }
+        let step = size.width / CGFloat(values.count - 1)
         return values.enumerated().map { i, v in
             CGPoint(x: CGFloat(i) * step, y: top + usable * (1 - CGFloat(v)))
         }
     }
 
-    // ══════════════════════════ сетка плиток ══════════════════════════
+    // ══════════════════════════ финансовые детали ══════════════════════════
 
-    /**
-     * Сетка показателей. Одна плитка — один показатель, и ни одна не
-     * повторяет цифру наверху.
-     *
-     * Широкая плитка — приход и то, какая его доля осталась владельцу.
-     * Кольцо в ней и есть весь разбор: заполненная дуга — то, что осталось,
-     * пустая — то, что ушло. Отдельного блока с вычитанием нет: вычитание
-     * требовало читать вычисление, кольцо читается взглядом.
-     *
-     * Ниже четыре мелких: зарплата, расходы, машины, средний чек.
-     */
+    /** За длинный период финансовая формула уже видна сверху. Здесь только
+        два операционных показателя и структура оплат — данные, которых в
+        формуле нет, поэтому ни одна большая сумма не повторяется. */
     private func grid(_ s: API.Summary) -> some View {
-        let base = max(1, s.stats.revenue)
-        let keptShare = Double(max(0, s.profit)) / Double(base)
         let unit = session.tenant?.unitOne ?? ""
 
         return VStack(spacing: gap) {
-            paid(s, keptShare: keptShare)
-
             HStack(spacing: gap) {
-                metric(
-                    .teal, "Աշխատակցին", money(s.stats.payroll, currency),
-                    foot: "վճարումների \(Int((Double(s.stats.payroll) / Double(base) * 100).rounded()))%-ը",
-                    symbol: "percent", animate: Double(s.stats.payroll)
+                softMetric(
+                    background: Brand.mintCard,
+                    ink: Brand.mintInk,
+                    title: "Սպասարկվել է",
+                    value: "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
+                    foot: "այս ժամանակահատվածում",
+                    symbol: "car.fill",
+                    animate: Double(s.stats.count)
                 )
-                metric(
-                    .amber, spentTitle, money(s.costs.total, currency),
-                    foot: expensesNote(s),
-                    symbol: "arrow.down", animate: Double(s.costs.total)
-                )
-            }
-
-            HStack(spacing: gap) {
-                /* Единица приходит с сервера: у мойки это машина, у барбера
-                   клиент. Слово подставляется к числу, а не берётся
-                   заголовком, — «Սպասարկվել է 2 մեքենա» это предложение, а
-                   «մեքենա / 2» было подписью к цифре. */
-                metric(
-                    .lime, "Սպասարկվել է", "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
-                    foot: "", symbol: "car.fill", animate: Double(s.stats.count)
-                )
-                metric(
-                    .indigo, "Միջին վճարումը", money(s.stats.avgCheck, currency),
+                softMetric(
+                    background: Brand.lavenderCard,
+                    ink: Brand.lavenderInk,
+                    title: "Միջին վճարումը",
+                    value: money(s.stats.avgCheck, currency),
                     foot: unit.isEmpty ? "" : "մեկ \(ablative(unit))",
-                    symbol: "creditcard.fill", animate: Double(s.stats.avgCheck)
+                    symbol: "creditcard.fill",
+                    animate: Double(s.stats.avgCheck)
                 )
             }
+
+            paymentBreakdown(s)
         }
         .padding(.top, 20)
     }
 
-    /**
-     * Приход и доля, которая от него осталась.
-     *
-     * Кольцо и есть весь разбор: заполненная дуга — то, что осталось,
-     * пустая — то, что ушло. Под ним обязательна подпись: процент без
-     * объяснения — самая дорогая ошибка на таком экране, потому что каждый
-     * прочитает в нём своё. «Вам остаётся» отвечает раз и навсегда.
-     *
-     * Плитка одна широкая и единственная крупная в сетке: приход — второе
-     * по важности число после того, что осталось, и оно не должно спорить
-     * с четырьмя мелкими.
-     */
-    private func paid(_ s: API.Summary, keptShare: Double) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 3) {
-                ToneAccent(tone: .violet)
-                Text(paidTitle)
+    private func paymentBreakdown(_ s: API.Summary) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Text("Վճարման եղանակները")
+                    .font(.system(size: 13.5, weight: .semibold))
+                Spacer()
+                Image(systemName: "wallet.bifold")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.lavenderInk)
+            }
+
+            if s.split.isEmpty {
+                Text("Դեռ վճարումներ չկան")
                     .font(.system(size: 12.5))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text(money(s.stats.revenue, currency))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText(value: Double(s.stats.revenue)))
-            }
+                    .foregroundStyle(Brand.boardMuted)
+            } else {
+                GeometryReader { proxy in
+                    HStack(spacing: 3) {
+                        ForEach(s.split) { part in
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(paymentInk(part.payment))
+                                .frame(
+                                    width: max(
+                                        5,
+                                        (proxy.size.width - CGFloat(s.split.count - 1) * 3)
+                                            * CGFloat(part.revenue) / CGFloat(max(1, s.stats.revenue))
+                                    )
+                                )
+                        }
+                    }
+                }
+                .frame(height: 7)
 
-            Spacer(minLength: 0)
-
-            VStack(spacing: 4) {
-                Ring(share: keptShare)
-                    .frame(width: 68, height: 68)
-                Text("ձեզ մնում է")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.white.opacity(0.72))
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(s.split) { part in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(paymentInk(part.payment))
+                                    .frame(width: 6, height: 6)
+                                Text(paymentLabel(part.payment))
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(Brand.boardMuted)
+                                    .lineLimit(1)
+                            }
+                            Text(money(part.revenue, currency))
+                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.62)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Ձեզ մնում է")
-            .accessibilityValue("\(Int((keptShare * 100).rounded())) տոկոս")
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .auroraTile(.violet, radius: 24)
+        .padding(15)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
     }
 
-    /**
-     * Мелкая плитка показателя.
-     *
-     * Устройство ровно то же, что у плиток на экране разделов: засечка и
-     * подпись сверху, число внизу, крупный полупрозрачный знак в правом
-     * верхнем углу. Четыре плитки одного размера, одного скругления, с
-     * одним направлением света — набор приборов, а не четыре виджета.
-     *
-     * Знак приглушён сильнее, чем на разделах (`calm`): там он опознавал
-     * раздел, здесь на плитке уже стоит число, и второй крупный объект
-     * рядом с ним начинает спорить.
-     */
-    private func metric(
-        _ tone: Tone,
-        _ title: String,
-        _ value: String,
+    private func paymentInk(_ key: String) -> Color {
+        switch key {
+        case "cash": return Brand.mintInk
+        case "card": return Brand.lavenderInk
+        case "transfer": return Brand.sandInk
+        case "pass": return Brand.grape
+        default: return Brand.boardMuted
+        }
+    }
+
+    /// Рабочий показатель: тихая поверхность и маленький функциональный
+    /// знак вместо огромной декоративной пиктограммы.
+    private func softMetric(
+        background: Color,
+        ink: Color,
+        title: String,
+        value: String,
         foot: String,
         symbol: String,
         animate: Double
     ) -> some View {
-        ZStack(alignment: .topTrailing) {
-            ToneMark(symbol: symbol, tone: tone, size: 54, offset: CGSize(width: 10, height: -4), calm: true)
+        VStack(alignment: .leading, spacing: 0) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(ink)
+                .frame(width: 32, height: 32)
+                .background(ink.opacity(0.1), in: .rect(cornerRadius: 10))
 
-            VStack(alignment: .leading, spacing: 0) {
-                ToneAccent(tone: tone).padding(.bottom, 7)
-                Text(title)
-                    .font(.system(size: 12))
-                    .foregroundStyle(tone.ink.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+            Spacer(minLength: 10)
 
-                Spacer(minLength: 8)
+            Text(title)
+                .font(.system(size: 12))
+                .foregroundStyle(ink.opacity(0.8))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
 
-                Text(value)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(tone.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText(value: animate))
-                /* Пустая приписка занимает свою строку пробелом, а не
-                   исчезает. Иначе у плитки без приписки число опускается
-                   на её высоту ниже соседней, и четыре показателя в сетке
-                   стоят на четырёх разных уровнях. */
-                Text(foot.isEmpty ? " " : foot)
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(tone.ink.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.top, 1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(value)
+                .font(.system(size: 21, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText(value: animate))
+            Text(foot.isEmpty ? " " : foot)
+                .font(.system(size: 10.5))
+                .foregroundStyle(ink.opacity(0.68))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 1)
         }
-        .padding(15)
-        .frame(height: 118, alignment: .topLeading)
+        .padding(14)
+        .frame(height: 134, alignment: .topLeading)
         .frame(maxWidth: .infinity)
-        .auroraTile(tone, radius: 24)
+        .background(background, in: .rect(cornerRadius: 20))
         .accessibilityElement(children: .combine)
-    }
-
-    private func expensesNote(_ s: API.Summary) -> String {
-        // Без этой приписки владелец скажет «я столько сегодня не тратил», и
-        // будет прав: в сумме сидит доля месячной аренды. Она важнее общего
-        // «все расходы» и потому стоит первой.
-        if s.costs.monthlyShare > 0 && period == "today" { return "ամսականից օրվա բաժինը" }
-        if s.costs.oneOff > 0 && s.costs.monthlyShare == 0 { return "միանվագ" }
-        return "բոլոր ծախսերը"
     }
 
     // ══════════════════════════ журнал ══════════════════════════
@@ -777,6 +794,13 @@ struct OwnerView: View {
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
+                if newestFeedID == item.id {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Brand.goodOnBoard)
+                        .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
+                        .transition(.opacity)
+                }
                 Spacer(minLength: 8)
                 Text(money(item.price, currency))
                     .font(.system(size: 15, weight: .semibold))
@@ -827,6 +851,15 @@ struct OwnerView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 11)
+        .background(
+            newestFeedID == item.id ? Brand.lime.opacity(0.1) : Color.clear,
+            in: .rect(cornerRadius: 12)
+        )
+        .transition(
+            reduceMotion
+                ? .opacity
+                : .move(edge: .top).combined(with: .opacity)
+        )
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(who), \(item.clientKey ?? "")")
@@ -865,7 +898,7 @@ struct OwnerView: View {
        экране путают даже автора продукта. «Вам остаётся» ни на что не
        похоже, потому что это не термин, а обычная речь. */
     private var profitTitle: String {
-        switch period {
+        switch summaryPeriod {
         case "month": return isLoss ? "Այս ամիս մինուսի մեջ եք" : "Այս ամիս ձեզ մնում է"
         case "prevmonth": return isLoss ? "Անցյալ ամիս մինուսում էիք" : "Անցյալ ամիս ձեզ մնացել է"
         default: return isLoss ? "Այսօր մինուսի մեջ եք" : "Այսօր ձեզ մնում է"
@@ -877,7 +910,7 @@ struct OwnerView: View {
        даже автора продукта. Обычная речь ни на что не похожа и потому
        читается однозначно. */
     private var paidTitle: String {
-        switch period {
+        switch summaryPeriod {
         case "month": return "Այս ամիս վճարել են"
         case "prevmonth": return "Անցյալ ամիս վճարել են"
         default: return "Այսօր վճարել են"
@@ -885,7 +918,7 @@ struct OwnerView: View {
     }
 
     private var spentTitle: String {
-        switch period {
+        switch summaryPeriod {
         case "month": return "Այս ամիս ծախսվել է"
         case "prevmonth": return "Անցյալ ամիս ծախսվել է"
         default: return "Այսօր ծախսվել է"
@@ -899,7 +932,7 @@ struct OwnerView: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: "hy_AM")
         f.dateFormat = "d MMMM"
-        guard let from = summary?.from, period != "today" else {
+        guard let from = summary?.from, summaryPeriod != "today" else {
             return f.string(from: summary?.from ?? Date())
         }
         /* Верхнюю границу берём из ответа, а не из «сегодня»: у закрытого
@@ -920,7 +953,7 @@ struct OwnerView: View {
         guard abs(diff) >= 100 else { return nil }
 
         let label: String
-        if period == "today" {
+        if summaryPeriod == "today" {
             label = "մեկ շաբաթ առաջ այս ժամին"
         } else if let f = s.previous.from, let t = s.previous.to {
             label = range(f, t)
@@ -983,9 +1016,28 @@ struct OwnerView: View {
         await reload()
     }
 
-    private func reload() async {
+    private func selectPeriod(_ key: String) async {
+        guard key != period else { return }
+
+        if reduceMotion {
+            detailsVisible = false
+        } else {
+            withAnimation(.easeOut(duration: 0.12)) {
+                detailsVisible = false
+            }
+        }
+        period = key
+        await reload(staged: true)
+    }
+
+    private func reload(staged: Bool = false) async {
+        loadID += 1
+        let id = loadID
+        let requestedPeriod = period
         loading = true
-        defer { loading = false }
+        defer {
+            if id == loadID { loading = false }
+        }
 
         /* Поводы тянем вместе со сводкой и молча: колокольчик — не то,
            ради чего открывают экран, и его отказ не должен мешать
@@ -1000,11 +1052,16 @@ struct OwnerView: View {
         do {
             let fresh = try await session.authed { token in
                 try await APIClient.shared.send(
-                    "summary?period=\(period)",
+                    "summary?period=\(requestedPeriod)",
                     token: token,
                     as: API.Summary.self
                 )
             }
+
+            guard id == loadID, requestedPeriod == period else { return }
+
+            let oldIDs = Set(summary?.feed.map(\.id) ?? [])
+            let inserted = staged ? nil : fresh.feed.first { !oldIDs.contains($0.id) }
 
             /* Числа перекручиваются разрядами при смене периода — так видно,
                что это то же число за другой срок, а не другой экран.
@@ -1013,20 +1070,44 @@ struct OwnerView: View {
                старте читается как индикатор загрузки, а не как смысл. */
             if summary == nil || reduceMotion {
                 summary = fresh
+                summaryPeriod = requestedPeriod
+                newestFeedID = inserted?.id
             } else {
-                withAnimation(.snappy(duration: 0.45)) { summary = fresh }
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.94)) {
+                    summary = fresh
+                    summaryPeriod = requestedPeriod
+                    newestFeedID = inserted?.id
+                }
             }
             failure = nil
+
+            if staged && !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(110))
+            }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.2)) {
+                detailsVisible = true
+            }
+
+            if inserted != nil {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(850))
+                    withAnimation(.easeOut(duration: 0.18)) { newestFeedID = nil }
+                }
+            }
         } catch is CancellationError {
             /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
                сломалось — и экран об этом молчит: прежнее содержимое
                остаётся на месте. */
             return
         } catch let error as APIError {
+            detailsVisible = true
+            period = summaryPeriod
             failure = error.isOffline
                 ? "Կապ չկա։"
                 : "Սերվերը չպատասխանեց (\(error.status) \(error.code ?? "—"))"
         } catch {
+            detailsVisible = true
+            period = summaryPeriod
             // разбор ответа: показываем как есть — это баг, а не сбой сети, и
             // прятать его за «попробуйте позже» значит никогда не найти
             failure = "\(error)"

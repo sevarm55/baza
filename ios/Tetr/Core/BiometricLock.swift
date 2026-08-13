@@ -62,17 +62,21 @@ final class BiometricLock: ObservableObject {
     }
 
     func unlock() async {
-        let context = LAContext()
-        // «Ввести пароль» вместо «Отмена»: тупика быть не должно
-        context.localizedFallbackTitle = ""
+        locked = !(await authenticate(reason: "Բացել Tetrin-ը"))
+    }
 
+    /// Та же системная проверка нужна быстрому сохранённому входу. Один
+    /// метод гарантирует, что замок и аватар не расходятся по безопасности.
+    func authenticate(reason: String) async -> Bool {
+        let context = LAContext()
+        context.localizedFallbackTitle = ""
         do {
-            locked = !(try await context.evaluatePolicy(
+            return try await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: "Բացել Tetrin-ը"
-            ))
+                localizedReason: reason
+            )
         } catch {
-            // отказались или не вышло — остаётся закрытым, попробуют снова
+            return false
         }
     }
 }

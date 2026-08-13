@@ -4,52 +4,94 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePendingTab } from '@/components/use-pending-tab';
 import { sectionsFor } from '@/components/sections';
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  useSidebar,
+} from '@/components/ui/sidebar';
 
-/**
- * Меню разделов в боковой колонке.
- *
- * Активный раздел определяется по началу адреса, а не по точному
- * совпадению: `/owner/points` живёт внутри настроек, и подсветка
- * должна оставаться на них, иначе на этой странице не выбрано ничего.
- *
- * Флаг абонементов приходит с сервера — клиентский код до переменных
- * окружения не достаёт.
- */
+/** Primary app navigation composed entirely from shadcn Sidebar parts. */
 export function SideNav({ passes }: { passes: boolean }) {
   const pathname = usePathname();
   const sections = sectionsFor(passes);
+  const { setOpenMobile } = useSidebar();
 
-  /* Самое длинное совпадение, иначе «Сегодня» (`/owner`) подсвечивался
-     бы на каждой странице кабинета разом с открытым разделом.
-
-     Ничего не совпало — не подсвечено ничего: на экране записи владелец
-     стоит вне разделов, и горящий «Сегодня» обещал бы ему, что он там. */
   const current =
     [...sections]
       .sort((a, b) => b.href.length - a.href.length)
-      .find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))?.href ?? '';
+      .find((section) => pathname === section.href || pathname.startsWith(`${section.href}/`))
+      ?.href ?? '';
 
   const { active, pending, select } = usePendingTab(current);
+  const overview = sections.filter((section) => section.href === '/owner');
+  const finance = sections.filter((section) =>
+    ['/owner/payroll', '/owner/expenses'].includes(section.href),
+  );
+  const management = sections.filter(
+    (section) => !overview.includes(section) && !finance.includes(section),
+  );
+
+  function renderSection(section: (typeof sections)[number]) {
+    const selected = active === section.href;
+    return (
+      <SidebarMenuItem key={section.href}>
+        <SidebarMenuButton
+          render={
+            <Link
+              href={section.href}
+              onClick={() => {
+                select(section.href);
+                setOpenMobile(false);
+              }}
+              aria-current={selected ? 'page' : undefined}
+              data-pending={pending && selected ? '' : undefined}
+            />
+          }
+          isActive={selected}
+          tooltip={section.label}
+          className="h-10 rounded-lg px-4 data-active:bg-good-bg data-active:text-good-ink data-active:hover:bg-good-bg data-active:hover:text-good-ink"
+        >
+          {section.icon}
+          <span>{section.label}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
-    <nav className="flex flex-col gap-0.5">
-      {sections.map((s) => (
-        <Link
-          key={s.href}
-          href={s.href}
-          onClick={() => select(s.href)}
-          aria-current={active === s.href ? 'page' : undefined}
-          data-pending={pending && active === s.href ? '' : undefined}
-          className={`nav-item ${active === s.href ? 'nav-item-on' : ''}`}
-          /* Имя раздела в атрибуте: в свёрнутой колонке подписи нет, и
-             подсказку под курсором рисует CSS из этого значения — без
-             состояния, обработчиков и лишнего клиентского кода. */
-          data-name={s.label}
-        >
-          <span className="nav-mark">{s.icon}</span>
-          <span className="rail-hide truncate">{s.label}</span>
-        </Link>
-      ))}
-    </nav>
+    <>
+      <SidebarGroup className="py-2">
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-1">{overview.map(renderSection)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarSeparator className="mx-4" />
+
+      <SidebarGroup className="py-2">
+        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
+          ՖԻՆԱՆՍՆԵՐ
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-1">{finance.map(renderSection)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarSeparator className="mx-4" />
+
+      <SidebarGroup className="py-2">
+        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
+          ԿԱՌԱՎԱՐՈՒՄ
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-1">{management.map(renderSection)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
   );
 }

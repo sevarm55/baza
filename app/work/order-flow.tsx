@@ -18,6 +18,7 @@ import {
 } from '@/lib/offline';
 import type { Payment } from '@/lib/orders';
 import { hhmm } from '@/lib/time';
+import { normalizeClientKey } from '@/lib/client-key';
 
 type Service = { id: string; name: string; price: number };
 type Recent = {
@@ -99,6 +100,10 @@ export function OrderFlow({
   const [queue, setQueue] = useState<QueuedOrder[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const resolvedClientKey =
+    clientIdType === 'plate'
+      ? normalizeClientKey(clientKey)
+      : clientKey.trim().toUpperCase();
 
   useEffect(() => {
     setQueue(readQueue());
@@ -131,7 +136,7 @@ export function OrderFlow({
      не бить в сервер на каждую букву, но 250 мс человек не замечает. */
   useEffect(() => {
     if (step !== 'compose') return;
-    const key = clientKey.trim();
+    const key = resolvedClientKey;
     if (key.length < 3) {
       setKnown(null);
       return;
@@ -142,7 +147,7 @@ export function OrderFlow({
         .catch(() => setKnown(null));
     }, 250);
     return () => clearTimeout(timer);
-  }, [clientKey, step]);
+  }, [resolvedClientKey, step]);
 
   useEffect(() => {
     if (step === 'compose') inputRef.current?.focus();
@@ -162,7 +167,7 @@ export function OrderFlow({
 
     const item: QueuedOrder = {
       ref: newRef(),
-      clientKey,
+      clientKey: resolvedClientKey,
       serviceId: service.id,
       serviceName: service.name,
       price: service.price,
@@ -311,7 +316,7 @@ export function OrderFlow({
   const activePass = service
     ? known?.passes?.find((p) => p.serviceId === service.id)
     : undefined;
-  const ready = clientKey.trim().length > 0 && service !== null;
+  const ready = resolvedClientKey.length > 0 && service !== null;
 
   /* Запись — на той же подложке, что журнал на её месте. Иначе при
      переходе с главной прибор исчезает, и форма висит на голом
@@ -327,6 +332,7 @@ export function OrderFlow({
           className="field field-key auth-field"
           value={clientKey}
           onChange={(e) => setClientKey(e.target.value)}
+          onBlur={() => setClientKey(resolvedClientKey)}
           inputMode={clientIdType === 'phone' ? 'tel' : 'text'}
           autoComplete="off"
           autoCapitalize="characters"

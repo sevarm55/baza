@@ -1,12 +1,66 @@
 'use client';
 
-import { useActionState } from 'react';
-import { signIn, type FormState } from '@/app/actions';
+import { useActionState, useState } from 'react';
+import { resumeSavedAccount, signIn, type FormState } from '@/app/actions';
 import { PinInput } from '@/components/pin-input';
+import { personColor } from '@/lib/person-color';
+import type { RememberedWebAccount } from '@/lib/auth';
 import { hy } from '@/lib/i18n/hy';
 
-export function LoginForm() {
+export function LoginForm({ remembered = null }: { remembered?: RememberedWebAccount | null }) {
   const [state, action, pending] = useActionState<FormState, FormData>(signIn, null);
+  const [resumeState, resumeAction, resuming] = useActionState<FormState, FormData>(
+    resumeSavedAccount,
+    null,
+  );
+  const [manual, setManual] = useState(!remembered);
+
+  if (remembered && !manual && !resumeState?.error) {
+    const initial = remembered.name.trim().slice(0, 1).toUpperCase();
+    const color = personColor(remembered.name);
+
+    return (
+      <div className="grid justify-items-center gap-4 text-center">
+        <p className="text-[13px] font-semibold tracking-[0.08em] text-muted uppercase">
+          {hy.auth.welcomeBack}
+        </p>
+
+        <form action={resumeAction}>
+          <button
+            className="group relative grid size-24 place-items-center rounded-full text-[34px] font-bold text-white outline-none transition duration-200 hover:scale-[1.035] active:scale-[0.97] focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--accent)_32%,transparent)] disabled:opacity-60"
+            style={{
+              background: color,
+              boxShadow: `0 18px 42px color-mix(in srgb, ${color} 28%, transparent)`,
+            }}
+            aria-label={`${hy.auth.signIn}՝ ${remembered.name}`}
+            disabled={resuming}
+          >
+            {resuming ? (
+              <span className="size-6 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+            ) : (
+              initial
+            )}
+            <span className="absolute inset-1 rounded-full border border-white/20" aria-hidden />
+          </button>
+        </form>
+
+        <div>
+          <div className="text-[20px] leading-tight font-bold">{remembered.name}</div>
+          <div className="mt-1 text-[13.5px] text-muted">{remembered.tenant}</div>
+        </div>
+
+        <p className="text-[12.5px] text-muted">{hy.auth.tapAvatar}</p>
+
+        <button
+          type="button"
+          className="text-[13.5px] font-semibold text-muted underline decoration-current/30 underline-offset-4 transition hover:text-ink"
+          onClick={() => setManual(true)}
+        >
+          {hy.auth.anotherAccount}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form action={action} className="grid gap-4">
@@ -39,7 +93,9 @@ export function LoginForm() {
         <PinInput />
       </label>
 
-      {state?.error && <p className="alert">{state.error}</p>}
+      {(state?.error || resumeState?.error) && (
+        <p className="alert">{state?.error ?? resumeState?.error}</p>
+      )}
 
       <button className="btn mt-1" disabled={pending}>
         {pending ? hy.common.loading : hy.auth.signIn}

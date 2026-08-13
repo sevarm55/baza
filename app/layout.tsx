@@ -1,8 +1,8 @@
-import { RAIL_BOOT } from '@/lib/rail-state';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 /**
  * Mardoto — весь текст продукта.
@@ -79,16 +79,15 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             // тёмная по умолчанию: продукт выглядит так же, как приложение
-            /* Тема и ширина колонки ставятся до отрисовки. Оба — выбор
-               человека, которого сервер не знает: примени их после
-               гидратации, и экран мигнёт чужим состоянием. */
-            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})();${RAIL_BOOT}`,
+            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})();`,
           }}
         />
       </head>
       <body className="min-h-full flex flex-col">
-        {children}
-        {modal}
+        <TooltipProvider>
+          {children}
+          {modal}
+        </TooltipProvider>
         <ServiceWorker />
       </body>
     </html>

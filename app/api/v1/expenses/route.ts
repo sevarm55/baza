@@ -1,6 +1,13 @@
 import { ensureDb } from '@/lib/db/ready';
-import { startOfDay, startOfMonth, startOfPrevMonth } from '@/lib/queries';
-import { addExpense, listExpenses, BadExpenseError, EXPENSE_HINTS } from '@/lib/expenses';
+import { startOfDay } from '@/lib/queries';
+import {
+  addExpense,
+  getPeriodCosts,
+  listExpenses,
+  BadExpenseError,
+  EXPENSE_HINTS,
+} from '@/lib/expenses';
+import { windowFor } from '@/lib/summary-window';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
@@ -25,15 +32,16 @@ export async function GET(request: Request) {
        граница периода должна совпадать с той, которой он считает сам. */
     const month = new URL(request.url).searchParams.get('month') ?? 'current';
     const prev = month === 'prev';
-    const from = prev
-      ? startOfPrevMonth(ctx.tenant.timezone)
-      : startOfMonth(ctx.tenant.timezone);
-    const to = prev ? startOfMonth(ctx.tenant.timezone) : undefined;
+    const period = windowFor(prev ? 'prevmonth' : 'month', ctx.tenant.timezone);
 
-    const rows = await listExpenses(ctx.tenant.id, from, to);
+    const [rows, costs] = await Promise.all([
+      listExpenses(ctx.tenant.id, period.from, period.to, { activeMonthlyOnly: !prev }),
+      getPeriodCosts(ctx.tenant.id, period.from, period.to, period.spread),
+    ]);
 
     return ok({
       hints: EXPENSE_HINTS,
+      costs,
       expenses: rows.map((e) => ({
         id: e.id,
         amount: e.amount,
@@ -41,6 +49,7 @@ export async function GET(request: Request) {
         note: e.note,
         monthly: e.monthly,
         at: e.at,
+        endedAt: e.endedAt,
       })),
     });
   } catch (e) {

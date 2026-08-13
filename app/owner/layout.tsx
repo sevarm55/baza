@@ -1,15 +1,17 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
-import { TopBar } from '@/components/top-bar';
-import { OwnerTabs } from '@/components/owner-tabs';
 import { Rail } from '@/components/rail';
+import { Logo } from '@/components/logo';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
+import { hy } from '@/lib/i18n/hy';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const session = await requireOwner();
@@ -30,6 +32,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
      странице кабинета, и число на нём должно совпадать с тем, что
      человек увидит внутри, на какой бы странице он ни нажал. */
   const alerts = await getAlerts(tenant.id, me.id);
+  const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
 
   /* Два способа показать одно и то же.
 
@@ -41,7 +44,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
      Переключает не состояние, а ширина окна: обе разметки лежат в
      дереве всегда, и переход между ними ничего не перезагружает. */
   return (
-    <div className="shell">
+    <SidebarProvider defaultOpen={sidebarOpen}>
       <Rail
         tenantName={tenant.name}
         userName={me.name}
@@ -52,29 +55,23 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         alerts={alerts}
       />
 
-      <div className="min-w-0">
-        <div className="lg:hidden">
-          <TopBar
-            tenantName={tenant.name}
-            subtitle={me.name}
-            role="owner"
-            active="owner"
-            points={points}
-            currentTid={tenant.id}
-            alerts={alerts}
-          />
-        </div>
+      <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
+          <SidebarTrigger aria-label={hy.common.expand} title={hy.common.expand} />
+          <Logo size={24} withName={false} />
+          <div className="min-w-0">
+            <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>
+            <div className="truncate text-[11.5px] text-sidebar-foreground/55">{me.name}</div>
+          </div>
+        </header>
 
-        <main className="canvas">
+        <div className="canvas">
           <div className="canvas-inner">
-            <div className="lg:hidden">
-              <OwnerTabs passes={passes} />
-            </div>
             <BillingBanner access={currentAccess(tenant)} role="owner" />
             {children}
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

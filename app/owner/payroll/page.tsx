@@ -153,7 +153,12 @@ export default async function PayrollPage() {
 
                 {r.staffId && r.earned > 0 && (
                   <div className="mt-4">
-                    <PayButton staffId={r.staffId} label={hy.owner.markPaid} />
+                    <PayButton
+                      staffId={r.staffId}
+                      label={hy.owner.markPaid}
+                      name={r.name ?? '—'}
+                      amount={money(r.earned)}
+                    />
                   </div>
                 )}
               </Panel>

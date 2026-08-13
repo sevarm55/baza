@@ -194,10 +194,17 @@ struct ProfileView: View {
                 )
             }
 
+            if isOwner {
+                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+            }
+            toggleRow(
+                "Հիշել այս հաշիվը",
+                "Դուրս գալուց հետո վերադարձեք ավատարով և սարքի հաստատմամբ",
+                isOn: $session.rememberLogin
+            )
+
             if lock.available {
-                if isOwner {
-                    Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
-                }
+                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
                 toggleRow(
                     "Բացել \(lock.kindName)-ով",
                     "Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից",

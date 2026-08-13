@@ -28,31 +28,10 @@ struct ServicesView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 16) {
                 if loaded { reading }
 
-                Flow(spacing: 8) {
-                    ForEach(services) { service in
-                        Button {
-                            editing = service
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(service.name)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(Brand.onBoard)
-                                Text(priceLabel(service))
-                                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(Brand.onBoard)
-                            }
-                            .padding(.horizontal, 15)
-                            .padding(.vertical, 12)
-                            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
-                        }
-                        .buttonStyle(.press)
-                        .accessibilityElement(children: .combine)
-                    }
-                }
+                serviceRail
 
                 if loaded && services.isEmpty {
                     Text("Գնացուցակը դատարկ է")
@@ -62,7 +41,6 @@ struct ServicesView: View {
                         .padding(.vertical, 44)
                 }
 
-                addButton
                 tiersButton
 
                 Text("Գնի փոփոխությունը չի ազդում արդեն կատարված գրանցումների վրա։")
@@ -72,7 +50,7 @@ struct ServicesView: View {
                     .padding(.horizontal, 6)
                     .padding(.top, 6)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -103,56 +81,118 @@ struct ServicesView: View {
         return low == high ? money(low, currency) : "\(money(low, currency)) — \(money(high, currency))"
     }
 
-    /// Средний чек по прайсу — то, чего здесь не было: владелец правит
-    /// цены по одной и не видит, куда съезжает уровень целиком.
+    /// Обложка прайса: это один документ, а не набор случайных настроек.
     private var reading: some View {
         let avg = services.isEmpty ? 0 : services.reduce(0) { $0 + $1.price } / services.count
 
-        return VStack(spacing: 0) {
-            Text("Միջին գին գնացուցակում")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
+        return HStack(alignment: .bottom, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("ԳՆԱՑՈՒՑԱԿ")
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .tracking(1.5)
+                    .foregroundStyle(Brand.lime)
+                Text("Ծառայություններ")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("\(services.count) դիրք")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.58))
+            }
 
-            Text(money(avg, currency))
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.45)
-                .contentTransition(.numericText(value: Double(avg)))
+            Spacer(minLength: 0)
 
-            Text("\(services.count) ծառայություն")
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-                .padding(.top, 6)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("միջին գին")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.58))
+                Text(money(avg, currency))
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .contentTransition(.numericText(value: Double(avg)))
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 6)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 136, alignment: .bottomLeading)
+        .background(Brand.grapeDeep, in: .rect(cornerRadius: 26))
     }
 
-    private var addButton: some View {
-        Button {
-            adding = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.grape)
-                    .frame(width: 44, height: 44)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-                Text("Ավելացնել ծառայություն")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-                Spacer(minLength: 0)
+    private var serviceRail: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 10) {
+                ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
+                    serviceTicket(service, index: index)
+                }
+
+                Button {
+                    adding = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 19, weight: .bold))
+                            .frame(width: 38, height: 38)
+                            .background(Brand.onLime.opacity(0.1), in: .rect(cornerRadius: 12))
+                        Spacer()
+                        Text("Նոր\nծառայություն")
+                            .font(.system(size: 16, weight: .bold))
+                            .multilineTextAlignment(.leading)
+                    }
+                    .foregroundStyle(Brand.onLime)
+                    .padding(14)
+                    .frame(width: 132, height: 148, alignment: .leading)
+                    .background(Brand.lime, in: .rect(cornerRadius: 22))
+                }
+                .buttonStyle(.press)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 24))
+        }
+        .scrollIndicators(.hidden)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+    }
+
+    private func serviceTicket(_ service: API.Service, index: Int) -> some View {
+        let palette: [(Color, Color)] = [
+            (Brand.mintCard, Brand.mintInk),
+            (Brand.lavenderCard, Brand.lavenderInk),
+            (Brand.sandCard, Brand.sandInk),
+        ]
+        let colors = palette[index % palette.count]
+
+        return Button {
+            editing = service
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(String(format: "%02d", index + 1))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .opacity(0.6)
+
+                Spacer()
+
+                Text(service.name)
+                    .font(.system(size: 16, weight: .bold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Text(priceLabel(service))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.top, 3)
+            }
+            .foregroundStyle(colors.1)
+            .padding(14)
+            .frame(width: 154, height: 148, alignment: .leading)
+            .background(colors.0, in: .rect(cornerRadius: 22))
         }
         .buttonStyle(.press)
-        .padding(.top, 10)
+        .accessibilityElement(children: .combine)
     }
 
     /**
@@ -189,7 +229,11 @@ struct ServicesView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 24))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
         }
         .buttonStyle(.press)
     }

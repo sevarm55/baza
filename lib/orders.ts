@@ -4,6 +4,7 @@ import { db } from './db';
 import { audit, clients, orderItems, orders, passes, services, tenants, users } from './db/schema';
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
+import { normalizeClientKey } from './client-key';
 
 export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 
@@ -65,7 +66,7 @@ export class DuplicateError extends Error {}
  *    Server Action можно дёрнуть напрямую POST-запросом с чужим id.
  */
 export async function createOrder(input: CreateOrderInput) {
-  const key = input.clientKey.trim().toUpperCase();
+  const key = normalizeClientKey(input.clientKey);
   if (!key) throw new NotFoundError('EMPTY_CLIENT_KEY');
   if (input.payment === 'pass' && !input.passId) throw new NotFoundError('PASS_REQUIRED');
 

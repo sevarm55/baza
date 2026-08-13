@@ -1,4 +1,14 @@
 import type { ReactNode } from 'react';
+import {
+  Banknote,
+  CarFront,
+  ChartNoAxesCombined,
+  FileChartColumn,
+  ReceiptText,
+  SlidersHorizontal,
+  TicketCheck,
+  Users,
+} from 'lucide-react';
 import { hy } from '@/lib/i18n/hy';
 
 /**
@@ -22,77 +32,43 @@ export type Section = {
   feature?: 'passes';
 };
 
-const S = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.5,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-} as const;
-
-function Icon({ children }: { children: ReactNode }) {
-  return (
-    <svg viewBox="0 0 16 16" className="size-[18px]" aria-hidden {...S}>
-      {children}
-    </svg>
-  );
-}
-
 export const SECTIONS: Section[] = [
   {
     href: '/owner',
     label: hy.owner.tabToday,
     // столбики: то же, что рисует график дня
-    icon: (
-      <Icon>
-        <path d="M3 13V9M6.33 13V4M9.67 13V7M13 13v-2.5" />
-      </Icon>
-    ),
+    icon: <ChartNoAxesCombined aria-hidden="true" />,
   },
   {
     href: '/owner/payroll',
     label: hy.owner.tabPayroll,
     // купюра
-    icon: (
-      <Icon>
-        <rect x="2" y="4" width="12" height="8" rx="1.5" />
-        <circle cx="8" cy="8" r="1.75" />
-      </Icon>
-    ),
+    icon: <Banknote aria-hidden="true" />,
   },
   {
     href: '/owner/expenses',
     label: hy.expenses.title,
     // стрелка вниз: деньги уходят
-    icon: (
-      <Icon>
-        <path d="M8 3v8.5M4.75 8.5 8 11.75l3.25-3.25" />
-      </Icon>
-    ),
+    icon: <ReceiptText aria-hidden="true" />,
+  },
+  {
+    href: '/owner/reports',
+    label: hy.reports.title,
+    /* Лист с полосками: отчёт — это сравнение, а не одно число. */
+    icon: <FileChartColumn aria-hidden="true" />,
   },
   {
     href: '/owner/clients',
     label: hy.owner.tabClients,
     // машина сбоку — клиент здесь это номер на кузове
-    icon: (
-      <Icon>
-        <path d="M2.5 10.5h11M3.5 10.5V8l1.5-3h6l1.5 3v2.5" />
-        <circle cx="5.25" cy="11.25" r="1" />
-        <circle cx="10.75" cy="11.25" r="1" />
-      </Icon>
-    ),
+    icon: <CarFront aria-hidden="true" />,
   },
   {
     href: '/owner/passes',
     label: hy.passes.title,
     feature: 'passes',
     // талон
-    icon: (
-      <Icon>
-        <rect x="2" y="4.5" width="12" height="7" rx="1.5" />
-        <path d="M6 4.5v7" strokeDasharray="1.4 1.4" />
-      </Icon>
-    ),
+    icon: <TicketCheck aria-hidden="true" />,
   },
   {
     href: '/owner/staff',
@@ -100,25 +76,13 @@ export const SECTIONS: Section[] = [
     /* Двое, а не один: раздел о людях во множественном числе, а
        одиночная фигура уже занята «моей страницей» внизу колонки. Два
        одинаковых значка в одном столбце — это не значки, а орнамент. */
-    icon: (
-      <Icon>
-        <circle cx="6" cy="6" r="2.1" />
-        <path d="M2 13c0-2.1 1.8-3.4 4-3.4s4 1.3 4 3.4" />
-        <path d="M11 5.6a2.1 2.1 0 0 1 0 4M12.2 9.9c1.2.5 1.9 1.6 1.9 3.1" />
-      </Icon>
-    ),
+    icon: <Users aria-hidden="true" />,
   },
   {
     href: '/owner/settings',
     label: hy.owner.tabSettings,
     // ползунки
-    icon: (
-      <Icon>
-        <path d="M2.5 5h11M2.5 11h11" />
-        <circle cx="6" cy="5" r="1.5" />
-        <circle cx="10.5" cy="11" r="1.5" />
-      </Icon>
-    ),
+    icon: <SlidersHorizontal aria-hidden="true" />,
   },
 ];
 

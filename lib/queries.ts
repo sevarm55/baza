@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
+import { normalizeClientKey } from './client-key';
 import {
   accounts,
   clients,
@@ -557,7 +558,7 @@ export async function findClient(tenantId: string, key: string) {
     .where(
       and(
         eq(clients.tenantId, tenantId),
-        eq(clients.key, key.trim().toUpperCase()),
+        eq(clients.key, normalizeClientKey(key)),
         realClient,
       ),
     );
@@ -601,6 +602,7 @@ export async function listClients(tenantId: string, limit = 500) {
  * перестанет сходиться с лентой под ней.
  */
 export async function getClientHistory(tenantId: string, key: string, limit = 200) {
+  const normalizedKey = normalizeClientKey(key);
   const [client] = await db
     .select({
       id: clients.id,
@@ -614,7 +616,7 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
       daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
     })
     .from(clients)
-    .where(and(eq(clients.tenantId, tenantId), eq(clients.key, key)));
+    .where(and(eq(clients.tenantId, tenantId), eq(clients.key, normalizedKey)));
 
   if (!client) return null;
 

@@ -7,6 +7,7 @@ import { SwitchMark } from '@/components/switch-mark';
 import { hy } from '@/lib/i18n/hy';
 import { LoginForm } from '@/app/login/login-form';
 import { RegisterForm } from '@/app/start/[niche]/register-form';
+import type { RememberedWebAccount } from '@/lib/auth';
 import s from './auth-dialog.module.css';
 
 export type AuthMode = 'signIn' | 'register';
@@ -33,21 +34,19 @@ export type AuthMode = 'signIn' | 'register';
 export function AuthDialog({
   mode,
   niche,
+  remembered,
   onClose,
 }: {
   mode: AuthMode | null;
   /** ниша для регистрации — с лендинга она известна заранее */
   niche: string;
+  remembered?: RememberedWebAccount | null;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<AuthMode>('signIn');
-
-  useEffect(() => {
-    if (mode) setTab(mode);
-  }, [mode]);
+  const [tab, setTab] = useState<AuthMode>(mode ?? 'signIn');
 
   useEffect(() => {
     const dialog = ref.current;
@@ -129,7 +128,11 @@ export function AuthDialog({
           </div>
 
           <div className={s.body}>
-            {tab === 'signIn' ? <LoginForm /> : <RegisterForm nicheKey={niche} defaultName="" />}
+            {tab === 'signIn' ? (
+              <LoginForm remembered={remembered} />
+            ) : (
+              <RegisterForm nicheKey={niche} defaultName="" />
+            )}
           </div>
         </div>
       </div>

@@ -39,7 +39,7 @@ export function DayChart({
   if (points.length === 0) return null;
 
   const max = Math.max(...points.map((p) => p.value));
-  const peakIndex = points.findIndex((p) => p.value === max && max > 0);
+  const peakIndex = Math.max(0, points.findIndex((p) => p.value === max && max > 0));
 
   /* Накопление считается один раз и здесь: то же самое в разметке
      превратилось бы в сумму, пересчитываемую на каждой точке. */
@@ -63,24 +63,33 @@ export function DayChart({
   const shown = at ?? peakIndex;
   const active = points[shown];
 
-  /* Одна точка — это не график.
-
-     Пока за день отработан один час, рельеф вырождается в серую плиту во
-     всю ширину, а линия накопления — в точку: прибор занимает сто
-     пикселей и не отвечает ни на один из двух своих вопросов. Остаётся
-     подпись под ним, а она и так говорит час и сумму — ровно всё, что в
-     этот момент известно.
-
-     Прячется атрибутом, а не веткой в разметке: у прибора один вид и
-     одно место в потоке, и «нечего рисовать» — это его состояние, а не
-     второй компонент. */
-  const drawable = points.length > 1;
+  const axis = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
 
   return (
-    <div className="mt-1 mb-2">
+    <div className="mt-1 mb-1" aria-label="Հասույթի շարժը ժամանակի ընթացքում">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[12px] font-medium" style={{ color: 'var(--board-muted)' }}>
+            Մինչև հիմա
+          </div>
+          <div className="num mt-1 text-[clamp(28px,3vw,38px)] leading-none font-bold tracking-[-0.04em]">
+            {formatMoney(total, currency)}
+          </div>
+        </div>
+        <div className="flex items-center gap-4 text-[11.5px]" style={{ color: 'var(--board-muted)' }}>
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-5 rounded-full bg-[var(--tone-violet-glow)]" aria-hidden />
+            Կուտակված
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--board-ink)_16%,transparent)]" aria-hidden />
+            Ժամում
+          </span>
+        </div>
+      </div>
+
       <div
-        hidden={!drawable}
-        className="relative h-[96px] lg:h-[176px]"
+        className="relative h-[150px] cursor-crosshair lg:h-[210px]"
         onPointerLeave={() => setAt(null)}
         onPointerMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
@@ -174,32 +183,40 @@ export function DayChart({
         )}
       </div>
 
+      <div className="relative mt-2 h-4" aria-hidden>
+        {axis.map((i) => (
+          <span
+            key={`${points[i]?.label}-${i}`}
+            className="num absolute -translate-x-1/2 text-[11px]"
+            style={{
+              left: `${points.length > 1 ? (i / (points.length - 1)) * 100 : 50}%`,
+              color: 'var(--board-muted)',
+            }}
+          >
+            {points[i]?.label}
+          </span>
+        ))}
+      </div>
+
       {/* Подпись под графиком — она же подсказка.
 
           Всплывающее окно поверх линии закрывало бы её собой на узком
           экране, и палец на телефоне закрывал бы вместе с ним. Строка
           под графиком стоит на месте, ничего не перекрывает и меняется
           на лету: без курсора показывает пик, под курсором — точку. */}
-      <div className="mt-2 flex items-baseline justify-between gap-3">
-        {/* Границы периода — только когда есть что ограничивать: при
-            одной точке «08» слева и «08» справа это одно и то же число,
-            напечатанное дважды. */}
-        {drawable && (
-          <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
-            {points[0]?.label} — {points[points.length - 1]?.label}
-          </span>
-        )}
-
-        {active && (max > 0 || at !== null) && (
-          <span className="num flex items-baseline gap-2 text-[12px]">
-            <span style={{ color: 'var(--board-muted)' }}>{active.label}</span>
-            <span className="font-semibold" style={{ color: 'var(--on-board)' }}>
-              +{formatMoney(active.value, currency)}
+      <div className="mt-3 flex min-h-5 items-baseline justify-end gap-3 text-[12px]">
+        {active && (max > 0 || at !== null) ? (
+          <>
+            <span className="num" style={{ color: 'var(--board-muted)' }}>{active.label}</span>
+            <span className="num font-semibold" style={{ color: 'var(--on-board)' }}>
+              ժամում +{formatMoney(active.value, currency)}
             </span>
-            <span style={{ color: 'var(--board-muted)' }}>
-              {formatMoney(running[shown] ?? 0, currency)}
+            <span className="num" style={{ color: 'var(--board-muted)' }}>
+              ընդամենը {formatMoney(running[shown] ?? 0, currency)}
             </span>
-          </span>
+          </>
+        ) : (
+          <span style={{ color: 'var(--board-muted)' }}>Այսօր դեռ գրանցում չկա</span>
         )}
       </div>
     </div>

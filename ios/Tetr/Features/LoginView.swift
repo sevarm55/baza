@@ -7,11 +7,13 @@ import SwiftUI
 /// кто зарегистрирован.
 struct LoginView: View {
     @EnvironmentObject private var session: Session
+    @EnvironmentObject private var lock: BiometricLock
 
     @State private var phone = LoginView.prefilled("TETR_PHONE")
     @State private var pin = LoginView.prefilled("TETR_PIN")
     @State private var error: String?
     @State private var busy = false
+    @State private var manual = false
     @FocusState private var focus: Field?
     @Environment(\.splashActive) private var splashActive
 
@@ -49,65 +51,18 @@ struct LoginView: View {
                     .tracking(4)
                     .foregroundStyle(Brand.lime)
 
-                Text("Մուտք")
+                Text(session.rememberedAccount != nil && !manual ? "Կրկին բարև" : "Մուտք")
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.top, 10)
 
-                field(title: "Հեռախոս") {
-                    TextField("+374 77 123 456", text: $phone)
-                        .keyboardType(.phonePad)
-                        .textContentType(.telephoneNumber)
-                        .focused($focus, equals: .phone)
+                if let account = session.rememberedAccount, !manual {
+                    remembered(account)
+                        .padding(.top, 34)
+                } else {
+                    manualForm
+                        .padding(.top, 34)
                 }
-                .padding(.top, 34)
-
-                field(title: "PIN կոդ · 4 նիշ") {
-                    SecureField("••••", text: $pin)
-                        .keyboardType(.numberPad)
-                        .focused($focus, equals: .pin)
-                        .onChange(of: pin) { value in
-                            // четыре цифры и не больше: лишнее ввести
-                            // нельзя, а не «можно, но потом ошибка»
-                            if value.count > 4 { pin = String(value.prefix(4)) }
-                        }
-                }
-                .padding(.top, 16)
-
-                if let error {
-                    Text(error)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.lime)
-                        .padding(.top, 14)
-                }
-
-                Button("Մուտք գործել") {
-                    Task { await submit() }
-                }
-                .buttonStyle(LimeButton(loading: busy))
-                .disabled(busy || phone.isEmpty || pin.count < 4)
-                .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
-                .padding(.top, 28)
-
-                /* Заводить бизнес отсюда больше нельзя, и это не про
-                   удобство, а про правила App Store.
-
-                   Приложение раздаётся бесплатно, а сервис оплачивается вне
-                   его. Apple такое разрешает (3.1.3f) при условии, что
-                   внутри нет ни покупки, ни намёка на оплату снаружи.
-                   Самостоятельная регистрация с пробным сроком — это ровно
-                   начало платного пути, и держать её внутри значит спорить
-                   с этим условием на пустом месте.
-
-                   Экран при этом не должен быть тупиком: строка объясняет,
-                   откуда берётся вход. Без ссылки и без цен — по той же
-                   причине. */
-                Text("Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը")
-                    .font(.system(size: 13.5))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 18)
 
                 Spacer()
                 Spacer()
@@ -118,13 +73,123 @@ struct LoginView: View {
            клавиатура рисуется системой поверх всего приложения и закрывала
            бы ролик снизу. Оба обработчика нужны: экран может появиться и
            до заставки, и после неё. */
-        .onAppear { if !splashActive { focus = .phone } }
+        .onAppear {
+            if session.rememberedAccount == nil { manual = true }
+            if !splashActive && manual { focus = .phone }
+        }
         .onChange(of: splashActive) { _, active in
-            if !active { focus = .phone }
+            if !active && manual { focus = .phone }
         }
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
+    }
+
+    private func remembered(_ account: RememberedAccount) -> some View {
+        let tone = Brand.personTone(account.name)
+
+        return VStack(spacing: 15) {
+            Button {
+                Task { await quickSubmit(account) }
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(tone.base)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                        }
+                    Text(String(account.name.prefix(1)))
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 92, height: 92)
+                .shadow(color: tone.glow.opacity(0.28), radius: 24, y: 12)
+                .scaleEffect(busy ? 0.96 : 1)
+                .animation(.easeOut(duration: 0.14), value: busy)
+            }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .accessibilityLabel("Մուտք գործել որպես \(account.name)")
+
+            VStack(spacing: 3) {
+                Text(account.name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+                Text(account.tenant)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            if busy {
+                TetrLoader(size: 22, tint: Brand.lime)
+            } else {
+                Text("Հպեք ավատարին՝ մուտք գործելու համար")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(Brand.lime)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Մուտք գործել այլ համարով") {
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.96)) {
+                    manual = true
+                }
+                focus = .phone
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.72))
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var manualForm: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            field(title: "Հեռախոս") {
+                TextField("+374 77 123 456", text: $phone)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .focused($focus, equals: .phone)
+            }
+
+            field(title: "PIN կոդ · 4 նիշ") {
+                SecureField("••••", text: $pin)
+                    .keyboardType(.numberPad)
+                    .focused($focus, equals: .pin)
+                    .onChange(of: pin) { _, value in
+                        if value.count > 4 { pin = String(value.prefix(4)) }
+                    }
+            }
+            .padding(.top, 16)
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.lime)
+                    .padding(.top, 14)
+            }
+
+            Button("Մուտք գործել") {
+                Task { await submit() }
+            }
+            .buttonStyle(LimeButton(loading: busy))
+            .disabled(busy || phone.isEmpty || pin.count < 4)
+            .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
+            .padding(.top, 28)
+
+            Text("Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը")
+                .font(.system(size: 13.5))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity)
+                .padding(.top, 18)
+        }
     }
 
     @ViewBuilder
@@ -165,6 +230,26 @@ struct LoginView: View {
             error = message(for: e)
         } catch {
             self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+        }
+    }
+
+    private func quickSubmit(_ account: RememberedAccount) async {
+        busy = true
+        error = nil
+        defer { busy = false }
+
+        if lock.available {
+            guard await lock.authenticate(reason: "Մուտք գործել որպես \(account.name)") else { return }
+        }
+
+        do {
+            try await session.resumeRemembered()
+        } catch {
+            phone = account.phone
+            pin = ""
+            self.error = "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։"
+            withAnimation(.easeOut(duration: 0.2)) { manual = true }
+            focus = .pin
         }
     }
 

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import localFont from 'next/font/local';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getRememberedAccount, getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
@@ -29,6 +29,7 @@ const photo = (name: string) => `/landing/v2/${name}`;
 export default async function Home() {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
+  const remembered = await getRememberedAccount();
 
   const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
 
@@ -51,7 +52,7 @@ export default async function Home() {
           </div>
 
           <div className={s.navActions}>
-            <AuthTrigger mode="signIn" niche={niche} className={s.signIn}>
+            <AuthTrigger mode="signIn" niche={niche} remembered={remembered} className={s.signIn}>
               {hy.auth.signInTitle}
             </AuthTrigger>
             <AuthTrigger mode="register" niche={niche} className={s.navCta}>
@@ -252,5 +253,4 @@ export default async function Home() {
     </div>
   );
 }
-
 

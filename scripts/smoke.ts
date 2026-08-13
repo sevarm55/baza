@@ -84,7 +84,7 @@ async function main() {
   });
   await createOrder({
     tenantId: tenant.id, staffId: washer.id, serviceId: body.id,
-    clientKey: '12 AB 345', payment: 'card',
+    clientKey: '12AB345', payment: 'card',
   });
   const third = await createOrder({
     tenantId: tenant.id, staffId: washer.id, serviceId: complex.id,
@@ -99,7 +99,7 @@ async function main() {
   check('заработок мойщика 40% = 5 200', shift.earned === 5200, shift.earned);
 
   const client = await q.findClient(tenant.id, '12 ab 345');
-  check('регистр номера не создал второго клиента', client?.visits === 2, client?.visits);
+  check('регистр и пробелы номера не создали второго клиента', client?.visits === 2, client?.visits);
   check('сумма по клиенту 8 000', client?.total === 8000, client?.total);
 
   /* ---------- снимок цены ---------- */
@@ -1777,6 +1777,17 @@ async function main() {
   );
   check('и складывается с разовым', spread.total === spread.oneOff + spread.monthlyShare);
 
+  /* Смена календарного месяца ничего не закрывает: ended_at появляется
+     только после явного удаления. Проверяем далёкий будущий день, а не
+     соседние сутки, чтобы граница месяца точно оказалась пройдена. */
+  const futureDay = new Date(Date.now() + 45 * 86_400_000);
+  const futureCosts = await getPeriodCosts(
+    tenant.id,
+    futureDay,
+    new Date(futureDay.getTime() + 86_400_000),
+  );
+  check('месячный расход действует и в следующем месяце', futureCosts.monthlyShare > 0);
+
   /* Аренда, заведённая десять дней назад, не должна съедать прибыль
      за позапрошлый месяц. */
   const before = await getPeriodCosts(
@@ -1841,6 +1852,13 @@ async function main() {
   const monthlyRows = (await listExpensesFor(tenant.id)).filter((e) => e.monthly);
   const closed = await removeExpense(tenant.id, monthlyRows[0].id, q.startOfDay(tenant.timezone));
   check('постоянный убирается', closed);
+  const currentExpenses = await expensesRoute.GET(get('/expenses?month=current', rotated.access));
+  const currentExpenseBody = await currentExpenses.json();
+  check(
+    'закрытый месячный расход больше не выглядит активным',
+    !currentExpenseBody.expenses.some((e: { id: string }) => e.id === monthlyRows[0].id),
+    currentExpenseBody.expenses,
+  );
   const afterClose = await getPeriodCosts(
     tenant.id,
     new Date(Date.now() + 86_400_000),
