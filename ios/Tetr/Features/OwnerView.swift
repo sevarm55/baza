@@ -458,11 +458,163 @@ struct OwnerView: View {
                «сейчас», и под прошлым месяцем такой прибор врал бы самим
                своим присутствием. */
             queueBoard
+            /* Порядок тот же, что в кабинете: что сейчас → кто работает →
+               чем платили → что именно было. Два экрана одного продукта
+               обязаны отвечать в одной последовательности, иначе владелец
+               каждый раз заново ищет, где что. */
+            crewBoard(s)
+            paymentBreakdown(s)
             journal(s.feed)
         } else {
             chart(s.series)
             grid(s)
+            paymentBreakdown(s)
             journal(s.feed)
+        }
+    }
+
+    // ══════════════════════════ кто работает ══════════════════════════
+
+    /**
+     * Кто сегодня работает и сколько ему за это причитается.
+     *
+     * Раньше имена стояли только чипом у даты — списком, без единой
+     * цифры. На вопрос «кто на площадке» он отвечал, на вопрос «сколько
+     * я сегодня должен Валоду» — нет, и за ответом приходилось уходить в
+     * зарплаты.
+     *
+     * Сумма здесь — заработок человека, а не выручка, которую он принёс:
+     * приход уже назван строкой вычитания наверху, и повторять его
+     * именами значило бы показать одни и те же деньги дважды.
+     *
+     * Порядок по состоянию: сначала те, кто на смене, потом отработавшие.
+     * Внутри — по заработку. Вопрос «кто сейчас на посту» задают чаще,
+     * чем «кто заработал больше».
+     */
+    @ViewBuilder
+    private func crewBoard(_ s: API.Summary) -> some View {
+        let lines = crew(s)
+        if !lines.isEmpty {
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Այսօր աշխատում են")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text("\(lines.count)")
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted.opacity(0.7))
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .padding(.top, 14)
+                .padding(.bottom, 4)
+
+                ForEach(lines) { line in
+                    crewRow(line)
+                    if line.id != lines.last?.id {
+                        Divider().overlay(Brand.boardInk.opacity(0.07))
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 4)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
+            .padding(.top, 10)
+        }
+    }
+
+    private func crewRow(_ line: CrewLine) -> some View {
+        HStack(spacing: 9) {
+            /* Точка — состояние, а не опознавательный знак человека:
+               зелёная значит «сейчас здесь». Цвет человека в этом списке
+               не нужен — имена стоят по одному, различать их нечем. */
+            Circle()
+                .fill(line.present ? Brand.goodOnBoard : Color.clear)
+                .frame(width: 7, height: 7)
+                .overlay {
+                    if !line.present {
+                        Circle().strokeBorder(Brand.boardInk.opacity(0.28), lineWidth: 1.5)
+                    }
+                }
+
+            Text(line.name)
+                .font(.system(size: 14.5, weight: .semibold))
+                .foregroundStyle(line.present ? Brand.onBoard : Brand.boardMuted)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Text("\(line.count) \(session.tenant?.unitOne ?? "")".trimmingCharacters(in: .whitespaces))
+                .font(.system(size: 12.5))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
+
+            Text(money(line.earned, currency))
+                .font(.system(size: 14.5, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(line.name)\(line.present ? ", հերթափոխին" : ""), \(line.count), \(money(line.earned, currency))"
+        )
+    }
+
+    /// Человек в сегодняшнем дне: на смене или уже отработавший.
+    private struct CrewLine: Identifiable {
+        let id: String
+        let name: String
+        let present: Bool
+        let count: Int
+        let earned: Int
+    }
+
+    /**
+     * Список объединённый, а не два подряд.
+     *
+     * Человек, который встал на смену час назад и ещё ничего не намыл, в
+     * `byStaff` не попадает вовсе — по записям его не видно, а на
+     * площадке он стоит. И наоборот: тот, кто отработал утро и ушёл, из
+     * `onShift` уже пропал, но его деньги за день никуда не делись.
+     */
+    private func crew(_ s: API.Summary) -> [CrewLine] {
+        let worked = s.stats.byStaff ?? []
+        let present = Set(s.onShift.map(\.userId))
+
+        var out: [CrewLine] = s.onShift.map { person in
+            let line = worked.first { $0.staffId == person.userId }
+            return CrewLine(
+                id: person.userId,
+                name: person.name,
+                present: true,
+                count: line?.count ?? 0,
+                earned: line?.earned ?? 0
+            )
+        }
+
+        out += worked
+            .filter { line in line.staffId.map { !present.contains($0) } ?? true }
+            .map { line in
+                CrewLine(
+                    id: line.staffId ?? "—",
+                    name: line.name ?? "—",
+                    present: false,
+                    count: line.count,
+                    earned: line.earned
+                )
+            }
+
+        return out.sorted { a, b in
+            a.present == b.present ? a.earned > b.earned : a.present
         }
     }
 
@@ -474,14 +626,20 @@ struct OwnerView: View {
     /**
      * Быстрый ответ для сегодняшнего дня. Три показателя стоят одной
      * строкой без трёх цветных карточек: сначала итог наверху, затем объём,
-     * наличные и люди. Приход уже объяснён над строкой и здесь не
+     * средний чек и люди. Приход уже объяснён над строкой и здесь не
      * повторяется второй раз.
+     *
+     * Наличные отсюда ушли. Одно число «Կանխիկ» называло сумму, но не
+     * долю, — а решает владелец именно по доле: сколько денег дня лежит
+     * в кармане, а сколько придёт на счёт. Полный разрез стоит ниже, и
+     * держать здесь его четверть значило бы показывать одни и те же
+     * драмы дважды.
      */
     private func todaySnapshot(_ s: API.Summary) -> some View {
         HStack(spacing: 0) {
             snapshotValue("Սպասարկվել է", "\(s.stats.count)")
             snapshotDivider
-            snapshotValue("Կանխիկ", money(s.stats.cash, currency))
+            snapshotValue("Միջին չեկ", money(s.stats.avgCheck, currency))
             snapshotDivider
             snapshotValue("Հերթափոխին", "\(s.onShift.count)")
         }
@@ -569,42 +727,59 @@ struct OwnerView: View {
     // ══════════════════════════ финансовые детали ══════════════════════════
 
     /** За длинный период финансовая формула уже видна сверху. Здесь только
-        два операционных показателя и структура оплат — данные, которых в
-        формуле нет, поэтому ни одна большая сумма не повторяется. */
+        два операционных показателя — данные, которых в формуле нет,
+        поэтому ни одна большая сумма не повторяется. */
     private func grid(_ s: API.Summary) -> some View {
         let unit = session.tenant?.unitOne ?? ""
 
-        return VStack(spacing: gap) {
-            HStack(spacing: gap) {
-                softMetric(
-                    background: Brand.mintCard,
-                    ink: Brand.mintInk,
-                    title: "Սպասարկվել է",
-                    value: "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
-                    foot: "այս ժամանակահատվածում",
-                    symbol: "car.fill",
-                    animate: Double(s.stats.count)
-                )
-                softMetric(
-                    background: Brand.lavenderCard,
-                    ink: Brand.lavenderInk,
-                    title: "Միջին վճարումը",
-                    value: money(s.stats.avgCheck, currency),
-                    foot: unit.isEmpty ? "" : "մեկ \(ablative(unit))",
-                    symbol: "creditcard.fill",
-                    animate: Double(s.stats.avgCheck)
-                )
-            }
-
-            paymentBreakdown(s)
+        return HStack(spacing: gap) {
+            softMetric(
+                background: Brand.mintCard,
+                ink: Brand.mintInk,
+                title: "Սպասարկվել է",
+                value: "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
+                foot: "այս ժամանակահատվածում",
+                symbol: "car.fill",
+                animate: Double(s.stats.count)
+            )
+            softMetric(
+                background: Brand.lavenderCard,
+                ink: Brand.lavenderInk,
+                title: "Միջին վճարումը",
+                value: money(s.stats.avgCheck, currency),
+                foot: unit.isEmpty ? "" : "մեկ \(ablative(unit))",
+                symbol: "creditcard.fill",
+                animate: Double(s.stats.avgCheck)
+            )
         }
         .padding(.top, 20)
     }
 
+    /**
+     * Чем платили.
+     *
+     * Прибор стоит теперь и на сегодняшнем экране, а не только за месяц.
+     * Раньше сегодняшний день отвечал на этот вопрос одним числом
+     * «Կանխիկ» в строке фактов: сумма без доли не решает ничего, а
+     * решает владелец именно долей — сколько денег дня в кармане, а
+     * сколько придёт на счёт.
+     *
+     * Доля считается от суммы самих способов, а не от выручки периода: в
+     * выручку входит продажа абонемента, которой в разрезе нет, и
+     * проценты тогда не сходятся в сто.
+     *
+     * Порядок по величине, нулевые способы не показываются: строка
+     * «Փոխանցում 0 ֏ · 0 %» сообщает ровно то же, что её отсутствие, и
+     * занимает место.
+     */
+    @ViewBuilder
     private func paymentBreakdown(_ s: API.Summary) -> some View {
+        let parts = s.split.filter { $0.revenue > 0 }.sorted { $0.revenue > $1.revenue }
+        let total = parts.reduce(0) { $0 + $1.revenue }
+
         VStack(alignment: .leading, spacing: 13) {
             HStack {
-                Text("Վճարման եղանակները")
+                Text("Ինչով են վճարել")
                     .font(.system(size: 13.5, weight: .semibold))
                 Spacer()
                 Image(systemName: "wallet.bifold")
@@ -612,48 +787,13 @@ struct OwnerView: View {
                     .foregroundStyle(Brand.lavenderInk)
             }
 
-            if s.split.isEmpty {
-                Text("Դեռ վճարումներ չկան")
+            if parts.isEmpty {
+                Text("Վճարումներ դեռ չկան")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
             } else {
-                GeometryReader { proxy in
-                    HStack(spacing: 3) {
-                        ForEach(s.split) { part in
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(paymentInk(part.payment))
-                                .frame(
-                                    width: max(
-                                        5,
-                                        (proxy.size.width - CGFloat(s.split.count - 1) * 3)
-                                            * CGFloat(part.revenue) / CGFloat(max(1, s.stats.revenue))
-                                    )
-                                )
-                        }
-                    }
-                }
-                .frame(height: 7)
-
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(s.split) { part in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(paymentInk(part.payment))
-                                    .frame(width: 6, height: 6)
-                                Text(paymentLabel(part.payment))
-                                    .font(.system(size: 10.5, weight: .medium))
-                                    .foregroundStyle(Brand.boardMuted)
-                                    .lineLimit(1)
-                            }
-                            Text(money(part.revenue, currency))
-                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.62)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                ForEach(parts) { part in
+                    paymentRow(part, of: total)
                 }
             }
         }
@@ -663,6 +803,60 @@ struct OwnerView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
+        .padding(.top, 10)
+    }
+
+    /**
+     * Способ оплаты строкой с полосой под ней.
+     *
+     * Была одна общая лента из сегментов и легенда сбоку — то есть чтение
+     * в два приёма: найти цвет, найти его в списке. Полоса длиной в свою
+     * долю отвечает сразу, а сумма и процент стоят в той же строке.
+     */
+    private func paymentRow(_ part: API.SplitSegment, of total: Int) -> some View {
+        let share = total > 0 ? Int((Double(part.revenue) / Double(total) * 100).rounded()) : 0
+
+        return VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(paymentInk(part.payment))
+                    .frame(width: 6, height: 6)
+                Text(paymentLabel(part.payment))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text(money(part.revenue, currency))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                Text("\(share)%")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .frame(width: 38, alignment: .trailing)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Brand.boardInk.opacity(0.08))
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(paymentInk(part.payment))
+                        // не меньше двух процентов: нулевой ширины полоса
+                        // читается как отсутствие способа, а он есть
+                        .frame(width: max(proxy.size.width * CGFloat(max(share, 2)) / 100, 4))
+                }
+            }
+            .frame(height: 6)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(paymentLabel(part.payment)), \(money(part.revenue, currency)), \(share)%"
+        )
     }
 
     private func paymentInk(_ key: String) -> Color {
@@ -741,7 +935,11 @@ struct OwnerView: View {
         if !feed.isEmpty {
             VStack(spacing: 0) {
                 HStack {
-                    Text("Վերջին սպասարկումները")
+                    /* Тем же словом, что в кабинете: владелец приходит
+                       смотреть не на строки базы, а на то, что за день
+                       сделали. За длинный период это уже не «сегодня», и
+                       раздел честно называется потоком. */
+                    Text(summaryPeriod == "today" ? "Այսօրվա աշխատանքը" : "Հոսք")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer()
@@ -788,46 +986,64 @@ struct OwnerView: View {
                     .foregroundStyle(Brand.onBoard)
             }
 
-            HStack(spacing: 4) {
-                Text(at(item.createdAt))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                Text("·")
-                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
-                Text(who)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Brand.person(who))
-            }
-            .font(.system(size: 12))
-            .lineLimit(1)
-
             /* Услуга — потому что без неё цена необъяснима: 2 500 и 12 000 в
                соседних строках выглядят ошибкой, пока не видно, что одно это
                кузов, а другое химчистка. Способ оплаты словом, а не значком:
                значок карты и значок перевода на 10 точках различаются только
-               если знать, что они разные.
-               Доля работника — там же, третьей мелочью: она уже посчитана в
-               «Աշխատակցին» наверху, и отдельной колонки не стоит, но по
-               конкретной записи её спрашивают чаще всего. */
+               если знать, что они разные. */
             HStack(spacing: 4) {
+                Text(at(item.createdAt))
+                    .monospacedDigit()
+                Text("·")
+                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
                 Text(item.serviceName)
                 Text("·")
                     .foregroundStyle(Brand.boardMuted.opacity(0.6))
                 Text(paymentLabel(item.payment).lowercased())
-                // При нулевой ставке доли нет: у владельца, который
-                // записывает сам, процента нет, и «ему 0 ֏» в каждой
-                // строке — шум.
-                if (item.staffPercent ?? 0) > 0 {
-                    Text("·")
-                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
-                    Text("նրան \(money(item.earned, currency))")
-                        .monospacedDigit()
-                }
             }
             .font(.system(size: 12))
             .foregroundStyle(Brand.boardMuted)
             .lineLimit(1)
             .truncationMode(.tail)
+
+            /* Кто помыл и как разошлись деньги — одной строкой, теми же
+               словами, что в кабинете.
+
+               Раньше здесь стояло только «նրան 2 500 ֏»: сколько ушло
+               человеку, было видно, а сколько осталось мойке — нет, и
+               владелец вычитал в уме на каждой строке. Это и есть главная
+               арифметика продукта, и показывать из неё половину значит
+               оставлять вопрос открытым.
+
+               При нулевой ставке строки долей нет вовсе: у владельца,
+               который записывает сам, процента нет, и «ему 0 ֏» в каждой
+               записи — шум. */
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Brand.person(who))
+                    .frame(width: 6, height: 6)
+                Text(who)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Brand.person(who))
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                if (item.staffPercent ?? 0) > 0 {
+                    Text("Բաժին \(money(item.earned, currency))")
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                    Text("·")
+                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                }
+                Text("Բիզնեսին \(money(item.price - item.earned, currency))")
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+            }
+            .font(.system(size: 12))
+            .padding(.top, 1)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 11)

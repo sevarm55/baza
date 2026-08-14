@@ -1,42 +1,44 @@
 import SwiftUI
 
 /**
- * Очередь мойки глазами владельца: кто что моет прямо сейчас.
+ * Двор глазами владельца: что стоит на мойке прямо сейчас.
  *
  * До этого продукт знал только результат — вымытые машины за день. Что
  * стоит во дворе и кто чем занят, жило в голове владельца и в криках
- * через двор. Здесь очередь становится предметом, на который можно
+ * через двор. Здесь двор становится предметом, на который можно
  * посмотреть.
  *
- * В очереди только ждущие: переданные и взятые. Начатая машина отсюда
- * уходит в ленту — она уже не ждёт, и держать её здесь значит показывать
- * очередь длиннее настоящей.
+ * Машины все: и ждущие, и те, которые уже моют. Раньше начатые отсюда
+ * уходили в ленту, и ответить «сколько машин стоит у меня сейчас» можно
+ * было только сложив два списка глазами. Разделение никуда не делось —
+ * оно в самой строке: у каждой машины написано её состояние.
+ *
+ * Заголовок тот же, что в кабинете, и это не косметика: два экрана
+ * одного продукта не должны называть одно и то же разными словами.
  */
 struct JobsBoard: View {
     let jobs: [API.Job]
     let cancel: (API.Job) async -> Void
 
-    private var waiting: [API.Job] { jobs.filter { $0.status != "started" } }
-
     /**
-     Пустой очереди на экране нет.
+     Пустого двора на экране нет.
 
      Блок, который в спокойный день говорит «машин не назначено»,
      занимает место ровно тогда, когда сказать ему нечего, — а сводка и
      без него перегружена. Появляется он вместе с первой машиной во
      дворе и исчезает с последней.
 
-     Приём машины при этом доступен всегда: он ушёл плюсом в верхнюю
-     строку, рядом с колокольчиком, и от наличия очереди не зависит.
+     Приём машины при этом доступен всегда: он живёт долгим нажатием на
+     чип смены и от наличия очереди не зависит.
      */
     var body: some View {
-        if !waiting.isEmpty {
+        if !jobs.isEmpty {
             VStack(spacing: 0) {
                 HStack {
-                    Text("Հերթ")
+                    Text("Հիմա")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
-                    Text("\(waiting.count)")
+                    Text("\(jobs.count)")
                         .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted.opacity(0.7))
@@ -45,11 +47,29 @@ struct JobsBoard: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.top, 14)
-                .padding(.bottom, 6)
+                .padding(.bottom, 2)
 
-                ForEach(waiting) { job in
+                /* Чем этот список отличается от журнала под ним.
+
+                   Заголовок называет момент, но не говорит, откуда
+                   взялись строки: машину приняли и отдали мойщику, а
+                   денег за неё ещё не записали. Поэтому её нет ни в
+                   выручке, ни в сегодняшней работе — и без этой строки
+                   список читается как «почему эти машины не в ленте».
+
+                   Тем же словом, что в кабинете. */
+                HStack {
+                    Text("Ընդունված է, բայց դեռ չգրանցված")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 8)
+
+                ForEach(jobs) { job in
                     JobBoardRow(job: job, cancel: cancel)
-                    if job.id != waiting.last?.id {
+                    if job.id != jobs.last?.id {
                         Divider().overlay(Brand.boardInk.opacity(0.07))
                     }
                 }
@@ -70,7 +90,15 @@ private struct JobBoardRow: View {
 
     @State private var busy = false
 
-    private var state: String { job.status == "accepted" ? "Ընդունված է" : "Սպասում է" }
+    private var washing: Bool { job.status == "started" }
+
+    private var state: String {
+        switch job.status {
+        case "started": return "Լվացվում է"
+        case "accepted": return "Ընդունված է"
+        default: return "Սպասում է"
+        }
+    }
 
     private var waited: String {
         let m = job.waitedMinutes
@@ -96,9 +124,12 @@ private struct JobBoardRow: View {
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 2) {
+                /* Моют — не то же, что ждёт, и это единственное различие,
+                   ради которого в список смотрят. Зелёный тот же, что у
+                   точки «на смене»: работа идёт. */
                 Text(state)
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(washing ? Brand.goodOnBoard : Brand.onBoard)
                 Text(waited)
                     .font(.system(size: 12))
                     .monospacedDigit()
