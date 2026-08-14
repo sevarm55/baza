@@ -110,32 +110,40 @@ struct MoreView: View {
             CalendarView().toolbar(.hidden, for: .navigationBar)
         } label: {
             ZStack(alignment: .bottomLeading) {
-                Brand.grapeDeep
+                /* Светлая карточка, как у соседей.
+
+                   Насыщенная фиолетовая плита читалась среди мятной и
+                   песочной карточек как чужеродная — не «раздел», а
+                   баннер. Приглушать её оттенками бесполезно: дело не в
+                   том, что она тёмная, а в том, что она единственная
+                   залитая цветом во всю площадь. Тот же лавандовый набор,
+                   что у остальных разделов, снимает вопрос совсем. */
+                Brand.lavenderCard
 
                 Image(systemName: "calendar")
                     .font(.system(size: 104, weight: .black))
-                    .foregroundStyle(.white.opacity(0.07))
+                    .foregroundStyle(Brand.lavenderInk.opacity(0.10))
                     .offset(x: 214, y: 20)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("365")
                         .font(.system(size: 11, weight: .black, design: .rounded))
                         .tracking(1.4)
-                        .foregroundStyle(Brand.lime)
+                        .foregroundStyle(Brand.lavenderInk.opacity(0.75))
                     Text("Օրացույց")
                         .font(.system(size: 25, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Brand.onBoard)
                     Text("Օրեր, ամիսներ, ամբողջ պատմությունը")
                         .font(.system(size: 12.5))
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(Brand.boardMuted)
                 }
                 .padding(18)
 
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Brand.onLime)
+                    .foregroundStyle(Brand.lavenderInk)
                     .frame(width: 35, height: 35)
-                    .background(Brand.lime, in: .rect(cornerRadius: 11))
+                    .background(Brand.lavenderInk.opacity(0.12), in: .rect(cornerRadius: 11))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(14)
             }
@@ -217,43 +225,39 @@ struct MoreView: View {
         .buttonStyle(.press)
     }
 
+    /**
+     * Только команда.
+
+     * Зарплата отсюда убрана: она уже вкладка в нижней панели, и второй
+     * вход в неё из разделов означал, что человек ищет её в двух местах и
+     * в одном из них не находит. Раздел показывает то, чего в панели нет.
+     */
     private var staffCard: some View {
-        HStack(spacing: 10) {
-            NavigationLink {
-                PayrollView().toolbar(.hidden, for: .navigationBar)
-            } label: {
-                VStack(alignment: .leading, spacing: 0) {
-                    Image(systemName: "banknote.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.lavenderInk)
-                    Spacer()
-                    Text("Աշխատավարձ")
-                        .font(.system(size: 18, weight: .bold))
-                    Text("հաշվարկ և վճարումներ")
+        NavigationLink {
+            StaffView().navigationTitle("Թիմ")
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(Brand.mintInk)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Թիմ")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text("աշխատակիցներ և տոկոսներ")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                 }
-                .padding(15)
-                .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                .background(Brand.lavenderCard, in: .rect(cornerRadius: 22))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
             }
-            .buttonStyle(.press)
-
-            NavigationLink {
-                StaffView().navigationTitle("Թիմ")
-            } label: {
-                VStack(spacing: 8) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 19, weight: .semibold))
-                    Text("Թիմ")
-                        .font(.system(size: 13.5, weight: .semibold))
-                }
-                .foregroundStyle(Brand.mintInk)
-                .frame(width: 96, height: 112)
-                .background(Brand.mintCard, in: .rect(cornerRadius: 22))
-            }
-            .buttonStyle(.press)
+            .padding(.horizontal, 15)
+            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+            .background(Brand.mintCard, in: .rect(cornerRadius: 22))
         }
+        .buttonStyle(.press)
     }
 
     private var profileCard: some View {

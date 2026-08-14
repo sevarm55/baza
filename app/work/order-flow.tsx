@@ -75,6 +75,7 @@ export function OrderFlow({
   addLabel,
   percent,
   recent,
+  washing = [],
   timezone,
 }: {
   canWrite: boolean;
@@ -85,6 +86,8 @@ export function OrderFlow({
   addLabel: string;
   percent: number;
   recent: Recent[];
+  /** машины в работе: приняты и начаты, но ещё не записаны */
+  washing?: { id: string; clientKey: string; serviceName: string | null; at: string }[];
   /* Часовой пояс мойки приходит пропом, а не берётся из браузера. Иначе
      время записи меняется прямо на глазах: сервер собирает HTML в своей
      зоне, гидратация пересчитывает его в зоне телефона, и «00:17»
@@ -230,8 +233,32 @@ export function OrderFlow({
             лежал прямо на полотне: строки висели в пустоте, а время и
             крестик уезжали к правому краю экрана, ни к чему не
             привязанные. */}
-        <Panel title={hy.work.recent} count={recent.length + queue.length}>
+        <Panel title={hy.work.recent} count={recent.length + queue.length + washing.length}>
           <div className="board-journal">
+            {/* Машина в работе стоит здесь, а не отдельным блоком наверху.
+
+                Наверху висит то, что ещё нужно взять; как только мойщик
+                начал мыть, вопрос «взять или нет» снят, и машина обязана
+                оказаться в общем списке — иначе она пропадает с экрана
+                совсем и человек решает, что нажатие не сработало.
+
+                Денег в строке нет, и это не упущение: их ещё не взяли.
+                Строка получит сумму, когда машину запишут, — и станет
+                обычной строкой журнала. */}
+            {washing.map((w) => (
+              <Row key={w.id}>
+                <span className="min-w-0 flex-1">
+                  <span className="num block truncate text-[14px] font-semibold">{w.clientKey}</span>
+                  <span className="block truncate text-[12.5px]" style={{ color: 'var(--good-on-board)' }}>
+                    {[w.serviceName, hy.jobs.washing].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+                <span className="num shrink-0 text-[12px]" style={{ color: 'var(--board-muted)' }}>
+                  {hhmm(w.at, timezone)}
+                </span>
+              </Row>
+            ))}
+
             {queue.map((q) => (
               <Row key={q.ref}>
                 <span className="min-w-0 flex-1">
@@ -254,7 +281,7 @@ export function OrderFlow({
               </Row>
             ))}
 
-            {recent.length === 0 && queue.length === 0 ? (
+            {recent.length === 0 && queue.length === 0 && washing.length === 0 ? (
               <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
                 {hy.work.noShiftYet}
               </p>
@@ -331,7 +358,18 @@ export function OrderFlow({
           ref={inputRef}
           className="field field-key auth-field"
           value={clientKey}
-          onChange={(e) => setClientKey(e.target.value)}
+          /* Пробел и дефис не принимаем вовсе, а не чиним потом при
+             сохранении. Иначе человек видит на экране один вид, а в
+             списке потом другой — и решает, что записалась не его
+             машина. Номер один и выглядит одинаково везде с первой
+             набранной буквы. */
+          onChange={(e) =>
+            setClientKey(
+              clientIdType === 'phone'
+                ? e.target.value
+                : e.target.value.replace(/[\s-]+/g, '').toUpperCase(),
+            )
+          }
           onBlur={() => setClientKey(resolvedClientKey)}
           inputMode={clientIdType === 'phone' ? 'tel' : 'text'}
           autoComplete="off"

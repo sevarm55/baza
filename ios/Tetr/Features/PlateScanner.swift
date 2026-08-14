@@ -17,11 +17,12 @@ enum PlateReader {
     /// только убирая случайные края и повторные пробелы.
     static func canonical(_ raw: String) -> String {
         if let plate = parse(raw) { return plate }
+        /* Не распознали как номер — всё равно приводим к одному виду:
+           верхний регистр, без пробелов и дефисов. Двух написаний одного
+           ключа в продукте быть не должно. */
         return raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
-            .split(whereSeparator: { $0.isWhitespace })
-            .joined(separator: " ")
+            .filter { !$0.isWhitespace && $0 != "-" }
     }
 
     /// Похоже ли на номер и как он выглядит в нормальном виде.
@@ -44,7 +45,12 @@ enum PlateReader {
         let lettersOk = fixed[2].isLetter && fixed[3].isLetter
         guard digitsOk && lettersOk else { return nil }
 
-        return "\(out.prefix(2)) \(out.dropFirst(2).prefix(2)) \(out.suffix(3))"
+        /* Слитно, без пробелов — тот же вид, что на самой пластине и что
+           в базе. Красивая форма `77 GG 477` тут была и оказалась хуже:
+           мойщик набирает слитно, а продукт показывал иначе, чем он
+           ввёл, и в списке из сорока строк глаз спотыкался о собственную
+           же машину. */
+        return out
     }
 
     private static func asDigit(_ c: Character) -> Character {

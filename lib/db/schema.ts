@@ -707,7 +707,66 @@ export const alertSnoozes = pgTable(
   (t) => [uniqueIndex('alert_snoozes_user_key_uniq').on(t.userId, t.key)],
 );
 
+/**
+ * Наряд: машину приняли и отдали мойщику.
+ *
+ * Отдельно от `orders`, и это главное решение здесь. Запись в `orders` —
+ * факт заработанного: там `price`, `payment` и процент исполнителя, все
+ * три обязательны, из них считаются выручка, зарплата и отчёты.
+ * Принятая машина ещё ничего не заработала: цена может измениться, а
+ * оплаты нет вовсе. Появись у записи статус «назначено», каждая сводка
+ * начала бы считать деньги, которых ещё нет, — и никакой фильтр это не
+ * спас бы, потому что забыть его можно ровно один раз.
+ *
+ * Наряд живёт до записи и умирает вместе с ней: `orderId` связывает его
+ * с результатом, и после этого он больше ни на что не влияет. История
+ * при этом остаётся — по ней видно, сколько машина простояла между
+ * «приняли» и «начали», а это первый вопрос владельца к очереди.
+ */
+export const jobs = pgTable(
+  'jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    /** номер машины в каноническом написании — как у клиента */
+    clientKey: text('client_key').notNull(),
+    /** кому отдали; без него наряд не наряд, а заметка */
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** кто принял машину — обычно владелец */
+    assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+
+    /* Услуга — намерение, а не факт: владелец принимает машину и говорит,
+       что с ней делать, но окончательное решение остаётся за записью.
+       Название снимком по той же причине, что и в `orders`: прайс
+       переименуют, а наряд обязан помнить, о чём договаривались. */
+    serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+    serviceName: text('service_name'),
+    note: text('note'),
+
+    /** assigned → accepted → started → done; canceled в любой момент */
+    status: text('status').notNull().default('assigned'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+
+    /** чем всё кончилось: запись, созданная по этому наряду */
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    index('jobs_tenant_status_idx').on(t.tenantId, t.status, t.createdAt),
+    index('jobs_staff_idx').on(t.tenantId, t.staffId, t.status),
+  ],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
+export type Job = typeof jobs.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;
 export type PushToken = typeof pushTokens.$inferSelect;

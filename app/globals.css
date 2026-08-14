@@ -990,9 +990,14 @@ input[type='radio'] {
     --pad-panel: 1rem;
     padding: var(--pad-panel);
   }
+  /* Поле панели на широком экране было в полтора рубля со всех сторон.
+     На экране, где панелей четыре подряд, это сто девяносто два пикселя
+     одних только полей — сводка уезжала под сгиб раньше, чем кончались
+     числа. Ужимаем до одной с четвертью: воздух ещё читается как поле, а
+     страница становится короче на треть экрана. */
   @media (min-width: 640px) {
     .panel-pad {
-      --pad-panel: 1.5rem;
+      --pad-panel: 1.25rem;
     }
   }
 
@@ -1211,12 +1216,16 @@ input[type='radio'] {
   /* Высота полей формы входа. Одна на строку телефона и на клетки
      кода: их набирают подряд, и разная высота читается как разные по
      важности поля, хотя без обоих не войти. */
+  /* 3rem, а не 3.5. Полей в форме входа четыре подряд, и лишние
+     полсантиметра на каждом складывались в лишний экран: между
+     вкладками и первым полем зияла пустота, а кнопка уезжала под сгиб.
+     48 пикселей — всё ещё уверенная цель для пальца. */
   .shell,
   .board,
   .sheet,
   .drawer,
   body {
-    --auth-field-h: 3.5rem;
+    --auth-field-h: 3rem;
   }
 
   .auth-field {
@@ -1234,29 +1243,17 @@ input[type='radio'] {
     display: block;
   }
 
-  /* Точка стоит под цифрой и гаснет, когда та появляется. Гаснет и под
-     курсором: иначе в пустой активной клетке рядом с мигающей чертой
-     висит точка, и непонятно, введено уже что-то или нет. */
-  .pin-slot::after {
-    content: '';
-    position: absolute;
-    inset-inline-start: 50%;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    translate: -50% -50%;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--ink) 20%, transparent);
-    pointer-events: none;
-    transition:
-      opacity var(--t-micro) var(--ease),
-      scale var(--t-micro) var(--ease);
-  }
-  .pin-slot[data-filled]::after,
-  .pin-slot:focus-within::after {
-    opacity: 0;
-    scale: 0.4;
-  }
+  /* Точек в пустых клетках нет.
+
+     Они стояли «на месте будущей цифры» — и получался ряд из четырёх
+     серых пятен, который читается как уже введённый код, а не как
+     пустое поле. Четыре клетки подряд сами говорят, что цифр четыре;
+     подсказывать это ещё и точками незачем.
+
+     Курсор тоже убран. Мигающая черта внутри клетки спорит с кольцом
+     активности: два разных знака одного и того же места. Кольцо
+     остаётся единственным — оно крупнее, не мигает и видно боковым
+     зрением, когда набираешь вслепую. */
 
   /* Клетка — то же поле, что строка телефона над ней: та же заливка,
      тот же радиус, та же высота. Разное поведение при разном виде
@@ -1276,7 +1273,7 @@ input[type='radio'] {
     background: var(--field-fill, var(--field-gray));
     border: 1px solid transparent;
     border-radius: var(--radius-chip);
-    caret-color: var(--accent-strong);
+    caret-color: transparent;
     transition:
       box-shadow var(--t-micro) var(--ease),
       background var(--t-micro) var(--ease);
@@ -1913,7 +1910,7 @@ input[type='radio'] {
   }
 
   .tbl td {
-    padding: 0.8rem 0.6rem;
+    padding: 0.62rem 0.6rem;
     font-size: 14px;
     vertical-align: middle;
     border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
@@ -1929,6 +1926,23 @@ input[type='radio'] {
   /* Деньги и всё, что сравнивают глазом по столбцу, — вправо. */
   .tbl .end {
     text-align: end;
+  }
+
+  /* Итоговая строка.
+
+     Отделена от записей линией потемнее и не подсвечивается наведением:
+     это не запись, а сумма столбца, и вести себя как строка списка она
+     не должна. Подпись слева приглушена — читают в ней числа, слово
+     нужно только чтобы понять, что это итог, а не ещё одна запись. */
+  .tbl tfoot td {
+    padding-top: 0.7rem;
+    padding-bottom: 0.2rem;
+    font-weight: 700;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 18%, transparent);
+  }
+  .tbl tfoot td:first-child {
+    font-weight: 600;
+    color: var(--board-muted);
   }
 }
 
@@ -1982,8 +1996,8 @@ input[type='radio'] {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    min-height: 6.25rem;
-    padding: 1rem 1.1rem;
+    min-height: 5.6rem;
+    padding: 0.8rem 1rem;
     border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--board-ink) 5%, transparent);
   }
@@ -1999,9 +2013,9 @@ input[type='radio'] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    margin-bottom: 0.55rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin-bottom: 0.4rem;
     border-radius: var(--radius-chip);
   }
   .flow-mark[data-tone='violet'] {
@@ -2096,6 +2110,136 @@ input[type='radio'] {
   }
   .flow-link-strong .flow-sign {
     color: var(--board-muted);
+  }
+
+  /* Тёмная тема: плита итога перестаёт быть белым листом.
+
+     Приём «тёмная плита среди светлых» на тёмной теме переворачивается
+     честно — и получается белая среди угольных. Она оказывается самым
+     ярким пятном экрана, хотя это обычный итог, а не тревога: глаз
+     цепляется за неё раньше, чем за что-либо, и отдыхать на панели
+     негде.
+
+     Поднимаем плиту на ступень светлее полотна и красим само число
+     лаймом — тем, которым итог отмечен и на значке, и в приложении.
+     Выделенной она остаётся единственной, но теперь горит, а не слепит. */
+  :root[data-theme='dark'] .flow-link-strong {
+    background: var(--board-surface2);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-fill) 16%, transparent);
+  }
+  :root[data-theme='dark'] .flow-link-strong .flow-value {
+    color: var(--accent-fill);
+  }
+  :root[data-theme='dark'] .flow-link-strong .flow-label,
+  :root[data-theme='dark'] .flow-link-strong .flow-note {
+    color: var(--board-muted);
+  }
+  :root[data-theme='dark'] .flow-link-strong .flow-mark {
+    color: var(--accent-fill);
+    background: color-mix(in srgb, var(--accent-fill) 16%, transparent);
+  }
+
+  /* Точка «сейчас на смене».
+
+     Красилась цветом человека — тем же, которым подписано его имя в
+     ленте. Но это опознавательный знак, а не состояние: рядом стоят
+     фиолетовая и бирюзовая точки, и читается по ним «два разных
+     человека», а не «оба на мойке прямо сейчас». Сама же разница между
+     «на смене» и «сегодня работал» держалась на заливке против обводки,
+     и её не замечал никто.
+
+     Состояние обязано говорить цветом состояния. Зелёная точка с мягким
+     кольцом — общий язык «онлайн», он читается без подписи и без
+     легенды. Дыхание медленное и еле заметное: это признак жизни, а не
+     сигнал тревоги, и на экране, куда смотрят весь день, мигать нельзя. */
+  .dot-live {
+    background: var(--good-on-board);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--good-on-board) 22%, transparent);
+    animation: dot-breathe 2.8s ease-in-out infinite;
+  }
+  .dot-idle {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--board-ink) 28%, transparent);
+  }
+  @keyframes dot-breathe {
+    50% {
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--good-on-board) 8%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot-live {
+      animation: none;
+    }
+  }
+
+  /* Появление графика.
+
+     Линия рисуется слева направо, заливка под ней проступает следом,
+     столбики рельефа поднимаются от основания с малым сдвигом друг за
+     другом. Движение здесь не украшение: график читают слева направо,
+     как время, и появление по тому же направлению задаёт этот порядок
+     раньше, чем человек найдёт подписи осей.
+
+     Всё укладывается в секунду и проигрывается один раз при появлении —
+     сводку открывают по сорок раз за смену, и анимация, которую видно
+     каждый раз, превращается в задержку. */
+  .day-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: day-draw 820ms var(--ease) forwards;
+  }
+  .day-area {
+    animation: day-fade 620ms var(--ease) 160ms both;
+  }
+  /* `backwards`, а не `both`: после конца столбик обязан вернуться под
+     власть своих же стилей — прозрачность у него меняется по наведению,
+     и застывший кадр анимации перебил бы её навсегда. */
+  .day-bar {
+    transform-origin: bottom;
+    animation: day-rise 480ms var(--ease) backwards;
+    animation-delay: calc(var(--i, 0) * 14ms);
+  }
+
+  @keyframes day-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes day-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes day-rise {
+    from {
+      transform: scaleY(0.04);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .day-line {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+    .day-area,
+    .day-bar {
+      animation: none;
+    }
+  }
+
+  /* Край прибора на светлой теме.
+
+     Подложка у всех приборов одна — чернила полотна в пять процентов.
+     На тёмной теме этого достаточно: заливка светлее полотна, и край
+     виден сам. На светлой она темнее почти белого полотна на те же пять
+     процентов, но глаз различает светлое на светлом хуже, и шесть
+     приборов подряд сливаются в одно серое поле без границ.
+
+     Волосяная обводка теми же чернилами возвращает край, не превращая
+     прибор в бумажную карточку с рамкой и тенью. */
+  :root:not([data-theme='dark']) .panel-pad,
+  :root:not([data-theme='dark']) .flow-link:not(.flow-link-strong) {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board-ink) 7%, transparent);
   }
 
   /* На телефоне полоса перестаёт быть полосой.
@@ -2252,6 +2396,22 @@ input[type='radio'] {
   .pay[data-tone='slate'] {
     background: var(--tone-slate);
     color: var(--tone-ink);
+  }
+
+  /* Разделители свёрнутой колонки — по её оси.
+
+     Развёрнутая колонка широкая, и линия во всю ширину внутри неё
+     выглядит правильно. Свёрнутая ужимается до пятидесяти шести
+     пикселей, но линия остаётся шириной от прежней раскладки и вылезает
+     за правый край: значки стоят центром на двадцати восьми, а линии —
+     на тридцати пяти и сорока семи. Три разные оси в колонке шириной в
+     палец читаются кривизной.
+
+     Ширину задаём явную и центрируем: линия становится короткой чертой
+     ровно под значком, на той же оси, что и всё остальное. */
+  [data-collapsible='icon'] [data-slot='sidebar-separator'] {
+    width: 2rem;
+    margin-inline: auto;
   }
 
   /* ─────────────── колокольчик и поводы ───────────────

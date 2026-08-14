@@ -179,6 +179,48 @@ export async function notifyOwners(
 }
 
 /**
+ * Уведомить одного человека — того, кому назначили машину.
+ *
+ * Владельцам шлём широковещательно, потому что их двое-трое и повод
+ * общий. Наряд — обратный случай: он адресный, и получить его должен
+ * ровно тот мойщик, которому машину отдали. Прилетевшее не тебе
+ * уведомление хуже, чем никакого: после второго такого выключают все.
+ *
+ * Себя не уведомляем. Владелец маленькой мойки моет сам и назначает
+ * машину на себя же — уведомление о собственном действии выглядит
+ * поломкой продукта.
+ */
+export async function notifyUser(tenantId: string, userId: string, actorId: string | null, note: Note) {
+  if (!pushEnabled() || userId === actorId) return;
+
+  const rows = await db
+    .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
+    .from(pushTokens)
+    .innerJoin(users, eq(users.id, pushTokens.userId))
+    .where(
+      and(
+        eq(pushTokens.tenantId, tenantId),
+        eq(pushTokens.userId, userId),
+        eq(users.active, true),
+      ),
+    );
+
+  await deliver(rows, note);
+}
+
+/** То же, но никогда не бросает: зовётся из путей записи. */
+export function notifyUserInBackground(
+  tenantId: string,
+  userId: string,
+  actorId: string | null,
+  note: Note,
+) {
+  void notifyUser(tenantId, userId, actorId, note).catch((e) => {
+    console.warn('[push] мойщику не отправилось:', e);
+  });
+}
+
+/**
  * Уведомить владельца платформы — вас, а не клиента.
  *
  * Два события решают, станет зарегистрировавшийся платящим: он завёл

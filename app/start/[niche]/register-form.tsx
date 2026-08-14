@@ -22,21 +22,29 @@ export function RegisterForm({
     <form action={action} className="grid gap-4">
       <input type="hidden" name="niche" value={nicheKey} />
 
-      <label className="grid gap-2">
-        <span className="label">{hy.onboarding.bizName}</span>
-        <input
-          className="field auth-field !text-[16px]"
-          name="businessName"
-          defaultValue={defaultName}
-          required
-          autoComplete="organization"
-        />
-      </label>
+      {/* Название мойки и имя владельца — в одну строку. Оба коротких, оба
+          заполняются один раз в жизни, и каждое собственной строкой
+          растягивало форму на целый экран: между вкладками и первым полем
+          оставалась пустота, а кнопка входа уезжала под сгиб. Рядом они
+          занимают одну строку вместо двух и читаются парой, какой и
+          являются: чей бизнес и кто им владеет. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="label">{hy.onboarding.bizName}</span>
+          <input
+            className="field auth-field !text-[16px]"
+            name="businessName"
+            defaultValue={defaultName}
+            required
+            autoComplete="organization"
+          />
+        </label>
 
-      <label className="grid gap-2">
-        <span className="label">{hy.onboarding.ownerName}</span>
-        <input className="field auth-field !text-[16px]" name="ownerName" required autoComplete="name" />
-      </label>
+        <label className="grid gap-2">
+          <span className="label">{hy.onboarding.ownerName}</span>
+          <input className="field auth-field !text-[16px]" name="ownerName" required autoComplete="name" />
+        </label>
+      </div>
 
       <label className="grid gap-2">
         <span className="label">{hy.auth.phone}</span>

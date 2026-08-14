@@ -96,7 +96,18 @@ struct PayrollView: View {
         let total = owed.reduce(0) { $0 + $1.earned }
 
         return ZStack(alignment: .bottomLeading) {
-            Brand.grapeDeep
+            /* Не самый тёмный грейп, а фирменный с уходом в глубину.
+
+               `grapeDeep` — почти чёрный фиолетовый: на весь блок он даёт
+               тяжёлую плиту, рядом с которой светлый экран выглядит
+               провалившимся. Тот же цвет марки, только живой: сверху
+               заливка кнопок, снизу на тон глубже — так плита читается
+               предметом, а не дырой. */
+            LinearGradient(
+                colors: [Brand.grapeFill, Brand.grapeMid],
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
             Image(systemName: "banknote.fill")
                 .font(.system(size: 108, weight: .black))

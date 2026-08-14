@@ -21,6 +21,7 @@ import SwiftUI
  */
 struct CalendarView: View {
     @EnvironmentObject private var session: Session
+    @Environment(\.dismiss) private var dismiss
 
     @State private var month = ""
     @State private var data: API.Month?
@@ -64,14 +65,29 @@ struct CalendarView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            arrow("chevron.left", "Նախորդ ամիս") { shift(by: -1) }
-                .disabled(false)
+            /* Выход с экрана. Своя шапка заменила системную панель, и
+               вместе с панелью пропала кнопка «назад» — из календаря
+               можно было выйти только жестом от края, о котором знают не
+               все. Стрелки месяца при этом собраны справа: слева уход с
+               экрана, справа перемещение внутри него, и две разные по
+               смыслу стрелки больше не стоят рядом. */
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+            }
+            .buttonStyle(.press)
+            .accessibilityLabel("Հետ")
 
             Text(Self.title(month))
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(Brand.onBoard)
                 .frame(maxWidth: .infinity)
                 .contentTransition(.numericText())
+
+            arrow("chevron.left", "Նախորդ ամիս") { shift(by: -1) }
 
             // вперёд дальше текущего месяца незачем: там пусто по определению
             arrow("chevron.right", "Հաջորդ ամիս") { shift(by: 1) }
@@ -165,8 +181,22 @@ struct CalendarView: View {
      */
     private func cell(_ day: API.MonthDay, peak: Int) -> some View {
         let share = max(0, min(1, Double(day.revenue) / Double(peak)))
-        let heat = day.revenue > 0 ? 0.14 + 0.86 * sqrt(share) : 0
-        let deep = heat > 0.55
+        /* Верх шкалы приглушён нарочно.
+
+           Раньше лучший день заливался грейпом во всю силу, и в сетке
+           появлялся тяжёлый тёмно-фиолетовый квадрат — на светлой теме он
+           читался как ошибка или как выделенная ячейка, а не как «в этот
+           день заработали больше всего». Календарь смотрят целиком, и ни
+           одна клетка не должна бить по глазам.
+
+           Потолок теперь 0.38: клетка остаётся светлой сиреневой при любой
+           выручке, и месяц читается ровным полем, где сильные дни просто
+           плотнее. Белая цифра при таком потолке не нужна вовсе — тёмная
+           читается на всей шкале, а переключение цвета на полпути само по
+           себе выглядело сбоем. Разницу между днями и так несёт число
+           внутри клетки. */
+        let heat = day.revenue > 0 ? 0.07 + 0.31 * sqrt(share) : 0
+        let deep = false
         let today = day.date == Self.today()
 
         return Button {

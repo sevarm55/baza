@@ -31,6 +31,8 @@ struct ShiftView: View {
     /// только что записанная машина исчезает с экрана, хотя на сервере она
     /// есть. Ровно так это и выглядело.
     @State private var loadID = 0
+    /// Машины, переданные этому мойщику владельцем.
+    @State private var jobs: [API.Job] = []
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -41,6 +43,14 @@ struct ShiftView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
+                /* Переданные машины — самым верхом, выше заработка.
+                   Когда владелец отдал машину, это единственная причина,
+                   по которой мойщик взял телефон; когда назначенных нет,
+                   блока нет вовсе и экран прежний. */
+                JobsSection(jobs: jobs) { job, move in
+                    await moveJob(job, move)
+                }
+
                 reading
                 wave
 
@@ -49,7 +59,7 @@ struct ShiftView: View {
 
                 grid
 
-                if let shift, !shift.orders.isEmpty {
+                if let shift, !shift.orders.isEmpty || !washing.isEmpty {
                     journal(shift.orders)
                 } else if !loading {
                     empty
@@ -499,6 +509,8 @@ struct ShiftView: View {
 
     // ══════════════════════════ журнал ══════════════════════════
 
+    private var washing: [API.Job] { jobs.filter { $0.status == "started" } }
+
     private func journal(_ orders: [API.ShiftOrder]) -> some View {
         VStack(spacing: 0) {
             HStack {
@@ -506,7 +518,7 @@ struct ShiftView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
-                Text("\(orders.count)")
+                Text("\(orders.count + washing.count)")
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
@@ -514,6 +526,38 @@ struct ShiftView: View {
             .padding(.horizontal, 6)
             .padding(.top, 14)
             .padding(.bottom, 6)
+
+            /* Машина в работе стоит здесь, а не отдельным блоком наверху:
+               наверху то, что ещё нужно взять, а начатая машина этот
+               вопрос уже прошла. Денег в строке нет — их ещё не взяли;
+               строка получит сумму, когда машину запишут. */
+            ForEach(washing) { job in
+                HStack(spacing: 10) {
+                    Text(at(job.startedAt ?? job.createdAt))
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .frame(width: 42, alignment: .leading)
+
+                    Text(job.clientKey)
+                        .font(.system(size: 14, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+
+                    Text("Լվացվում է")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.goodOnBoard)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 11)
+                .accessibilityElement(children: .combine)
+
+                Divider().overlay(Brand.boardInk.opacity(0.07))
+            }
 
             ForEach(orders) { order in
                 VStack(spacing: 0) {
@@ -623,11 +667,40 @@ struct ShiftView: View {
         return f.string(from: date)
     }
 
+    /**
+     Двинуть наряд: взял или начал.
+
+     Список обновляем ответом сервера, а не правкой на месте: состояние
+     наряда принадлежит серверу, и мойщик, у которого на экране «взял», а
+     в базе нет, — это ровно тот случай, когда владелец звонит и
+     спрашивает, почему машина стоит.
+     */
+    private func moveJob(_ job: API.Job, _ move: String) async {
+        _ = try? await session.authed { token in
+            try await APIClient.shared.raw(
+                "jobs",
+                method: "PATCH",
+                body: ["id": job.id, "move": move],
+                token: token
+            )
+        }
+        await loadJobs()
+    }
+
+    private func loadJobs() async {
+        let fresh = try? await session.authed { token in
+            try await APIClient.shared.send("jobs", token: token, as: API.Jobs.self)
+        }
+        if let fresh { jobs = fresh.jobs }
+    }
+
     private func reload() async {
         loadID += 1
         let id = loadID
         loading = true
         defer { loading = false }
+
+        await loadJobs()
 
         // сначала досылаем накопленное: иначе смена покажет вчерашние цифры,
         // хотя записи уже сделаны

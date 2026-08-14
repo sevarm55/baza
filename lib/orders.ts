@@ -1,7 +1,17 @@
 import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { priceForTier, tierIndexOf, tiersOf } from './catalog';
 import { db } from './db';
-import { audit, clients, orderItems, orders, passes, services, tenants, users } from './db/schema';
+import {
+  audit,
+  clients,
+  jobs,
+  orderItems,
+  orders,
+  passes,
+  services,
+  tenants,
+  users,
+} from './db/schema';
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
 import { normalizeClientKey } from './client-key';
@@ -267,6 +277,40 @@ export async function createOrder(input: CreateOrderInput) {
       },
       'orders',
     );
+  }
+
+  /* Наряд закрывается записью, а не отдельной кнопкой «готово».
+     Машина считается вымытой ровно тогда, когда появились деньги: иначе
+     «готово» и «записано» разъедутся, и владелец увидит в очереди
+     машину, которая час как в выручке.
+
+     Ищем по номеру и исполнителю, а не по идентификатору наряда: запись
+     приходит и из веба, и с телефона, и из офлайн-очереди, и тащить
+     через все три пути лишнее поле — значит забыть его в одном из них.
+     Закрываем самый старый: если одну и ту же машину принимали дважды,
+     первой закрывается та, что дольше ждала. */
+  if (!made.duplicate && made.client && made.order.staffId) {
+    const staffId = made.order.staffId;
+    const [oldest] = await db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.tenantId, input.tenantId),
+          eq(jobs.clientKey, made.client.key),
+          eq(jobs.staffId, staffId),
+          inArray(jobs.status, ['assigned', 'accepted', 'started']),
+        ),
+      )
+      .orderBy(jobs.createdAt)
+      .limit(1);
+
+    if (oldest) {
+      await db
+        .update(jobs)
+        .set({ status: 'done', doneAt: new Date(), orderId: made.order.id })
+        .where(eq(jobs.id, oldest.id));
+    }
   }
 
   return made;

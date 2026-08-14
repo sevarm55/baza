@@ -40,6 +40,12 @@ struct OwnerView: View {
     @State private var showClients = false
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
+    /// Очередь мойки: принятые машины, которые ещё не записаны.
+    @State private var jobs: [API.Job] = []
+    @State private var staff: [API.StaffMember] = []
+    @State private var services: [API.Service] = []
+    /// Кому отдаём машину: выбран долгим нажатием на чип смены.
+    @State private var assignTo: API.StaffMember?
     /// Идёт запрос. На это время период фиксируется, чтобы второй быстрый
     /// выбор не вернул на экран ответ от предыдущего периода.
     @State private var loading = false
@@ -99,6 +105,20 @@ struct OwnerView: View {
         .sheet(isPresented: $showClients) {
             ClientsView().environmentObject(session)
         }
+        /* Мойщик уже выбран в меню, поэтому в листе его выбирать не надо:
+           остаётся номер, услуга и заметка. */
+        .sheet(item: $assignTo) { person in
+            AssignJobSheet(
+                staff: staff,
+                services: services,
+                unitOne: session.tenant?.unitOne ?? "",
+                clientIdLabel: session.tenant?.clientIdLabel ?? "",
+                preselected: person.id,
+                assign: { key, staffId, serviceId, note in
+                    await assignJob(key, staffId, serviceId, note)
+                }
+            )
+        }
         .alert(
             "Չեղարկե՞լ այս գրանցումը",
             isPresented: .init(get: { cancelling != nil }, set: { if !$0 { cancelling = nil } })
@@ -142,10 +162,14 @@ struct OwnerView: View {
             Button {
                 showAlerts = true
             } label: {
+                /* Меньше, чем было: колокольчик — не действие экрана, а
+                   вход в список поводов, и раз в неделю. Кнопка в 38
+                   точек рядом с переключателем периода читалась как
+                   равная ему по важности. */
                 Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                    .frame(width: 38, height: 38)
+                    .frame(width: 32, height: 32)
                     .overlay(alignment: .topTrailing) {
                         if !alerts.isEmpty {
                             Text("\(alerts.count)")
@@ -159,6 +183,10 @@ struct OwnerView: View {
                     }
             }
             .buttonStyle(.glass)
+            /* Круглым: колокольчик — единственная кнопка-значок в этой
+               строке, и круг отделяет её от прямоугольного переключателя
+               периода рядом, не прибавляя ни веса, ни размера. */
+            .buttonBorderShape(.circle)
             .accessibilityLabel("Ուշադրություն")
         }
         .padding(.horizontal, 16)
@@ -359,10 +387,54 @@ struct OwnerView: View {
                 .background(Tone.slate.base, in: .rect(cornerRadius: 9))
             }
             .buttonStyle(.press)
+            /* Приём машины живёт здесь, а не отдельной кнопкой на экране.
+
+               Чип — это и есть люди, которым машины назначают, поэтому
+               долгое нажатие на него открывает приём с уже выбранным
+               мойщиком: одно движение вместо «найти кнопку → открыть лист
+               → выбрать человека».
+
+               Отдельного места на сводке действие не занимает нарочно:
+               принимают машину не настолько часто, чтобы держать ради
+               этого кнопку на главном экране. Меню при этом стандартное,
+               с превью и подсказкой длинным нажатием — тот же жест, что
+               в почте и в сообщениях. */
+            .contextMenu {
+                ForEach(assignable) { person in
+                    Button {
+                        assignTo = person
+                    } label: {
+                        Label(
+                            assignable.count > 1
+                                ? "\(person.name) · \(session.tenant?.unitOne ?? "")"
+                                : "Ընդունել \(session.tenant?.unitOne ?? "")",
+                            systemImage: "car.fill"
+                        )
+                    }
+                }
+            }
             .accessibilityLabel(
                 present.map { "\($0.name) հերթափոխին \(since($0.openedAt))" }.joined(separator: ", ")
             )
         }
+    }
+
+    /**
+     * Кому можно отдать машину.
+     *
+     * Сначала те, кто на смене: машину отдают тому, кто стоит на посту, а
+     * не тому, кто числится в штате. Если смену никто не открыл — весь
+     * список, иначе меню окажется пустым ровно в тот момент, когда машина
+     * уже заехала.
+     */
+    private var assignable: [API.StaffMember] {
+        /* Себя владелец в этом списке не видит: машину он отдаёт
+           работнику, а «назначить самому себе» — это не передача, а
+           обычная запись, для которой есть своя кнопка. */
+        let others = staff.filter { !$0.isMe }
+        let present = Set((summary?.onShift ?? []).map(\.name))
+        let onShift = others.filter { present.contains($0.name) }
+        return onShift.isEmpty ? others : onShift
     }
 
     // ══════════════════════════ содержание периода ══════════════════════════
@@ -370,14 +442,33 @@ struct OwnerView: View {
     @ViewBuilder
     private func details(_ s: API.Summary) -> some View {
         if summaryPeriod == "today" {
+            /* Графика на сегодняшнем экране нет.
+
+               Он отвечал на вопрос «как шёл день», а этот вопрос владелец
+               мойки себе не задаёт: у него за день пять машин, и «как
+               шло» видно по журналу внизу построчно, с номерами и
+               суммами. График же занимал треть экрана и в спокойный день
+               показывал один столбик — то есть ровно то, что и так
+               написано в журнале, только беднее.
+
+               За месяц он остаётся: там тридцать точек, и форма месяца —
+               настоящий ответ, которого больше нигде нет. */
             todaySnapshot(s)
-            wave(s.series)
+            /* Очередь только на сегодняшнем экране: машины во дворе — это
+               «сейчас», и под прошлым месяцем такой прибор врал бы самим
+               своим присутствием. */
+            queueBoard
             journal(s.feed)
         } else {
-            wave(s.series)
+            chart(s.series)
             grid(s)
             journal(s.feed)
         }
+    }
+
+    private var queueBoard: some View {
+        JobsBoard(jobs: jobs, cancel: { job in await cancelJob(job) })
+            .padding(.top, 10)
     }
 
     /**
@@ -449,116 +540,18 @@ struct OwnerView: View {
      * низ, иначе линия в 60 точек читается царапиной на полотне.
      */
     @ViewBuilder
-    private func wave(_ series: [API.SeriesPoint]) -> some View {
-        if !series.isEmpty {
-            let peak = max(1, series.map(\.revenue).max() ?? 1)
-            let peakIndex = series.firstIndex(where: { $0.revenue == peak }) ?? 0
-            let values = series.map { Double($0.revenue) / Double(peak) }
-            let live = series.indices.filter { series[$0].revenue > 0 }
-            let marks = live.count <= 10 ? live : [peakIndex]
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(chartTitle)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 0)
-                    /* Пик подписью, а не догадкой по картинке. Со словом,
-                       а не голыми «07 · 146 500 ֏»: два числа через точку
-                       в углу графика каждый прочитает по-своему, и чаще
-                       всего — как итог за период. */
-                    Text("ամենաշատը՝ \(axis(series[peakIndex])) · \(money(peak, currency))")
-                        .font(.system(size: 11.5))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                }
-
-                GeometryReader { geo in
-                    let pts = points(values, in: geo.size)
-                    ZStack(alignment: .topLeading) {
-                        if pts.count > 1 {
-                            Wave(points: pts, closedTo: geo.size.height)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Brand.onBoard.opacity(0.13), Brand.onBoard.opacity(0)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                            Wave(points: pts)
-                                .stroke(
-                                    Brand.onBoard.opacity(0.62),
-                                    style: .init(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
-                                )
-                        }
-                        ForEach(marks, id: \.self) { i in
-                            if pts.indices.contains(i) {
-                                Circle()
-                                    .fill(Brand.lime)
-                                    .frame(
-                                        width: i == peakIndex ? 7 : 4.5,
-                                        height: i == peakIndex ? 7 : 4.5
-                                    )
-                                    /* Обводка цветом полотна: на светлой теме
-                                       лайм по светлому почти не виден, и точка
-                                       читается только тем, что вырезана из
-                                       линии. */
-                                    .overlay(
-                                        Circle().strokeBorder(Brand.board, lineWidth: i == peakIndex ? 1.5 : 1)
-                                    )
-                                    .position(pts[i])
-                            }
-                        }
-                    }
-                }
-                .frame(height: 60)
-
-                axisLabels(series)
-            }
-            .padding(.top, 18)
-        }
-    }
-
     /**
-     * Четыре отметки по ширине: начало, две внутри, конец. Больше не нужно —
-     * подписи здесь дают масштаб, а не отсчёт.
-     *
-     * Номера точек подобраны под МЕСТА подписей, а не наоборот. Четыре
-     * равные колонки ставят свои середины на 0, 37.5, 62.5 и 100 процентов
-     * ширины; если брать точки через треть ряда, подпись «04» встаёт над
-     * пятым днём, и график начинает врать на четверть колонки — тем
-     * обиднее, что врёт он ровно в том, ради чего подписи и появились.
-     *
-     * Короткий ряд подписывается целиком: на трёх точках выбирать нечего.
+     * График выручки. Вся отрисовка живёт в `RevenueChart`; здесь только
+     * то, что знает именно этот экран: как называется период и как
+     * подписать деление.
      */
-    @ViewBuilder
-    private func axisLabels(_ series: [API.SeriesPoint]) -> some View {
-        let last = series.count - 1
-        let picks: [Int] = last <= 3
-            ? Array(0...max(0, last))
-            : [
-                0,
-                Int((Double(last) * 0.375).rounded()),
-                Int((Double(last) * 0.625).rounded()),
-                last
-            ]
-
-        HStack(spacing: 0) {
-            ForEach(Array(picks.enumerated()), id: \.offset) { i, index in
-                Text(axis(series[min(max(index, 0), last)]))
-                    .font(.system(size: 10.5))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted.opacity(0.85))
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: picks.count == 1
-                            ? .center
-                            : (i == 0 ? .leading : (i == picks.count - 1 ? .trailing : .center))
-                    )
-            }
-        }
-        .accessibilityHidden(true)
+    private func chart(_ series: [API.SeriesPoint]) -> some View {
+        RevenueChart(
+            series: series,
+            title: chartTitle,
+            axis: { point in axis(point) },
+            money: { value in money(value, currency) }
+        )
     }
 
     private var chartTitle: String {
@@ -573,19 +566,6 @@ struct OwnerView: View {
     /// У единственного часа нет линии, но есть точка и подпись: сегодняшний
     /// график не должен исчезать только потому, что обе машины приехали в
     /// один час.
-    private func points(_ values: [Double], in size: CGSize) -> [CGPoint] {
-        let top: CGFloat = 6
-        let usable = size.height - top * 2
-        if values.count == 1 {
-            return [CGPoint(x: size.width / 2, y: top + usable * (1 - CGFloat(values[0])))]
-        }
-        guard values.count > 1 else { return [] }
-        let step = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { i, v in
-            CGPoint(x: CGFloat(i) * step, y: top + usable * (1 - CGFloat(v)))
-        }
-    }
-
     // ══════════════════════════ финансовые детали ══════════════════════════
 
     /** За длинный период финансовая формула уже видна сверху. Здесь только
@@ -1030,6 +1010,68 @@ struct OwnerView: View {
         await reload(staged: true)
     }
 
+    // ══════════════════════════ очередь ══════════════════════════
+
+    private func loadQueue() async {
+        async let queue: API.Jobs? = try? session.authed { token in
+            try await APIClient.shared.send("jobs", token: token, as: API.Jobs.self)
+        }
+        async let people: API.Staff? = try? session.authed { token in
+            try await APIClient.shared.send("staff", token: token, as: API.Staff.self)
+        }
+        async let offers: API.Services? = try? session.authed { token in
+            try await APIClient.shared.send("services", token: token, as: API.Services.self)
+        }
+
+        if let q = await queue { jobs = q.jobs }
+        if let p = await people { staff = p.staff }
+        if let o = await offers { services = o.services }
+    }
+
+    /**
+     Принять машину. Возвращает `true`, если сервер её принял.
+
+     Не глотаем ошибку. Сервер бывает старше приложения — на нём просто
+     нет ещё этого адреса, и запрос отвечает «нет такой страницы».
+     Проглоченная ошибка выглядит как «нажал, и ничего не произошло»:
+     человек жмёт второй раз, третий, потом решает, что сломано всё
+     приложение. Пусть лист честно скажет, что не вышло.
+     */
+    private func assignJob(_ key: String, _ staffId: String, _ serviceId: String?, _ note: String?) async -> String? {
+        var payload: [String: Any] = ["clientKey": key, "staffId": staffId]
+        if let serviceId { payload["serviceId"] = serviceId }
+        if let note { payload["note"] = note }
+
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw("jobs", method: "POST", body: payload, token: token)
+            }
+        } catch {
+            /* Причина названа своим именем. «Проверьте связь» на ответ
+               «нет такой страницы» — это ложь: связь в порядке, просто
+               сервер старше приложения и про наряды ещё не знает.
+               Человек, которому соврали про причину, идёт чинить не то. */
+            if let api = error as? APIError {
+                if api.status == 404 { return "Սերվերը դեռ չի թարմացվել այս գործառույթի համար" }
+                if api.isOffline { return "Կապ չկա։ Ստուգեք ինտերնետը և կրկնեք" }
+                return "Չհաջողվեց հանձնարարել (\(api.status))"
+            }
+            return "Չհաջողվեց հանձնարարել"
+        }
+
+        await loadQueue()
+        return nil
+    }
+
+    private func cancelJob(_ job: API.Job) async {
+        _ = try? await session.authed { token in
+            try await APIClient.shared.raw(
+                "jobs", method: "PATCH", body: ["id": job.id, "move": "cancel"], token: token
+            )
+        }
+        await loadQueue()
+    }
+
     private func reload(staged: Bool = false) async {
         loadID += 1
         let id = loadID
@@ -1048,6 +1090,12 @@ struct OwnerView: View {
             }
             if let fresh { alerts = fresh.alerts }
         }
+
+        /* Очередь, люди и прайс — тем же молчаливым фоном. Они «сейчас» и
+           к выбранному периоду отношения не имеют: машина, принятая час
+           назад, стоит во дворе независимо от того, смотрит владелец
+           сегодня или прошлый месяц. */
+        Task { await loadQueue() }
 
         do {
             let fresh = try await session.authed { token in

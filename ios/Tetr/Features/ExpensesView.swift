@@ -138,11 +138,15 @@ struct ExpensesView: View {
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        /* Полоска захвата видима: лист закрывается смахиванием, но без
+           неё об этом не догадываются. */
         .sheet(isPresented: $adding) {
             ExpenseEditor(hints: hints, currency: currency) { await reload() }
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $editing) { item in
             ExpenseEditor(editing: item, hints: hints, currency: currency) { await reload() }
+                .presentationDragIndicator(.visible)
         }
         .alert(
             "Հեռացնե՞լ ծախսը",

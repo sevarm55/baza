@@ -127,6 +127,20 @@
       "when": 1786622029000,
       "tag": "0017_canonical_client_plates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786622029001,
+      "tag": "0018_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786622029002,
+      "tag": "0019_compact_client_plates",
+      "breakpoints": true
     }
   ]
 }

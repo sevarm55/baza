@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
-import { normalizeClientKey } from './client-key';
+import { compactClientKey } from './client-key';
 import {
   accounts,
   clients,
@@ -551,17 +551,27 @@ export async function exportOrders(tenantId: string, from: Date, to?: Date) {
     .orderBy(orders.createdAt);
 }
 
+/**
+ * Сравнение ключа клиента, устойчивое к написанию.
+ *
+ * `99FF333` и `99 FF 333` — одна машина, и в базе за годы накопились
+ * оба написания. Сравнивать по красивой форме нельзя: половина записей
+ * заведена по-старому, слитно, и поиск по ним не находил ничего —
+ * открытая из ленты машина отвечала 404. Складываем обе стороны к
+ * слитной форме, её и сравниваем.
+ */
+function sameClientKey(key: string) {
+  /* Выражение слово в слово как в уникальном индексе из миграции
+     `0017_canonical_client_plates`: только тогда база берёт индекс, а не
+     перебирает таблицу целиком на каждом открытии карточки. */
+  return sql`regexp_replace(upper(${clients.key}), '[[:space:]-]+', '', 'g') = ${compactClientKey(key)}`;
+}
+
 export async function findClient(tenantId: string, key: string) {
   const [c] = await db
     .select()
     .from(clients)
-    .where(
-      and(
-        eq(clients.tenantId, tenantId),
-        eq(clients.key, normalizeClientKey(key)),
-        realClient,
-      ),
-    );
+    .where(and(eq(clients.tenantId, tenantId), sameClientKey(key), realClient));
   return c ?? null;
 }
 
@@ -602,7 +612,6 @@ export async function listClients(tenantId: string, limit = 500) {
  * перестанет сходиться с лентой под ней.
  */
 export async function getClientHistory(tenantId: string, key: string, limit = 200) {
-  const normalizedKey = normalizeClientKey(key);
   const [client] = await db
     .select({
       id: clients.id,
@@ -616,7 +625,7 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
       daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
     })
     .from(clients)
-    .where(and(eq(clients.tenantId, tenantId), eq(clients.key, normalizedKey)));
+    .where(and(eq(clients.tenantId, tenantId), sameClientKey(key)));
 
   if (!client) return null;
 

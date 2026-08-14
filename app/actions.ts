@@ -12,6 +12,7 @@ import { toMinor } from '@/lib/money';
 import { dayMonth, hhmm } from '@/lib/time';
 import { settleStaff } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
+import { acceptJob, assignJob, cancelJob, startJob } from '@/lib/jobs';
 import * as catalog from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
@@ -814,4 +815,66 @@ export async function toggleShiftAction(formData: FormData): Promise<void> {
 
   revalidatePath('/work');
   revalidatePath('/owner');
+}
+
+/* ------------------------------------------------------------------ *
+ * Наряды
+ *
+ * Между «машина заехала» и «машина вымыта» у продукта не было ничего:
+ * владелец говорил мойщику вслух. На двух постах это работает, на
+ * четырёх — нет.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Принять машину и отдать её мойщику.
+ *
+ * Только владелец: распределение машин — это его работа, и мойщик,
+ * который может назначить машину сам себе, обесценивает очередь.
+ */
+export async function assignJobAction(formData: FormData): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+  await requireWriteAccess(session.tid);
+
+  const staffId = String(formData.get('staffId') ?? '');
+  const clientKey = String(formData.get('clientKey') ?? '');
+  const serviceId = String(formData.get('serviceId') ?? '') || null;
+  const note = String(formData.get('note') ?? '') || null;
+  if (!staffId || !clientKey.trim()) return;
+
+  await assignJob({
+    tenantId: session.tid,
+    byUserId: session.uid,
+    clientKey,
+    staffId,
+    serviceId,
+    note,
+  });
+
+  revalidatePath('/owner');
+  revalidatePath('/work');
+}
+
+/** Мойщик взял машину. */
+export async function acceptJobAction(jobId: string): Promise<void> {
+  const session = await requireSession();
+  await ensureDb();
+  await acceptJob(session.tid, jobId, session.uid, session.role === 'owner');
+  refresh();
+}
+
+/** Мойщик начал мыть. */
+export async function startJobAction(jobId: string): Promise<void> {
+  const session = await requireSession();
+  await ensureDb();
+  await startJob(session.tid, jobId, session.uid, session.role === 'owner');
+  refresh();
+}
+
+/** Машина уехала, не дождавшись очереди. */
+export async function cancelJobAction(jobId: string): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+  await cancelJob(session.tid, jobId);
+  refresh();
 }

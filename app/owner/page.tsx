@@ -6,12 +6,16 @@ import {
   getPeriodStats,
   getRevenueSeries,
   getTenant,
+  listServices,
+  listStaff,
   startOfDay,
 } from '@/lib/queries';
+import { listOpenJobs } from '@/lib/jobs';
+import { JobBoard } from '@/components/job-board';
 import { windowFor } from '@/lib/summary-window';
 import { hhmm } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
+import { fromOneUnit, hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
@@ -26,7 +30,7 @@ import {
 } from '@/components/flow-icons';
 import { PageHead } from '@/components/page-head';
 import { DayChart, PaymentSplit, type ChartPoint } from '@/components/day-chart';
-import { CancelOrderButton } from '@/components/cancel-order-button';
+import { OrderMenu } from '@/components/order-menu';
 import { personColor } from '@/lib/person-color';
 import { getPeriod } from './periods';
 import { PeriodTabs } from './period-tabs';
@@ -79,8 +83,25 @@ export default async function TodayPage({
      Список объединяем, а не показываем два: человек, который встал час
      назад и ещё ничего не намыл, в byStaff не попадает вовсе — по записям
      его не видно, а на площадке он стоит. */
-  const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
+  /* Очередь, люди и прайс — «сейчас», без оглядки на выбранный период:
+     машина, которую приняли час назад, стоит во дворе независимо от
+     того, смотрит владелец сегодняшний день или прошлый месяц. */
+  const [present, openJobs, staffList, serviceList] = await Promise.all([
+    whoIsOnShift(tenant.id, startOfDay(tenant.timezone)),
+    listOpenJobs(tenant.id),
+    listStaff(tenant.id),
+    listServices(tenant.id),
+  ]);
   const presentIds = new Set(present.map((p) => p.userId));
+
+  /* Очередь и работа — разные вещи, и делятся они здесь.
+
+     «Հերթ» это те, кто ждёт: передали и взял. Как только мойщик начал,
+     машина перестаёт ждать и уходит в ленту — там она и стоит, пока не
+     появится запись с деньгами. Иначе очередь показывает длину, которой
+     нет: две машины в ней, а ждёт одна. */
+  const queue = openJobs.filter((j) => j.status !== 'started');
+  const washing = openJobs.filter((j) => j.status === 'started');
 
   const crew = [
     ...present.map((p) => {
@@ -114,6 +135,18 @@ export default async function TodayPage({
   const kept = stats.revenue > 0 ? Math.round((profit / stats.revenue) * 100) : 0;
   const perUnit = stats.count > 0 ? Math.round(profit / stats.count) : 0;
   const diff = profit - prevProfit;
+
+  /* Итог ленты считаем по тем же записям, что показаны в ней, а не
+     отдельным запросом: сумма под столбцом обязана сходиться со
+     столбцом, который человек видит. Отдельный запрос считал бы период
+     целиком и разошёлся бы с лентой, как только та начнёт обрезаться. */
+  const feedTotals = feed.reduce(
+    (acc, o) => ({
+      price: acc.price + o.price,
+      share: acc.share + (o.staffPercent > 0 ? staffShare(o.price, o.staffPercent) : 0),
+    }),
+    { price: 0, share: 0 },
+  );
 
   /* Разметка широкого экрана.
 
@@ -168,7 +201,7 @@ export default async function TodayPage({
             tone: 'lime',
             note:
               stats.count > 0
-                ? `${kept}% ${hy.owner.kept} · ${money(perUnit)} ${hy.owner.perUnit}`
+                ? `${kept}% ${hy.owner.kept} · ${money(perUnit)} ${fromOneUnit(tenant.unitOne)}`
                 : undefined,
           },
         ]}
@@ -176,7 +209,7 @@ export default async function TodayPage({
 
       {period.key === 'today' && (
         <section
-          className="mt-[var(--seam)] grid grid-cols-3 rounded-[var(--radius-card)] bg-[color-mix(in_srgb,var(--board-ink)_5%,transparent)] px-2 py-4 sm:px-4"
+          className="mt-[var(--seam)] grid grid-cols-3 rounded-[var(--radius-card)] bg-[color-mix(in_srgb,var(--board-ink)_5%,transparent)] px-2 py-3 sm:px-4"
           aria-label="Այսօրվա արագ ամփոփում"
         >
           {[
@@ -251,6 +284,26 @@ export default async function TodayPage({
             этот рост занимают, а лента уходит вниз во всю ширину: ей
             там и место, у неё семь колонок. */}
         <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+        {/* Очередь встаёт над сменой и по той же причине, по которой
+            смена стоит над оплатой: и то и другое отвечает на вопрос
+            «что происходит прямо сейчас», но очередь отвечает про
+            машины во дворе, а смена — про людей. Машины появляются и
+            уходят десятки раз за день, люди — дважды. */}
+        <JobBoard
+          jobs={queue.map((j) => ({
+            id: j.id,
+            clientKey: j.clientKey,
+            staffName: j.staffName,
+            serviceName: j.serviceName,
+            status: j.status as 'assigned' | 'accepted' | 'started',
+            waited: hy.jobs.waited(j.waitedMinutes),
+          }))}
+          staff={staffList.map((s) => ({ id: s.id, name: s.name }))}
+          services={serviceList.map((s) => ({ id: s.id, name: s.name }))}
+          unitOne={tenant.unitOne}
+          clientIdLabel={tenant.clientIdLabel}
+        />
+
         <Panel title={hy.owner.onShift} count={crew.length}>
             {crew.length === 0 ? (
               <Empty />
@@ -259,13 +312,7 @@ export default async function TodayPage({
                 {crew.map((s) => (
                   <Row key={s.staffId ?? 'none'}>
                     <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{
-                        background: s.present ? personColor(s.name) : 'transparent',
-                        boxShadow: s.present
-                          ? 'none'
-                          : `inset 0 0 0 1.5px ${personColor(s.name)}`,
-                      }}
+                      className={`size-2 shrink-0 rounded-full ${s.present ? 'dot-live' : 'dot-idle'}`}
                       aria-label={s.present ? hy.owner.onShiftNow : undefined}
                     />
                     <span
@@ -312,11 +359,69 @@ export default async function TodayPage({
             целиком, и тогда столбец — единственный способ сравнить
             соседние записи, не читая каждую. На телефоне та же лента
             остаётся списком в две строки. */}
-        <Panel title={hy.owner.feed} count={feed.length} className="lg:col-span-12 lg:self-start">
-          {feed.length === 0 ? (
+        <Panel
+          title={hy.owner.feed}
+          count={feed.length + washing.length}
+          className="lg:col-span-12 lg:self-start"
+        >
+          {feed.length === 0 && washing.length === 0 ? (
             <Empty />
           ) : (
             <>
+              {/* Машины в работе — здесь, а не в очереди.
+
+                  «Հերթ» это очередь ждущих; машина, которую уже моют, не
+                  ждёт, и держать её там значит показывать владельцу
+                  очередь длиннее настоящей. Одно и то же событие обязано
+                  выглядеть одинаково на обоих экранах: у мойщика начатая
+                  машина уходит из верхнего блока в журнал, здесь — из
+                  очереди в ленту.
+
+                  Денег в строке нет и в итог столбца она не входит: их
+                  ещё не взяли. Сумма появится, когда машину запишут. */}
+              {washing.length > 0 && (
+                <div className="board-journal mb-1">
+                  {washing.map((w) => (
+                    <Row key={w.id}>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className="num block truncate text-[15px] font-semibold"
+                          style={{ color: 'var(--on-board)' }}
+                        >
+                          {w.clientKey}
+                        </span>
+                        <span
+                          className="block truncate text-[12px]"
+                          style={{ color: 'var(--board-muted)' }}
+                        >
+                          <span
+                            className="font-semibold"
+                            style={{ color: personColor(w.staffName) }}
+                          >
+                            {w.staffName ?? '—'}
+                          </span>{' '}
+                          {w.serviceName ? `· ${w.serviceName} ` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span
+                          className="block text-[13px] font-semibold"
+                          style={{ color: 'var(--good-on-board)' }}
+                        >
+                          {hy.jobs.washing}
+                        </span>
+                        <span
+                          className="num block text-[12px]"
+                          style={{ color: 'var(--board-muted)' }}
+                        >
+                          {hy.jobs.waited(w.waitedMinutes)}
+                        </span>
+                      </span>
+                    </Row>
+                  ))}
+                </div>
+              )}
+
               <div className="board-journal lg:hidden">
                 {feed.map((o) => (
                   <Row key={o.id}>
@@ -354,9 +459,29 @@ export default async function TodayPage({
                         {hhmm(o.createdAt, tenant.timezone)}
                       </span>
                     </span>
-                    <CancelOrderButton orderId={o.id} />
+                    <OrderMenu orderId={o.id} clientKey={o.clientKey} />
                   </Row>
                 ))}
+
+                {/* Тот же итог, что под таблицей: телефон и широкий
+                    экран показывают одну ленту и обязаны отвечать
+                    одинаково. Строка на фоне, чтобы не путалась с
+                    записями над ней. */}
+                <div
+                  className="mt-1 flex items-center justify-between rounded-[var(--radius-chip)] px-2.5 py-2"
+                  style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
+                >
+                  <span className="text-[13px] font-semibold">{hy.owner.feedTotal}</span>
+                  <span className="num text-[14px] font-semibold">
+                    {money(feedTotals.price)}
+                    {feedTotals.share > 0 && (
+                      <span className="font-medium" style={{ color: 'var(--board-muted)' }}>
+                        {' · '}
+                        {money(feedTotals.share)}
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
 
               <div className="hidden lg:block">
@@ -407,11 +532,26 @@ export default async function TodayPage({
                           {hhmm(o.createdAt, tenant.timezone)}
                         </td>
                         <td className="end">
-                          <CancelOrderButton orderId={o.id} />
+                          <OrderMenu orderId={o.id} clientKey={o.clientKey} />
                         </td>
                       </tr>
                     ))}
                   </tbody>
+                  {/* Итог под столбцами.
+
+                      Лента отвечает «что было», но не «сколько всего», и
+                      владелец складывал столбец глазами или уходил на
+                      другой экран сверять. Две суммы — сколько взяли и
+                      сколько из этого уходит мойщикам — стоят ровно под
+                      своими столбцами, поэтому читаются без подписи. */}
+                  <tfoot>
+                    <tr>
+                      <td colSpan={4}>{hy.owner.feedTotal}</td>
+                      <td className="num end">{money(feedTotals.price)}</td>
+                      <td className="num end">{money(feedTotals.share)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </>

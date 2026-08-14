@@ -57,8 +57,32 @@ export function DayChart({
   const y = (v: number) => (total > 0 ? H - (v / total) * (H - 12) - 6 : H - 6);
   const x = (i: number) => (points.length > 1 ? i * step : W / 2);
 
-  const line = running.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join(' ');
+  /* Кривая, а не ломаная.
+
+     Накопление — величина непрерывная: за час деньги не прыгают
+     ступенькой, они набегают. Ломаная из отрезков рисовала на каждом
+     часе излом, и график читался как рваный, хотя данные ровные.
+
+     Сглаживаем половинным шагом: опорные точки кубики стоят на середине
+     между узлами и на высоте своих узлов. Такая кривая по построению не
+     может уйти выше следующего значения или ниже предыдущего — для
+     накопления это обязательное свойство, иначе линия покажет падение
+     выручки там, где его не было. Модные сплайны с натяжением этим
+     свойством не обладают. */
+  const line = running
+    .map((v, i) => {
+      if (i === 0) return `M${x(0)},${y(v)}`;
+      const px = x(i - 1);
+      const cx = x(i);
+      const mid = (px + cx) / 2;
+      return `C${mid},${y(running[i - 1])} ${mid},${y(v)} ${cx},${y(v)}`;
+    })
+    .join(' ');
   const area = `${line} L${x(points.length - 1)},${H} L${x(0)},${H} Z`;
+
+  /* Ключ для перерисовки: при смене периода данные меняются, но узел
+     остаётся тем же, и анимация появления не повторилась бы. */
+  const shape = `${points.length}-${total}`;
 
   const shown = at ?? peakIndex;
   const active = points[shown];
@@ -105,11 +129,12 @@ export function DayChart({
           {points.map((p, i) => (
             <div
               key={`${p.label}-${i}`}
-              className="flex-1 rounded-t-[3px] transition-opacity"
+              className="day-bar flex-1 rounded-t-[3px] transition-opacity"
               style={{
                 height: `${max > 0 ? Math.max(1.5, (p.value / max) * 74) : 1.5}%`,
                 background: 'color-mix(in srgb, var(--board-ink) 13%, transparent)',
                 opacity: at === null || at === i ? 1 : 0.45,
+                ['--i' as string]: i,
               }}
             />
           ))}
@@ -147,9 +172,16 @@ export function DayChart({
             />
           ))}
 
-          <path d={area} fill="url(#dayFill)" />
+          <path key={`a-${shape}`} className="day-area" d={area} fill="url(#dayFill)" />
+          {/* `pathLength` приводит длину к единице: штрих для отрисовки
+              не зависит ни от ширины блока, ни от числа точек, и одна
+              строчка в стилях работает и на дне из двадцати четырёх
+              часов, и на месяце из тридцати одного дня. */}
           <path
+            key={`l-${shape}`}
+            className="day-line"
             d={line}
+            pathLength={1}
             fill="none"
             stroke="var(--tone-violet-glow)"
             strokeWidth="2"

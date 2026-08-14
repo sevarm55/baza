@@ -56,11 +56,16 @@ struct ServicesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        /* Полоска захвата видима нарочно: лист и раньше закрывался
+           смахиванием, но без неё об этом никто не догадывался и искал
+           кнопку. */
         .sheet(item: $editing) { service in
             ServiceEditor(service: service, currency: currency) { await reload() }
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $adding) {
             ServiceEditor(service: nil, currency: currency) { await reload() }
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $editingTiers) {
             TierEditor { await reload() }
@@ -120,87 +125,77 @@ struct ServicesView: View {
         .background(Brand.grapeDeep, in: .rect(cornerRadius: 26))
     }
 
+    /**
+     * Список, а не лента.
+     *
+     * Услуги лежали горизонтальными билетами: чтобы увидеть пятую, надо
+     * было листать вбок, а сколько их всего — не понять вовсе. Прайс
+     * читают сверху вниз, сравнивая цены столбиком; вбок его не читает
+     * никто.
+     */
     private var serviceRail: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 10) {
-                ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
-                    serviceTicket(service, index: index)
-                }
-
+        VStack(spacing: 0) {
+            ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
                 Button {
-                    adding = true
+                    editing = service
                 } label: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 19, weight: .bold))
-                            .frame(width: 38, height: 38)
-                            .background(Brand.onLime.opacity(0.1), in: .rect(cornerRadius: 12))
-                        Spacer()
-                        Text("Նոր\nծառայություն")
-                            .font(.system(size: 16, weight: .bold))
-                            .multilineTextAlignment(.leading)
+                    HStack(spacing: 12) {
+                        Text(service.name)
+                            .font(.system(size: 15.5, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+
+                        Text(money(service.price, currency))
+                            .font(.system(size: 15, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Brand.boardMuted)
                     }
-                    .foregroundStyle(Brand.onLime)
-                    .padding(14)
-                    .frame(width: 132, height: 148, alignment: .leading)
-                    .background(Brand.lime, in: .rect(cornerRadius: 22))
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 54)
                 }
                 .buttonStyle(.press)
-            }
-        }
-        .scrollIndicators(.hidden)
-        .contentMargins(.horizontal, 0, for: .scrollContent)
-    }
 
-    private func serviceTicket(_ service: API.Service, index: Int) -> some View {
-        let palette: [(Color, Color)] = [
-            (Brand.mintCard, Brand.mintInk),
-            (Brand.lavenderCard, Brand.lavenderInk),
-            (Brand.sandCard, Brand.sandInk),
-        ]
-        let colors = palette[index % palette.count]
-
-        return Button {
-            editing = service
-        } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text(String(format: "%02d", index + 1))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 9, weight: .bold))
+                if index < services.count - 1 {
+                    Divider().overlay(Brand.boardInk.opacity(0.07)).padding(.leading, 14)
                 }
-                .opacity(0.6)
-
-                Spacer()
-
-                Text(service.name)
-                    .font(.system(size: 16, weight: .bold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                Text(priceLabel(service))
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.top, 3)
             }
-            .foregroundStyle(colors.1)
-            .padding(14)
-            .frame(width: 154, height: 148, alignment: .leading)
-            .background(colors.0, in: .rect(cornerRadius: 22))
+
+            if !services.isEmpty {
+                Divider().overlay(Brand.boardInk.opacity(0.07)).padding(.leading, 14)
+            }
+
+            /* Добавление — последней строкой списка, а не отдельной
+               плиткой: новая услуга встаёт туда же, где уже стоят
+               остальные, и глазу не нужно искать другое место. */
+            Button {
+                adding = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Նոր ծառայություն")
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                }
+                .foregroundStyle(Brand.grape)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 52)
+            }
+            .buttonStyle(.press)
         }
-        .buttonStyle(.press)
-        .accessibilityElement(children: .combine)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
     }
 
-    /**
-     * Классы — отдельной строкой под прайсом.
-     *
-     * Здесь, а не в профиле: список классов меняет прайс целиком, и место
-     * ему рядом с ценами, а не рядом с именем владельца.
-     */
     private var tiersButton: some View {
         Button {
             editingTiers = true
@@ -291,6 +286,30 @@ struct ServiceEditor: View {
             VStack(spacing: 10) {
                 header
 
+                /* Два вопроса — две группы, и порядок в них тот же, в
+                   каком их задают: сначала «что это за услуга», потом
+                   «сколько она стоит». Раньше и цены, и название лежали
+                   одной безымянной стопкой, причём цены сверху, — и по
+                   ней нельзя было понять, что вообще заводится: то ли
+                   услуга, то ли прайс на что-то уже существующее. */
+                caption("Ի՞նչ ծառայություն")
+
+                HStack(spacing: 12) {
+                    Text("Անուն")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Brand.boardMuted)
+                    Spacer(minLength: 8)
+                    TextField("Կոմպլեքս", text: $name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                        .multilineTextAlignment(.trailing)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 15)
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+
+                caption(tiers.isEmpty ? "Գինը" : "Գինը՝ ըստ մեքենայի դասի")
+
                 VStack(spacing: 0) {
                     if tiers.isEmpty {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -307,8 +326,7 @@ struct ServiceEditor: View {
                                 .foregroundStyle(Brand.boardMuted)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 18)
-                        .padding(.bottom, 14)
+                        .padding(.vertical, 18)
                     } else {
                         /* По строке на класс. Крупного поля здесь нет
                            намеренно: когда цен три, ни одна из них не
@@ -333,26 +351,11 @@ struct ServiceEditor: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
 
-                            Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                            if i < tiers.count - 1 {
+                                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                            }
                         }
                     }
-
-                    if tiers.isEmpty {
-                        Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
-                    }
-
-                    HStack(spacing: 12) {
-                        Text("Անուն")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Brand.boardMuted)
-                        Spacer(minLength: 8)
-                        TextField("Կոմպլեքս", text: $name)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 15)
                 }
                 .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
 
@@ -391,6 +394,16 @@ struct ServiceEditor: View {
 
     /// Строка цены класса. Массив может быть короче списка классов, если
     /// класс добавили только что, — дотягиваем на лету.
+    /// Подпись над группой: маленькая, приглушённая, слева.
+    private func caption(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(Brand.boardMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.top, 6)
+    }
+
     private func binding(for i: Int) -> Binding<String> {
         Binding(
             get: { tierPrices[safe: i] ?? "" },

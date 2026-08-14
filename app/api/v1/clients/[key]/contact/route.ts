@@ -1,11 +1,11 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { clients } from '@/lib/db/schema';
 import { normalizePhone } from '@/lib/phone';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
-import { normalizeClientKey } from '@/lib/client-key';
+import { compactClientKey } from '@/lib/client-key';
 
 /**
  * Имя и телефон клиента.
@@ -44,7 +44,9 @@ export async function PATCH(
       .where(
         and(
           eq(clients.tenantId, ctx.tenant.id),
-          eq(clients.key, normalizeClientKey(decodeURIComponent(key))),
+          /* По слитной форме: в базе остались ключи, заведённые до
+             красивого написания, и по красивому они не находятся. */
+          sql`regexp_replace(upper(${clients.key}), '[[:space:]-]+', '', 'g') = ${compactClientKey(decodeURIComponent(key))}`,
         ),
       )
       .returning();
