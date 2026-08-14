@@ -22,7 +22,7 @@ export default function Loading() {
         </div>
       </div>
 
-      <div className="grid gap-[var(--seam)] sm:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+      <div className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <Block className="h-[136px]" />
         <Block className="h-[136px]" />
       </div>

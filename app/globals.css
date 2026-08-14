@@ -2900,7 +2900,9 @@ input[type='radio'] {
      которого экран открыт, обязано читаться первым, а рядом с ним не
      должно быть второго такого же. Остальные три показателя стоят
      полосой и втрое тише — они объясняют плиту, а не спорят с ней. */
-  .pay-hero {
+  /* Классы нейтральные, а не `pay-*`: той же парой начинается сводка
+     дня, и приставка «зарплаты» на общем приборе врала бы про место. */
+  .plate {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -2912,7 +2914,7 @@ input[type='radio'] {
     color: var(--board);
   }
 
-  .pay-hero-label {
+  .plate-label {
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -2921,7 +2923,7 @@ input[type='radio'] {
     color: color-mix(in srgb, var(--board) 64%, transparent);
   }
 
-  .pay-hero-value {
+  .plate-value {
     font-size: clamp(30px, 3.4vw, 42px);
     line-height: 1;
     font-weight: 700;
@@ -2931,50 +2933,70 @@ input[type='radio'] {
     color: var(--board);
   }
 
-  .pay-hero-note {
+  .plate-note {
     margin-top: 0.35rem;
     font-size: 12.5px;
     color: color-mix(in srgb, var(--board) 62%, transparent);
   }
 
+  /* Минус на плите.
+
+     Убыток — это состояние бизнеса, а не оформление числа, и знак «−»
+     перед суммой его не сообщает: он читается как «столько-то долга»,
+     а не как «день ушёл в минус». Красим само число и подписываем
+     словами (`owner.inTheRed`); заливка плиты при этом не меняется —
+     красная плита во всю ширину превращает обычный расходный день в
+     тревогу. */
+  .plate[data-bad] .plate-value {
+    color: var(--bad);
+  }
+
   /* Тёмная тема: белая плита среди угольных приборов слепит — тот же
      разбор, что у звена итога на сводке. Плита поднимается на ступень
      светлее полотна, а число берёт лайм. */
-  :root[data-theme='dark'] .pay-hero {
+  :root[data-theme='dark'] .plate {
     background: var(--board-surface2);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-fill) 16%, transparent);
   }
-  :root[data-theme='dark'] .pay-hero-value {
+  :root[data-theme='dark'] .plate-value {
     color: var(--accent-fill);
   }
-  :root[data-theme='dark'] .pay-hero-label,
-  :root[data-theme='dark'] .pay-hero-note {
+  :root[data-theme='dark'] .plate[data-bad] .plate-value {
+    color: var(--bad);
+  }
+  :root[data-theme='dark'] .plate-label,
+  :root[data-theme='dark'] .plate-note {
     color: var(--board-muted);
   }
 
-  /* Три второстепенных показателя одной полосой, а не тремя карточками:
-     карточка вокруг каждого сделала бы их равными плите. */
-  .pay-metrics {
+  /* Слагаемые одной полосой, а не карточками поштучно: карточка вокруг
+     каждого сделала бы их равными плите. */
+  .figures {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-content: center;
     border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--board-ink) 5%, transparent);
-    padding: 0.9rem 0.5rem;
+    padding: 0.9rem 0.35rem;
   }
-  :root:not([data-theme='dark']) .pay-metrics {
+  :root:not([data-theme='dark']) .figures {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board-ink) 7%, transparent);
   }
-  .pay-metric {
+  .figure {
     min-width: 0;
-    padding-inline: 0.75rem;
+    padding-inline: 0.5rem;
     text-align: center;
   }
-  .pay-metric + .pay-metric {
+  .figure + .figure {
     border-inline-start: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
   }
-  .pay-metric-value {
-    font-size: clamp(16px, 1.7vw, 21px);
+  /* Нижняя граница кегля — не «как красивее», а «сколько знаков должно
+     влезть». В полосе стоит выручка, и это самое длинное число
+     страницы: миллион с разрядами и знаком драма — это одиннадцать
+     знаков в ячейку шириной в треть половины экрана. Обрезанное
+     «1 340 0…» хуже мелкого: по нему нельзя понять даже порядок. */
+  .figure-value {
+    font-size: clamp(15px, 1.5vw, 21px);
     line-height: 1.1;
     font-weight: 700;
     letter-spacing: -0.025em;
@@ -2983,7 +3005,14 @@ input[type='radio'] {
     text-overflow: ellipsis;
     font-variant-numeric: tabular-nums;
   }
-  .pay-metric-label {
+  /* Знак связи приглушён и не занимает места числа: он про то, как
+     слагаемое относится к плите, а не про величину. */
+  .figure-sign {
+    margin-inline-end: 0.15em;
+    font-weight: 600;
+    color: var(--board-muted);
+  }
+  .figure-label {
     margin-top: 0.2rem;
     font-size: 11.5px;
     font-weight: 500;
@@ -2991,6 +3020,32 @@ input[type='radio'] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .figure-note {
+    margin-top: 0.1rem;
+    font-size: 11px;
+    color: var(--board-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Слагаемое, за которым стоит свой раздел. Подчёркивание появляется
+     под наведением: постоянное превратило бы полосу чисел в список
+     ссылок, а ведёт куда-то одно из трёх. */
+  .figure-open {
+    display: block;
+    border-radius: var(--radius-chip);
+    transition: background var(--t-micro) var(--ease);
+  }
+  .figure-open:hover .figure-label {
+    color: var(--on-board);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .figure-open:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   /* ───────── строка человека ─────────
@@ -3145,7 +3200,10 @@ input[type='radio'] {
     color: var(--good-on-board);
   }
 
-  .pay-chev {
+  /* Шеврон раскрытия. Класс нейтральный: тем же значком и с тем же
+     поворотом раскрывается строка сегодняшней работы, а приставка
+     «зарплаты» на общей детали врала бы про место. */
+  .chev {
     grid-area: chev;
     display: inline-flex;
     align-items: center;
@@ -3156,11 +3214,17 @@ input[type='radio'] {
     color: var(--faint);
     transition: color var(--t-micro) var(--ease), transform var(--t-micro) var(--ease);
   }
-  .pay-row:hover .pay-chev {
+  .pay-row:hover .chev,
+  .op-row:hover .chev {
     color: var(--muted);
   }
-  .pay-chev[data-open] {
+  .chev[data-open] {
     transform: rotate(90deg);
+  }
+  .chev:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: var(--radius-chip);
   }
 
   /* Разложение суммы: едет высотой, а не гаснет прозрачностью.
@@ -3323,5 +3387,566 @@ input[type='radio'] {
     padding: 0.15rem 0;
     text-align: start;
     cursor: pointer;
+  }
+}
+
+/* ═════════════════════════ сводка дня ═════════════════════════
+
+   Приборы главного экрана владельца. Плита итога и полоса слагаемых
+   живут выше, вместе с зарплатами: у двух денежных страниц одна шапка,
+   и разные читались бы как разный расчёт.
+
+   Здесь то, чего нет больше нигде: строка операционной сводки, двор,
+   разрез оплат, поле графика и сегодняшняя работа. */
+@layer components {
+  /* ───────── операционная строка ─────────
+
+     Три факта предложением, а не тремя карточками. Карточки весили бы
+     столько же, сколько слагаемые выручки над ними, и первый экран
+     превратился бы в семь равных показаний. Точка-разделитель рисуется
+     псевдоэлементом, поэтому её не приходится ставить руками между
+     кусками, которых может не быть. */
+  .quick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+    margin-top: 0.85rem;
+    font-size: 13px;
+    color: var(--board-muted);
+  }
+  .quick b {
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .quick i {
+    width: 3px;
+    height: 3px;
+    margin-inline: 0.15rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--board-ink) 25%, transparent);
+    translate: 0 -0.25em;
+  }
+
+  /* ───────── сейчас ─────────
+
+     Состояние смены строкой, а не карточкой: пустая смена не должна
+     занимать прибор в полный рост. Пока мойка не открылась, это одна
+     строка; когда открылась — та же строка, но с зелёной точкой. */
+  .now-shift {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding-block: 0.1rem;
+  }
+  .now-shift-title {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .now-shift-note {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 12.5px;
+    color: var(--board-muted);
+  }
+
+  /* Машина во дворе. Своя подложка внутри прибора, а не строка журнала:
+     это предмет, который приехал и уедет, а не запись, которая
+     останется. */
+  /* Что это за список — одной строкой и тише всего в приборе: её
+     читают один раз, а потом узнают блок по форме. */
+  .now-note {
+    margin-top: 0.85rem;
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--board-muted);
+  }
+
+  .now-cars {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    max-height: 17rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    /* Поле под полосу прокрутки, чтобы она не легла на карточки. */
+    scrollbar-gutter: stable;
+  }
+
+  .now-car {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+  .now-car-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border-radius: var(--radius-chip);
+    color: var(--board-muted);
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .now-car-mark[data-washing] {
+    color: var(--good-on-board);
+    background: color-mix(in srgb, var(--good-on-board) 14%, transparent);
+  }
+  /* Тело карточки — единственная растяжимая часть строки, и оно обязано
+     уметь сжаться до нуля: без этого номер машины держит ширину столбца,
+     а столбец — ширину страницы. */
+  .now-car-body {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+  }
+  .now-car-key,
+  .now-car-meta,
+  .now-car-state {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .now-car-key {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .now-car-meta {
+    font-size: 12px;
+    color: var(--board-muted);
+  }
+  .now-car-state {
+    margin-top: 0.05rem;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--board-muted);
+  }
+  /* Моют — не то же, что ждёт. Цвет тот же, что у значка слева: одно
+     состояние помечено дважды, но обоими способами сразу читается и
+     сканированием списка, и чтением строки. */
+  .now-car-state[data-washing] {
+    color: var(--good-on-board);
+  }
+  .now-car-state[data-washing] .num {
+    color: var(--board-muted);
+    font-weight: 400;
+  }
+
+  /* Отметка живости у нижнего края прибора: тише всего остального и
+     отделена линией — это не показание, а признак того, что мойка
+     работает. */
+  .now-last {
+    margin-top: 0.8rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+    font-size: 12px;
+    color: var(--board-muted);
+  }
+
+  /* ───────── чем платили ─────────
+
+     Строка на две линии: сверху способ, сумма и доля, снизу полоса
+     длиной в эту долю. Кольцо на трёх сегментах читается в два приёма —
+     найти цвет, найти его в легенде, — а полоса отвечает сразу. */
+  .mix {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    column-gap: 0.6rem;
+    row-gap: 0.4rem;
+  }
+  .mix-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    font-size: 13.5px;
+    color: var(--board-muted);
+  }
+  .mix-value {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--on-board);
+    font-variant-numeric: tabular-nums;
+  }
+  .mix-share {
+    min-width: 2.5rem;
+    font-size: 12.5px;
+    text-align: end;
+    white-space: nowrap;
+    color: var(--board-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .mix-bar {
+    grid-column: 1 / -1;
+    display: block;
+    height: 6px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .mix-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* ───────── график ───────── */
+  .chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.9rem;
+  }
+  .chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 11.5px;
+    color: var(--board-muted);
+  }
+  .chart-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .chart-key {
+    display: block;
+    flex: none;
+  }
+  .chart-key-line {
+    width: 1.25rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--tone-violet-glow);
+  }
+  .chart-key-bar {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--board-ink) 16%, transparent);
+  }
+  .chart-plot {
+    position: relative;
+    height: 150px;
+    cursor: crosshair;
+    border-radius: var(--radius-chip);
+  }
+  /* На широком экране высота не задана, а взята: поле забирает всё,
+     что осталось в приборе после легенды, оси и подписи. Прибор при
+     этом тянется на высоту ряда, поэтому график ровно такой, сколько
+     места дал ему сосед справа, и ниже 210 не опускается. */
+  @media (min-width: 1024px) {
+    .chart-plot {
+      flex: 1;
+      min-height: 210px;
+    }
+  }
+  /* Поле — цель для клавиатуры: стрелками ходят по часам. Без обводки
+     фокуса человек, пришедший с клавиатуры, не понял бы, что попал
+     внутрь графика. */
+  .chart-plot:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+  }
+
+  .chart-axis {
+    position: relative;
+    height: 2rem;
+    margin-top: 0.5rem;
+  }
+  .chart-axis > span {
+    position: absolute;
+    top: 0;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: nowrap;
+    color: var(--board-muted);
+  }
+  /* «сейчас» под последним часом: обрыв шкалы посреди дня иначе
+     читается как потерянные данные. */
+  .chart-axis b {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 10px;
+    font-weight: 500;
+    text-align: end;
+    color: color-mix(in srgb, var(--board-muted) 80%, transparent);
+  }
+
+  /* Подпись под графиком — она же подсказка. Всплывающее окно поверх
+     линии закрывало бы её собой, а на телефоне палец закрывал бы вместе
+     с ним; строка стоит на месте и меняется на лету. */
+  .chart-read {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.75rem;
+    min-height: 1.25rem;
+    margin-top: 0.75rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+    font-size: 12.5px;
+    color: var(--on-board);
+  }
+  .chart-read b {
+    font-weight: 700;
+  }
+  .chart-read-who {
+    max-width: 16rem;
+    color: var(--board-muted);
+  }
+
+  /* ───────── сегодняшняя работа ───────── */
+
+  /* Поиск живёт в заголовке прибора, а не полосой над списком: он
+     появляется только на длинном дне, и отдельная полоса под заголовком
+     дёргала бы разметку каждый раз, когда записей становится больше
+     дюжины. */
+  .op-search {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-chip);
+    background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+    color: var(--board-muted);
+  }
+  .op-search input {
+    width: 11rem;
+    max-width: 40vw;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 13px;
+    color: var(--on-board);
+  }
+  .op-search:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .op-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+  .op-filters button {
+    padding: 0.28rem 0.65rem;
+    border-radius: var(--radius-chip);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--board-muted);
+    background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .op-filters button:hover {
+    color: var(--on-board);
+  }
+  .op-filters button[data-on] {
+    color: var(--board);
+    background: var(--on-board);
+  }
+  .op-filters button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  /* Слово с пределом.
+
+     В таблице с автоматической раскладкой обрезка по ширине ячейки не
+     работает: ячейка растёт под содержимое, и длинное имя отбирает
+     место у чисел справа. Предел в рублях, а не в процентах, — тогда
+     столбец имеет свой размер независимо от того, что в него попало. */
+  .op-cut {
+    display: block;
+    max-width: 7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (min-width: 1280px) {
+    .op-cut {
+      max-width: 11rem;
+    }
+  }
+
+  /* Уезжает вбок таблица, а не страница: горизонтальная прокрутка
+     полотна утащила бы за собой и плиту итога, и график. Полоса
+     прокрутки тонкая, но видимая — спрятанная означала бы, что справа
+     есть столбцы, о которых никто не узнает. */
+  .op-table {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  /* Строка записи открывается вся, а не только по шеврону: разбор
+     денег — то, что смотрят чаще всего, и прятать его за шестью
+     пикселями значка незачем. */
+  .op-row {
+    cursor: pointer;
+  }
+  .op-row[data-open] {
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+  /* Раскрытие — вторая строка таблицы, а не панель поверх: столбцы над
+     ним остаются на месте, и видно, к какой записи относится разбор. */
+  .op-detail > td {
+    border-top: 0;
+    padding-top: 0;
+    padding-bottom: 0.85rem;
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+  .op-split {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 34rem;
+  }
+  .op-split-head {
+    font-size: 12.5px;
+    color: var(--board-muted);
+  }
+  .op-split-head b {
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  /* Пропорция читается раньше чисел: видно, какая часть машины ушла
+     человеку, ещё до того как прочитана сумма. */
+  .op-split-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .op-split-bar > span {
+    display: block;
+    height: 100%;
+  }
+  .op-split-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.25rem;
+    font-size: 12.5px;
+    color: var(--board-muted);
+  }
+  .op-split-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .op-split-legend b {
+    font-weight: 600;
+    color: var(--on-board);
+    font-variant-numeric: tabular-nums;
+  }
+  .op-split-legend i {
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ───────── телефон: карточка вместо строки ─────────
+
+     Восемь колонок в четыреста точек превращаются либо в
+     горизонтальную прокрутку, где не видно начала записи, либо в кашу.
+     Карточка показывает всё сразу, поэтому раскрывать на телефоне
+     нечего. */
+  /* Правый столбец с потолком, а не по содержимому.
+
+     Свободный `auto` отдавал ему всё, что он просил, а просил он много:
+     «Բաժին 312 500 ֏ · 25% · Բիզնեսին 937 500 ֏» одной строкой — это
+     двести тридцать точек из трёхсот сорока, и номер машины слева
+     обрезался до половины. Потолок в девять с половиной рублей
+     заставляет длинную строку перенестись, а номер оставляет целым. */
+  .op-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 9.5rem) auto;
+    grid-template-areas:
+      'key   price menu'
+      'meta  meta  menu'
+      'who   split menu';
+    align-items: center;
+    column-gap: 0.6rem;
+    row-gap: 0.2rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+  .op-card-key {
+    grid-area: key;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .op-card-price {
+    grid-area: price;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: end;
+    white-space: nowrap;
+    color: var(--on-board);
+    font-variant-numeric: tabular-nums;
+  }
+  .op-card-meta {
+    grid-area: meta;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--board-muted);
+  }
+  .op-card-who {
+    grid-area: who;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--on-board);
+  }
+  .op-card-split {
+    grid-area: split;
+    font-size: 11.5px;
+    line-height: 1.35;
+    text-align: end;
+    color: var(--board-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .op-card-menu {
+    grid-area: menu;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Итог под карточками — тот же, что под столбцами таблицы: телефон и
+     широкий экран показывают одну ленту и обязаны отвечать одинаково. */
+  .op-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.15rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-board);
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    font-variant-numeric: tabular-nums;
   }
 }

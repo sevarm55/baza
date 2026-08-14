@@ -1,5 +1,6 @@
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
+import { Figures, Plate } from '@/components/board';
 
 /**
  * Показания наверху страницы.
@@ -13,6 +14,10 @@ import { hy } from '@/lib/i18n/hy';
  * Пятого цвета здесь нет и быть не может: плита тёмная, полоса
  * нейтральная. Раскрашивать справочные числа значит превращать верх
  * страницы в светофор, по которому нечего читать.
+ *
+ * Сами приборы живут в `components/board.tsx`: той же парой начинается
+ * сводка дня, и две похожие, но разные шапки внутри одного продукта
+ * читались бы как разный расчёт.
  */
 export function PayrollSummary({
   currency,
@@ -39,33 +44,28 @@ export function PayrollSummary({
 
   return (
     <section
-      className="grid gap-[var(--seam)] sm:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
+      /* Порог тот же, что у сводки дня: до 1024 плита и полоса идут
+         друг под другом, иначе числа и подписи в них обрезаются. */
+      className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
       aria-label={hy.owner.payrollDue}
     >
-      <div className="pay-hero">
-        <span className="pay-hero-label">{hy.owner.toPay}</span>
-        <span className="pay-hero-value">{money(outstanding)}</span>
-        <span className="pay-hero-note">
-          {outstanding > 0
+      <Plate
+        label={hy.owner.toPay}
+        value={money(outstanding)}
+        note={
+          outstanding > 0
             ? `${owedTo} ${staffRole.toLocaleLowerCase('hy')}`
-            : hy.payroll.dayAllPaid}
-        </span>
-      </div>
+            : hy.payroll.dayAllPaid
+        }
+      />
 
-      <div className="pay-metrics">
-        <div className="pay-metric">
-          <div className="pay-metric-value">{money(accrued)}</div>
-          <div className="pay-metric-label">{hy.owner.payrollAccrued}</div>
-        </div>
-        <div className="pay-metric">
-          <div className="pay-metric-value">{money(settled)}</div>
-          <div className="pay-metric-label">{hy.payroll.paid}</div>
-        </div>
-        <div className="pay-metric">
-          <div className="pay-metric-value">{units}</div>
-          <div className="pay-metric-label">{unitOne}</div>
-        </div>
-      </div>
+      <Figures
+        items={[
+          { label: hy.owner.payrollAccrued, value: money(accrued) },
+          { label: hy.payroll.paid, value: money(settled) },
+          { label: unitOne, value: String(units) },
+        ]}
+      />
     </section>
   );
 }

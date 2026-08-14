@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import Link from 'next/link';
 import { NumericText } from '@/components/numeric-text';
 
 /**
@@ -251,4 +252,98 @@ export function Grid({ children, className = '' }: { children: ReactNode; classN
  */
 export function Row({ children }: { children: ReactNode }) {
   return <div className="flex items-center gap-2.5 px-1.5 py-2.5">{children}</div>;
+}
+
+/* ─────────────────────── итог и слагаемые ───────────────────────
+ *
+ * Пара приборов, с которой начинается денежная страница: тёмная плита с
+ * единственным числом и полоса тише её, объясняющая, из чего оно
+ * сложилось.
+ *
+ * Приём был придуман для зарплат — там плита отвечала «сколько раздать
+ * сейчас», а полоса под ней перечисляла справочное. Сводке нужно ровно
+ * то же самое, только числа другие: «сколько вам остаётся» и три
+ * слагаемых. Держать две одинаковые верстки в двух файлах значило бы
+ * завести внутри одного продукта две похожие, но разные шапки — а
+ * расхождение на экранах, где считают деньги, читается как ошибка
+ * расчёта.
+ */
+
+/**
+ * Плита: одно число, ради которого страницу открывают.
+ *
+ * Единственное место шапки, где цвет несёт смысл. Остальное нейтрально —
+ * иначе раскрашенными оказываются все числа сразу, и ни одно не главное.
+ */
+export function Plate({
+  label,
+  value,
+  note,
+  /** число ушло в минус: это состояние, а не оформление */
+  bad,
+}: {
+  label: ReactNode;
+  value: string;
+  note?: ReactNode;
+  bad?: boolean;
+}) {
+  return (
+    <div className="plate" data-bad={bad ? '' : undefined}>
+      <span className="plate-label">{label}</span>
+      <span className="plate-value">
+        <NumericText>{value}</NumericText>
+      </span>
+      {note !== undefined && <span className="plate-note">{note}</span>}
+    </div>
+  );
+}
+
+export type Figure = {
+  label: string;
+  value: string;
+  /** знак связи с предыдущим слагаемым: видно, что из чего вычитается */
+  sign?: '−' | '+';
+  note?: string;
+  /** слагаемое, за которым стоит свой раздел */
+  href?: string;
+};
+
+/**
+ * Слагаемые — одной полосой, а не карточками поштучно.
+ *
+ * Карточка вокруг каждого числа сделала бы их равными плите, и шапка
+ * превратилась бы в ряд одинаково важных показаний, между которыми глазу
+ * приходится выбирать.
+ */
+export function Figures({ items }: { items: Figure[] }) {
+  return (
+    <div className="figures">
+      {items.map((f) => {
+        const body = (
+          <>
+            <div className="figure-value">
+              {f.sign && (
+                <span className="figure-sign" aria-hidden>
+                  {f.sign}
+                </span>
+              )}
+              <NumericText>{f.value}</NumericText>
+            </div>
+            <div className="figure-label">{f.label}</div>
+            {f.note && <div className="figure-note num">{f.note}</div>}
+          </>
+        );
+
+        return f.href ? (
+          <Link key={f.label} href={f.href} className="figure figure-open">
+            {body}
+          </Link>
+        ) : (
+          <div key={f.label} className="figure">
+            {body}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

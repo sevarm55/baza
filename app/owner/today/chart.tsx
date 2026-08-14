@@ -2,34 +2,38 @@
 
 import { useState } from 'react';
 import { formatMoney } from '@/lib/money';
-
-export type ChartPoint = { label: string; value: number; peak?: boolean };
-type SplitSegment = { label: string; value: number; color: string };
+import { hy } from '@/lib/i18n/hy';
+import type { FlowPoint } from './model';
 
 /**
- * Ход дня: сколько накопилось и когда пришло.
+ * Ход периода: сколько накопилось и когда пришло.
  *
  * Здесь два вопроса, и они разные. «Как идёт день» — это накопление:
  * линия растёт, и по её наклону видно, догоняет день вчерашний или
  * отстаёт. «Когда у меня заезд» — это рельеф: где столбик выше, туда и
  * приходят, а провал между ними и есть тот час, в который мойка стояла.
  *
- * Раньше был только рельеф. Он отвечал на второй вопрос и молчал про
- * первый: по стопке одинаковых палок нельзя сказать, сколько всего
- * набежало к трём часам. Теперь линия идёт поверх столбиков — один
- * прибор на оба вопроса, и ни один не пришлось выбрасывать.
- *
  * Линия рисуется в SVG, а столбики остаются блоками. Смешение нарочное:
  * растянутый по ширине SVG искажает толщину штриха, и лечится это
  * `vector-effect`, а вот прямоугольники блоками тянутся без искажений
  * вовсе и остаются чёткими на любом экране.
+ *
+ * Чего здесь нет — итога дня крупной цифрой. Он стоит на плите наверху
+ * страницы, и вторая такая же цифра в заголовке графика заставляла
+ * сверять два числа вместо того, чтобы прочитать одно. График отвечает
+ * не «сколько», а «когда».
  */
-export function DayChart({
+export function FlowChart({
   points,
   currency,
+  unitOne,
+  byHour,
 }: {
-  points: ChartPoint[];
+  points: FlowPoint[];
   currency: string;
+  unitOne: string;
+  /** день по часам или период по дням: от этого зависят подписи */
+  byHour: boolean;
 }) {
   /* Что под курсором. `null` — курсора нет, и тогда подпись внизу
      показывает пик: экран, на который просто смотрят, обязан отвечать
@@ -38,8 +42,12 @@ export function DayChart({
 
   if (points.length === 0) return null;
 
+  const money = (n: number) => formatMoney(n, currency);
   const max = Math.max(...points.map((p) => p.value));
-  const peakIndex = Math.max(0, points.findIndex((p) => p.value === max && max > 0));
+  const peakIndex = Math.max(
+    0,
+    points.findIndex((p) => p.value === max && max > 0),
+  );
 
   /* Накопление считается один раз и здесь: то же самое в разметке
      превратилось бы в сумму, пересчитываемую на каждой точке. */
@@ -67,8 +75,7 @@ export function DayChart({
      между узлами и на высоте своих узлов. Такая кривая по построению не
      может уйти выше следующего значения или ниже предыдущего — для
      накопления это обязательное свойство, иначе линия покажет падение
-     выручки там, где его не было. Модные сплайны с натяжением этим
-     свойством не обладают. */
+     выручки там, где его не было. */
   const line = running
     .map((v, i) => {
       if (i === 0) return `M${x(0)},${y(v)}`;
@@ -86,40 +93,81 @@ export function DayChart({
 
   const shown = at ?? peakIndex;
   const active = points[shown];
+  const empty = max === 0;
 
-  const axis = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+  /* Четыре подписи, расставленные ровно по ширине.
 
+     Шагом от начала они ложились неровно: последняя всегда прижата к
+     концу шкалы, и если длина не делилась на шаг нацело, предпоследняя
+     оказывалась вплотную к ней — «15:00 17:00» слипалось в одно слово
+     на телефоне. Доли от общей длины такого не допускают по
+     построению. */
+  const TICKS = 4;
+  const marks = Math.max(1, Math.min(TICKS, points.length));
+  const ticks = [
+    ...new Set(
+      Array.from({ length: marks }, (_, i) =>
+        marks === 1 ? 0 : Math.round((i * (points.length - 1)) / (marks - 1)),
+      ),
+    ),
+  ];
+
+  /* Текущий час подписан словом: без него обрыв графика посреди шкалы
+     читается как потерянные данные. Час помечен на самой точке, а не
+     взят последним — последним может оказаться отрезок с записью из
+     будущего по кривым часам телефона. */
+  const nowIndex = points.findIndex((p) => p.now);
+
+  function move(to: number) {
+    setAt(Math.min(points.length - 1, Math.max(0, to)));
+  }
+
+  /* Колонка во всю высоту прибора: поле графика забирает остаток, а
+     легенда, ось и подпись остаются своего размера. Иначе растянутая
+     панель отдаёт лишнюю высоту полям, и дыра просто переезжает
+     внутрь рамки. */
   return (
-    <div className="mt-1 mb-1" aria-label="Հասույթի շարժը ժամանակի ընթացքում">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-[12px] font-medium" style={{ color: 'var(--board-muted)' }}>
-            Մինչև հիմա
-          </div>
-          <div className="num mt-1 text-[clamp(28px,3vw,38px)] leading-none font-bold tracking-[-0.04em]">
-            {formatMoney(total, currency)}
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-[11.5px]" style={{ color: 'var(--board-muted)' }}>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-5 rounded-full bg-[var(--tone-violet-glow)]" aria-hidden />
-            Կուտակված
+    <div className="mt-1 flex min-h-0 flex-1 flex-col">
+      {/* Легенда — что за линия и что за столбики. Больше в шапке
+          графика ничего нет: итог периода стоит на плите наверху
+          страницы, и второе такое же число здесь заставляло бы сверять
+          два, вместо того чтобы прочитать одно. */}
+      <div className="chart-head">
+        <div className="chart-legend">
+          <span>
+            <span className="chart-key chart-key-line" aria-hidden />
+            {hy.today.accumulated}
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--board-ink)_16%,transparent)]" aria-hidden />
-            Ժամում
+          <span>
+            <span className="chart-key chart-key-bar" aria-hidden />
+            {byHour ? hy.today.inHour : hy.today.inDay}
           </span>
         </div>
       </div>
 
+      {/* Поле графика само по себе цель для клавиатуры: стрелками ходят
+          по отрезкам, а подпись под ним читается вслух — иначе весь
+          рельеф дня достаётся только тем, у кого есть мышь. */}
       <div
-        className="relative h-[150px] cursor-crosshair lg:h-[210px]"
+        className="chart-plot"
+        role="group"
+        tabIndex={0}
+        aria-label={byHour ? hy.today.flowDay : hy.today.flowPeriod}
         onPointerLeave={() => setAt(null)}
+        onBlur={() => setAt(null)}
         onPointerMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
           const ratio = (e.clientX - box.left) / box.width;
-          const i = Math.round(ratio * (points.length - 1));
-          setAt(Math.min(points.length - 1, Math.max(0, i)));
+          move(Math.round(ratio * (points.length - 1)));
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') move((at ?? peakIndex) + 1);
+          else if (e.key === 'ArrowLeft') move((at ?? peakIndex) - 1);
+          else if (e.key === 'Home') move(0);
+          else if (e.key === 'End') move(points.length - 1);
+          else if (e.key === 'Escape') setAt(null);
+          else return;
+          e.preventDefault();
         }}
       >
         {/* Рельеф. Приглушён до фона: он подложка под линией, а не
@@ -132,7 +180,10 @@ export function DayChart({
               className="day-bar flex-1 rounded-t-[3px] transition-opacity"
               style={{
                 height: `${max > 0 ? Math.max(1.5, (p.value / max) * 74) : 1.5}%`,
-                background: 'color-mix(in srgb, var(--board-ink) 13%, transparent)',
+                background:
+                  i === nowIndex
+                    ? 'color-mix(in srgb, var(--board-ink) 22%, transparent)'
+                    : 'color-mix(in srgb, var(--board-ink) 13%, transparent)',
                 opacity: at === null || at === i ? 1 : 0.45,
                 ['--i' as string]: i,
               }}
@@ -158,7 +209,7 @@ export function DayChart({
           </defs>
 
           {/* Три линии сетки. Больше не нужно: точные значения даёт
-              подсказка, а сетка тут только чтобы глаз держал высоту. */}
+              подпись, а сетка тут только чтобы глаз держал высоту. */}
           {[0.25, 0.5, 0.75].map((f) => (
             <line
               key={f}
@@ -172,28 +223,30 @@ export function DayChart({
             />
           ))}
 
-          <path key={`a-${shape}`} className="day-area" d={area} fill="url(#dayFill)" />
-          {/* `pathLength` приводит длину к единице: штрих для отрисовки
-              не зависит ни от ширины блока, ни от числа точек, и одна
-              строчка в стилях работает и на дне из двадцати четырёх
-              часов, и на месяце из тридцати одного дня. */}
-          <path
-            key={`l-${shape}`}
-            className="day-line"
-            d={line}
-            pathLength={1}
-            fill="none"
-            stroke="var(--tone-violet-glow)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
+          {!empty && (
+            <>
+              <path key={`a-${shape}`} className="day-area" d={area} fill="url(#dayFill)" />
+              {/* `pathLength` приводит длину к единице: штрих для отрисовки
+                  не зависит ни от ширины блока, ни от числа точек. */}
+              <path
+                key={`l-${shape}`}
+                className="day-line"
+                d={line}
+                pathLength={1}
+                fill="none"
+                stroke="var(--tone-violet-glow)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
+          )}
         </svg>
 
         {/* Отвес и точка под курсором — блоками, а не в SVG: круг в
             растянутом полотне превратился бы в овал. */}
-        {at !== null && points.length > 1 && (
+        {at !== null && points.length > 1 && !empty && (
           <>
             <div
               className="pointer-events-none absolute top-0 bottom-0 w-px"
@@ -215,17 +268,21 @@ export function DayChart({
         )}
       </div>
 
-      <div className="relative mt-2 h-4" aria-hidden>
-        {axis.map((i) => (
+      {/* Крайние подписи прижаты к краям, а не отцентрованы по своей
+          точке: центрованная первая уезжает половиной за левое поле
+          прибора, и «08:00» читается как «:00». */}
+      <div className="chart-axis" aria-hidden>
+        {ticks.map((i) => (
           <span
             key={`${points[i]?.label}-${i}`}
-            className="num absolute -translate-x-1/2 text-[11px]"
+            className="num"
             style={{
               left: `${points.length > 1 ? (i / (points.length - 1)) * 100 : 50}%`,
-              color: 'var(--board-muted)',
+              translate: i === 0 ? '0' : i === points.length - 1 ? '-100%' : '-50%',
             }}
           >
             {points[i]?.label}
+            {i === nowIndex && <b>{hy.today.nowMark}</b>}
           </span>
         ))}
       </div>
@@ -235,70 +292,41 @@ export function DayChart({
           Всплывающее окно поверх линии закрывало бы её собой на узком
           экране, и палец на телефоне закрывал бы вместе с ним. Строка
           под графиком стоит на месте, ничего не перекрывает и меняется
-          на лету: без курсора показывает пик, под курсором — точку. */}
-      <div className="mt-3 flex min-h-5 items-baseline justify-end gap-3 text-[12px]">
-        {active && (max > 0 || at !== null) ? (
+          на лету: без курсора показывает пик, под курсором — точку.
+
+          Отвечает она теперь событием, а не приростом: «в 11:00 приехали
+          две машины, они дали 10 000, к этому часу набралось 15 000».
+
+          Пока курсора нет, показанный отрезок подписан словом «больше
+          всего»: без него непонятно, почему выбран именно этот час, и
+          строка читается как случайная. */}
+      <div className="chart-read" aria-live="polite">
+        {empty ? (
+          <span style={{ color: 'var(--board-muted)' }}>
+            {byHour ? hy.owner.emptyToday : hy.today.noRecords}
+          </span>
+        ) : (
           <>
-            <span className="num" style={{ color: 'var(--board-muted)' }}>{active.label}</span>
-            <span className="num font-semibold" style={{ color: 'var(--on-board)' }}>
-              ժամում +{formatMoney(active.value, currency)}
+            {at === null && (
+              <span style={{ color: 'var(--board-muted)' }}>{hy.today.peak}</span>
+            )}
+            <b className="num">{active.label}</b>
+            <span className="num">
+              {active.count} {unitOne}
+            </span>
+            <span className="num">
+              {byHour ? hy.today.inHour : hy.today.inDay} {money(active.value)}
             </span>
             <span className="num" style={{ color: 'var(--board-muted)' }}>
-              ընդամենը {formatMoney(running[shown] ?? 0, currency)}
+              {hy.today.accumulated} {money(running[shown] ?? 0)}
             </span>
+            {active.people.length > 0 && (
+              <span className="chart-read-who truncate">{active.people.join(', ')}</span>
+            )}
           </>
-        ) : (
-          <span style={{ color: 'var(--board-muted)' }}>Այսօր դեռ գրանցում չկա</span>
         )}
       </div>
     </div>
   );
 }
 
-export function PaymentSplit({
-  segments,
-  currency,
-}: {
-  segments: SplitSegment[];
-  currency: string;
-}) {
-  const total = segments.reduce((s, x) => s + x.value, 0);
-  if (total === 0) return null;
-
-  // крупное вперёд: доля наличных — то, ради чего сюда смотрят
-  const visible = segments.filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
-
-  // подложку даёт страница: этот прибор ставят и внутрь другого
-  return (
-    <div>
-      {/* Полоса долей — прямая. Скругление в 999 на ленте высотой в
-          десять пикселей срезает крайние сегменты, и доля наличных
-          выглядит меньше, чем она есть. */}
-      <div className="mb-2.5 flex h-2 overflow-hidden rounded-[3px]">
-        {visible.map((s) => (
-          <div
-            key={s.label}
-            style={{ width: `${(s.value / total) * 100}%`, background: s.color }}
-          />
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-        {visible.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5 text-[13.5px]">
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{ background: s.color }}
-              aria-hidden
-            />
-            <span style={{ color: 'var(--board-muted)' }}>{s.label}</span>
-            <span className="num font-semibold">{formatMoney(s.value, currency)}</span>
-            <span className="num" style={{ color: 'var(--board-muted)', opacity: 0.8 }}>
-              {Math.round((s.value / total) * 100)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

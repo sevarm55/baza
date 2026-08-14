@@ -144,7 +144,7 @@ export function StaffRow({
         {lines ? (
           <button
             type="button"
-            className="pay-chev"
+            className="chev"
             data-open={open ? '' : undefined}
             aria-expanded={open}
             aria-controls={id}
@@ -157,7 +157,7 @@ export function StaffRow({
             <ChevronRight className="size-4" aria-hidden />
           </button>
         ) : (
-          <span className="pay-chev" aria-hidden />
+          <span className="chev" aria-hidden />
         )}
       </div>
 
