@@ -392,9 +392,119 @@ enum API {
         let staffName: String?
     }
 
+    /* ─────────────────── лист по рабочим дням ───────────────────
+
+       То же, что показывает кабинет, и посчитанное тем же кодом на
+       сервере (`lib/payroll-board.ts`). Отличие от `due` не в
+       оформлении: там сумма по человеку с границей «всё, что раньше
+       последней выплаты», здесь — остаток по каждому дню отдельно,
+       вместе с тем, что за этот день уже отдано и когда.
+
+       Считать это на телефоне нельзя было бы даже при желании: по
+       `due` закрытый день не отличить от дня, в котором человек мыл по
+       нулевой ставке, — оба приходят нулём. */
+
+    /// Машина, из которой сложилась дневная доля.
+    struct PayrollLine: Decodable, Identifiable {
+        let id: String
+        /// «34 AA 555 · Կոմպլեքս» — чем запись названа в ленте
+        let title: String
+        let price: Int
+        let percent: Int
+        let earned: Int
+    }
+
+    /// Человек внутри рабочего дня.
+    struct PayrollPerson: Decodable, Identifiable {
+        /// пусто у записей без исполнителя: платить по ним некому
+        let staffId: String?
+        let name: String?
+        let count: Int
+        /// сколько за этот день ещё должны
+        let earned: Int
+        /// сколько за этот день уже отдано
+        let paid: Int
+        /// когда отдали в последний раз
+        let paidAt: Date?
+        let pctFrom: Int?
+        let pctTo: Int?
+        /// пусто, если полного разложения нет: половина машин под суммой
+        /// читается как полная и не сходится
+        let lines: [PayrollLine]?
+
+        var id: String { staffId ?? "—" }
+
+        /// Ставка, по которой посчитано: одно число, а после смены — вилка.
+        var rateLabel: String? {
+            guard let from = pctFrom, let to = pctTo else { return nil }
+            return from == to ? "\(from)%" : "\(from)–\(to)%"
+        }
+    }
+
+    /// Рабочий день целиком: и долг, и уже закрытое.
+    struct PayrollBoardDay: Decodable, Identifiable {
+        /// `YYYY-MM-DD` в часовом поясе мойки
+        let day: String
+        let units: Int
+        let outstanding: Int
+        let paid: Int
+        let people: [PayrollPerson]
+
+        var id: String { day }
+    }
+
+    struct PayrollPaymentRow: Decodable, Identifiable {
+        let id: String
+        let staffId: String?
+        let name: String?
+        let amount: Int
+    }
+
+    /// Одна выдача: сколько человек за раз получили деньги из рук в руки.
+    struct PayrollPayment: Decodable, Identifiable {
+        let key: String
+        let paidAt: Date
+        /// за какой рабочий день; пусто у старых выплат — там только отрезок
+        let day: String?
+        let periodFrom: Date
+        let periodTo: Date
+        /// машин за тот рабочий день, если это ещё известно
+        let units: Int?
+        let total: Int
+        let rows: [PayrollPaymentRow]
+
+        var id: String { key }
+    }
+
+    struct PayrollTotals: Decodable {
+        /// сколько сейчас нужно раздать
+        let outstanding: Int
+        /// скольким людям
+        let owedTo: Int
+        let accrued: Int
+        let settled: Int
+        let units: Int
+    }
+
+    struct PayrollBoard: Decodable {
+        let days: [PayrollBoardDay]
+        let payments: [PayrollPayment]
+        let totals: PayrollTotals
+        let lastPaidAt: Date?
+    }
+
     struct Payroll: Decodable {
         let due: [PayrollDue]
         let payouts: [Payout]
+        /**
+         * Необязательный намеренно.
+         *
+         * Приложение стоит на чужих телефонах и обновляется само по себе —
+         * оно всегда может оказаться новее сервера. Обязательное поле в
+         * такой паре это экран с ошибкой разбора вместо зарплат у всех,
+         * кто обновился первым.
+         */
+        let board: PayrollBoard?
     }
 
     struct Client: Decodable, Identifiable {

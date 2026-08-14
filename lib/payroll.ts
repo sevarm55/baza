@@ -34,6 +34,17 @@ export async function settleStaff(params: {
    * они складываются в один день.
    */
   day?: string;
+  /**
+   * Момент выдачи. Обычно его ставит база, но у расчёта сразу с
+   * несколькими людьми он общий и приходит снаружи.
+   *
+   * Иначе история не может показать одну выдачу одной выдачей: `now()`
+   * в постгресе — это время НАЧАЛА транзакции, и три расчёта, сделанные
+   * одним нажатием, ложатся тремя разными моментами с разницей в
+   * микросекунды. Владелец отдал деньги один раз, и в истории это
+   * обязано выглядеть одним событием, а не тремя похожими.
+   */
+  paidAt?: Date;
 }): Promise<{ paid: number; days: number }> {
   const owing = (await getUnsettledByDay(params.tenantId, params.timezone)).filter(
     (d) => d.staffId === params.staffId && d.earned > 0 && (!params.day || d.day === params.day),
@@ -56,6 +67,7 @@ export async function settleStaff(params: {
         day: d.day,
         amount: d.earned,
         paidBy: params.byUserId,
+        ...(params.paidAt ? { paidAt: params.paidAt } : {}),
       })),
     );
 
@@ -70,6 +82,61 @@ export async function settleStaff(params: {
   });
 
   return { paid: total, days: owing.length };
+}
+
+/**
+ * Расчёт сразу с несколькими — одним действием.
+ *
+ * В жизни владелец закрывает день целиком: пересчитал вчерашнее, раздал
+ * троим, забыл. По кнопке на человека это три отдельных события, между
+ * которыми можно отвлечься и половину не отдать.
+ *
+ * Момент выдачи общий на весь список, и это не мелочь оформления: `now()`
+ * в постгресе — время НАЧАЛА транзакции, и три расчёта, сделанные одним
+ * нажатием, легли бы тремя моментами с разницей в микросекунды. Владелец
+ * отдал деньги один раз, и в истории это обязано выглядеть одним
+ * событием, а не тремя похожими строками.
+ *
+ * Общей транзакции на весь список нет намеренно: у каждого человека свой
+ * пересчёт незакрытых дней, и складывать их в одну транзакцию значит
+ * держать её открытой на всё время расчёта. Поэтому возвращаем то, что
+ * действительно легло, — обе стороны показывают это число, а не то,
+ * которое просили.
+ */
+export async function settleMany(params: {
+  tenantId: string;
+  byUserId: string;
+  timezone: string;
+  items: { staffId: string; day: string }[];
+}): Promise<{ ok: boolean; paid: number; people: number }> {
+  if (params.items.length === 0) return { ok: true, paid: 0, people: 0 };
+
+  const paidAt = new Date();
+  const people = new Set<string>();
+  let paid = 0;
+
+  for (const item of params.items) {
+    try {
+      const result = await settleStaff({
+        tenantId: params.tenantId,
+        staffId: item.staffId,
+        byUserId: params.byUserId,
+        timezone: params.timezone,
+        day: item.day,
+        paidAt,
+      });
+      if (result.paid !== 0) {
+        paid += result.paid;
+        people.add(item.staffId);
+      }
+    } catch {
+      /* Часть расчётов могла лечь до сбоя. Врать про это нельзя: обе
+         стороны перечитают лист с сервера и покажут, что осталось. */
+      return { ok: false, paid, people: people.size };
+    }
+  }
+
+  return { ok: true, paid, people: people.size };
 }
 
 /**

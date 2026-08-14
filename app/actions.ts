@@ -10,7 +10,7 @@ import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
 import { findClient, getClientHistory, getTenant, getUser, startOfDay } from '@/lib/queries';
 import { toMinor } from '@/lib/money';
 import { dayMonth, hhmm } from '@/lib/time';
-import { settleStaff } from '@/lib/payroll';
+import { settleMany } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
 import { acceptJob, assignJob, cancelJob, startJob } from '@/lib/jobs';
 import * as catalog from '@/lib/catalog';
@@ -510,31 +510,39 @@ export async function clientHistory(key: string) {
 }
 
 /**
- * Отметить расчёт с сотрудником.
+ * Отметить расчёт — с одним человеком или сразу с несколькими.
  *
- * Сумма считается на сервере заново и НЕ приходит от клиента — иначе
- * подделанный запрос запишет в историю выплат что угодно.
+ * Сумма считается на сервере заново и НЕ приходит от клиента: снаружи
+ * приходят только имена и дни. Иначе подделанный запрос запишет в
+ * историю выплат что угодно.
  *
- * Верхняя граница `until` фиксируется до подсчёта: запись, созданная
- * в этот же момент, попадёт в следующий расчёт, а не потеряется между
- * посчитанной суммой и отметкой о выплате.
+ * Сам расчёт делает `settleMany` — тот же, которым пользуется API
+ * приложения. Здесь остаётся только то, что относится к вебу: сессия и
+ * пересборка страниц кабинета.
  */
-export async function markPaid(staffId: string, day?: string): Promise<void> {
+export type SettleResult = { ok: boolean; paid: number; people: number };
+
+export async function settlePayroll(
+  items: { staffId: string; day: string }[],
+): Promise<SettleResult> {
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return;
+  if (!tenant) return { ok: false, paid: 0, people: 0 };
 
-  await settleStaff({
+  const result = await settleMany({
     tenantId: session.tid,
-    staffId,
     byUserId: session.uid,
     timezone: tenant.timezone,
-    day,
+    items,
   });
 
-  revalidatePath('/owner/payroll');
+  /* Раскладку целиком, а не только страницу: после расчёта меняется и
+     повод в колокольчике, а он стоит на каждой странице кабинета. */
+  revalidatePath('/owner', 'layout');
+
+  return result;
 }
 
 /* ---------------------------- записи ---------------------------- */

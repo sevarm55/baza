@@ -416,8 +416,37 @@ export type PayrollDay = {
   staffId: string | null;
   /** день в часовом поясе мойки, `YYYY-MM-DD` */
   day: string;
+  /** имя берётся здесь же: у закрытого дня человека больше неоткуда узнать */
+  name: string | null;
   count: number;
   revenue: number;
+  earned: number;
+  /* Ставки, по которым посчитан ЭТОТ день. Те же правила, что у
+     `PayrollRow`: процент лежит снимком в каждой записи, и текущая
+     ставка человека сумму дня больше не объясняет. */
+  pctFrom: number | null;
+  pctTo: number | null;
+};
+
+/** Сколько человеку уже отдали за конкретный день и когда. */
+export type PayrollPaidDay = {
+  staffId: string;
+  /** `YYYY-MM-DD` в часовом поясе мойки */
+  day: string;
+  amount: number;
+  /** последняя выдача за этот день: их может быть несколько */
+  paidAt: Date;
+};
+
+/** Машина, из которой сложилась дневная доля. */
+export type PayrollOrderLine = {
+  id: string;
+  staffId: string | null;
+  day: string;
+  serviceName: string;
+  clientKey: string | null;
+  price: number;
+  percent: number;
   earned: number;
 };
 
@@ -451,8 +480,15 @@ export async function getUnsettledByDay(
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
       earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+      pctFrom: sql<number>`min(${orders.staffPercent})::int`,
+      pctTo: sql<number>`max(${orders.staffPercent})::int`,
+      /* Имя последним в списке нарочно: группировка по дню идёт по
+         порядковому номеру колонки, и новый столбец перед ним сдвинул бы
+         счёт. */
+      name: users.name,
     })
     .from(orders)
+    .leftJoin(users, eq(users.id, orders.staffId))
     .where(
       and(
         eq(orders.tenantId, tenantId),
@@ -465,7 +501,7 @@ export async function getUnsettledByDay(
         )`,
       ),
     )
-    .groupBy(orders.staffId, sql`2`);
+    .groupBy(orders.staffId, sql`2`, users.name);
 
   /* Выплаченное по тем же дням. Их может быть несколько на один день:
      владелец выдал часть днём и остаток вечером — это одна строка дня и
@@ -492,6 +528,82 @@ export async function getUnsettledByDay(
       earned: e.earned - (paidBy.get(`${e.staffId}|${e.day}`) ?? 0),
     }))
     .sort((a, b) => (a.day < b.day ? 1 : -1));
+}
+
+/**
+ * Что за эти же дни уже отдано — и когда.
+ *
+ * `getUnsettledByDay` вычитает выплаченное молча: закрытый день выходит
+ * оттуда с нулём и ничем не отличается от дня, в котором человек мыл по
+ * нулевой ставке. Владельцу же нужно видеть закрытый день закрытым, с
+ * суммой и моментом выдачи, — иначе полный итог рабочего дня собирать
+ * снова не из чего.
+ *
+ * Момент — самый поздний: выдач за один день может быть несколько, и
+ * важен тот, после которого день перестал быть должным.
+ */
+export async function getPaidByDay(tenantId: string): Promise<PayrollPaidDay[]> {
+  const rows = await db
+    .select({
+      staffId: payouts.staffId,
+      day: sql<string>`to_char(${payouts.day}, 'YYYY-MM-DD')`,
+      amount: sql<number>`coalesce(sum(${payouts.amount}), 0)::int`,
+      paidAt: sql<string>`max(${payouts.paidAt})`,
+    })
+    .from(payouts)
+    .where(and(eq(payouts.tenantId, tenantId), sql`${payouts.day} is not null`))
+    .groupBy(payouts.staffId, payouts.day);
+
+  return rows.map((r) => ({ ...r, paidAt: new Date(r.paidAt) }));
+}
+
+/**
+ * Машины, из которых сложилась дневная доля.
+ *
+ * Сумма без основания требует веры: «6 500» проверить нечем, и спор,
+ * ради устранения которого продукт написан, возвращается на том же
+ * месте. Здесь лежат сами записи — цена, ставка и доля с каждой, — и
+ * дневное число раскладывается на слагаемые.
+ *
+ * Отбор ровно тот же, что у `getUnsettledByDay`: иначе разложение не
+ * сойдётся с числом, которое оно объясняет. Предел — от мойки, которая
+ * не рассчитывалась полгода: страница, тянущая десять тысяч записей ради
+ * подсказки, хуже подсказки, которой нет. Неполные дни разложение просто
+ * не показывают — см. страницу зарплат.
+ */
+export async function getUnsettledOrderLines(
+  tenantId: string,
+  timezone: string,
+  limit = 500,
+  until: Date = new Date(),
+): Promise<PayrollOrderLine[]> {
+  return db
+    .select({
+      id: orders.id,
+      staffId: orders.staffId,
+      day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
+      serviceName: orders.serviceName,
+      clientKey: clients.key,
+      price: orders.price,
+      percent: orders.staffPercent,
+      earned: sql<number>`floor(${orders.price} * ${orders.staffPercent} / 100.0)::int`,
+    })
+    .from(orders)
+    .leftJoin(clients, eq(clients.id, orders.clientId))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        notCanceled,
+        lt(orders.createdAt, until),
+        sql`${orders.createdAt} > coalesce(
+          (select max(p.period_to) from payouts p
+            where p.staff_id = ${orders.staffId} and p.day is null),
+          to_timestamp(0)
+        )`,
+      ),
+    )
+    .orderBy(desc(orders.createdAt))
+    .limit(limit);
 }
 
 /**
@@ -539,6 +651,12 @@ export async function listPayouts(tenantId: string, limit = 20) {
       paidAt: payouts.paidAt,
       periodFrom: payouts.periodFrom,
       periodTo: payouts.periodTo,
+      /* За какой рабочий день отданы деньги. Без него история отвечает
+         только «когда я платил» и молчит о том, за что, — а это два
+         разных вопроса, и путать их на экране нельзя. Пусто у выплат,
+         сделанных до появления дней: там остаются границы отрезка. */
+      day: sql<string | null>`to_char(${payouts.day}, 'YYYY-MM-DD')`,
+      staffId: payouts.staffId,
       staffName: users.name,
     })
     .from(payouts)

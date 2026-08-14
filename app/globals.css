@@ -423,8 +423,14 @@ input[type='radio'] {
    Радиуса здесь больше нет. `border-radius` в этом правиле менял форму
    не обводки, а самого элемента: капсула вкладки на фокусе становилась
    почти прямоугольной и прыгала обратно, стоило увести клавиатуру.
-   Обводка и без того обходит скругление сама. */
-:focus-visible:not(.field):not([data-sidebar='rail']) {
+   Обводка и без того обходит скругление сама.
+
+   Шапка окна исключена. Она не элемент управления: `tabIndex={-1}` стоит
+   на ней только затем, чтобы `showModal()` не выбросил клавиатуру в
+   первое поле формы, — и с клавиатуры до неё не дойти. Обводка при этом
+   рисовалась, а окно её обрезало по краю: снизу шапки оставалась яркая
+   фиолетовая черта, которую видно на каждом окне продукта. */
+:focus-visible:not(.field):not([data-sidebar='rail']):not(.sheet-head) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -2877,3 +2883,445 @@ input[type='radio'] {
     transform: rotate(45deg);
     opacity: 0.35;
   }
+
+/* ───────────────────────── зарплаты ─────────────────────────
+
+   Единственная страница продукта, где действие важнее показания:
+   сюда приходят не смотреть, а отдавать деньги. Поэтому здесь свои
+   поверхности — плита итога, строка человека, полоса расчёта, — а не
+   те же приборы, что на сводке.
+
+   Всё, что ниже, решает одну задачу: рабочий день и день выплаты не
+   должны выглядеть одинаково ни в одном месте экрана. */
+@layer components {
+  /* Итог — тёмная плита, как звено «вам остаётся» на сводке.
+
+     Тот же приём и по той же причине: единственное число, ради
+     которого экран открыт, обязано читаться первым, а рядом с ним не
+     должно быть второго такого же. Остальные три показателя стоят
+     полосой и втрое тише — они объясняют плиту, а не спорят с ней. */
+  .pay-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.15rem;
+    min-height: 8.5rem;
+    padding: 1.15rem 1.25rem;
+    border-radius: var(--radius-card);
+    background: var(--on-board);
+    color: var(--board);
+  }
+
+  .pay-hero-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--board) 64%, transparent);
+  }
+
+  .pay-hero-value {
+    font-size: clamp(30px, 3.4vw, 42px);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--board);
+  }
+
+  .pay-hero-note {
+    margin-top: 0.35rem;
+    font-size: 12.5px;
+    color: color-mix(in srgb, var(--board) 62%, transparent);
+  }
+
+  /* Тёмная тема: белая плита среди угольных приборов слепит — тот же
+     разбор, что у звена итога на сводке. Плита поднимается на ступень
+     светлее полотна, а число берёт лайм. */
+  :root[data-theme='dark'] .pay-hero {
+    background: var(--board-surface2);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-fill) 16%, transparent);
+  }
+  :root[data-theme='dark'] .pay-hero-value {
+    color: var(--accent-fill);
+  }
+  :root[data-theme='dark'] .pay-hero-label,
+  :root[data-theme='dark'] .pay-hero-note {
+    color: var(--board-muted);
+  }
+
+  /* Три второстепенных показателя одной полосой, а не тремя карточками:
+     карточка вокруг каждого сделала бы их равными плите. */
+  .pay-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: center;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    padding: 0.9rem 0.5rem;
+  }
+  :root:not([data-theme='dark']) .pay-metrics {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board-ink) 7%, transparent);
+  }
+  .pay-metric {
+    min-width: 0;
+    padding-inline: 0.75rem;
+    text-align: center;
+  }
+  .pay-metric + .pay-metric {
+    border-inline-start: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .pay-metric-value {
+    font-size: clamp(16px, 1.7vw, 21px);
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+  .pay-metric-label {
+    margin-top: 0.2rem;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--board-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ───────── строка человека ─────────
+
+     Не кнопка во всю ширину прибора на каждого, как было: широкая
+     заливка под именем весила больше самой суммы, и лист из пяти
+     человек читался пятью призывами нажать. Строка — это строка: кто,
+     сколько машин, по какой ставке, сколько денег и что с ними уже
+     сделано. Нажимаемого в ней ровно два предмета — флажок и «выплатить».
+
+     Раскладка держится на областях сетки, а не на порядке в разметке:
+     на телефоне строка складывается в две, на компьютере вытягивается
+     в одну, и разметка при этом одна и та же. */
+  .pay-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'pick who money chev'
+      'pick facts state chev';
+    align-items: center;
+    column-gap: 0.7rem;
+    row-gap: 0.2rem;
+    width: calc(100% + var(--pad-panel, 1rem) * 2);
+    margin-inline: calc(var(--pad-panel, 1rem) * -1);
+    padding: 0.6rem var(--pad-panel, 1rem);
+    text-align: start;
+    transition: background var(--t-micro) var(--ease);
+  }
+
+  @media (min-width: 880px) {
+    .pay-row {
+      grid-template-columns: auto minmax(0, 1fr) 8.5rem auto 8.5rem auto;
+      grid-template-areas: 'pick who facts money state chev';
+      row-gap: 0;
+    }
+  }
+
+  /* Открывается вся строка, кроме флажка и кнопки: разложение суммы по
+     машинам — то, что смотрят чаще всего, и прятать его за шестью
+     пикселями шеврона незачем. */
+  .pay-row-open {
+    cursor: pointer;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .pay-row-open:hover {
+      background: var(--hover);
+    }
+  }
+
+  /* Выбранная строка. Не заливка цветом действия: выбор — это ещё не
+     выплата, и красить его лаймом значит обещать, что дело сделано. */
+  .pay-row[data-on] {
+    background: color-mix(in srgb, var(--accent-strong) 9%, transparent);
+  }
+  .pay-row[data-on]:hover {
+    background: color-mix(in srgb, var(--accent-strong) 13%, transparent);
+  }
+
+  /* Закрытый день приглушён, но не спрятан: владельцу важен полный итог
+     рабочего дня, а не только его долг. */
+  .pay-row[data-paid] .pay-who,
+  .pay-row[data-paid] .pay-money {
+    color: var(--board-muted);
+  }
+
+  .pay-pick {
+    grid-area: pick;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-inline-start: -0.25rem;
+    border-radius: var(--radius-chip);
+    cursor: pointer;
+    transition: background var(--t-micro) var(--ease);
+  }
+  .pay-pick:hover {
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .pay-pick input {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+  }
+
+  .pay-who {
+    grid-area: who;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+
+  /* Обрезается, а не растягивает строку.
+     Без `min-width: 0` ячейка сетки не сжимается ниже своего текста, и
+     на узком экране строка расползалась за край: «2 машины · 20–25%»
+     наезжало на соседнюю колонку, и нечитаемыми становились обе. */
+  .pay-facts {
+    grid-area: facts;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--board-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (min-width: 880px) {
+    .pay-facts {
+      text-align: end;
+    }
+  }
+
+  .pay-money {
+    grid-area: money;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 15.5px;
+    font-weight: 600;
+    text-align: end;
+    white-space: nowrap;
+    color: var(--on-board);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Сколько за этот день уже отдано — под самой суммой и тише её. */
+  .pay-money-note {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--board-muted);
+  }
+
+  /* Состояние и действие занимают одно место: у неоплаченного здесь
+     кнопка, у оплаченного — когда именно отдали. Два разных предмета в
+     одной колонке, потому что отвечают они на один вопрос. */
+  .pay-state {
+    grid-area: state;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--board-muted);
+  }
+  .pay-state-paid {
+    color: var(--good-on-board);
+  }
+
+  .pay-chev {
+    grid-area: chev;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    color: var(--faint);
+    transition: color var(--t-micro) var(--ease), transform var(--t-micro) var(--ease);
+  }
+  .pay-row:hover .pay-chev {
+    color: var(--muted);
+  }
+  .pay-chev[data-open] {
+    transform: rotate(90deg);
+  }
+
+  /* Разложение суммы: едет высотой, а не гаснет прозрачностью.
+     `grid-template-rows` от 0fr к 1fr — единственный способ анимировать
+     «столько, сколько содержимого», не зная его высоты заранее. */
+  .pay-details {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 200ms var(--ease);
+  }
+  .pay-details[data-open] {
+    grid-template-rows: 1fr;
+  }
+  .pay-details > div {
+    overflow: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pay-details {
+      transition: none;
+    }
+  }
+
+  .pay-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.3rem 0;
+    font-size: 12.5px;
+    color: var(--board-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .pay-line b {
+    min-width: 4.5rem;
+    text-align: end;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+
+  /* ───────── полоса расчёта ─────────
+
+     Появляется только когда выбрали: пустая полоса с погашенной кнопкой
+     под каждым днём — это обещание действия, которого не просили. */
+  .pay-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 10%, transparent);
+    animation: pay-bar-in 160ms var(--ease);
+  }
+  @keyframes pay-bar-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pay-bar {
+      animation: none;
+    }
+  }
+
+  /* На телефоне полосы в карточке нет вовсе: её место занимает причал у
+     нижнего края. Две одинаковые кнопки в одном экране — не подстраховка,
+     а вопрос «эти две делают одно и то же или разное», который человек
+     задаёт себе с деньгами в руке. */
+  @media (max-width: 879px) {
+    .pay-bar {
+      display: none;
+    }
+  }
+
+  /* На телефоне полоса расчёта уезжает под сгиб вместе с днём, поэтому
+     выбранное дублируется у нижнего края. Не вместо неё, а вдобавок:
+     полоса объясняет, ЧТО именно выбрано в этом дне, а причал — сколько
+     выбрано всего. */
+  .pay-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem var(--seam) calc(0.7rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--board) 92%, var(--board-ink));
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 12%, transparent);
+    backdrop-filter: blur(8px);
+    animation: pay-dock-in 180ms var(--ease);
+  }
+  @keyframes pay-dock-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @media (min-width: 880px) {
+    .pay-dock {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pay-dock {
+      animation: none;
+    }
+  }
+
+  /* Сообщение о том, что расчёт лёг.
+
+     Нужно ровно потому, что после расчёта строки исчезают: экран
+     меняется сам, и без единого слова непонятно, случилось ли это от
+     нажатия или что-то сломалось. Тихая плита у нижнего края, четыре
+     секунды, без крестика и без действий внутри. */
+  .pay-toast {
+    position: fixed;
+    inset-inline: 0;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    z-index: 60;
+    display: flex;
+    justify-content: center;
+    padding-inline: var(--seam);
+    pointer-events: none;
+  }
+  .pay-toast > span {
+    max-width: 100%;
+    padding: 0.6rem 0.95rem;
+    border-radius: var(--radius-sm);
+    background: var(--on-board);
+    color: var(--board);
+    font-size: 13.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 12px 30px -14px rgb(12 9 20 / 55%);
+    animation: pay-toast-in 200ms var(--ease);
+  }
+  @keyframes pay-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pay-toast > span {
+      animation: none;
+    }
+  }
+
+  /* Свёрнутый день: одна строка вместо карточки. Закрытый день не
+     требует ничего — он должен занимать столько места, сколько стоит
+     ответ «здесь всё». */
+  .pay-closed {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.15rem 0;
+    text-align: start;
+    cursor: pointer;
+  }
+}

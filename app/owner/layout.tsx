@@ -31,7 +31,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   /* Поводы считаются здесь, в раскладке: колокольчик стоит на каждой
      странице кабинета, и число на нём должно совпадать с тем, что
      человек увидит внутри, на какой бы странице он ни нажал. */
-  const alerts = await getAlerts(tenant.id, me.id);
+  const alerts = await getAlerts(tenant.id, me.id, tenant.timezone);
   const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
 
   /* Два способа показать одно и то же.

@@ -1,14 +1,21 @@
 import { and, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { alertSnoozes, clients, payouts } from '@/lib/db/schema';
-import { getUnsettledPayroll } from '@/lib/queries';
+import { getPayrollBoard } from '@/lib/payroll-board';
 import { hy } from '@/lib/i18n/hy';
 
 /** Через сколько дней молчания клиент считается потерянным. */
 export const LOST_AFTER_DAYS = 21;
 
-/** Через сколько дней после последней выплаты зарплата становится поводом. */
-const PAYROLL_AFTER_DAYS = 7;
+/**
+ * Через сколько дней после последней выплаты зарплата становится поводом.
+ *
+ * Наружу — чтобы страница зарплат зажигала свою строку по тому же
+ * правилу, что и колокольчик. Два порога на одно и то же состояние
+ * означали бы, что продукт спорит сам с собой: в колокольчике повод
+ * есть, на странице тихо.
+ */
+export const PAYROLL_AFTER_DAYS = 7;
 
 /** На сколько прячется отложенный повод. */
 export const SNOOZE_DAYS = 7;
@@ -54,7 +61,11 @@ export type Alert = {
  * человека, это и есть шум: он загорается и гаснет, пока владелец
  * решает, стоит ли на него смотреть.
  */
-export async function getAlerts(tenantId: string, userId: string): Promise<Alert[]> {
+export async function getAlerts(
+  tenantId: string,
+  userId: string,
+  timezone: string,
+): Promise<Alert[]> {
   const now = new Date();
 
   const [snoozed, lost, payroll, lastPayout] = await Promise.all([
@@ -78,7 +89,13 @@ export async function getAlerts(tenantId: string, userId: string): Promise<Alert
         ),
       ),
 
-    getUnsettledPayroll(tenantId),
+    /* Тот же лист, что показывают оба экрана зарплат, — а не сумма по
+       человеку из `getUnsettledPayroll`. Разница здесь решает, загорится
+       повод или нет: та берёт границу «всё, что раньше последней
+       выплаты», и дневной расчёт за сегодня закрывает ей вчерашний долг,
+       которого никто не отдавал. Повод молчал бы ровно тогда, когда
+       деньги не отданы. */
+    getPayrollBoard(tenantId, timezone),
 
     db
       .select({ paidAt: payouts.paidAt })
@@ -106,7 +123,7 @@ export async function getAlerts(tenantId: string, userId: string): Promise<Alert
   /* Зарплата становится поводом не от суммы, а от срока: у одной мойки
      сорок тысяч за неделю — обычное дело, у другой это месяц работы.
      Срок одинаков для всех, сумма — нет. */
-  const due = payroll.reduce((sum, r) => sum + r.earned, 0);
+  const due = payroll.totals.outstanding;
   const since = lastPayout[0]?.paidAt ?? null;
   const daysSincePayout = since
     ? Math.floor((now.getTime() - since.getTime()) / 86_400_000)

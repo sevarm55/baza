@@ -1,37 +1,66 @@
 import SwiftUI
 
 /**
- * Зарплаты — то же табло: показание по оси, плитки, журнал.
+ * Зарплаты.
  *
- * Наверху стоит число, которого на этом экране не было вовсе: **сколько
- * всего надо раздать сейчас**. Раньше владелец складывал строки в уме — а
- * вопрос, с которым сюда заходят, ровно один: хватит ли в кассе.
+ * Экран построен вокруг рабочего дня, а не вокруг человека и не вокруг
+ * кнопки. Причина простая: рассчитываются днями. «За вчера отдал, за
+ * сегодня нет» — фраза из жизни, а «Валоду отдал шесть тысяч из
+ * тринадцати» — нет: вторая требует держать в голове, за что именно
+ * шесть, и ровно на этом возникает спор, ради устранения которого
+ * продукт и написан.
  *
- * У каждого работника своя плитка его цветом. Тем же, каким его имя набрано
- * в ленте и кружок на смене: цвет — это имя, и на листе зарплат он
- * превращает стопку одинаковых карточек в список людей.
+ * Порядок чтения задан вопросами, с которыми сюда заходят:
  *
- * Считается не за период, а с момента последнего расчёта по каждому: на
- * мойке рассчитываются когда придётся — в понедельник, через десять дней,
- * как получится. Тогда двойная выплата невозможна в принципе, а не «если не
- * забыть».
+ *   1. сколько всего раздать сейчас   → плита наверху;
+ *   2. кому                           → строки внутри дня;
+ *   3. за какой день                  → сам блок дня;
+ *   4. почему столько                 → разложение по машинам в строке;
+ *   5. что уже отдано                 → вкладка «Պատմություն».
  *
- * Сумму приложение не отправляет — только имя сотрудника. Считает сервер,
- * иначе подделанный запрос запишет в историю выплат любую цифру.
+ * Пятое живёт отдельной вкладкой, а не в конце того же списка: долг и
+ * уже отданное — разные вопросы, и один список, где они перемешаны, не
+ * отвечает ни на один.
+ *
+ * Считает сервер, и тем же кодом, что для кабинета: `board` приходит
+ * готовым листом. Складывать эти числа на телефоне было бы не только
+ * лишней работой — по старому `due` закрытый день вообще не отличить от
+ * дня, где мыли по нулевой ставке, оба приходят нулём.
  */
 struct PayrollView: View {
     @EnvironmentObject private var session: Session
 
     @State private var payroll: API.Payroll?
-    @State private var settling: String?
-    @State private var confirming: API.PayrollDue?
+    @State private var tab = Tab.due
+    /// что отмечено к выплате: `день|человек`
+    @State private var picked: Set<String> = []
+    /// у каких строк раскрыто разложение по машинам
+    @State private var opened: Set<String> = []
+    /// какие закрытые дни развернули обратно в полную карточку
+    @State private var openedDays: Set<String> = []
+    /// что сейчас на подтверждении
+    @State private var asking: [Pick]?
+    @State private var showClosed = false
+    @State private var settling = false
+    @State private var note: String?
     @State private var failure: String?
-    @State private var loading = false
-    @State private var settleFailed = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private enum Tab: Hashable { case due, history }
+
+    /// Человек и рабочий день, за который платят. Одно без другого не
+    /// имеет смысла: деньги отдают за день, а не «вообще».
+    private struct Pick: Hashable {
+        let staffId: String
+        let day: String
+        let name: String
+        let amount: Int
+    }
+
     private var currency: String { session.tenant?.currency ?? "AMD" }
+    private var unitOne: String { session.tenant?.unitOne ?? "" }
+    private var staffRole: String { (session.tenant?.staffRole ?? "").lowercased() }
 
     private let gap: CGFloat = 10
 
@@ -40,69 +69,65 @@ struct PayrollView: View {
             VStack(spacing: gap) {
                 if let failure {
                     problem(failure)
-                } else if let payroll {
-                    reading(payroll)
+                } else if let board = payroll?.board {
+                    hero(board)
+                    metrics(board)
+                    tabs(board)
 
-                    ForEach(payroll.due.filter { $0.earned > 0 }) { row in
-                        person(row)
+                    if tab == .due {
+                        due(board)
+                    } else {
+                        history(board)
                     }
-
-                    if payroll.due.allSatisfy({ $0.earned <= 0 }) {
-                        settled
-                    }
-
-                    if !payroll.payouts.isEmpty {
-                        history(payroll.payouts)
-                    }
+                } else if payroll != nil {
+                    /* Сервер старше приложения: дневного листа он ещё не
+                       отдаёт. Молчать нельзя — экран выглядел бы пустым, —
+                       но и врать про суммы нечем. */
+                    outdated
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 28)
+            .padding(.bottom, settling || !picked.isEmpty ? 96 : 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { dock }
+        .overlay(alignment: .bottom) { toast }
         .task { await reload() }
         .refreshable { await reload() }
         .alert(
-            "Նշե՞լ վճարվածը",
-            isPresented: .init(get: { confirming != nil }, set: { if !$0 { confirming = nil } })
+            "Հաստատել վճարումը",
+            isPresented: .init(get: { asking != nil }, set: { if !$0 { asking = nil } })
         ) {
-            Button("Չեղարկել", role: .cancel) { confirming = nil }
-            Button("Նշել") {
-                if let row = confirming { Task { await settle(row) } }
-                confirming = nil
+            Button("Չեղարկել", role: .cancel) { asking = nil }
+            Button("Հաստատել") {
+                if let items = asking { Task { await settle(items) } }
+                asking = nil
             }
         } message: {
-            if let row = confirming {
-                Text("\(row.name ?? "—") · \(money(row.earned, currency))")
-            }
-        }
-        /* Запрос не прошёл — об этом надо сказать словами. Молчание здесь
-           опаснее всего: человек уже отдал деньги из рук в руки и уверен,
-           что запись легла. */
-        .alert("Չգրանցվեց", isPresented: $settleFailed) {
-            Button("Լավ", role: .cancel) {}
-        } message: {
-            Text("Վճարումը չպահվեց։ Ստուգեք կապը և կրկնեք։")
+            /* В окне стоит ровно то, что произойдёт: кому, сколько и за
+               какой день. Расчёт закрывает день, и следующий пойдёт от
+               него; подтверждение без имён и сумм — это кнопка «да»,
+               которую жмут не глядя. */
+            if let items = asking { Text(confirmText(items)) }
         }
     }
 
-    // ══════════════════════════ показание ══════════════════════════
+    // ══════════════════════════ показания ══════════════════════════
 
-    /// Сколько всего раздать. Люди с нулём в счёт не идут: у владельца
-    /// процент обычно 0, и его строка не должна раздувать итог.
-    private func reading(_ p: API.Payroll) -> some View {
-        let owed = p.due.filter { $0.earned > 0 }
-        let total = owed.reduce(0) { $0 + $1.earned }
+    /**
+     * Сколько всего раздать.
+     *
+     * Плита остаётся плитой продукта — фирменный грейп с уходом в
+     * глубину и знаком банкноты в углу: это язык приложения, и менять
+     * его ради единообразия с вебом незачем. Меняется то, что на ней
+     * написано: раньше «с последней выплаты», теперь итог по дням,
+     * который сходится со строками ниже.
+     */
+    private func hero(_ board: API.PayrollBoard) -> some View {
+        let total = board.totals.outstanding
 
         return ZStack(alignment: .bottomLeading) {
-            /* Не самый тёмный грейп, а фирменный с уходом в глубину.
-
-               `grapeDeep` — почти чёрный фиолетовый: на весь блок он даёт
-               тяжёлую плиту, рядом с которой светлый экран выглядит
-               провалившимся. Тот же цвет марки, только живой: сверху
-               заливка кнопок, снизу на тон глубже — так плита читается
-               предметом, а не дырой. */
             LinearGradient(
                 colors: [Brand.grapeFill, Brand.grapeMid],
                 startPoint: .top,
@@ -115,7 +140,7 @@ struct PayrollView: View {
                 .offset(x: 220, y: 30)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(total > 0 ? "ՎՃԱՐԵԼՈՒ Է" : "ԱՄԵՆ ԻՆՉ ՎՃԱՐՎԱԾ Է")
+                Text("ՎՃԱՐԵԼՈՒ Է")
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .tracking(1.35)
                     .foregroundStyle(Brand.lime)
@@ -128,12 +153,10 @@ struct PayrollView: View {
                     .minimumScaleFactor(0.42)
                     .contentTransition(.numericText(value: Double(total)))
 
-                if !owed.isEmpty {
-                    Text("\(owed.count) հոգու · վերջին վճարումից ի վեր")
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.58))
-                }
+                Text(total > 0 ? "\(board.totals.owedTo) \(staffRole)" : "Ամեն ինչ վճարված է")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.58))
             }
             .padding(18)
         }
@@ -142,328 +165,456 @@ struct PayrollView: View {
         .padding(.top, 8)
     }
 
-    // ══════════════════════════ человек ══════════════════════════
-
-    /**
-     * Плитка человека.
-     *
-     * Основание расчёта стоит рядом с суммой, а не спрятано: «23 машины,
-     * 146 500 ֏ выручки, его 40 %» — это то, чем владелец проверяет цифру,
-     * прежде чем отдать деньги. Без основания сумма требует веры.
-     *
-     * Кнопка есть только когда есть что платить: строки с нулём в список
-     * вообще не попадают, а кнопка, которая ничего не делает, хуже её
-     * отсутствия — человек жмёт и не понимает, сломалось или так задумано.
-     */
-    private func person(_ row: API.PayrollDue) -> some View {
-        let name = row.name ?? "—"
-        let tone = Brand.personTone(name)
-
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                Text(String(name.prefix(1)))
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(tone.base)
-                    .frame(width: 38, height: 38)
-                    .background(tone.glow.opacity(0.16), in: .rect(cornerRadius: 12))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-                    Text("կուտակված աշխատավարձ")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Brand.boardMuted)
-                }
-
-                Spacer(minLength: 8)
-
-                Text(money(row.earned, currency))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .contentTransition(.numericText(value: Double(row.earned)))
-            }
-
-            HStack(spacing: 0) {
-                payrollFact("Գրանցում", "\(row.count)")
-                payrollDivider
-                payrollFact("Հասույթ", money(row.revenue, currency))
-                payrollDivider
-                payrollFact("Տոկոս", row.rateLabel)
-            }
-            .padding(.vertical, 10)
-            .background(Brand.chipRest, in: .rect(cornerRadius: 15))
-            .padding(.top, 13)
-
-            byDay(row)
-
-            settleButton(row)
-                .padding(.top, 14)
+    /// Три второстепенных показателя одной полосой, а не тремя плитками:
+    /// плитка вокруг каждого сделала бы их равными плите.
+    private func metrics(_ board: API.PayrollBoard) -> some View {
+        HStack(spacing: 0) {
+            metric("Աշխատավարձ", money(board.totals.accrued, currency))
+            divider
+            metric("Վճարված է", money(board.totals.settled, currency))
+            divider
+            metric(unitOne, "\(board.totals.units)")
         }
-        .padding(16)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 24))
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(tone.base)
-                .frame(width: 4)
-                .padding(.vertical, 18)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-        }
-        .accessibilityElement(children: .contain)
+        .padding(.vertical, 12)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
     }
 
-    private func payrollFact(_ title: String, _ value: String) -> some View {
+    private func metric(_ title: String, _ value: String) -> some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(title)
-                .font(.system(size: 9.5, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private var payrollDivider: some View {
+    private var divider: some View {
         Rectangle()
             .fill(Brand.boardInk.opacity(0.09))
             .frame(width: 1, height: 29)
     }
 
     /**
-     * Разбивка по дням под суммой.
+     * Долг и история — под переключателем, а не в одном списке.
      *
-     * Одна растущая сумма не читается: владелец не понимает, за сегодня
-     * она, за вчера или за месяц, а деньги, которые нельзя разложить на
-     * дни, вызывают ровно тот спор, ради устранения которого продукт и
-     * написан. День закрывается полночью в часовом поясе мойки — считает
-     * сервер, здесь только показываем.
-     *
-     * Дни без начисления сложены в одну строку, длинный хвост платных —
-     * тоже: у владельца, который сам мыл месяц по нулевой ставке,
-     * разбивка выходила в двадцать строк по нулю и хоронила под собой те
-     * два дня, за которые он действительно должен.
+     * Суммы на вкладке нет, хотя в кабинете она есть. Причина в ширине:
+     * сегмент ужимает надпись, и узкие пробелы между разрядами
+     * схлопываются — «1 266 750» превращается в «1266750», число, которое
+     * читают по одной цифре. На телефоне оно и не нужно: та же сумма
+     * стоит строкой выше, в плите, кеглем в сорок три.
      */
+    private func tabs(_ board: API.PayrollBoard) -> some View {
+        Picker("", selection: $tab) {
+            Text(board.totals.outstanding > 0 ? "Վճարելու է" : "Վճարելու է ✓").tag(Tab.due)
+            Text("Պատմություն").tag(Tab.history)
+        }
+        .pickerStyle(.segmented)
+        .padding(.top, 2)
+    }
+
+    // ══════════════════════════ рабочие дни ══════════════════════════
+
     @ViewBuilder
-    private func byDay(_ row: API.PayrollDue) -> some View {
-        let all = row.days ?? []
-        if all.count > 1 {
-            let paying = all.filter { $0.earned > 0 }
-            let idle = all.filter { $0.earned == 0 }
-            let shown = Array(paying.prefix(6))
-            let rest = Array(paying.dropFirst(6))
+    private func due(_ board: API.PayrollBoard) -> some View {
+        /* Дни с долгом — и сегодняшний, даже если он уже закрыт: сегодня
+           ещё растёт, и владельцу нужно видеть, что там происходит.
+           Когда долга нет вовсе, под чертой оказываются все дни: наверху
+           стоит ответ «всё выплачено», и единственная карточка рядом с
+           ним читалась бы исключением из него. */
+        let today = dayKey(Date())
+        let open = board.totals.outstanding > 0
+            ? board.days.filter { $0.outstanding > 0 || $0.day == today }
+            : []
+        let closed = board.days.filter { day in !open.contains { $0.day == day.day } }
 
-            VStack(spacing: 4) {
-                Divider().overlay(Brand.boardInk.opacity(0.1))
-                    .padding(.bottom, 6)
+        if board.totals.outstanding == 0 {
+            settled(board)
+        } else {
+            if !open.contains(where: { $0.day == today }) {
+                emptyToday(today)
+            }
+            ForEach(open) { day in
+                dayCard(day, today: today)
+            }
+        }
 
-                /* У каждого дня своя кнопка. Нажатие закрывает этот
-                   день и все, что старше: долги отдают с самого старого,
-                   и порядок тут не выбирают. Поэтому на кнопке написано
-                   «по такое-то число», а не «за него».
+        if !closed.isEmpty {
+            Button {
+                withAnimation(.snappy(duration: 0.24)) { showClosed.toggle() }
+            } label: {
+                Text(showClosed ? "Թաքցնել վճարված օրերը" : "Ցույց տալ վճարված օրերը (\(closed.count))")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Brand.boardMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+                    .padding(.top, 6)
+            }
+            .buttonStyle(.press)
 
-                   У самого свежего дня кнопки нет: её роль уже играет
-                   большая кнопка выплаты выше, и две одинаковые по
-                   смыслу рядом только путают. */
-                ForEach(Array(shown.enumerated()), id: \.element.id) { i, d in
-                    HStack(spacing: 8) {
-                        dayRow(
-                            left: "\(short(d.day)) · \(d.count) \(session.tenant?.unitOne ?? "")",
-                            right: money(d.earned, currency),
-                            dim: 0.72
-                        )
-
-                        if row.staffId != nil {
-                            Button {
-                                Task { await settle(row, through: d.day) }
-                            } label: {
-                                Text("վճարել \(short(d.day))")
-                                    .font(.system(size: 11.5, weight: .semibold))
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                            }
-                            .buttonStyle(PressStyle())
-                            .foregroundStyle(Brand.grape)
-                            .background(Brand.grape.opacity(0.1), in: .rect(cornerRadius: 8))
-                            .disabled(settling != nil)
-                        }
+            if showClosed {
+                ForEach(closed) { day in
+                    /* Развёрнутый закрытый день — обычная карточка:
+                       ничего особенного в нём нет, кроме того, что он
+                       закрыт. */
+                    if openedDays.contains(day.day) {
+                        dayCard(day, today: today)
+                    } else {
+                        closedCard(day, today: today)
                     }
                 }
-
-                if !rest.isEmpty {
-                    dayRow(
-                        left: "+ \(rest.count) օր",
-                        right: money(rest.reduce(0) { $0 + $1.earned }, currency),
-                        dim: 0.72
-                    )
-                }
-
-                if !idle.isEmpty {
-                    dayRow(
-                        left: "\(idle.count) օր · \(idle.reduce(0) { $0 + $1.count }) \(session.tenant?.unitOne ?? "")",
-                        right: money(0, currency),
-                        dim: 0.5
-                    )
-                }
             }
-            .padding(.top, 12)
         }
-    }
-
-    private func dayRow(left: String, right: String, dim: Double) -> some View {
-        HStack(spacing: 8) {
-            Text(left)
-                .foregroundStyle(Brand.boardMuted.opacity(dim + 0.2))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Spacer(minLength: 4)
-            Text(right)
-                .fontWeight(.semibold)
-                .foregroundStyle(Brand.onBoard.opacity(min(1, dim + 0.18)))
-        }
-        .font(.system(size: 12))
-        .monospacedDigit()
-    }
-
-    /// `2026-08-10` → `10.08`. Год не показываем: неоплаченное за год —
-    /// не тот случай, ради которого стоит занимать место в строке.
-    private func short(_ iso: String) -> String {
-        let p = iso.split(separator: "-")
-        return p.count == 3 ? "\(p[2]).\(p[1])" : iso
     }
 
     /**
-     * «Отметить выплаченным» — удержанием, а не диалогом.
+     * Рабочий день блоком.
      *
-     * Выплата необратима: она закрывает период по человеку, и следующий
-     * расчёт пойдёт от неё. Прежде это защищал вопрос «вы уверены?» —
-     * защита, которую жмут не глядя, потому что за день таких вопросов
-     * десяток. Хуже того, диалог выскакивал ровно в тот момент, когда одна
-     * рука отдаёт деньги, а вторая держит телефон.
-     *
-     * Удержание работает иначе: подтверждение не отдельный экран, а само
-     * действие, растянутое во времени. Палец соскользнул или человек
-     * передумал — заливка откатилась, и ничего не случилось. Промахнуться
-     * невозможно в принципе, а не «маловероятно».
-     *
-     * Заливка идёт слева направо по самой кнопке: она не украшение, а
-     * единственный ответ на вопрос «сколько ещё держать».
+     * В шапке стоит то, ради чего блок читают: сколько по этому дню
+     * осталось отдать. Не «начислено за день» и не «выплачено» — именно
+     * долг: два других числа справочные, и ставить их на то же место
+     * значит заставлять выбирать, какое из трёх сейчас важно.
      */
-    private func settleButton(_ row: API.PayrollDue) -> some View {
-        let busy = settling == row.staffId
-        return Button {
-            confirming = row
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Նշել վճարված")
-                    .font(.system(size: 14, weight: .bold))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .bold))
-            }
-            .foregroundStyle(Brand.onLime)
-            .loading(busy, tint: Brand.onLime, size: 18)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 13)
-            .background(Brand.lime, in: .rect(cornerRadius: 14))
-            .contentShape(.rect(cornerRadius: 14))
-        }
-        .buttonStyle(.press)
-        .disabled(settling != nil)
-        .accessibilityLabel("Նշել վճարվածը")
-        .accessibilityValue(money(row.earned, currency))
-    }
+    private func dayCard(_ day: API.PayrollBoardDay, today: String) -> some View {
+        let payable = day.people.filter { $0.staffId != nil && $0.earned > 0 }
+        let mine = payable.filter { picked.contains(key(day.day, $0)) }
 
-    private var settled: some View {
-        Text("Վճարելու բան չկա")
-            .font(.system(size: 14))
-            .foregroundStyle(Brand.boardMuted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 44)
-    }
-
-    // ══════════════════════════ история ══════════════════════════
-
-    /// Что уже выплачено — строками на табло, без карточек.
-    ///
-    /// История нужна, чтобы ответить «я ему платил на прошлой неделе или
-    /// нет», и для этого хватает даты, имени и суммы. Карточка вокруг каждой
-    /// строки делала бы прошлое таким же весомым, как долг.
-    private func history(_ payouts: [API.Payout]) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Վճարումների պատմություն")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                Spacer()
-                Text("\(payouts.count)")
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-            }
-            .padding(.horizontal, 6)
-            .padding(.top, 16)
-            .padding(.bottom, 6)
-
-            ForEach(payouts) { payout in
-                let name = payout.staffName ?? "—"
-                HStack(spacing: 10) {
-                    Circle()
-                        .fill(Brand.person(name))
-                        .frame(width: 8, height: 8)
-
-                    Text(name)
-                        .font(.system(size: 14, weight: .semibold))
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dayTitle(day.day, today: today))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
-
-                    Text(paidAt(payout.paidAt))
+                        .minimumScaleFactor(0.75)
+                    Text("\(day.people.count) \(staffRole) · \(day.units) \(unitOne)")
                         .font(.system(size: 11.5))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
+                }
 
-                    Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-                    Text(money(payout.amount, currency))
-                        .font(.system(size: 14, weight: .semibold))
+                if day.outstanding > 0 {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(money(day.outstanding, currency))
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text("վճարելու է")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Brand.boardMuted)
+                    }
+                } else {
+                    /* Коротко: «Ամեն ինչ վճարված է» рядом с датой ломало
+                       заголовок на две строки — на телефоне на эту полку
+                       не помещаются две фразы сразу. Полная стоит там,
+                       где место есть, — в пустом состоянии. */
+                    Label("Վճարված է", systemImage: "checkmark")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(Brand.goodOnBoard)
+                        .fixedSize()
+                }
+            }
+
+            /* «Выбрать всех» — тихой подписью, а не второй кнопкой рядом
+               с расчётом: закрыть день целиком нужно часто, но выбор
+               делает человек, и по умолчанию не отмечено ничего. */
+            if payable.count > 1 && mine.count < payable.count {
+                Button {
+                    for person in payable { picked.insert(key(day.day, person)) }
+                } label: {
+                    Text("Ընտրել բոլորին")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Brand.grape)
+                }
+                .buttonStyle(.press)
+                .padding(.top, 10)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(day.people.enumerated()), id: \.element.id) { index, person in
+                    // линия между строками, но не над первой: список
+                    // должен начинаться содержимым, а не чертой
+                    if index > 0 {
+                        Rectangle()
+                            .fill(Brand.boardInk.opacity(0.07))
+                            .frame(height: 1)
+                    }
+                    row(person, day: day.day)
+                }
+            }
+            .padding(.top, 6)
+
+            /* Полосы расчёта внутри дня здесь нет: её место занимает
+               причал у нижнего края. Две одинаковые кнопки в одном
+               экране — не подстраховка, а вопрос «эти две делают одно и
+               то же или разное», который человек задаёт себе с деньгами
+               в руке. В кабинете полоса остаётся: там экран шире дня, и
+               причал появляется только на телефоне. */
+        }
+        .padding(16)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+    }
+
+    /// Закрытый день ничего не требует и занимает столько места, сколько
+    /// стоит ответ «здесь всё».
+    private func closedCard(_ day: API.PayrollBoardDay, today: String) -> some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.24)) {
+                _ = openedDays.insert(day.day)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Text(dayTitle(day.day, today: today))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+
+                Label("Վճարված է", systemImage: "checkmark")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(Brand.goodOnBoard)
+
+                Spacer(minLength: 8)
+
+                Text(money(day.paid, currency))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onBoard)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Brand.boardMuted)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+        }
+        .buttonStyle(.press)
+    }
+
+    /**
+     * Человек внутри дня.
+     *
+     * Строка, а не карточка с кнопкой во всю ширину. Прежде под каждым
+     * именем лежала лаймовая полоса «отметить выплаченным», и лист из
+     * пяти человек читался пятью призывами нажать; кто из них сколько
+     * получит, приходилось искать между кнопками.
+     *
+     * Закрытая строка приглушена, но не спрятана: полный итог рабочего
+     * дня владельцу нужен целиком, иначе завтра он не вспомнит, отдал ли.
+     */
+    private func row(_ person: API.PayrollPerson, day: String) -> some View {
+        let id = key(day, person)
+        let owed = person.earned > 0
+        let closed = !owed && person.paid > 0
+        let name = person.name ?? "—"
+        let tone = Brand.personTone(name)
+        let isOpen = opened.contains(id)
+
+        return VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                /* Флажок у того, кому ещё должны; галка у того, с кем уже
+                   рассчитались. Одно место, два состояния — по нему день
+                   и читается сверху вниз, без чтения сумм. */
+                if owed, person.staffId != nil {
+                    Button {
+                        if picked.contains(id) { picked.remove(id) } else { picked.insert(id) }
+                    } label: {
+                        Image(systemName: picked.contains(id) ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 19, weight: .regular))
+                            .foregroundStyle(picked.contains(id) ? Brand.grape : Brand.boardMuted)
+                            .frame(width: 30, height: 30)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.press)
+                    .disabled(settling)
+                    .accessibilityLabel("\(name) · \(money(person.earned, currency))")
+                } else {
+                    Image(systemName: closed ? "checkmark" : "minus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(closed ? Brand.goodOnBoard : Brand.boardMuted.opacity(0.5))
+                        .frame(width: 30, height: 30)
+                }
+
+                Circle()
+                    .fill(tone.base)
+                    .frame(width: 8, height: 8)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name)
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(closed ? Brand.boardMuted : Brand.onBoard)
+                        .lineLimit(1)
+
+                    Text(facts(person))
+                        .font(.system(size: 11.5))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 11)
-                .accessibilityElement(children: .combine)
 
-                if payout.id != payouts.last?.id {
-                    Rectangle()
-                        .fill(Brand.boardInk.opacity(0.07))
-                        .frame(height: 1)
+                Spacer(minLength: 6)
+
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(money(owed ? person.earned : person.paid, currency))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(closed ? Brand.boardMuted : Brand.onBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    if closed, let paidAt = person.paidAt {
+                        Text(stamp(paidAt))
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.goodOnBoard)
+                    } else if owed, person.paid > 0 {
+                        /* День, за который заплатили днём, а вечером
+                           намыли ещё, иначе выглядит неоплаченным целиком. */
+                        Text("արդեն՝ \(money(person.paid, currency))")
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+                    } else if owed {
+                        Text("Չվճարված")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.boardMuted)
+                    }
                 }
+
+                if person.lines != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Brand.boardMuted.opacity(0.7))
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                        .frame(width: 16)
+                } else {
+                    Spacer().frame(width: 16)
+                }
+            }
+            .padding(.vertical, 9)
+            .contentShape(.rect)
+            .onTapGesture {
+                guard person.lines != nil else { return }
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                    if isOpen { opened.remove(id) } else { opened.insert(id) }
+                }
+            }
+
+            /* Разложение суммы. Оно и есть ответ на вопрос «почему
+               столько»: цена машины, ставка в момент записи и доля с
+               неё. Ставка берётся из самой записи — после смены процента
+               текущая её уже не объясняет. */
+            if isOpen, let lines = person.lines {
+                VStack(spacing: 3) {
+                    ForEach(lines) { line in
+                        HStack(spacing: 8) {
+                            Text(line.title)
+                                .foregroundStyle(Brand.boardMuted)
+                                .lineLimit(1)
+                            Spacer(minLength: 6)
+                            Text("\(money(line.price, currency)) × \(line.percent)%")
+                                .foregroundStyle(Brand.boardMuted.opacity(0.85))
+                                .lineLimit(1)
+                            Text(money(line.earned, currency))
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Brand.onBoard)
+                        }
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                    }
+                }
+                .padding(.leading, 48)
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    /// Дата выплаты в зоне бизнеса, а не устройства: владелец в поездке
-    /// видел вчерашний расчёт сегодняшним.
-    private func paidAt(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
-        f.dateFormat = "d MMM, HH:mm"
-        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
-            f.timeZone = zone
+    private func facts(_ person: API.PayrollPerson) -> String {
+        let left = "\(person.count) \(unitOne)"
+        guard let rate = person.rateLabel else { return left }
+        return "\(left) · \(rate)"
+    }
+
+    // ══════════════════════════ пусто и сломалось ══════════════════════
+
+    private func settled(_ board: API.PayrollBoard) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Brand.goodOnBoard)
+            Text("Ամեն ինչ վճարված է")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+            Text("Հիմա չվճարված հաշվարկներ չկան։")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+
+            if !board.payments.isEmpty {
+                Button("Տեսնել պատմությունը") { tab = .history }
+                    .buttonStyle(.glass)
+                    .padding(.top, 8)
+            }
         }
-        return f.string(from: date)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+    }
+
+    /// Сегодня ещё не мыли. Пустой сегодняшний день — это ответ, а не
+    /// отсутствие ответа.
+    private func emptyToday(_ today: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(dayTitle(today, today: today))
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Brand.onBoard)
+            Text("Այսօր հաշվարկներ դեռ չկան")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 12)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+    }
+
+    /**
+     * Сервер старше приложения: дневного листа он ещё не отдаёт.
+     *
+     * Винить приложение здесь нельзя — обновлять надо не его, и надпись
+     * «обновите приложение» отправила бы человека в магазин, где для него
+     * ничего нет. Такое бывает ровно в одном случае: сборку поставили на
+     * телефон раньше, чем выкатили сервер.
+     */
+    private var outdated: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "arrow.trianglehead.2.clockwise")
+                .font(.system(size: 22))
+                .foregroundStyle(Brand.boardMuted)
+            Text("Աշխատավարձերի ցուցակը սերվերում դեռ չկա։")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+            Text("Հավելվածն ավելի նոր է, քան սերվերը։")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+            Button("Կրկնել") { Task { await reload() } }
+                .buttonStyle(.glass)
+                .padding(.top, 6)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 44)
     }
 
     private func problem(_ text: String) -> some View {
@@ -482,37 +633,248 @@ struct PayrollView: View {
         .padding(.vertical, 60)
     }
 
-    private func settle(_ row: API.PayrollDue, through day: String? = nil) async {
-        guard let staffId = row.staffId else { return }
-        settling = staffId
-        defer { settling = nil }
+    // ══════════════════════════ история ══════════════════════════
+
+    /**
+     * Что уже отдано.
+     *
+     * Прежде здесь стоял список «имя · дата · сумма», и на вопрос «за
+     * какой день я заплатил» он не отвечал вовсе. Теперь две разные
+     * сущности названы двумя разными способами и стоят в разных местах:
+     * когда отдали — заголовок дня и время слева, за что отдали —
+     * подпись «за работу такого-то» под суммой.
+     *
+     * Группировка идёт по дню ВЫПЛАТЫ: сюда приходят с вопросом «когда я
+     * реально отдал деньги». Расчёт с тремя людьми, сделанный одним
+     * нажатием, показан одной записью — тем, чем он и был.
+     */
+    @ViewBuilder
+    private func history(_ board: API.PayrollBoard) -> some View {
+        if board.payments.isEmpty {
+            Text("Վճարումներ դեռ չեն եղել")
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.boardMuted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 44)
+        } else {
+            let today = dayKey(Date())
+            let groups = Dictionary(grouping: board.payments) { dayKey($0.paidAt) }
+
+            ForEach(groups.keys.sorted(by: >), id: \.self) { key in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(dayTitle(key, today: today))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.boardMuted)
+                        .padding(.horizontal, 6)
+
+                    ForEach(groups[key] ?? []) { payment in
+                        paymentCard(payment)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    private func paymentCard(_ payment: API.PayrollPayment) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(time(payment.paidAt))
+                .font(.system(size: 12, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(payment.rows) { line in
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Brand.personTone(line.name ?? "—").base)
+                            .frame(width: 7, height: 7)
+                        Text(line.name ?? "—")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text(money(line.amount, currency))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                }
+
+                // итог — только когда людей несколько: под одной строкой
+                // он повторял бы её же число
+                if payment.rows.count > 1 {
+                    Rectangle()
+                        .fill(Brand.boardInk.opacity(0.09))
+                        .frame(height: 1)
+                        .padding(.top, 3)
+
+                    HStack {
+                        Text("Ընդամենը")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.boardMuted)
+                        Spacer()
+                        Text(money(payment.total, currency))
+                            .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                }
+
+                Text(workLabel(payment))
+                    .font(.system(size: 11.5))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+    }
+
+    /// За какой рабочий день отданы деньги — словами, а не второй датой:
+    /// две даты подряд снова пришлось бы различать по порядку, а не по
+    /// смыслу.
+    private func workLabel(_ payment: API.PayrollPayment) -> String {
+        var line: String
+        if let day = payment.day {
+            line = "\(longDay(day)) աշխատանքի համար"
+        } else {
+            /* Старая выплата: она закрывала отрезок целиком, и разложить
+               её обратно по дням честно нельзя. Верхняя граница — полночь
+               СЛЕДУЮЩИХ суток, поэтому последний рабочий день на миг
+               раньше. */
+            let last = dayKey(payment.periodTo.addingTimeInterval(-0.001))
+            if payment.periodFrom.timeIntervalSince1970 <= 0 {
+                line = "մինչև \(longDay(last)) աշխատանքի համար"
+            } else {
+                let first = dayKey(payment.periodFrom)
+                line = first == last
+                    ? "\(longDay(first)) աշխատանքի համար"
+                    : "\(longDay(first)) — \(longDay(last)) աշխատանքի համար"
+            }
+        }
+        if let units = payment.units, units > 0 { line += " · \(units) \(unitOne)" }
+        return line
+    }
+
+    // ══════════════════════════ расчёт ══════════════════════════
+
+    /// Причал у нижнего края: отмеченное в разных днях остаётся под
+    /// рукой, даже когда сам день уехал за верхний край.
+    @ViewBuilder
+    private var dock: some View {
+        let items = allPicked()
+        if !items.isEmpty {
+            HStack(spacing: 12) {
+                Text("Ընտրված է \(items.count)")
+                    .font(.system(size: 13))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+
+                Spacer(minLength: 8)
+
+                /* Поля у надписи свои.
+                   `LimeButton` рассчитан на кнопку во всю ширину: боковых
+                   полей у него нет вовсе, их роль играет растяжение.
+                   Здесь кнопка сжата по содержимому, и без собственных
+                   полей надпись упиралась в края заливки — «Վճարել 3 000 ֏»
+                   читалось одним слипшимся словом. */
+                Button {
+                    asking = items
+                } label: {
+                    Text("Վճարել \(money(items.reduce(0) { $0 + $1.amount }, currency))")
+                        .padding(.horizontal, 20)
+                }
+                .buttonStyle(LimeButton(loading: settling))
+                .fixedSize()
+                .disabled(settling)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
+            .transition(.move(edge: .bottom))
+        }
+    }
+
+    /// Сообщение о том, что расчёт лёг. Нужно ровно потому, что после
+    /// расчёта строки исчезают: экран меняется сам, и без единого слова
+    /// непонятно, случилось это от нажатия или что-то сломалось.
+    @ViewBuilder
+    private var toast: some View {
+        if let note {
+            Text(note)
+                .font(.system(size: 13.5, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.board)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Brand.onBoard, in: .rect(cornerRadius: 14))
+                /* Выше плавающей полосы вкладок: у нижнего края экрана
+                   его закрывала бы она, и сообщение о выплате видел бы
+                   только тот, кто успел посмотреть на нижние сто точек. */
+                .padding(.bottom, 96)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    private func confirmText(_ items: [Pick]) -> String {
+        var lines = items.map { "\($0.name) · \(money($0.amount, currency))" }
+        if items.count > 1 {
+            lines.append("Ընդամենը · \(money(items.reduce(0) { $0 + $1.amount }, currency))")
+        }
+        let days = Set(items.map(\.day)).sorted()
+        let today = dayKey(Date())
+        let when = days.count == 1 ? dayTitle(days[0], today: today) : nil
+        return ([when].compactMap { $0 } + lines).joined(separator: "\n")
+    }
+
+    private func settle(_ items: [Pick]) async {
+        settling = true
+        defer { settling = false }
 
         do {
+            /* Список, а не запрос на каждого: момент выдачи ставит сервер
+               один раз, и в истории это ложится одной выдачей. */
             _ = try await session.authed { token in
                 try await APIClient.shared.raw(
                     "payouts",
                     method: "POST",
-                    body: day == nil
-                        ? ["staffId": staffId]
-                        : ["staffId": staffId, "throughDay": day!],
+                    body: ["items": items.map { ["staffId": $0.staffId, "day": $0.day] }],
                     token: token
                 )
             }
         } catch {
             UINotificationFeedbackGenerator().notificationOccurred(.error)
-            settleFailed = true
+            show("Չհաջողվեց։ Փորձեք կրկին։")
+            /* Часть расчётов могла лечь до сбоя: перечитываем лист и
+               снимаем отметки, иначе следующее нажатие заплатит дважды. */
+            picked.removeAll()
+            await reload()
             return
         }
 
+        let total = items.reduce(0) { $0 + $1.amount }
+        picked.removeAll()
         // Деньги отданы из рук в руки — толчок подтверждает, что запись
         // легла, не заставляя вчитываться в изменившийся список.
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        show("Վճարումը նշված է՝ \(money(total, currency))")
         await reload()
     }
 
+    private func show(_ text: String) {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { note = text }
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { note = nil }
+        }
+    }
+
     private func reload() async {
-        loading = true
-        defer { loading = false }
         do {
             let fresh = try await session.authed { token in
                 try await APIClient.shared.send("payroll", token: token, as: API.Payroll.self)
@@ -527,13 +889,85 @@ struct PayrollView: View {
             failure = nil
         } catch is CancellationError {
             /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
-               сломалось — и экран об этом молчит: прежнее содержимое
-               остаётся на месте. */
+               сломалось — и экран об этом молчит. */
             return
         } catch let error as APIError {
             failure = error.isOffline ? "Կապ չկա։" : "\(error.status) \(error.code ?? "—")"
         } catch {
             failure = "\(error)"
         }
+    }
+
+    // ══════════════════════════ мелочи ══════════════════════════
+
+    private func key(_ day: String, _ person: API.PayrollPerson) -> String {
+        "\(day)|\(person.staffId ?? "—")"
+    }
+
+    private func pick(_ person: API.PayrollPerson, day: String) -> Pick? {
+        guard let staffId = person.staffId else { return nil }
+        return Pick(staffId: staffId, day: day, name: person.name ?? "—", amount: person.earned)
+    }
+
+    /// Отмеченное во всех днях сразу — по нему живёт причал.
+    private func allPicked() -> [Pick] {
+        guard let days = payroll?.board?.days else { return [] }
+        return days.flatMap { day in
+            day.people.compactMap { person in
+                picked.contains(key(day.day, person)) ? pick(person, day: day.day) : nil
+            }
+        }
+    }
+
+    private func dayTitle(_ day: String, today: String) -> String {
+        day == today ? "Այսօր · \(longDay(day))" : longDay(day)
+    }
+
+    /* Даты — в поясе мойки, а не устройства: владелец в поездке видит
+       смену своей мойки, а не своего часового пояса. */
+    private var zone: TimeZone {
+        session.tenant.flatMap { TimeZone(identifier: $0.timezone) } ?? .current
+    }
+
+    private func formatter(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hy_AM")
+        f.timeZone = zone
+        f.dateFormat = format
+        return f
+    }
+
+    /// `2026-08-13` → «13 օգոստոսի». Число словом, а не «13.08»: экран
+    /// различает рабочий день и день выплаты, и точки в обеих датах эту
+    /// разницу стирают. Год появляется, только когда он не текущий.
+    private func longDay(_ day: String) -> String {
+        let parse = DateFormatter()
+        parse.locale = Locale(identifier: "en_US_POSIX")
+        parse.timeZone = TimeZone(identifier: "UTC")
+        parse.dateFormat = "yyyy-MM-dd"
+        guard let date = parse.date(from: day) else { return day }
+
+        // полдень по UTC остаётся тем же днём в любом поясе
+        let noon = date.addingTimeInterval(12 * 3600)
+        let thisYear = formatter("yyyy").string(from: Date())
+        return formatter(day.hasPrefix(thisYear) ? "d MMMM" : "d MMMM yyyy").string(from: noon)
+    }
+
+    /// `YYYY-MM-DD` момента в поясе мойки.
+    private func dayKey(_ at: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = zone
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: at)
+    }
+
+    /// «14 օգս, 12:25» — короткая отметка о выдаче в строке.
+    private func stamp(_ at: Date) -> String {
+        formatter("d MMM, HH:mm").string(from: at)
+    }
+
+    private func time(_ at: Date) -> String {
+        formatter("HH:mm").string(from: at)
     }
 }

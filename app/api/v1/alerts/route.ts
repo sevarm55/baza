@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
-    return ok({ alerts: await getAlerts(ctx.tenant.id, ctx.user.id) });
+    return ok({ alerts: await getAlerts(ctx.tenant.id, ctx.user.id, ctx.tenant.timezone) });
   } catch (e) {
     return failFromError(e);
   }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         set: { until, tenantId: ctx.tenant.id },
       });
 
-    return ok({ alerts: await getAlerts(ctx.tenant.id, ctx.user.id) });
+    return ok({ alerts: await getAlerts(ctx.tenant.id, ctx.user.id, ctx.tenant.timezone) });
   } catch (e) {
     return failFromError(e);
   }
