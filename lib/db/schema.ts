@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   integer,
+  date,
   boolean,
   uuid,
   timestamp,
@@ -411,11 +412,27 @@ export const payouts = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     periodFrom: timestamp('period_from', { withTimezone: true }).notNull(),
     periodTo: timestamp('period_to', { withTimezone: true }).notNull(),
+    /**
+     * За какой день выданы деньги, в поясе мойки.
+     *
+     * Пусто у выплат, сделанных до появления дней: они закрывали отрезок
+     * «с … по …» целиком, и разложить их обратно по дням честно нельзя —
+     * данных для этого не существует. Такие строки продолжают работать
+     * чертой: всё, что заработано раньше самой поздней из них, считается
+     * закрытым. Новые выплаты всегда несут день.
+     *
+     * День, а не момент, потому что вопрос владельца звучит «за какой
+     * день я заплатил», а не «в какую секунду».
+     */
+    day: date('day'),
     amount: integer('amount').notNull(),
     paidAt: timestamp('paid_at', { withTimezone: true }).notNull().defaultNow(),
     paidBy: uuid('paid_by').references(() => users.id, { onDelete: 'set null' }),
   },
-  (t) => [index('payouts_tenant_idx').on(t.tenantId, t.staffId)],
+  (t) => [
+    index('payouts_tenant_idx').on(t.tenantId, t.staffId),
+    index('payouts_day_idx').on(t.tenantId, t.staffId, t.day),
+  ],
 );
 
 /**

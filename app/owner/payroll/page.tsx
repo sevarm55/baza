@@ -145,6 +145,7 @@ export default async function PayrollPage() {
                   </div>
 
                   <Breakdown
+                    staffId={r.staffId}
                     days={daysOf(r.staffId)}
                     unit={tenant.unitOne}
                     money={money}
@@ -242,10 +243,12 @@ export default async function PayrollPage() {
  * которые он действительно должен.
  */
 function Breakdown({
+  staffId,
   days,
   unit,
   money,
 }: {
+  staffId: string | null;
   days: { day: string; count: number; earned: number }[];
   unit: string;
   money: (n: number) => string;
@@ -273,7 +276,35 @@ function Breakdown({
       className="mt-3 grid gap-1 pt-2.5"
       style={{ borderTop: '1px solid var(--hairline)' }}
     >
-      {shown.map((d) => line(`${dayLabel(d.day)} · ${d.count} ${unit}`, money(d.earned), 1))}
+      {/* У каждого дня своя кнопка. Нажатие закрывает этот день и все,
+          что старше: долги гасят с самого старого, и порядок тут не
+          выбирают. Поэтому и надпись — «по такое-то число».
+
+          Кнопка появляется только у дня, который не последний в списке:
+          у самого свежего её роль уже играет большая кнопка сверху, и
+          две одинаковые по смыслу рядом только путают. */}
+      {shown.map((d, i) => (
+        <div key={d.day} className="flex items-baseline justify-between gap-2">
+          <span className="num text-[12px]" style={{ color: 'var(--board-muted)' }}>
+            {dayLabel(d.day)} · {d.count} {unit}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="num text-[12px] font-semibold" style={{ color: 'var(--board-muted)' }}>
+              {money(d.earned)}
+            </span>
+            {staffId && (
+              <PayButton
+                staffId={staffId}
+                throughDay={d.day}
+                label={hy.payroll.forDay(dayLabel(d.day))}
+                name={hy.payroll.forDay(dayLabel(d.day))}
+                amount={money(d.earned)}
+                compact
+              />
+            )}
+          </span>
+        </div>
+      ))}
       {rest.length > 0 &&
         line(
           `+ ${rest.length} ${hy.owner.daysShort}`,

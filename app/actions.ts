@@ -519,11 +519,20 @@ export async function clientHistory(key: string) {
  * в этот же момент, попадёт в следующий расчёт, а не потеряется между
  * посчитанной суммой и отметкой о выплате.
  */
-export async function markPaid(staffId: string): Promise<void> {
+export async function markPaid(staffId: string, day?: string): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
 
-  await settleStaff({ tenantId: session.tid, staffId, byUserId: session.uid });
+  const tenant = await getTenant(session.tid);
+  if (!tenant) return;
+
+  await settleStaff({
+    tenantId: session.tid,
+    staffId,
+    byUserId: session.uid,
+    timezone: tenant.timezone,
+    day,
+  });
 
   revalidatePath('/owner/payroll');
 }

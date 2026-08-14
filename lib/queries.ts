@@ -441,7 +441,10 @@ export async function getUnsettledByDay(
   timezone: string,
   until: Date = new Date(),
 ): Promise<PayrollDay[]> {
-  return db
+  /* Заработанное по дням — только то, что не закрыто старой чертой.
+     Черта — самая поздняя выплата без дня: такие строки закрывали
+     отрезок целиком, и разбирать их обратно нечем. */
+  const earned = await db
     .select({
       staffId: orders.staffId,
       day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
@@ -456,13 +459,39 @@ export async function getUnsettledByDay(
         notCanceled,
         lt(orders.createdAt, until),
         sql`${orders.createdAt} > coalesce(
-          (select max(p.period_to) from payouts p where p.staff_id = ${orders.staffId}),
+          (select max(p.period_to) from payouts p
+            where p.staff_id = ${orders.staffId} and p.day is null),
           to_timestamp(0)
         )`,
       ),
     )
-    .groupBy(orders.staffId, sql`2`)
-    .orderBy(desc(sql`2`));
+    .groupBy(orders.staffId, sql`2`);
+
+  /* Выплаченное по тем же дням. Их может быть несколько на один день:
+     владелец выдал часть днём и остаток вечером — это одна строка дня и
+     две выдачи. */
+  const paid = await db
+    .select({
+      staffId: payouts.staffId,
+      day: sql<string>`to_char(${payouts.day}, 'YYYY-MM-DD')`,
+      amount: sql<number>`coalesce(sum(${payouts.amount}), 0)::int`,
+    })
+    .from(payouts)
+    .where(and(eq(payouts.tenantId, tenantId), sql`${payouts.day} is not null`))
+    .groupBy(payouts.staffId, payouts.day);
+
+  const paidBy = new Map(paid.map((p) => [`${p.staffId}|${p.day}`, p.amount]));
+
+  /* Остаток может уйти в минус: вчерашнюю машину отменили сегодня, а
+     деньги за неё уже отданы. Это не ошибка расчёта, а переплата, и
+     показывать её надо словом — поэтому число оставляем как есть, а не
+     обрезаем нулём: обрезав, мы бы спрятали факт. */
+  return earned
+    .map((e) => ({
+      ...e,
+      earned: e.earned - (paidBy.get(`${e.staffId}|${e.day}`) ?? 0),
+    }))
+    .sort((a, b) => (a.day < b.day ? 1 : -1));
 }
 
 /**

@@ -266,12 +266,38 @@ struct PayrollView: View {
                 Divider().overlay(Brand.boardInk.opacity(0.1))
                     .padding(.bottom, 6)
 
-                ForEach(shown) { d in
-                    dayRow(
-                        left: "\(short(d.day)) · \(d.count) \(session.tenant?.unitOne ?? "")",
-                        right: money(d.earned, currency),
-                        dim: 0.72
-                    )
+                /* У каждого дня своя кнопка. Нажатие закрывает этот
+                   день и все, что старше: долги отдают с самого старого,
+                   и порядок тут не выбирают. Поэтому на кнопке написано
+                   «по такое-то число», а не «за него».
+
+                   У самого свежего дня кнопки нет: её роль уже играет
+                   большая кнопка выплаты выше, и две одинаковые по
+                   смыслу рядом только путают. */
+                ForEach(Array(shown.enumerated()), id: \.element.id) { i, d in
+                    HStack(spacing: 8) {
+                        dayRow(
+                            left: "\(short(d.day)) · \(d.count) \(session.tenant?.unitOne ?? "")",
+                            right: money(d.earned, currency),
+                            dim: 0.72
+                        )
+
+                        if row.staffId != nil {
+                            Button {
+                                Task { await settle(row, through: d.day) }
+                            } label: {
+                                Text("վճարել \(short(d.day))")
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                            }
+                            .buttonStyle(PressStyle())
+                            .foregroundStyle(Brand.grape)
+                            .background(Brand.grape.opacity(0.1), in: .rect(cornerRadius: 8))
+                            .disabled(settling != nil)
+                        }
+                    }
                 }
 
                 if !rest.isEmpty {
@@ -456,7 +482,7 @@ struct PayrollView: View {
         .padding(.vertical, 60)
     }
 
-    private func settle(_ row: API.PayrollDue) async {
+    private func settle(_ row: API.PayrollDue, through day: String? = nil) async {
         guard let staffId = row.staffId else { return }
         settling = staffId
         defer { settling = nil }
@@ -466,7 +492,9 @@ struct PayrollView: View {
                 try await APIClient.shared.raw(
                     "payouts",
                     method: "POST",
-                    body: ["staffId": staffId],
+                    body: day == nil
+                        ? ["staffId": staffId]
+                        : ["staffId": staffId, "throughDay": day!],
                     token: token
                 )
             }

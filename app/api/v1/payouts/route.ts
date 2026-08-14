@@ -16,11 +16,17 @@ export async function POST(request: Request) {
     const ctx = await authorize(request, { owner: true, write: true });
     if (denied(ctx)) return ctx;
 
-    const input = await body<{ staffId?: string }>(request);
+    const input = await body<{ staffId?: string; throughDay?: string; day?: string }>(request);
     const staffId = str(input?.staffId);
     if (!staffId) return fail('BAD_REQUEST', 400);
 
+    /* День строкой `YYYY-MM-DD`: за него и платим. Без него закрываются
+       все незакрытые дни, по строке на каждый. */
+    const day = str(input?.throughDay) || str(input?.day) || undefined;
+
     const result = await settleStaff({
+      timezone: ctx.tenant.timezone,
+      day,
       tenantId: ctx.tenant.id,
       staffId,
       byUserId: ctx.user.id,

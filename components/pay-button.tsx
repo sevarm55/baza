@@ -19,11 +19,24 @@ export function PayButton({
   label,
   name,
   amount,
+  /**
+   * До какого дня закрываем долг, `YYYY-MM-DD`.
+   *
+   * Без него — весь накопленный, как было. С ним закрываются этот день и
+   * все, что старше: долги гасят с самого старого, и «заплатить за
+   * среду, оставив вторник» — не случай из жизни, а способ запутаться.
+   * Поэтому на кнопке написано «по такое-то число», а не «за него».
+   */
+  throughDay,
+  /** Строка дня: маленькая кнопка вместо широкой плашки. */
+  compact = false,
 }: {
   staffId: string;
   label: string;
   name: string;
   amount: string;
+  throughDay?: string;
+  compact?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
@@ -32,13 +45,18 @@ export function PayButton({
     <>
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--accent2)] px-3.5 py-3 text-[13.5px] font-bold text-white outline-none transition duration-150 hover:brightness-95 active:translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+        className={
+          compact
+            ? 'rounded-[8px] px-2 py-1 text-[11.5px] font-semibold whitespace-nowrap outline-none transition hover:bg-surface2 focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50'
+            : 'flex w-full items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--accent2)] px-3.5 py-3 text-[13.5px] font-bold text-white outline-none transition duration-150 hover:brightness-95 active:translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50'
+        }
+        style={compact ? { color: 'var(--accent)' } : undefined}
         disabled={pending}
         onClick={() => setConfirming(true)}
       >
-        <CheckCircle2 className="size-4" aria-hidden />
+        {!compact && <CheckCircle2 className="size-4" aria-hidden />}
         <span>{pending ? hy.common.loading : label}</span>
-        <ChevronRight className="ms-auto size-4" aria-hidden />
+        {!compact && <ChevronRight className="ms-auto size-4" aria-hidden />}
       </button>
 
       {confirming && (
@@ -95,7 +113,7 @@ export function PayButton({
                 disabled={pending}
                 onClick={() =>
                   startTransition(async () => {
-                    await markPaid(staffId);
+                    await markPaid(staffId, throughDay);
                     setConfirming(false);
                   })
                 }
