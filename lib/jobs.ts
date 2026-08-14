@@ -206,20 +206,12 @@ export async function startJob(tenantId: string, jobId: string, byUserId: string
   return row.id;
 }
 
-/**
- * Наряд закрыт записью.
- *
- * Зовётся из создания записи, а не из кнопки: наряд считается
- * выполненным ровно тогда, когда появились деньги. Иначе «готово» и
- * «записано» разъедутся, и владелец увидит вымытую машину, которой нет
- * в выручке.
- */
-export async function finishJob(tenantId: string, jobId: string, orderId: string) {
-  await db
-    .update(jobs)
-    .set({ status: 'done', doneAt: new Date(), orderId })
-    .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, jobId), inArray(jobs.status, OPEN)));
-}
+/* Наряд закрывает запись, и делает это `createOrder` в своей
+   транзакции — см. `lib/orders.ts`. Здесь такой функции нет намеренно:
+   она тут была, её никто не вызывал, и мёртвый код создавал полную
+   уверенность, что закрытие работает. Держать её обёрткой поверх
+   настоящего закрытия тоже нельзя — `lib/jobs.ts` берёт из `orders.ts`
+   свою ошибку, и обратный импорт замкнул бы модули друг на друга. */
 
 /** Машина уехала, не дождавшись. Отменяет владелец. */
 export async function cancelJob(tenantId: string, jobId: string) {

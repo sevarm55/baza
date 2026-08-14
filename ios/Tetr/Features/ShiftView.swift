@@ -687,9 +687,17 @@ struct ShiftView: View {
         await loadJobs()
     }
 
+    /**
+     * Только свои машины, а не весь двор.
+     *
+     * Это экран собственной смены, и «мои машины» здесь значит буквально
+     * мои. Без `scope=mine` сервер отвечает по роли, и владельцу
+     * приезжал весь двор: в его смене висели машины, назначенные Валоду
+     * и Гаго, — те, которые он сам им и раздал.
+     */
     private func loadJobs() async {
         let fresh = try? await session.authed { token in
-            try await APIClient.shared.send("jobs", token: token, as: API.Jobs.self)
+            try await APIClient.shared.send("jobs?scope=mine", token: token, as: API.Jobs.self)
         }
         if let fresh { jobs = fresh.jobs }
     }
