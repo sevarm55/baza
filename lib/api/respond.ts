@@ -24,6 +24,8 @@ export type ApiError =
   | 'SUBSCRIPTION_EXPIRED'
   | 'SUBSCRIPTION_BLOCKED'
   | 'EMPTY_CLIENT_KEY'
+  /** номер длиннее любого настоящего: вставленный текст или сбой сканера */
+  | 'CLIENT_KEY_TOO_LONG'
   | 'BAD_PRICE'
   | 'SERVICE_NOT_FOUND'
   | 'STAFF_NOT_FOUND'
@@ -79,7 +81,9 @@ export function failFromError(e: unknown): NextResponse {
     const code = e.message as ApiError;
     if (code === 'PASS_UNAVAILABLE' || code === 'PASS_REQUIRED') return fail(code, 409);
     // неверный ввод, а не отсутствующая сущность
-    if (code === 'EMPTY_CLIENT_KEY' || code === 'BAD_PRICE') return fail(code, 400);
+    if (code === 'EMPTY_CLIENT_KEY' || code === 'CLIENT_KEY_TOO_LONG' || code === 'BAD_PRICE') {
+      return fail(code, 400);
+    }
     return fail(code, 404);
   }
 
