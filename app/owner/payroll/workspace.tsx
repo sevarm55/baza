@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { settlePayroll } from '@/app/actions';
 import { Panel } from '@/components/board';
-import { SwitchMark } from '@/components/switch-mark';
+import { Segmented } from '@/components/segmented';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { DayCard } from './day-card';
@@ -142,42 +142,28 @@ export function PayrollWorkspace({
     <div className="mt-[var(--seam)]">
       {/* Переключатель тем же жёлобом с переезжающей плашкой, что период
           на сводке: один приём на все переключатели продукта. */}
-      <div
-        className="mb-[var(--seam)] inline-flex gap-0.5 rounded-[8px] p-[3px]"
-        style={{ background: 'color-mix(in srgb, var(--board-ink) 7%, transparent)' }}
-        role="tablist"
-      >
-        {(['due', 'history'] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className="relative rounded-[6px] px-3 py-1.5 text-[13px] transition-colors"
-            style={
-              tab === key
-                ? { color: 'var(--board)', fontWeight: 600 }
-                : { color: 'var(--board-muted)' }
-            }
-          >
-            {tab === key && <SwitchMark id="payroll-tabs" radius={6} />}
-            <span className="num relative z-[1] flex items-center gap-1.5">
-              {key === 'due' ? (
-                <>
+      <div className="mb-[var(--seam)]">
+        <Segmented
+          id="payroll-tabs"
+          current={tab}
+          onSelect={(key) => setTab(key as 'due' | 'history')}
+          items={[
+            {
+              key: 'due',
+              label: (
+                <span className="num flex items-center gap-1.5">
                   {hy.payroll.tabDue}
                   {outstanding > 0 ? (
                     <b className="font-semibold">{money(outstanding)}</b>
                   ) : (
                     <Check className="size-3.5" aria-hidden />
                   )}
-                </>
-              ) : (
-                hy.payroll.tabHistory
-              )}
-            </span>
-          </button>
-        ))}
+                </span>
+              ),
+            },
+            { key: 'history', label: hy.payroll.tabHistory },
+          ]}
+        />
       </div>
 
       {tab === 'due' ? (

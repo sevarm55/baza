@@ -1,9 +1,13 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { archiveService, saveService, type FormState } from '@/app/actions';
+import { Panel } from '@/components/board';
+import { EmptyState } from '@/components/empty-state';
 import { Sheet } from '@/components/sheet';
 import { hy } from '@/lib/i18n/hy';
+import { AddService } from './add-service';
 
 export type ServiceRow = {
   id: string;
@@ -19,22 +23,22 @@ export type ServiceRow = {
 };
 
 /**
- * Прейскурант.
+ * Прейскурант — главный модуль настроек.
  *
  * Был списком «название — цена»: он отвечал, сколько стоит, и молчал о
  * том, что из него берут. Цену правили вслепую — поднять на комплексе,
  * который заказывают дважды в месяц, это ничего, а поднять на мойке
  * кузова, которых сорок шесть, — совсем другие деньги.
  *
- * Теперь рядом с ценой стоит месяц: сколько раз услугу взяли и сколько
- * она принесла. На широком экране это таблица, потому что здесь именно
- * сравнивают строки между собой; на телефоне — строки, там сравнивать
- * нечем.
+ * Поэтому рядом с ценой стоит месяц: сколько раз услугу взяли и сколько
+ * она принесла. Цена при этом остаётся тем, что здесь правят, и стоит
+ * последней — там, где рука заканчивает читать строку.
  *
- * Правка — панелью справа, как везде в кабинете: прейскурант остаётся
- * на месте, и видно, какую цену правишь среди прочих.
+ * На широком экране это таблица, потому что здесь именно сравнивают
+ * строки между собой; на телефоне сравнивать нечем, там читают строку за
+ * строкой.
  */
-export function ServicesTable({
+export function Services({
   rows,
   step,
   currencySymbol,
@@ -46,27 +50,52 @@ export function ServicesTable({
   const [open, setOpen] = useState<string | null>(null);
   const service = rows.find((r) => r.id === open) ?? null;
 
+  if (rows.length === 0) {
+    return (
+      <Panel title={hy.settings.services}>
+        <EmptyState
+          title={hy.settings.servicesEmpty}
+          note={hy.settings.servicesEmptyNote}
+          action={<AddService variant="cta" currencySymbol={currencySymbol} step={step} />}
+        />
+      </Panel>
+    );
+  }
+
   return (
-    <>
+    <Panel
+      title={hy.settings.services}
+      count={rows.length}
+      actions={<AddService currencySymbol={currencySymbol} step={step} />}
+    >
       <div className="board-journal lg:hidden">
         {rows.map((s) => (
           <button
             key={s.id}
             type="button"
             onClick={() => setOpen(s.id)}
+            aria-label={`${s.name} · ${hy.common.edit}`}
             className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14.5px] font-semibold">{s.name}</span>
               {s.count > 0 && (
-                <span className="num block truncate text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                  {s.count} · {s.revenue}
+                <span
+                  className="num block truncate text-[12px]"
+                  style={{ color: 'var(--board-muted)' }}
+                >
+                  {s.count} {hy.owner.timesShort} · {s.revenue}
                 </span>
               )}
             </span>
             <span className="num shrink-0 text-[14px] font-semibold">
               {s.display} <span style={{ color: 'var(--board-muted)' }}>{currencySymbol}</span>
             </span>
+            <ChevronRight
+              className="size-3.5 shrink-0"
+              style={{ color: 'var(--board-muted)' }}
+              aria-hidden
+            />
           </button>
         ))}
       </div>
@@ -87,7 +116,7 @@ export function ServicesTable({
                бросает гидратацию поддерева. Клавиатуре служит настоящая
                кнопка в конце строки. */
             <tr key={s.id} className="row-click" onClick={() => setOpen(s.id)}>
-              <td className="font-medium">{s.name}</td>
+              <td className="text-[15px] font-semibold">{s.name}</td>
 
               <td className="num end" style={{ color: 'var(--board-muted)' }}>
                 {s.count || '—'}
@@ -108,18 +137,7 @@ export function ServicesTable({
                   aria-label={`${s.name} · ${hy.common.edit}`}
                   style={{ color: 'var(--board-muted)' }}
                 >
-                  <svg
-                    viewBox="0 0 16 16"
-                    className="size-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.6}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="m6.5 4 4 4-4 4" />
-                  </svg>
+                  <ChevronRight className="size-3.5" aria-hidden />
                 </button>
               </td>
             </tr>
@@ -127,13 +145,15 @@ export function ServicesTable({
         </tbody>
       </table>
 
+      <p className="note mt-3.5">{hy.settings.priceNote}</p>
+
       <ServiceEditor
         service={service}
         step={step}
         currencySymbol={currencySymbol}
         onClose={() => setOpen(null)}
       />
-    </>
+    </Panel>
   );
 }
 
@@ -172,7 +192,6 @@ function ServiceEditor({
       onClose={onClose}
       side
       title={service?.name ?? ''}
-      subtitle={service && service.count > 0 ? `${service.count} · ${service.revenue}` : undefined}
       footer={
         <>
           {/* Удаление тише сохранения и в другом углу: сюда пришли
@@ -190,9 +209,25 @@ function ServiceEditor({
     >
       {service && (
         <>
+          {/* Что эта услуга приносит — до того, как трогать её цену.
+              Поднять на той, которую берут дважды в месяц, и на той,
+              которую берут сорок раз, — разные решения. */}
+          {service.count > 0 && (
+            <dl className="facts">
+              <div>
+                <dt>{hy.owner.timesShort}</dt>
+                <dd className="num">{service.count}</dd>
+              </div>
+              <div>
+                <dt>{hy.owner.revenue}</dt>
+                <dd className="num">{service.revenue}</dd>
+              </div>
+            </dl>
+          )}
+
           {/* Ключом стоит услуга: при переходе к другой поля обязаны
               сброситься, а не донести чужое название и чужую цену. */}
-          <form key={service.id} id="service-edit" action={action} className="grid gap-3">
+          <form key={service.id} id="service-edit" action={action} className="mt-4 grid gap-3">
             <input type="hidden" name="id" value={service.id} />
 
             <label className="grid gap-1.5">
@@ -219,6 +254,7 @@ function ServiceEditor({
               </div>
             </label>
 
+            <p className="note">{hy.settings.priceNote}</p>
             {state?.error && <p className="alert">{state.error}</p>}
           </form>
 

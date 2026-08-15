@@ -38,8 +38,11 @@ export async function POST(request: Request) {
   const pin = String(form.get('pin') ?? '').trim();
   const keepCopy = String(form.get('mode') ?? '') === 'keep';
 
+  /* Возвращаемся в тот раздел настроек, откуда ушли: форма удаления
+     живёт в «бизнесе», и отказ, показанный на прейскуранте, человек не
+     увидит вовсе. */
   const back = (why: string) =>
-    Response.redirect(new URL(`/owner/settings?delete=${why}`, request.url), 303);
+    Response.redirect(new URL(`/owner/settings?s=business&delete=${why}`, request.url), 303);
 
   const [user] = await db.select().from(users).where(eq(users.id, session.uid));
   if (!user) return back('failed');

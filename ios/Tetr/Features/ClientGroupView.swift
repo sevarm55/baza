@@ -19,13 +19,14 @@ struct ClientGroupView: View {
     /// Какая группа открыта. `Identifiable`, чтобы лист поднимался
     /// прямо по значению — иначе понадобился бы второй флаг рядом.
     enum Group: String, Identifiable, CaseIterable {
-        case all, loyal, lost
+        case all, loyal, fresh, lost
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .all: return "Բազայում"
             case .loyal: return "Մշտական"
+            case .fresh: return "Նոր"
             case .lost: return "Վաղուց չեն եղել"
             }
         }
@@ -42,6 +43,7 @@ struct ClientGroupView: View {
         switch group {
         case .all: return clients
         case .loyal: return clients.filter { $0.visits > 1 }
+        case .fresh: return clients.filter { $0.visits == 1 }
         case .lost: return clients.filter { $0.daysSince > lostAfter }
         }
     }
@@ -52,7 +54,9 @@ struct ClientGroupView: View {
        списка отвечал бы на вопрос группы только в одном случае из трёх. */
     private var sorted: [API.Client] {
         switch group {
-        case .all: return list.sorted { $0.daysSince < $1.daysSince }
+        // у новых наверху тот, кто приехал последним: за ним и звонить,
+        // пока он помнит мойку
+        case .all, .fresh: return list.sorted { $0.daysSince < $1.daysSince }
         case .loyal: return list.sorted { $0.visits > $1.visits }
         case .lost: return list.sorted { $0.daysSince > $1.daysSince }
         }

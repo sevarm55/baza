@@ -3,7 +3,8 @@ import { requireSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
-import { currentShift } from '@/lib/shifts';
+import { closedShiftToday, currentShift } from '@/lib/shifts';
+import { hhmm } from '@/lib/time';
 import { listPoints } from '@/lib/accounts';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
@@ -13,9 +14,11 @@ import { Logo } from '@/components/logo';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Grid, Reading, Tile } from '@/components/board';
 import { passesEnabled } from '@/lib/features';
+import { priceForTier, tiersOf } from '@/lib/catalog';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
-import { ShiftToggle } from '@/components/shift-toggle';
+import { EndShift, StartShift } from './shift-controls';
+import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
 import { JobQueue } from '@/components/job-queue';
 import { listMyJobs } from '@/lib/jobs';
@@ -32,10 +35,11 @@ export default async function WorkPage() {
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift, open, points, myJobs] = await Promise.all([
+  const [services, shift, open, closed, points, myJobs] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
+    closedShiftToday(tenant.id, me.id, startOfDay(tenant.timezone)),
     me.accountId ? listPoints(me.accountId) : Promise.resolve([]),
     listMyJobs(tenant.id, me.id),
   ]);
@@ -49,6 +53,49 @@ export default async function WorkPage() {
   const sidebarOpen = owner
     ? (await cookies()).get('sidebar_state')?.value !== 'false'
     : true;
+
+  /* Состояний смены три, а не два.
+   *
+   * «Ещё не вставал» и «отработал и закрылся» выглядели одинаково: под
+   * заработком стояло «вне смены», и вечером экран возвращался ровно к
+   * тому, что человек видел утром. Заработок при этом оставался
+   * дневным — то есть экран одновременно показывал деньги за день и
+   * сообщал, что дня не было.
+   *
+   * Источник правды один и тот же — сервер: открытая смена или её
+   * сегодняшний след. Перезагрузка страницы посреди смены поэтому
+   * восстанавливает состояние точно, а не по памяти браузера. */
+  const state: 'on' | 'done' | 'off' = onShift ? 'on' : closed ? 'done' : 'off';
+
+  /* Главное число — то, которое принадлежит смотрящему. У мойщика это
+     его доля, у владельца доли обычно нет вовсе: он моет сам и получает
+     всё. Показывать ему «твой заработок — 0 ֏» крупнее всего на экране
+     значит отдать главное место пустоте. Так же решено в приложении. */
+  const takesShare = me.percent > 0;
+
+  /* Классы машин. Пусто — ряда на экране нет вовсе: у мойки без тарифов
+     он был бы управлением, которое ничего не меняет. */
+  const tiers = tiersOf(tenant);
+
+  /* Строка под главным числом: состояние смены и её часы. Точка слева —
+     тот же знак, которым владелец видит человека на смене. */
+  const status =
+    state === 'on' && open ? (
+      <>
+        {hy.work.onShift} · {hy.work.since(hhmm(open.openedAt, tenant.timezone))}
+        <ShiftClock openedAt={open.openedAt.toISOString()} />
+      </>
+    ) : state === 'done' && closed ? (
+      <>
+        {hy.work.shiftDone} ·{' '}
+        {hy.work.range(
+          hhmm(closed.openedAt, tenant.timezone),
+          hhmm(closed.closedAt, tenant.timezone),
+        )}
+      </>
+    ) : (
+      hy.work.shiftNotStarted
+    );
 
   /* Экран смены на языке табло — одной колонкой, а не разложенный по
      ширине монитора.
@@ -103,25 +150,40 @@ export default async function WorkPage() {
               смотрят на одно и то же число разными глазами, и незачем
               рисовать для этого два разных предмета.
 
+              Подпись называет чьи это деньги. «Твоя смена сегодня» над
+              суммой заработка врала дважды: смена — это часы, а не
+              драмы, и число под такой подписью читалось выручкой мойки.
+
               Состояние смены встало строкой сравнения под цифрой:
               «сколько» и «работаю ли я» читаются одним взглядом, а
               зелёная точка здесь — тот же знак, которым владелец видит
               человека на смене. */}
           <Reading
-            caption={hy.work.shiftTitle}
-            value={formatMoney(shift.earned, tenant.currency)}
-            compare={onShift ? hy.work.onShift : hy.work.offShift}
-            tone={onShift ? 'good' : 'warn'}
+            caption={takesShare ? hy.work.earnedToday : hy.work.shiftRevenue}
+            value={formatMoney(takesShare ? shift.earned : shift.revenue, tenant.currency)}
+            compare={status}
+            tone={state === 'on' ? 'good' : 'off'}
           />
 
+          {/* Второе денежное число экрана — деньги мойки, и подпись
+              обязана это говорить. Раньше здесь стояло то же слово, что
+              у выручки в кабинете владельца, а под ним «твои 20%»: два
+              похожих числа рядом, и какое из них твоё — вопрос.
+
+              Тому, у кого доли нет, второго числа не нужно вовсе: сумма
+              работ уже стоит наверху, и повторить её плиткой значило бы
+              показать одно и то же дважды. Остаются машины — во всю
+              ширину. */}
           <Grid>
-            <Tile tone="teal" label={tenant.unitOne} value={shift.count} />
-            <Tile
-              tone="slate"
-              label={hy.owner.revenueToday}
-              value={formatMoney(shift.revenue, tenant.currency)}
-              note={`${hy.work.yourShare} ${me.percent}%`}
-            />
+            <Tile tone="teal" label={tenant.unitOne} value={shift.count} wide={!takesShare} />
+            {takesShare && (
+              <Tile
+                tone="slate"
+                label={hy.work.worksTotal}
+                value={formatMoney(shift.revenue, tenant.currency)}
+                note={hy.work.yourShare(me.percent)}
+              />
+            )}
           </Grid>
 
           {/* Одно действие, и оно никогда не серое.
@@ -134,10 +196,17 @@ export default async function WorkPage() {
               нет вовсе: следующее действие человека там не «записать», а
               «начать смену», её и показываем.
 
+              После закрытой смены — то же самое: запись невозможна, и
+              единственное, что здесь может понадобиться, это выйти
+              второй раз. Итог дня при этом уже прочитан выше — заработок,
+              машины, сумма работ и часы смены, — и повторять его
+              отдельной коробкой значило бы показать те же три числа
+              дважды на одном экране.
+
               На смене всё наоборот: запись становится самым громким на
               экране, а выключатель смены уходит вниз и затихает — его
               жмут дважды в день, а кнопку записи сорок раз. */}
-          {!onShift && <ShiftToggle open={false} />}
+          {state !== 'on' && <StartShift />}
 
           {/* Журнал целиком, а не первые шесть. Обрезанный список
               оставлял внизу пустоту, которую нечем занять, и прятал
@@ -145,15 +214,30 @@ export default async function WorkPage() {
               последних шести, а среди всех за смену. */}
           <OrderFlow
             canWrite={access.canWrite && onShift}
-            services={services.map((s) => ({ id: s.id, name: s.name, price: s.price }))}
+            shiftOpen={onShift}
+            /* Цены по классам приезжают уже посчитанными, по одной на
+               класс в порядке `tiers`. Правило «нет своей цены — берёт
+               базовую» живёт в `priceForTier` и остаётся в одном месте;
+               браузеру достаётся выбрать из готового ряда, а не
+               повторять правило второй раз и разойтись с сервером на
+               первой же правке. */
+            services={services.map((s) => ({
+              id: s.id,
+              name: s.name,
+              price: s.price,
+              prices: tiers.map((_, i) => priceForTier(s, i)),
+            }))}
+            tiers={tiers}
+            tierLabel={tenant.tierLabel ?? hy.work.tier}
             currency={tenant.currency}
             clientIdLabel={tenant.clientIdLabel}
             clientIdType={tenant.clientIdType}
+            unitOne={tenant.unitOne}
             addLabel={`+ ${tenant.unitOne}`}
-            percent={me.percent}
             timezone={tenant.timezone}
             recent={shift.orders.map((o) => ({
               id: o.id,
+              clientKey: o.clientKey,
               serviceName: o.serviceName,
               price: o.price,
               payment: o.payment,
@@ -171,7 +255,17 @@ export default async function WorkPage() {
               }))}
           />
 
-          {onShift && <ShiftToggle open />}
+          {/* Закрыть смену спрашивает и показывает итог дня: после
+              закрытия записывать нельзя, а жмут её один раз. */}
+          {onShift && (
+            <EndShift
+              count={shift.count}
+              revenue={shift.revenue}
+              earned={shift.earned}
+              currency={tenant.currency}
+              unitOne={tenant.unitOne}
+            />
+          )}
         </div>
       </div>
     </>
@@ -215,6 +309,7 @@ export default async function WorkPage() {
           active="work"
           points={points}
           currentTid={tenant.id}
+          shiftOpen={onShift}
         />
         <main className="canvas">
           <div className="canvas-inner">{body}</div>

@@ -1,4 +1,4 @@
-import { and, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { orders, shifts, tenants, users } from './db/schema';
 import { startOfDay } from './queries';
@@ -80,6 +80,37 @@ export async function currentShift(tenantId: string, userId: string, dayStart: D
     .where(and(eq(shifts.tenantId, tenantId), eq(shifts.userId, userId), isNull(shifts.closedAt)));
 
   return row ?? null;
+}
+
+/**
+ * Смена, которую человек СЕГОДНЯ уже закрыл.
+ *
+ * Нужна ради одного вопроса на экране: «я ещё не выходил» и «я отработал
+ * и закрылся» — это разные состояния, а выглядели они одинаково. Пока
+ * продукт знал только «есть открытая смена или нет», вечером после
+ * закрытия экран возвращался ровно в то, что человек видел утром, — и
+ * читался как потерянный день.
+ *
+ * Требуем, чтобы смена и открылась сегодня. Забытую вчерашнюю
+ * `closeForgotten` закрывает началом суток, и без этого условия она
+ * притворилась бы сегодняшней сменой длиной в ноль минут.
+ */
+export async function closedShiftToday(tenantId: string, userId: string, dayStart: Date) {
+  const [row] = await db
+    .select({ openedAt: shifts.openedAt, closedAt: shifts.closedAt })
+    .from(shifts)
+    .where(
+      and(
+        eq(shifts.tenantId, tenantId),
+        eq(shifts.userId, userId),
+        gte(shifts.openedAt, dayStart),
+        isNotNull(shifts.closedAt),
+      ),
+    )
+    .orderBy(desc(shifts.closedAt))
+    .limit(1);
+
+  return row?.closedAt ? { openedAt: row.openedAt, closedAt: row.closedAt } : null;
 }
 
 /**

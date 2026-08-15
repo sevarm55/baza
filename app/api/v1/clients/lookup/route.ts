@@ -1,8 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { and, desc, eq, isNotNull } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { orders } from '@/lib/db/schema';
-import { findClient } from '@/lib/queries';
+import { findClient, lastTierOf } from '@/lib/queries';
 import { listActivePasses } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
@@ -32,17 +29,9 @@ export async function GET(request: Request) {
 
     const passes = passesEnabled() ? await listActivePasses(ctx.tenant.id, client.id) : [];
 
-    /* Каким классом эту машину записывали в прошлый раз.
-       Класс принадлежит машине, а не заезду: джип не станет седаном между
-       мойками. Поэтому для знакомого номера выбор подставляется сам, и
-       тарифы не стоят мойщику ни одного лишнего касания. */
-    const [last] = await db
-      .select({ tier: orders.tier })
-      .from(orders)
-      .where(and(eq(orders.tenantId, ctx.tenant.id), eq(orders.clientId, client.id), isNotNull(orders.tier)))
-      .orderBy(desc(orders.createdAt))
-      .limit(1);
-
+    /* Класс прошлой записи считает `lastTierOf` — тот же, которым
+       пользуется браузер. Свой запрос здесь означал бы, что на телефоне
+       класс подставляется, а в вебе нет, или наоборот. */
     return ok({
       known: {
         id: client.id,
@@ -51,7 +40,7 @@ export async function GET(request: Request) {
         visits: client.visits,
         total: client.total,
         lastSeenAt: client.lastSeenAt,
-        lastTier: last?.tier ?? null,
+        lastTier: await lastTierOf(ctx.tenant.id, client.id),
       },
       passes,
     });

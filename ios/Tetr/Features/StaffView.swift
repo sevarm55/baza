@@ -24,10 +24,26 @@ struct StaffView: View {
 
     private let gap: CGFloat = 10
 
+    /* Порядок задан состоянием, а не тем, в каком порядке людей завели:
+       сначала те, кто стоит на мойке прямо сейчас, потом отработавшие в
+       этом месяце, потом остальные. Вопрос «кто сейчас на площадке»
+       задают чаще, чем «кто заведён раньше». Тот же порядок в кабинете. */
+    private var ordered: [API.StaffMember] {
+        staff.sorted { a, b in
+            let onA = a.onShift ?? false
+            let onB = b.onShift ?? false
+            if onA != onB { return onA }
+            let earnedA = a.earned ?? 0
+            let earnedB = b.earned ?? 0
+            if earnedA != earnedB { return earnedA > earnedB }
+            return a.name.localizedCompare(b.name) == .orderedAscending
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
-                ForEach(staff) { person in
+                ForEach(ordered) { person in
                     card(person)
                 }
 
@@ -79,6 +95,19 @@ struct StaffView: View {
                                 .padding(.vertical, 2)
                                 .background(.white.opacity(0.2), in: .capsule)
                         }
+                        /* Стоит ли он на мойке прямо сейчас. Этого на
+                           экране не было вовсе: «кто работает» узнавали
+                           на сводке, а вернувшись сюда, уже не помнили.
+                           Метка, а не зелёная точка: плитка сама цветная,
+                           и точка на ней читалась бы украшением. */
+                        if person.onShift == true {
+                            Text("հերթափոխին")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(.white.opacity(0.28), in: .capsule)
+                        }
                     }
                     Text(person.phone)
                         .font(.system(size: 12))
@@ -96,6 +125,17 @@ struct StaffView: View {
                             .monospacedDigit()
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.top, 2)
+                    }
+
+                    /* Сколько ему сейчас должны. Считает лист зарплат —
+                       тот же, которым живут сами зарплаты, — а называется
+                       здесь потому, что вопрос «сколько я ему должен»
+                       задают, глядя на человека, а не на ведомость. */
+                    if let due = person.due, due > 0 {
+                        Text("վճարելու է \(money(due, session.tenant?.currency ?? "AMD"))")
+                            .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.9))
                     }
                 }
 

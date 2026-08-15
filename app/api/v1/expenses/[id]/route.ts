@@ -1,6 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { BadExpenseError, editExpense, removeExpense } from '@/lib/expenses';
 import { startOfDay } from '@/lib/queries';
+import { pastDay } from '@/lib/time';
 import { authorize, denied } from '@/lib/api/guard';
 import { fail, failFromError, isUuid, noContent, ok } from '@/lib/api/respond';
 
@@ -55,6 +56,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       amount: Number(body?.amount),
       category: String(body?.category ?? ''),
       note: body?.note == null ? null : String(body.note),
+      /* День правит только разовый; постоянному `editExpense` его не
+         отдаст — там это дата начала действия, и сдвиг переписал бы
+         прибыль за уже прожитые дни. */
+      at: pastDay(body?.at, ctx.tenant.timezone) ?? undefined,
       dayStart: startOfDay(ctx.tenant.timezone),
     });
     if (!row) return fail('NOT_FOUND', 404);

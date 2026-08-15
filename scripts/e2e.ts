@@ -240,6 +240,64 @@ async function main() {
   const exp = await api('/expenses', { token, body: { category: 'Химия', amount: 3000 } });
   check('расход заводится', exp.status === 200 || exp.status === 201, exp.json);
   const expenseId = exp.json?.id ?? exp.json?.expense?.id;
+
+  /* Постоянный расход и то, что маршрут отдаёт о нём приложению.
+
+     Проверяется здесь, потому что расходятся веб и телефон именно на
+     этих полях: доля периода, дневная доля и знаменатель у них обязаны
+     быть одни. Пока приложение считало долю само, оно делило на длину
+     ТЕКУЩЕГО месяца — и в прошлом месяце показывало не то, что кабинет. */
+  const rent = await api('/expenses', {
+    token,
+    body: { category: 'Аренда', amount: 300000, monthly: true },
+  });
+  check('постоянный расход заводится', rent.status === 200 || rent.status === 201, rent.json);
+
+  const list = await api('/expenses', { token });
+  check('расходы отвечают', list.status === 200, list.status);
+  const rentRow = (list.json?.expenses ?? []).find((e: any) => e.category === 'Аренда');
+  check('у постоянного есть доля периода', typeof rentRow?.share === 'number', rentRow);
+  check('и дневная доля', typeof rentRow?.perDay === 'number' && rentRow.perDay > 0, rentRow);
+  check(
+    'доля не больше номинала',
+    typeof rentRow?.share === 'number' && rentRow.share <= rentRow.amount,
+    rentRow,
+  );
+  check(
+    'итог сходится с суммой строк',
+    (list.json?.expenses ?? []).reduce((s: number, e: any) => s + (e.share ?? 0), 0) ===
+      list.json?.costs?.total,
+    { строки: list.json?.expenses?.map((e: any) => e.share), итог: list.json?.costs },
+  );
+  check('выручка периода приходит', typeof list.json?.revenue === 'number', list.json?.revenue);
+
+  /* Разовый расход задним числом: их заводят пачкой, за всю неделю
+     сразу, и без даты вся неделя ложится сегодняшним числом. */
+  const backdated = await api('/expenses', {
+    token,
+    body: { category: 'Вода', amount: 1000, at: '2000-01-05' },
+  });
+  check('разовый принимает свой день', backdated.status === 201, backdated.json);
+  const oldMonth = await api('/expenses', { token });
+  check(
+    'и в текущий месяц не попадает',
+    !(oldMonth.json?.expenses ?? []).some((e: any) => e.category === 'Вода'),
+    oldMonth.json?.expenses,
+  );
+
+  /* Будущее отбрасывается молча: траты, которой ещё не было, не бывает. */
+  const future = await api('/expenses', {
+    token,
+    body: { category: 'Будущее', amount: 500, at: '2999-01-01' },
+  });
+  check('день из будущего не принимается', future.status === 201, future.json);
+  const now = await api('/expenses', { token });
+  check(
+    'а расход ложится сегодняшним днём',
+    (now.json?.expenses ?? []).some((e: any) => e.category === 'Будущее'),
+    now.json?.expenses?.map((e: any) => e.category),
+  );
+
   if (expenseId) {
     const del = await api(`/expenses/${expenseId}`, { token, method: 'DELETE' });
     check('расход удаляется', del.status === 200 || del.status === 204, del.status);
@@ -248,8 +306,31 @@ async function main() {
   const payroll = await api('/payroll', { token });
   check('зарплаты отвечают', payroll.status === 200, payroll.status);
 
+  /* Машина, которую не отменяют: единственная запись выше отменена, а
+     клиент с нулём визитов из базы не показывается вовсе — проверять
+     карточку было бы не на чем. */
+  await api('/orders', {
+    token,
+    body: { clientKey: '77ZZ777', serviceId, payment: 'cash', ref: `e2e-keep-${Date.now()}` },
+  });
+
   const clients = await api('/clients', { token });
   check('клиенты отвечают', clients.status === 200, clients.status);
+  check(
+    'давность визита не отрицательная',
+    (clients.json?.clients ?? []).every((c: any) => c.daysSince >= 0),
+    clients.json?.clients?.map((c: any) => c.daysSince),
+  );
+
+  const someone = clients.json?.clients?.[0]?.key;
+  check('клиент в базе появился сам', Boolean(someone), clients.json?.clients);
+  if (someone) {
+    const card = await api(`/clients/${encodeURIComponent(someone)}`);
+    const one = await api(`/clients/${encodeURIComponent(someone)}`, { token });
+    check('карточка клиента отвечает', one.status === 200, one.status);
+    check('и знает первый визит', Boolean(one.json?.client?.firstSeenAt), one.json?.client);
+    check('без токена карточка закрыта', card.status === 401, card.status);
+  }
 
   const exportRes = await fetch(`${BASE}/api/v1/export`, { headers: { authorization: `Bearer ${token}` } });
   check('выгрузка отдаётся', exportRes.ok, exportRes.status);
@@ -292,6 +373,16 @@ async function main() {
     body: { name: 'Мойщик', phone: staffPhone, pin: '4321', percent: 40 },
   });
   check('работник нанимается', hire.status === 200 || hire.status === 201, hire.json);
+
+  /* Список людей и то, чего в нём раньше не было: стоит ли человек на
+     смене и сколько ему должны. Оба числа приходят с сервера, потому
+     что считать их на телефоне значило бы завести второй счёт долга —
+     а он разошёлся бы с ведомостью на первой же отменённой машине. */
+  const roster = await api('/staff', { token });
+  check('список людей отвечает', roster.status === 200, roster.status);
+  const hired = (roster.json?.staff ?? []).find((s: any) => s.name === 'Мойщик');
+  check('у человека известна смена', typeof hired?.onShift === 'boolean', hired);
+  check('и долг', typeof hired?.due === 'number', hired);
 
   const staffLogin = await api('/auth/login', { body: { phone: staffPhone, pin: '4321', device: 'e2e-staff' } });
   check('работник входит своим кодом', staffLogin.status === 200, staffLogin.json);

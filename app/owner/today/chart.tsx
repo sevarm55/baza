@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
-import type { FlowPoint } from './model';
+import type { FlowEvent, FlowPoint } from './model';
 
 /**
- * Ход периода: сколько накопилось и когда пришло.
+ * Ход периода: сколько накопилось, когда пришло и что именно приехало.
  *
- * Здесь два вопроса, и они разные. «Как идёт день» — это накопление:
+ * Здесь три вопроса, и они разные. «Как идёт день» — это накопление:
  * линия растёт, и по её наклону видно, догоняет день вчерашний или
  * отстаёт. «Когда у меня заезд» — это рельеф: где столбик выше, туда и
  * приходят, а провал между ними и есть тот час, в который мойка стояла.
+ * «Что именно приехало» — полоса времени под полем: на ней стоят сами
+ * записи, каждая в свою минуту, и последняя помечена лаймом.
+ *
+ * Полоса добавлена ПОВЕРХ обычного графика, а не вместо него. Пробовали
+ * наоборот — голая ось с точками вместо столбиков и линии: выглядело
+ * узнаваемо и не отвечало ни на один вопрос, половина прибора
+ * оставалась белой. Столбики говорят «сколько за час», линия — «сколько
+ * всего к этому часу», точки — «вот они, машины, по одной». Провал в
+ * дне после этого виден дважды.
  *
  * Линия рисуется в SVG, а столбики остаются блоками. Смешение нарочное:
  * растянутый по ширине SVG искажает толщину штриха, и лечится это
@@ -25,11 +34,14 @@ import type { FlowPoint } from './model';
  */
 export function FlowChart({
   points,
+  events,
   currency,
   unitOne,
   byHour,
 }: {
   points: FlowPoint[];
+  /** настоящие операции на полосе времени под полем */
+  events: FlowEvent[];
   currency: string;
   unitOne: string;
   /** день по часам или период по дням: от этого зависят подписи */
@@ -39,6 +51,10 @@ export function FlowChart({
      показывает пик: экран, на который просто смотрят, обязан отвечать
      без наведения. */
   const [at, setAt] = useState<number | null>(null);
+  /* Операция под курсором — состояние отдельное от часа: полоса времени
+     живёт своей жизнью под полем, и наведение на точку не должно
+     сбивать чтение часа над ней. */
+  const [ev, setEv] = useState<number | null>(null);
 
   if (points.length === 0) return null;
 
@@ -142,6 +158,12 @@ export function FlowChart({
             <span className="chart-key chart-key-bar" aria-hidden />
             {byHour ? hy.today.inHour : hy.today.inDay}
           </span>
+          {events.length > 0 && (
+            <span>
+              <span className="chart-key chart-key-dot" aria-hidden />
+              {unitOne}
+            </span>
+          )}
         </div>
       </div>
 
@@ -203,8 +225,8 @@ export function FlowChart({
         >
           <defs>
             <linearGradient id="dayFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--tone-violet-glow)" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="var(--tone-violet-glow)" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--accent-strong)" stopOpacity="0.16" />
+              <stop offset="100%" stopColor="var(--accent-strong)" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -234,7 +256,7 @@ export function FlowChart({
                 d={line}
                 pathLength={1}
                 fill="none"
-                stroke="var(--tone-violet-glow)"
+                stroke="var(--accent-strong)"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -260,13 +282,96 @@ export function FlowChart({
               style={{
                 left: `${(at / (points.length - 1)) * 100}%`,
                 top: `${(y(running[at]) / H) * 100}%`,
-                background: 'var(--tone-violet-glow)',
+                background: 'var(--accent-strong)',
                 boxShadow: '0 0 0 3px var(--board)',
               }}
             />
           </>
         )}
       </div>
+
+      {/* Полоса времени: настоящие операции, каждая в свою минуту.
+
+          Столбики над ней отвечают «сколько за час», линия — «сколько
+          всего», а точки показывают сами машины: их ритм, сгустки и
+          паузы. Последняя помечена лаймом — не «сейчас» и не «в
+          работе», а просто последняя из записанных.
+
+          Полоса своей высоты и своим блоком, а не внутри поля: точка на
+          фоне столбиков теряется, а над ними мешает читать линию. */}
+      {events.length > 0 && (
+        /* Ловит полоса целиком, а не каждая точка по отдельности.
+
+           Точка — семь пикселей: в час пик их четыре подряд, и попасть
+           мышью в нужную нельзя, а пальцем нельзя вовсе. Полоса ловит
+           движение по всей своей длине и выбирает ближайшую операцию —
+           тот же приём, которым поле графика выбирает час. Клавиатуре
+           точки остаются кнопками: по ним ходят табом. */
+        <div
+          className="chart-strip"
+          onPointerLeave={() => setEv(null)}
+          onPointerMove={(e) => {
+            const box = e.currentTarget.getBoundingClientRect();
+            const ratio = (e.clientX - box.left) / box.width;
+            let best = 0;
+            let gap = Infinity;
+            events.forEach((x, i) => {
+              const d = Math.abs(x.at - ratio);
+              if (d < gap) {
+                gap = d;
+                best = i;
+              }
+            });
+            setEv(best);
+          }}
+        >
+          {events.map((e, i) => (
+            <button
+              key={e.id}
+              type="button"
+              className="chart-ev"
+              style={{ left: `${e.at * 100}%`, ['--i' as string]: i }}
+              data-last={i === events.length - 1 ? '' : undefined}
+              data-on={ev === i ? '' : undefined}
+              aria-label={`${e.time} · ${e.title} · ${money(e.price)}`}
+              onFocus={() => setEv(i)}
+              onBlur={() => setEv(null)}
+            />
+          ))}
+
+          {/* Мини-карточка операции: во сколько, какая машина, что
+              делали, сколько взяли и сколько ушло человеку. Настоящие
+              поля записи; ничего, чего нет в базе, здесь не появляется.
+
+              Крайние карточки прижаты к краям — центрованная у первой
+              точки уезжает половиной за левое поле прибора. */}
+          {ev !== null && events[ev] && (
+            <div
+              className="chart-tip"
+              style={
+                {
+                  left: `${events[ev].at * 100}%`,
+                  translate:
+                    events[ev].at < 0.2 ? '0' : events[ev].at > 0.8 ? '-100%' : '-50%',
+                } as CSSProperties
+              }
+            >
+              <span className="chart-tip-time num">{events[ev].time}</span>
+              <span className="chart-tip-key truncate">{events[ev].title}</span>
+              {events[ev].note && (
+                <span className="chart-tip-note truncate">{events[ev].note}</span>
+              )}
+              <span className="chart-tip-sum num">{money(events[ev].price)}</span>
+              {events[ev].who && (
+                <span className="chart-tip-who">
+                  <span className="truncate">{events[ev].who}</span>
+                  <span className="num">{money(events[ev].share)}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Крайние подписи прижаты к краям, а не отцентрованы по своей
           точке: центрованная первая уезжает половиной за левое поле

@@ -1,5 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
-import { getPeriodStats, listStaff, startOfMonth } from '@/lib/queries';
+import { getPeriodStats, listStaff, startOfDay, startOfMonth } from '@/lib/queries';
+import { getPayrollBoard } from '@/lib/payroll-board';
+import { whoIsOnShift } from '@/lib/shifts';
 import { addStaff, ValidationError } from '@/lib/catalog';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
@@ -15,12 +17,32 @@ export async function GET(request: Request) {
        Список одних имён отвечает «кто заведён» и молчит о том, ради чего
        этих людей держат: за этим приходилось уходить на сводку и в
        зарплаты. Месяц, а не день: за один день «чего стоит человек» не
-       видно. */
-    const [rows, month] = await Promise.all([
+       видно.
+
+       Смена и долг приходят отсюда же. Смена — вопрос про площадку и
+       про «сейчас», а не про месяц; долг считает тот же лист, которым
+       живут зарплаты (`getPayrollBoard`), а не отдельная формула:
+       второй счёт долга разошёлся бы с ведомостью на первой же
+       отменённой машине. */
+    const [rows, month, present, board] = await Promise.all([
       listStaff(ctx.tenant.id),
       getPeriodStats(ctx.tenant.id, startOfMonth(ctx.tenant.timezone)),
+      whoIsOnShift(ctx.tenant.id, startOfDay(ctx.tenant.timezone)),
+      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone),
     ]);
+
     const worked = new Map(month.byStaff.map((s) => [s.staffId ?? '', s]));
+    const onShift = new Map(present.map((p) => [p.userId, p.openedAt]));
+
+    /* Отрицательный остаток — переплата за отменённую машину — в долг
+       не превращается: она не требует действия. */
+    const due = new Map<string, number>();
+    for (const day of board.days) {
+      for (const person of day.people) {
+        if (!person.staffId || person.earned <= 0) continue;
+        due.set(person.staffId, (due.get(person.staffId) ?? 0) + person.earned);
+      }
+    }
 
     return ok({
       staff: rows.map((u) => ({
@@ -34,6 +56,9 @@ export async function GET(request: Request) {
         isMe: u.id === ctx.user.id,
         cars: worked.get(u.id)?.count ?? 0,
         earned: worked.get(u.id)?.earned ?? 0,
+        onShift: onShift.has(u.id),
+        openedAt: onShift.get(u.id) ?? null,
+        due: due.get(u.id) ?? 0,
       })),
     });
   } catch (e) {

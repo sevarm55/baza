@@ -23,6 +23,9 @@ struct ExpensesView: View {
     @State private var items: [API.Expense] = []
     @State private var hints: [String] = []
     @State private var costs: API.Costs?
+    /// Выручка и средний расход в день — того же периода, с сервера.
+    @State private var revenue = 0
+    @State private var perDayAvg = 0
     @State private var adding = false
     @State private var editing: API.Expense?
     @State private var confirmingRemoval: API.Expense?
@@ -56,7 +59,10 @@ struct ExpensesView: View {
            разделители сняты, поля свои. От `List` берётся жест, а не
            внешний вид. */
         List {
-            if loaded {
+            /* Шапка есть, только когда есть чем её заполнить: итог и его
+               части считает сервер, и без них показывать здесь нечего —
+               ноль на месте расходов читается как «ничего не тратил». */
+            if loaded && costs != nil {
                 reading
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -126,7 +132,10 @@ struct ExpensesView: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
 
-            Text("Ամսականները բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։")
+            // те же слова, что в кабинете (`hy.expenses.note`): одно и то
+            // же правило, объяснённое двумя разными фразами, читается как
+            // два разных правила
+            Text("Ամսական ծախսերը (վարձ, հոսանք) բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։")
                 .font(.system(size: 11.5))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -181,14 +190,15 @@ struct ExpensesView: View {
      * заходят: человек читает верхнюю цифру как «столько я потратил» и
      * недосчитывается сорока двух тысяч.
      *
-     * Период назван «последние 30 дней», а не «этот месяц», и это не
-     * придирка. Сервер отдаёт разовые скользящим окном в тридцать дней:
-     * десятого августа в списке лежит июльская химия. Назови мы это
-     * «этим месяцем» — июльские траты стали бы августовскими, и вместо
-     * одной неверной цифры вышло бы две.
+     * Период — календарный месяц, а не скользящие тридцать дней: так
+     * считает сервер, так же считает кабинет, и так владелец платит
+     * аренду.
      *
-     * Под итогом — из чего он сложился. Без разбивки сумма требует веры,
-     * а верхняя строка на экране расходов обязана проверяться на месте.
+     * Под итогом — доля в выручке и из чего итог сложился. Сумма сама по
+     * себе не плохая и не хорошая: сто тысяч при выручке в миллион это
+     * обычный месяц, а при выручке в двести — беда. Оба числа приходят с
+     * сервера: считать их второй раз на телефоне значило бы завести
+     * второй источник правды для денег.
      */
     private var reading: some View {
         VStack(spacing: 0) {
@@ -205,8 +215,16 @@ struct ExpensesView: View {
                 .minimumScaleFactor(0.45)
                 .contentTransition(.numericText(value: Double(spentTotal)))
 
+            if let share = revenueShare {
+                Text("հասույթի \(share)%")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .padding(.top, 4)
+            }
+
             if spentMonthly > 0 || spentOneOff > 0 {
-                Text("Ամսական \(money(spentMonthly, currency))  +  Միանգամյա \(money(spentOneOff, currency))")
+                Text(breakdown)
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
@@ -243,22 +261,36 @@ struct ExpensesView: View {
         .padding(.bottom, 4)
     }
 
-    private var spentMonthly: Int {
-        costs?.monthlyShare ?? monthlyOnes.reduce(0) { $0 + $1.amount }
-    }
-    private var spentOneOff: Int {
-        costs?.oneOff ?? oneOffs.reduce(0) { $0 + $1.amount }
-    }
-    private var spentTotal: Int { spentMonthly + spentOneOff }
+    /**
+     * Итог и его части — только с сервера.
+     *
+     * Здесь стоял запасной счёт на случай старого сервера: сложить суммы
+     * постоянных расходов из списка. Он давал НОМИНАЛ вместо доли —
+     * триста тысяч аренды десятого августа вместо девяноста семи, — то
+     * есть не «примерно», а втрое мимо, и молча. Лучше не показать
+     * ничего, чем показать неправду: без `costs` шапки просто нет.
+     */
+    private var spentMonthly: Int { costs?.monthlyShare ?? 0 }
+    private var spentOneOff: Int { costs?.oneOff ?? 0 }
+    private var spentTotal: Int { costs?.total ?? 0 }
 
-    /// Длина текущего месяца — тот же знаменатель, которым сервер делит
-    /// постоянные расходы по дням.
-    private var daysThisMonth: Int {
-        var cal = Foundation.Calendar(identifier: .gregorian)
-        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
-            cal.timeZone = zone
-        }
-        return cal.range(of: .day, in: .month, for: Date())?.count ?? 30
+    /// Доля расходов в выручке. Округлённый ноль — не ответ: двенадцать
+    /// тысяч при выручке в четырнадцать миллионов это восемь сотых
+    /// процента, и «0%» под ними читается как поломка.
+    private var revenueShare: String? {
+        guard revenue > 0, spentTotal > 0 else { return nil }
+        let exact = Double(spentTotal) / Double(revenue) * 100
+        return exact < 1 ? "<1" : String(Int(exact.rounded()))
+    }
+
+    /// Из чего сложился итог: постоянные, разовые и сколько это в день.
+    private var breakdown: String {
+        var parts = [
+            "Ամսական \(money(spentMonthly, currency))",
+            "Միանգամյա \(money(spentOneOff, currency))",
+        ]
+        if perDayAvg > 0 { parts.append("օրական \(money(perDayAvg, currency))") }
+        return parts.joined(separator: " · ")
     }
 
     private func heading(_ title: String, _ count: String) -> some View {
@@ -296,24 +328,34 @@ struct ExpensesView: View {
             Button {
                 editing = item
             } label: {
-                line(
-                    title: item.category,
-                    badge: "ամսական",
-                    note: "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
-                    amount: item.amount
-                )
+                line(title: item.category, badge: "ամսական", note: monthlyNote(item), amount: item.amount)
             }
             .buttonStyle(.press)
             .accessibilityElement(children: .combine)
         } else {
-            line(
-                title: item.category,
-                badge: "ամսական",
-                note: item.endedAt.map { "դադարեցվել է \(day($0))" }
-                    ?? "օրական \(money(item.amount / max(1, daysThisMonth), currency))",
-                amount: item.amount
-            )
+            line(title: item.category, badge: "ամսական", note: monthlyNote(item), amount: item.amount)
         }
+    }
+
+    /**
+     * Что стоит под названием постоянного расхода.
+     *
+     * Справа — номинал, то, о чём договорились с арендодателем. Здесь —
+     * сколько из него уже набежало за этот месяц и сколько это в сутки.
+     * Одного номинала мало десятого числа, одной доли мало всегда.
+     *
+     * Оба числа приходят с сервера. Раньше дневная доля делилась прямо
+     * здесь, на длину ТЕКУЩЕГО месяца, — и в прошлом месяце тридцать
+     * один день делился на тридцать: цифра в приложении не сходилась с
+     * кабинетом ровно там, где её и проверяют.
+     */
+    private func monthlyNote(_ item: API.Expense) -> String {
+        if let ended = item.endedAt { return "դադարեցվել է \(day(ended))" }
+
+        var parts: [String] = []
+        if let share = item.share { parts.append("հաշվարկված \(money(share, currency))") }
+        if let perDay = item.perDay, perDay > 0 { parts.append("օրական \(money(perDay, currency))") }
+        return parts.joined(separator: " · ")
     }
 
     /// Общая строка расхода. Одна на оба вида — в этом весь смысл.
@@ -431,12 +473,27 @@ struct ExpensesView: View {
         .padding(.top, 10)
     }
 
+    /**
+     * Когда потратили.
+     *
+     * Ближние два дня называются словом, а не числом: «сколько я потратил
+     * вчера» — вопрос, который задают вслух, и дата в нём не звучит. Те
+     * же два слова стоят в кабинете, над группами разовых расходов.
+     *
+     * Сравнение идёт по календарю бизнеса, а не по разнице в секундах:
+     * запись, сделанная в половине первого ночи, вчерашней не была.
+     */
     private func day(_ d: Date) -> String {
+        var cal = Foundation.Calendar(identifier: .gregorian)
+        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
+            cal.timeZone = zone
+        }
+        if cal.isDateInToday(d) { return "Այսօր" }
+        if cal.isDateInYesterday(d) { return "Երեկ" }
+
         let f = DateFormatter()
         f.dateFormat = "dd.MM"
-        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
-            f.timeZone = zone
-        }
+        f.timeZone = cal.timeZone
         return f.string(from: d)
     }
 
@@ -485,6 +542,8 @@ struct ExpensesView: View {
             items = result.expenses
             hints = result.hints
             costs = result.costs
+            revenue = result.revenue ?? 0
+            perDayAvg = result.perDayAvg ?? 0
         }
         loaded = true
     }
@@ -514,9 +573,23 @@ struct ExpenseEditor: View {
     @State private var category = ""
     @State private var amount = ""
     @State private var monthly = false
+    /// Каким днём лечь разовому расходу. Расходы заводят пачкой — за всю
+    /// неделю сразу, — и без выбора вся неделя оказалась бы потрачена
+    /// сегодня.
+    @State private var at = Date()
     @State private var busy = false
     @State private var error: String?
     @FocusState private var typingAmount: Bool
+
+    /// Календарь бизнеса: и выбор дня, и его отправка идут по нему, иначе
+    /// у владельца в поездке выбранное «15 августа» уехало бы в 14-е.
+    private var calendar: Foundation.Calendar {
+        var cal = Foundation.Calendar(identifier: .gregorian)
+        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
+            cal.timeZone = zone
+        }
+        return cal
+    }
 
     private var isNew: Bool { editing == nil }
     private var value: Int { Int(amount.filter(\.isNumber)) ?? 0 }
@@ -572,6 +645,18 @@ struct ExpenseEditor: View {
                     note("Հին գումարը մնում է անցած օրերին։ Նորը գործում է այսօրվանից։")
                 }
 
+                /* Разовый спрашивает день, постоянный — нет: у него `at`
+                   это дата начала действия, и сдвинуть её значит
+                   переписать прибыль за уже прожитые дни. Вместо поля
+                   постоянный говорит, с какого дня начнёт считаться. */
+                if monthly {
+                    if isNew {
+                        note("Ամսական ծախսը գործում է այսօրվանից և ամեն օր հաշվարկվում է ինքն իրեն։")
+                    }
+                } else {
+                    dayField
+                }
+
                 if let error {
                     Text(error)
                         .font(.system(size: 13))
@@ -595,6 +680,7 @@ struct ExpenseEditor: View {
             category = editing.category
             amount = String(editing.amount)
             monthly = editing.monthly
+            at = editing.at
         }
     }
 
@@ -659,6 +745,24 @@ struct ExpenseEditor: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 15)
         }
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
+    /// День разового расхода. Вперёд не пускаем: траты, которой ещё не
+    /// было, не бывает, и сервер такую дату всё равно отбросит.
+    private var dayField: some View {
+        HStack(spacing: 12) {
+            Text("Ամսաթիվ")
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.boardMuted)
+            Spacer(minLength: 8)
+            DatePicker("", selection: $at, in: ...Date(), displayedComponents: .date)
+                .labelsHidden()
+                .environment(\.calendar, calendar)
+                .environment(\.timeZone, calendar.timeZone)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
         .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
     }
 
@@ -744,6 +848,17 @@ struct ExpenseEditor: View {
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
     }
 
+    /// «2026-08-12» в календаре бизнеса — ровно тот день, который выбрали
+    /// и увидели. Момент собирает сервер, в своём поясе: посылать сюда
+    /// готовый `Date` значило бы решать за него, где полночь.
+    private var dayKey: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = calendar.timeZone
+        return f.string(from: at)
+    }
+
     private func save() async {
         busy = true
         defer { busy = false }
@@ -752,23 +867,24 @@ struct ExpenseEditor: View {
         do {
             _ = try await session.authed { token in
                 if let editing {
+                    var body: [String: Any] = ["amount": value, "category": category]
+                    // день правит только разовый — постоянному сервер его
+                    // всё равно не отдаст, но и слать незачем
+                    if !editing.monthly { body["at"] = dayKey }
                     return try await APIClient.shared.raw(
                         "expenses/\(editing.id)",
                         method: "PATCH",
-                        body: ["amount": value, "category": category],
+                        body: body,
                         token: token
                     )
                 }
-                return try await APIClient.shared.raw(
-                    "expenses",
-                    method: "POST",
-                    body: [
-                        "amount": value,
-                        "category": category,
-                        "monthly": monthly,
-                    ],
-                    token: token
-                )
+                var body: [String: Any] = [
+                    "amount": value,
+                    "category": category,
+                    "monthly": monthly,
+                ]
+                if !monthly { body["at"] = dayKey }
+                return try await APIClient.shared.raw("expenses", method: "POST", body: body, token: token)
             }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             await onSave()

@@ -6,9 +6,15 @@ import { failFromError, ok } from '@/lib/api/respond';
 /**
  * База клиентов.
  *
- * Дни с последнего визита считает сервер: у него правильный «сейчас» и
- * зона бизнеса. Порог «давно не был» приложение решает само — это вопрос
- * подачи, а не данных.
+ * Дни с последнего визита считает база — тем же выражением, которым их
+ * получает кабинет. Здесь стоял второй счёт: `Date.now()` минус
+ * `lastSeenAt` прямо в маршруте. Числа обычно совпадали, а расходились
+ * ровно на границе суток и на отрицательной давности — приложение
+ * показывало «−1 օր առաջ» там, где кабинет уже говорил «сегодня». Один
+ * ответ на один вопрос считается один раз.
+ *
+ * Порог «давно не был» приложение решает само — это вопрос подачи, а не
+ * данных.
  */
 export async function GET(request: Request) {
   try {
@@ -17,7 +23,6 @@ export async function GET(request: Request) {
     if (denied(ctx)) return ctx;
 
     const rows = await listClients(ctx.tenant.id);
-    const now = Date.now();
 
     return ok({
       clients: rows.map((c) => ({
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
         visits: c.visits,
         total: c.total,
         lastSeenAt: c.lastSeenAt,
-        daysSince: Math.floor((now - c.lastSeenAt.getTime()) / 86_400_000),
+        daysSince: c.daysSince,
       })),
     });
   } catch (e) {

@@ -1,14 +1,15 @@
 import { ensureDb } from '@/lib/db/ready';
-import { startOfDay } from '@/lib/queries';
+import { getPeriodStats, startOfDay } from '@/lib/queries';
 import {
   addExpense,
   getPeriodCosts,
-  listExpenses,
+  listPeriodExpenses,
   BadExpenseError,
   EXPENSE_HINTS,
 } from '@/lib/expenses';
 import { windowFor } from '@/lib/summary-window';
 import { authorize, denied } from '@/lib/api/guard';
+import { pastDay } from '@/lib/time';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
 /**
@@ -34,14 +35,28 @@ export async function GET(request: Request) {
     const prev = month === 'prev';
     const period = windowFor(prev ? 'prevmonth' : 'month', ctx.tenant.timezone);
 
-    const [rows, costs] = await Promise.all([
-      listExpenses(ctx.tenant.id, period.from, period.to, { activeMonthlyOnly: !prev }),
+    const [rows, costs, stats] = await Promise.all([
+      listPeriodExpenses(ctx.tenant.id, period.from, period.to, period.spread, {
+        activeMonthlyOnly: !prev,
+      }),
       getPeriodCosts(ctx.tenant.id, period.from, period.to, period.spread),
+      /* Выручка нужна ради одного числа под итогом — доли расходов в
+         ней. Сумма сама по себе не плохая и не хорошая: сто тысяч при
+         выручке в миллион это обычный месяц, а при выручке в двести —
+         беда. Кабинет показывает это же число и этой же функцией. */
+      getPeriodStats(ctx.tenant.id, period.from, period.to),
     ]);
 
     return ok({
       hints: EXPENSE_HINTS,
       costs,
+      revenue: stats.revenue,
+      /* Средний расход в день — по прожитым дням периода, а не по длине
+         месяца: пятого числа «в день» это пятая часть потраченного, а не
+         тридцатая. Считает сервер, потому что «сколько дней прожито»
+         знает только он: у закрытого месяца это его длина, у текущего —
+         сегодняшнее число. */
+      perDayAvg: period.days > 0 ? Math.round(costs.total / period.days) : 0,
       expenses: rows.map((e) => ({
         id: e.id,
         amount: e.amount,
@@ -50,6 +65,12 @@ export async function GET(request: Request) {
         monthly: e.monthly,
         at: e.at,
         endedAt: e.endedAt,
+        /* Во что эта строка обошлась за период. Постоянный расход
+           платят раз в месяц, а живёт он каждый день: десятого числа от
+           аренды набежала треть. Без этого числа «300 000» в списке
+           читается как «я потратил триста тысяч». */
+        share: e.share,
+        perDay: e.monthly ? Math.round(e.amount / period.spread) : 0,
       })),
     });
   } catch (e) {
@@ -68,8 +89,11 @@ export async function POST(request: Request) {
       category?: string;
       note?: string;
       monthly?: boolean;
+      at?: string;
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
+
+    const monthly = input.monthly === true;
 
     const row = await addExpense({
       tenantId: ctx.tenant.id,
@@ -77,9 +101,14 @@ export async function POST(request: Request) {
       amount: Number(input.amount),
       category: str(input.category),
       note: str(input.note),
-      monthly: input.monthly === true,
-      // с начала дня, а не с минуты заведения — см. app/actions.ts
-      at: input.monthly === true ? startOfDay(ctx.tenant.timezone) : undefined,
+      monthly,
+      /* Постоянный — с начала дня, а не с минуты заведения (см.
+         app/actions.ts). Разовый ложится тем днём, который выбрали:
+         расходы заводят пачкой, за всю неделю сразу, и без этого вся
+         неделя оказалась бы потрачена сегодня. */
+      at: monthly
+        ? startOfDay(ctx.tenant.timezone)
+        : (pastDay(input.at, ctx.tenant.timezone) ?? undefined),
     });
 
     return ok({ expense: { id: row.id } }, 201);

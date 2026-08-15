@@ -84,7 +84,7 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
             {alerts.map((a) => (
               <div key={a.key} className="alert-row">
                 <Link href={a.href} className="alert-hit" onClick={() => setOpen(false)}>
-                  <span className="flow-mark" data-tone={a.tone === 'warn' ? 'amber' : 'violet'}>
+                  <span className="tone-mark" data-tone={a.tone === 'warn' ? 'amber' : 'violet'}>
                     {a.key === 'payroll-due' ? IconWallet : IconClock}
                   </span>
 

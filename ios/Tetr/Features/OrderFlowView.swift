@@ -33,10 +33,14 @@ struct OrderFlowView: View {
      */
     @State private var chosen: [API.Service] = []
     @State private var known: API.KnownClient?
+    /// Короткая строка «записано». Уходит сама через пару секунд.
     @State private var saved = false
     @State private var scanning = false
     @State private var detectedPlate: String?
-    @State private var committingPayment: String?
+    /// Выбранный способ оплаты. Пусто — кнопка записи погашена.
+    @State private var payment: String?
+    /// Отправка идёт: засов от второго касания той же кнопки.
+    @State private var sending = false
     /// Скидка: развёрнута ли строка и что в ней набрано.
     @State private var showDiscount = false
     @State private var discountText = ""
@@ -51,28 +55,30 @@ struct OrderFlowView: View {
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
-    private let payments: [(key: String, label: String, icon: String, tone: Tone)] = [
-        ("cash", "Կանխիկ", "banknote.fill", .lime),
-        ("card", "Քարտ", "creditcard.fill", .violet),
-        ("transfer", "Փոխանցում", "arrow.left.arrow.right", .slate),
+    /* Способы оплаты одним тоном, а не тремя разными.
+     *
+     * Было: лаймовые наличные, фиолетовая карта, серый перевод — «чтобы
+     * попадать пальцем по цветному пятну, не читая». Пятна и правда видно,
+     * но горели все три и всегда, а выбранный не отличался от невыбранного
+     * ничем. Экран отвечал «вот три кнопки» вместо «вот что вы выбрали».
+     * Лайм при этом означает в продукте главное действие и открытую смену,
+     * и третьим значением «наличные» терял оба.
+     *
+     * Теперь все три спокойные, а цвет несёт ровно одно: который выбран.
+     * Тот же язык, что у выбора услуги выше, и тот же, что в вебе. */
+    private let payments: [(key: String, label: String, icon: String)] = [
+        ("cash", "Կանխիկ", "banknote.fill"),
+        ("card", "Քարտ", "creditcard.fill"),
+        ("transfer", "Փոխանցում", "arrow.left.arrow.right"),
     ]
 
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             ZStack {
                 Brand.board.ignoresSafeArea()
-
-                if saved {
-                    done
-                } else {
-                    composer
-                }
+                composer
             }
         }
-        .animation(
-            reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.4, dampingFraction: 0.9),
-            value: saved
-        )
     }
 
     // ══════════════════════════ страница записи ══════════════════════════
@@ -83,6 +89,22 @@ struct OrderFlowView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    /* «Записано» — строкой, а не экраном.
+                     *
+                     * Экран успеха с галкой в кружке занимал место формы
+                     * полторы секунды и всё это время не давал набрать
+                     * следующую машину: очередь ждала анимацию. Строка
+                     * говорит то же самое, стоит там, где глаз, и ничего не
+                     * закрывает — а подтверждение, которому мойщик верит,
+                     * всё равно другое: машина в журнале смены. */
+                    if saved {
+                        Label("Գրանցված է", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 13.5, weight: .semibold))
+                            .foregroundStyle(Brand.goodOnBoard)
+                            .padding(.bottom, 12)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     plateRow
 
                     if let known {
@@ -423,7 +445,7 @@ struct OrderFlowView: View {
     private var checkout: some View {
         VStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Ընդամենը")
+                Text("Վճարման գումարը")
                     .font(.system(size: 13))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
@@ -443,8 +465,10 @@ struct OrderFlowView: View {
 
             HStack(spacing: 8) {
                 ForEach(payments, id: \.key) { pay in
+                    let on = payment == pay.key
                     Button {
-                        record(payment: pay.key)
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        payment = pay.key
                     } label: {
                         VStack(spacing: 6) {
                             Image(systemName: pay.icon)
@@ -454,24 +478,43 @@ struct OrderFlowView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                         }
-                        .foregroundStyle(pay.tone.ink)
+                        .foregroundStyle(on ? Brand.board : Brand.onBoard)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
+                        .background(
+                            on ? Brand.boardInk : Brand.boardInk.opacity(0.07),
+                            in: .rect(cornerRadius: 18)
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .glassEffect(
-                        .regular.tint(pay.tone.base.opacity(0.2)).interactive(),
-                        in: .rect(cornerRadius: 18)
-                    )
-                    .glassEffectID(
-                        committingPayment == pay.key ? "order-confirmation" : nil,
-                        in: glass
-                    )
-                    .glassEffectTransition(.matchedGeometry)
+                    .buttonStyle(.press)
+                    .accessibilityAddTraits(on ? [.isSelected] : [])
                 }
             }
-            .disabled(!canRecord)
-            .opacity(canRecord ? 1 : 0.4)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: payment)
+
+            /* Последнее движение — отдельная кнопка, и на ней написано,
+               что произойдёт и за сколько.
+
+               Раньше запись делало касание по способу оплаты: экономило
+               одно движение и стоило дорого. Между «выбрал наличные» и
+               «машина записана» не оставалось ничего, что можно прочитать
+               и передумать, а промах по соседней плитке записывал не тот
+               способ оплаты и правился только отменой всей записи.
+
+               Движение возвращается на следующей машине: после записи
+               лист не закрывается, а очищается и снова ждёт номер. */
+            Button {
+                record()
+            } label: {
+                Text(sending
+                     ? "Գրանցվում է…"
+                     : "Ավելացնել \(session.tenant?.unitOne ?? "") · \(money(charged, currency))")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .buttonStyle(LimeButton())
+            .disabled(!canRecord || sending)
+            .opacity(canRecord && !sending ? 1 : 0.45)
             .animation(.easeOut(duration: 0.2), value: canRecord)
         }
         .padding(.horizontal, 16)
@@ -481,8 +524,10 @@ struct OrderFlowView: View {
         .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: charged)
     }
 
+    /// Неполную запись не отправляем: сервер её и так не примет, но узнавать
+    /// об этом из ошибки после нажатия — значит нажимать вслепую.
     private var canRecord: Bool {
-        !normalizedClientKey(clientKey).isEmpty && !chosen.isEmpty
+        !normalizedClientKey(clientKey).isEmpty && !chosen.isEmpty && payment != nil
     }
 
     /// Сколько стоит по прайсу всё выбранное.
@@ -497,47 +542,6 @@ struct OrderFlowView: View {
     private var discounted: Bool { charged < listTotal }
 
     private var currencySign: String { currency == "AMD" ? "֏" : currency }
-
-    // ══════════════════════════ готово ══════════════════════════
-
-    private var done: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Image(systemName: "checkmark")
-                .font(.system(size: 40, weight: .black))
-                .foregroundStyle(Brand.onLime)
-                .frame(width: 104, height: 104)
-                .glassEffect(.regular.tint(Brand.lime), in: .circle)
-                .glassEffectID("order-confirmation", in: glass)
-                .glassEffectTransition(.matchedGeometry)
-                .symbolEffect(.drawOn, options: .nonRepeating, isActive: saved && !reduceMotion)
-                .transition(reduceMotion ? .opacity : .scale(scale: 0.72).combined(with: .opacity))
-
-            Text("Գրանցված է")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(Brand.onBoard)
-
-            Text(normalizedClientKey(clientKey))
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(Brand.boardMuted)
-
-            Text(money(charged, currency))
-                .font(.system(size: 15, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .task {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            await onDone()
-            // экран успеха живёт секунду с небольшим: мойщик уже пошёл к
-            // следующей машине, задерживать его незачем
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
-            dismiss()
-        }
-    }
 
     // ══════════════════════════ данные ══════════════════════════
 
@@ -568,8 +572,14 @@ struct OrderFlowView: View {
     ///
     /// Так у отправки один путь вместо двух, и офлайн перестаёт быть особым
     /// случаем, который проверяют отдельно и забывают починить.
-    private func record(payment: String) {
-        guard let first = chosen.first else { return }
+    ///
+    /// Засов `sending` — не про сеть, а про палец: кнопку жмут мокрой рукой,
+    /// и второе касание приходит раньше, чем экран успевает перерисоваться.
+    /// Две одинаковые машины в отчёте владелец считает ошибкой продукта, и
+    /// он прав.
+    private func record() {
+        guard let first = chosen.first, let payment, !sending else { return }
+        sending = true
 
         queue.add(
             .init(
@@ -591,19 +601,33 @@ struct OrderFlowView: View {
                 at: Date()
             )
         )
-        committingPayment = payment
-        if reduceMotion {
-            saved = true
-        } else {
-            /* Один кадр сохраняет выбранную оплату источником. На следующем
-               Liquid Glass превращает её в знак подтверждения. */
-            Task { @MainActor in
-                await Task.yield()
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
-                    saved = true
-                }
+
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        Task { @MainActor in
+            await onDone()
+            clear()
+            sending = false
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.25)) {
+                saved = true
             }
+            /* Строка успеха уходит сама. Мойщик уже набирает следующий
+               номер, и убирать её руками ему незачем. */
+            try? await Task.sleep(for: .seconds(2.5))
+            withAnimation(.easeOut(duration: 0.2)) { saved = false }
         }
+    }
+
+    /// Очистить набранное, оставив лист открытым и курсор в номере.
+    private func clear() {
+        clientKey = ""
+        chosen = []
+        payment = nil
+        tier = nil
+        known = nil
+        showDiscount = false
+        discountText = ""
+        typing = true
     }
 
     private func acceptDetected(_ plate: String) {

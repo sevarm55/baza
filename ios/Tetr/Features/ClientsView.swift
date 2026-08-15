@@ -15,8 +15,8 @@ struct ClientsView: View {
     @EnvironmentObject private var session: Session
 
     /// Через сколько дней молчания клиент считается потерянным.
-    /// То же число, что в кабинете: продукт не должен считать по-разному.
-    private let lostAfter = 21
+    /// Число одно на приложение и на кабинет — см. `API.lostAfterDays`.
+    private let lostAfter = API.lostAfterDays
 
     @State private var clients: [API.Client] = []
     @State private var loaded = false
@@ -74,6 +74,10 @@ struct ClientsView: View {
        набрал в поиске три буквы номера. Деление списка ниже, наоборот,
        идёт по найденному: там речь ровно о том, что сейчас на экране. */
     private var loyalAll: [API.Client] { clients.filter { $0.visits > 1 } }
+    /// Был ровно один раз: вернётся или нет — ещё неизвестно. Тот же
+    /// порог, что в кабинете; выдумывать здесь своё значило бы, что
+    /// продукт считает постоянных по-разному на двух экранах.
+    private var freshAll: [API.Client] { clients.filter { $0.visits == 1 } }
     private var lostAll: [API.Client] { clients.filter { $0.daysSince > lostAfter } }
 
     /// Разделять на «стоит позвонить» и остальных имеет смысл только в
@@ -146,7 +150,10 @@ struct ClientsView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
 
-                TextField("Փնտրել մեքենայի համարով", text: $query)
+                /* Подсказка называет всё, по чему ищут. Стояло «по номеру
+                   машины», а поиск шёл ещё по имени и телефону — и имя,
+                   вписанное вчера, искали номером и не находили. */
+                TextField("Համար, անուն կամ հեռախոս", text: $query)
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.onBoard)
                     .autocorrectionDisabled()
@@ -214,6 +221,10 @@ struct ClientsView: View {
         HStack(spacing: 6) {
             counter("Բազայում", clients.count, tone: Brand.onBoard) { group = .all }
             counter("Մշտական", loyalAll.count, tone: Brand.goodOnBoard) { group = .loyal }
+            /* «Новых» тут не было, а в кабинете они есть: клиент с одним
+               визитом — это не то же самое, что постоянный, и вопрос
+               «кто у меня ещё не вернулся» задают отдельно. */
+            counter("Նոր", freshAll.count, tone: Brand.onBoard) { group = .fresh }
             counter(
                 "Վաղուց չեն եղել",
                 lostAll.count,
@@ -230,7 +241,10 @@ struct ClientsView: View {
         tone: Color,
         _ tap: @escaping () -> Void
     ) -> some View {
-        let live = !(label == "Վաղուց չեն եղել" && value == 0)
+        // за нулём списка нет: кнопка, которая ничего не открывает, хуже
+        // обычного текста — по ней жмут и не понимают, сломалось или так
+        // задумано
+        let live = value > 0
 
         return Button(action: tap) {
             VStack(alignment: .leading, spacing: 2) {

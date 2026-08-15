@@ -7,9 +7,16 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
-import { findClient, getClientHistory, getTenant, getUser, startOfDay } from '@/lib/queries';
+import {
+  findClient,
+  getClientHistory,
+  getTenant,
+  getUser,
+  lastTierOf,
+  startOfDay,
+} from '@/lib/queries';
 import { toMinor } from '@/lib/money';
-import { dayMonth, hhmm } from '@/lib/time';
+import { dayMonth, hhmm, pastDay } from '@/lib/time';
 import { settleMany } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
 import { acceptJob, assignJob, cancelJob, startJob } from '@/lib/jobs';
@@ -488,6 +495,17 @@ export async function clientHistory(key: string) {
   const tenant = await getTenant(session.tid);
   if (!tenant) return null;
 
+  /* Даты собираются здесь, в поясе бизнеса, а не за границей
+     сервер-клиент: `Date` туда проходит, но час пересчёта на той стороне
+     будет чужой, и «первый визит 1 августа» у владельца в поездке
+     превратился бы в 31 июля. */
+  const day = new Intl.DateTimeFormat('hy-AM', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: tenant.timezone,
+  });
+
   return {
     client: {
       key: found.client.key,
@@ -496,6 +514,7 @@ export async function clientHistory(key: string) {
       visits: found.client.visits,
       total: found.client.total,
       daysSince: found.client.daysSince,
+      firstSeen: day.format(found.client.firstSeenAt),
     },
     orders: found.orders.map((o) => ({
       id: o.id,
@@ -578,6 +597,16 @@ export async function addOrder(input: {
   serviceId: string;
   payment: Payment;
   passId?: string;
+  /**
+   * Класс машины — СЛОВОМ, как его видел мойщик («Ջիպ»).
+   *
+   * Не номером: список классов владелец переставляет и переименовывает, а
+   * у вкладки, открытой полчаса назад, он старый — номер указал бы на
+   * соседний класс и на его цену. Слово либо совпадает с одним из
+   * тарифов, либо не совпадает ни с одним, и тогда цена базовая. Тем же
+   * правилом живёт запись с телефона.
+   */
+  tier?: string;
   /** ref из офлайн-очереди: повторная досылка не создаст вторую запись */
   clientRef?: string;
 }): Promise<void> {
@@ -604,6 +633,10 @@ export async function addOrder(input: {
     clientKey: input.clientKey,
     payment: input.payment,
     passId: input.passId,
+    /* Цену по классу считает сервер, а не браузер. Браузер её только
+       показывает: присланная им сумма означала бы, что цену назначает
+       тот, кто берёт деньги. */
+    tier: input.tier,
     clientRef: input.clientRef,
   });
 
@@ -615,6 +648,9 @@ export async function addOrder(input: {
  * Подсказка «этот клиент уже был» прямо во время набора номера.
  * Заодно отдаём активные абонементы — сотрудник должен увидеть
  * вариант «списать», а не брать деньги повторно.
+ *
+ * И класс машины из прошлой записи: он принадлежит машине, а не заезду,
+ * и подставляется сам. Тот же ответ, что у `/api/v1/clients/lookup`.
  */
 export async function lookupClient(key: string) {
   const session = await requireSession();
@@ -623,12 +659,16 @@ export async function lookupClient(key: string) {
   const client = await findClient(session.tid, key);
   if (!client) return null;
 
-  const active = passesEnabled() ? await listActivePasses(session.tid, client.id) : [];
+  const [active, lastTier] = await Promise.all([
+    passesEnabled() ? listActivePasses(session.tid, client.id) : Promise.resolve([]),
+    lastTierOf(session.tid, client.id),
+  ]);
 
   return {
     visits: client.visits,
     total: client.total,
     lastSeenAt: client.lastSeenAt.toISOString(),
+    lastTier,
     passes: active.map((p) => ({
       id: p.id,
       serviceId: p.serviceId,
@@ -721,6 +761,7 @@ export async function addExpenseAction(
   const amount = toMinor(Number(formData.get('amount') ?? 0), tenant.currency);
   const category = String(formData.get('category') ?? '').trim();
   const monthly = formData.get('monthly') === 'on';
+  const day = pastDay(String(formData.get('at') ?? ''), tenant.timezone);
 
   try {
     await addExpense({
@@ -732,17 +773,33 @@ export async function addExpenseAction(
       /* Постоянный расход считаем с начала сегодняшнего дня, а не с
          минуты, когда его завели: иначе аренда, добавленная в обед,
          принесёт в прибыль за сегодня половину дневной доли, и цифра
-         разойдётся с завтрашней без всякой причины. */
-      at: monthly ? startOfDay(tenant.timezone) : undefined,
+         разойдётся с завтрашней без всякой причины.
+
+         Разовый ложится тем днём, который выбрали: расходы заводят
+         пачкой, за всю неделю сразу, и без этого вся неделя оказалась
+         бы потрачена сегодня. */
+      at: monthly ? startOfDay(tenant.timezone) : (day ?? undefined),
     });
   } catch {
     return { error: hy.errors.required };
   }
 
-  revalidatePath('/owner/expenses');
-  // прибыль на главной считается из расходов и должна поменяться сразу
-  revalidatePath('/owner');
+  revalidateExpenses();
   return { ok: true };
+}
+
+/**
+ * Что перечитать после правки расходов.
+ *
+ * Расход попадает в три разных ответа: в свой список, в прибыль дня на
+ * сводке и в отчёт за месяц. Забытый путь означает, что владелец
+ * добавил аренду, вернулся на сводку и увидел прежнюю прибыль — то есть
+ * решил, что запись не легла.
+ */
+function revalidateExpenses() {
+  revalidatePath('/owner/expenses');
+  revalidatePath('/owner');
+  revalidatePath('/owner/reports');
 }
 
 export async function removeExpenseAction(
@@ -762,8 +819,7 @@ export async function removeExpenseAction(
   );
   if (!removed) return { error: hy.errors.generic };
 
-  revalidatePath('/owner/expenses');
-  revalidatePath('/owner');
+  revalidateExpenses();
   return { ok: true };
 }
 
@@ -791,6 +847,10 @@ export async function saveExpenseAction(
       amount: toMinor(Number(formData.get('amount') ?? 0), tenant.currency),
       category: String(formData.get('category') ?? ''),
       note: null,
+      /* День правит только разовый; постоянному `editExpense` его не
+         отдаст — там это дата начала действия, и сдвиг переписал бы
+         прибыль за прожитые дни. */
+      at: pastDay(String(formData.get('at') ?? ''), tenant.timezone) ?? undefined,
       dayStart: startOfDay(tenant.timezone),
     });
     if (!row) return { error: hy.errors.generic };
@@ -798,8 +858,7 @@ export async function saveExpenseAction(
     return { error: hy.errors.required };
   }
 
-  revalidatePath('/owner/expenses');
-  revalidatePath('/owner');
+  revalidateExpenses();
   return { ok: true };
 }
 

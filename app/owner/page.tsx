@@ -29,7 +29,7 @@ import { TodayCrew } from './today/crew';
 import { PaymentMix } from './today/payments';
 import { TodayOperations } from './today/operations';
 import { FlowChart } from './today/chart';
-import type { CrewMember, FlowPoint, MixSlice, Op, OpenCar } from './today/model';
+import type { CrewMember, FlowEvent, FlowPoint, MixSlice, Op, OpenCar } from './today/model';
 
 /**
  * Сводка дня — главный экран владельца.
@@ -237,6 +237,11 @@ export default async function TodayPage({
       namesComplete: feed.length < FEED_LIMIT,
     });
 
+  /* Точки под графиком. У сегодняшнего дня это настоящие записи по
+     минутам, у периода — дни, в которые была работа: за неделю записей
+     сотни, и точки слились бы в сплошную полосу. */
+  const events = flow ? buildEvents(flow, ops, byHour, tenant.unitOne) : [];
+
   const dayLabel = periodDates(from, to, tenant.timezone, byHour);
 
   return (
@@ -347,6 +352,7 @@ export default async function TodayPage({
           {flow ? (
             <FlowChart
               points={flow}
+              events={events}
               currency={tenant.currency}
               unitOne={tenant.unitOne}
               byHour={byHour}
@@ -520,6 +526,69 @@ function buildFlow(
     points.push(at(`${iso} 00`, iso.slice(8, 10)));
   }
   return points;
+}
+
+/**
+ * Точки на полосе времени под графиком.
+ *
+ * У сегодняшнего дня точка — одна запись, поставленная в свою минуту
+ * между часами оси; поэтому у неё есть номер машины, услуга, цена и тот,
+ * кто мыл, — всё то, о чём спрашивают, ткнув в неё.
+ *
+ * У недели и месяца записей были бы сотни, и точки слились бы в
+ * сплошную полосу. Там точка — день, в который была работа, со своим
+ * приходом и числом машин.
+ *
+ * Положение считается здесь, а не в самом графике: только страница
+ * знает, от какого часа до какого идёт ось выбранного периода.
+ */
+function buildEvents(
+  points: FlowPoint[],
+  ops: Op[],
+  byHour: boolean,
+  unitOne: string,
+): FlowEvent[] {
+  if (points.length === 0) return [];
+
+  if (!byHour) {
+    const span = points.length - 1;
+    return points
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => p.count > 0)
+      .map(({ p, i }) => ({
+        id: `d-${p.label}-${i}`,
+        at: span > 0 ? i / span : 0.5,
+        time: p.label,
+        title: `${p.count} ${unitOne}`,
+        note: p.people.length > 0 ? p.people.join(', ') : null,
+        price: p.value,
+        who: null,
+        share: 0,
+      }));
+  }
+
+  const startHour = Number(points[0].label.slice(0, 2));
+  const endHour = Number(points[points.length - 1].label.slice(0, 2));
+  const span = endHour - startHour;
+
+  /* Записи приходят от новых к старым; ось читают слева направо, и
+     последней точкой обязана оказаться последняя по времени машина —
+     именно она помечена лаймом. */
+  return [...ops].reverse().map((o) => {
+    const h = Number(o.time.slice(0, 2));
+    const m = Number(o.time.slice(3, 5));
+    const at = span > 0 ? (h + m / 60 - startHour) / span : 0.5;
+    return {
+      id: o.id,
+      at: Math.min(1, Math.max(0, at)),
+      time: o.time,
+      title: o.clientKey ?? '—',
+      note: o.serviceName,
+      price: o.price,
+      who: o.staffName,
+      share: o.share,
+    };
+  });
 }
 
 function paymentLabel(p: string): string {

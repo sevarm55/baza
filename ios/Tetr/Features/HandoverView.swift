@@ -17,6 +17,12 @@ import SwiftUI
 /// владелец увидит именно как «не отмечено», а не как ноль.
 struct HandoverView: View {
     let expected: Int
+    /// Итог дня: машины, сумма работ и своя доля. Показывается до того, как
+    /// смену закроют, — см. `summary`.
+    let count: Int
+    let revenue: Int
+    let earned: Int
+    let takesShare: Bool
     let onDone: (Int?) -> Void
 
     @EnvironmentObject private var session: Session
@@ -27,10 +33,40 @@ struct HandoverView: View {
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var entered: Int? { Int(amount) }
     private var diff: Int { (entered ?? expected) - expected }
+    private var unitOne: String { session.tenant?.unitOne ?? "Գրանցում" }
 
     var body: some View {
         NavigationStack {
             Form {
+                /* Итог дня — первым, до сдачи наличных.
+                 *
+                 * Смену закрывают один раз за день, и после неё записывать
+                 * нельзя до следующей. Раньше окно спрашивало только про
+                 * деньги в кармане, и человек соглашался, не увидев, что
+                 * именно он закрывает. Три числа читаются за две секунды и
+                 * стоят ровно там, где принимается решение. */
+                Section {
+                    LabeledContent(unitOne) {
+                        Text("\(count)").monospacedDigit().foregroundStyle(Brand.boardMuted)
+                    }
+                    LabeledContent("Աշխատանքի գումարը") {
+                        Text(money(revenue, currency))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+                    }
+                    if takesShare {
+                        LabeledContent("Քո վաստակն այսօր") {
+                            Text(money(earned, currency))
+                                .monospacedDigit()
+                                .fontWeight(.semibold)
+                        }
+                    }
+                } header: {
+                    Text("Այսօր")
+                } footer: {
+                    Text("Ավարտելուց հետո \(unitOne) գրանցել կարելի կլինի միայն նոր հերթափոխից հետո։")
+                }
+
                 Section {
                     LabeledContent("Կանխիկ հերթափոխում") {
                         Text(money(expected, currency))
@@ -72,12 +108,12 @@ struct HandoverView: View {
                     .foregroundStyle(Brand.boardMuted)
                 }
             }
-            .navigationTitle("Հերթափոխի ավարտ")
+            .navigationTitle("Ավարտե՞լ հերթափոխը")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    // закрыть крестиком — остаться на смене
-                    Button("Փակել") { dismiss() }
+                    // остаться на смене — тем же словом, что в вебе
+                    Button("Մնալ հերթափոխին") { dismiss() }
                 }
             }
         }

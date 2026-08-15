@@ -106,6 +106,44 @@ export function startOfPrevMonth(timezone: string, at = new Date()): Date {
   return startOfMonth(timezone, new Date(thisMonth.getTime() - 86_400_000));
 }
 
+/**
+ * Полдень указанного дня в часовом поясе бизнеса.
+ *
+ * Нужно там, где день приходит из поля ввода строкой `2026-08-12`, а
+ * лечь в базу обязан моментом. Полдень, а не полночь: граница суток —
+ * единственное место, где ошибка в час уводит запись во вчерашний день,
+ * а середина дня остаётся серединой дня при любой погрешности.
+ *
+ * Считается дважды по той же причине, что и `startOfDay`: смещение зоны
+ * в полдень выбранного дня может отличаться от смещения сейчас — ровно
+ * на час в сутки перевода стрелок.
+ */
+export function noonOf(timezone: string, day: string): Date {
+  const [y, m, d] = day.split('-').map(Number);
+  const utcNoon = Date.UTC(y, m - 1, d, 12);
+  const probe = new Date(utcNoon - zoneOffset(timezone, new Date(utcNoon)));
+  return new Date(utcNoon - zoneOffset(timezone, probe));
+}
+
+/**
+ * День из поля ввода — моментом, и не из будущего.
+ *
+ * Поле даёт `2026-08-12`; в базе лежит момент, и собрать его надо в
+ * поясе бизнеса, иначе вечерняя трата уедет во вчера. Будущее
+ * отбрасывается молча: расход, которого ещё не было, ломает и прибыль
+ * периода, и порядок списка.
+ *
+ * Живёт здесь, а не рядом с формой, потому что дату присылают двое —
+ * браузер серверным действием и телефон запросом к API. Два разбора
+ * одной строки расходятся на первой же правке: в одном месте будущее
+ * отбросили, в другом забыли.
+ */
+export function pastDay(raw: string | undefined | null, timezone: string): Date | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const at = noonOf(timezone, raw);
+  return at.getTime() > Date.now() ? null : at;
+}
+
 /** Сколько суток в календарном месяце, в который попадает `at`. */
 export function daysInMonthOf(timezone: string, at: Date): number {
   const p = new Intl.DateTimeFormat('en-CA', {

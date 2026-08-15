@@ -17,6 +17,7 @@ export function TopBar({
   points,
   currentTid,
   alerts,
+  shiftOpen,
 }: {
   tenantName: string;
   subtitle: string;
@@ -27,6 +28,8 @@ export function TopBar({
   /** точки человека; одна или ни одной — переключателя нет */
   points?: Point[];
   currentTid?: string;
+  /** смена открыта: выход тогда объясняет, что она такой и останется */
+  shiftOpen?: boolean;
 }) {
   /* У кого одна мойка, тот не должен узнать, что бывают вторые: ни
      стрелки, ни лишнего элемента, ни изменившейся разметки. Условие
@@ -56,8 +59,13 @@ export function TopBar({
           ) : (
             <div className="min-w-0">
               <div className="truncate text-[15px] font-semibold">{tenantName}</div>
+              {/* Имя и роль одной строкой. Роль здесь не украшение: один
+                  телефон на мойке ходит по рукам, и «кто сейчас вошёл»
+                  должно читаться до того, как человек начнёт записывать
+                  машины на чужой заработок. У владельца её называют
+                  вкладки ниже, поэтому там она не повторяется. */}
               <div className="truncate text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                {subtitle}
+                {role === 'owner' ? subtitle : `${subtitle} · ${hy.roles.staff}`}
               </div>
             </div>
           )}
@@ -66,7 +74,7 @@ export function TopBar({
         <div className="order-2 flex shrink-0 items-center gap-1">
           {alerts && <Bell alerts={alerts} />}
           <ThemeToggle />
-          <SignOutButton />
+          <SignOutButton shiftOpen={shiftOpen} />
         </div>
 
         {/* Владелец переключается между своим кабинетом и экраном записи:

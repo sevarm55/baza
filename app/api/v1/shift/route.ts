@@ -1,6 +1,6 @@
 import { ensureDb } from '@/lib/db/ready';
 import { getShift, startOfDay } from '@/lib/queries';
-import { cashInShift, closeShift, currentShift, openShift } from '@/lib/shifts';
+import { cashInShift, closedShiftToday, closeShift, currentShift, openShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, failFromError, ok } from '@/lib/api/respond';
 
@@ -19,9 +19,14 @@ export async function GET(request: Request) {
     if (denied(ctx)) return ctx;
 
     const from = startOfDay(ctx.tenant.timezone);
-    const [shift, open] = await Promise.all([
+    const [shift, open, closed] = await Promise.all([
       getShift(ctx.tenant.id, ctx.user.id, from),
       currentShift(ctx.tenant.id, ctx.user.id, from),
+      /* Сегодняшняя закрытая смена. «Ещё не вставал» и «отработал и
+         закрылся» — разные состояния одного дня, и экран обязан их
+         различать: иначе вечером после закрытия он показывает ровно то
+         же, что показывал утром, при дневном заработке на виду. */
+      closedShiftToday(ctx.tenant.id, ctx.user.id, from),
     ]);
 
     /* Сколько наличных набралось с начала смены — чтобы при закрытии
@@ -34,6 +39,7 @@ export async function GET(request: Request) {
       from: from.toISOString(),
       onShift: open !== null,
       openedAt: open?.openedAt ?? null,
+      closedToday: closed,
       cashSoFar,
       count: shift.count,
       revenue: shift.revenue,
@@ -41,6 +47,11 @@ export async function GET(request: Request) {
       percent: ctx.user.percent,
       orders: shift.orders.map((o) => ({
         id: o.id,
+        /* Номер машины в журнале смены. Своя ошибка ищется по нему, а не
+           по названию услуги: «Комплекс» за день встречается двадцать
+           раз, номер — один. Приезжает вместе со сменой, отдельного
+           запроса на строку нет. */
+        clientKey: o.clientKey,
         serviceName: o.serviceName,
         price: o.price,
         payment: o.payment,

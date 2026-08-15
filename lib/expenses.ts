@@ -101,6 +101,105 @@ export async function listExpenses(
 }
 
 /**
+ * Сколько ЭТА строка стоила бизнесу за период.
+ *
+ * Постоянный расход платят раз в месяц, а живёт он каждый день: аренда
+ * в 300 000 стоит бизнесу примерно 9 677 в сутки, и десятого числа
+ * набежала треть. Разовый лежит в своём дне целиком.
+ *
+ * Выражение одно на весь продукт: им считается и итог периода
+ * (`getPeriodCosts`), и разбивка по названиям (`getCostsByCategory`), и
+ * строки списка расходов. Три копии одной формулы разъезжаются молча, а
+ * расхождение на экране, где считают деньги, читается как ошибка
+ * расчёта.
+ *
+ * Округление — на каждой строке, а не на сумме. `round(sum(...))` даёт
+ * итог, который на драм-другой не сходится с суммой показанных строк, и
+ * это худший из возможных видов ошибки: каждое число по отдельности
+ * верно, а вместе они не сходятся, и проверить их нечем.
+ *
+ * Границы приходят строками с явным приведением, а не объектами Date.
+ * Драйвер боевого Postgres (postgres-js) не умеет угадывать тип
+ * параметра в сыром SQL и на объекте Date падает с ERR_INVALID_ARG_TYPE;
+ * PGlite, на котором идут тесты, это прощает — поэтому ошибка вылезла
+ * только на сервере. Строка плюс ::timestamptz однозначны для обоих.
+ */
+export function shareOfPeriod(fromAt: string, toAt: string, spread: number) {
+  return sql`round(
+    case when ${expenses.monthly} then
+      ${expenses.amount} * greatest(0, extract(epoch from (
+        least(coalesce(${expenses.endedAt}, ${toAt}::timestamptz), ${toAt}::timestamptz)
+        - greatest(${expenses.at}, ${fromAt}::timestamptz)
+      )) / 86400.0) / ${spread}::numeric
+    else
+      case
+        when ${expenses.at} >= ${fromAt}::timestamptz
+         and ${expenses.at} < ${toAt}::timestamptz
+        then ${expenses.amount}
+        else 0
+      end
+    end
+  )`;
+}
+
+/**
+ * Строки расходов вместе с тем, во что каждая обошлась за период.
+ *
+ * Без доли список врёт дважды. «Վարձ 300 000 ֏» десятого августа
+ * читается как «я потратил триста тысяч» — а потратил девяносто семь; и
+ * наоборот, если показать одну долю, строка перестанет отвечать на
+ * вопрос «а сколько вообще стоит аренда». Поэтому в строке оба числа:
+ * номинал — то, о чём договорились, доля — то, что уже стоило.
+ */
+export type PeriodExpense = {
+  id: string;
+  category: string;
+  note: string | null;
+  monthly: boolean;
+  amount: number;
+  /** сколько из этой строки пришлось на период */
+  share: number;
+  at: Date;
+  endedAt: Date | null;
+};
+
+export async function listPeriodExpenses(
+  tenantId: string,
+  from: Date,
+  to: Date,
+  spread: CostSpread,
+  { activeMonthlyOnly = false }: { activeMonthlyOnly?: boolean } = {},
+): Promise<PeriodExpense[]> {
+  const rows = await listExpenses(tenantId, from, to, { activeMonthlyOnly });
+  if (rows.length === 0) return [];
+
+  /* Доля считается там же, где итог, — в базе. Посчитать её второй раз
+     на JS значило бы завести второй источник правды для денег: формула
+     одна, но округление, часовые пояса и границы месяца у двух реализаций
+     совпадают ровно до первого исправления в одной из них. */
+  const shares = await db
+    .select({
+      id: expenses.id,
+      share: sql<number>`coalesce(${shareOfPeriod(from.toISOString(), to.toISOString(), spread)}, 0)::int`,
+    })
+    .from(expenses)
+    .where(eq(expenses.tenantId, tenantId));
+
+  const shareBy = new Map(shares.map((s) => [s.id, s.share]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    category: r.category,
+    note: r.note,
+    monthly: r.monthly,
+    amount: r.amount,
+    share: shareBy.get(r.id) ?? 0,
+    at: r.at,
+    endedAt: r.endedAt,
+  }));
+}
+
+/**
  * Изменить расход.
  *
  * Аренда дорожает, и это самое обычное событие в жизни мойки. Но
@@ -130,6 +229,16 @@ export async function editExpense(params: {
   amount: number;
   category: string;
   note?: string | null;
+  /**
+   * Новый день разового расхода.
+   *
+   * Только для разового и только потому, что заводят их пачкой — за всю
+   * неделю сразу, — и ошибиться днём при этом легко. У постоянного
+   * такого поля нет и быть не может: у него `at` это день, с которого он
+   * начал действовать, и сдвинуть его значит переписать прибыль за уже
+   * прожитые дни.
+   */
+  at?: Date;
   dayStart: Date;
 }) {
   const category = params.category.trim();
@@ -156,7 +265,12 @@ export async function editExpense(params: {
     if (!row.monthly || sameAmount) {
       const [updated] = await tx
         .update(expenses)
-        .set({ amount: params.amount, category, note })
+        .set({
+          amount: params.amount,
+          category,
+          note,
+          ...(!row.monthly && params.at ? { at: params.at } : {}),
+        })
         .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)))
         .returning();
       return updated;
@@ -273,30 +387,12 @@ export async function getPeriodCosts(
   /** длина календарного месяца периода — знаменатель для постоянных */
   spread: CostSpread = 30.4375,
 ): Promise<PeriodCosts> {
-  /* Даты уходят строками с явным приведением, а не объектами Date.
-     Драйвер боевого Postgres (postgres-js) не умеет угадывать тип
-     параметра в сыром SQL и на объекте Date падает с ERR_INVALID_ARG_TYPE;
-     PGlite, на котором идут тесты, это прощает — поэтому ошибка вылезла
-     только на сервере. Строка плюс ::timestamptz однозначны для обоих. */
-  const fromAt = from.toISOString();
-  const toAt = to.toISOString();
+  const share = shareOfPeriod(from.toISOString(), to.toISOString(), spread);
 
   const [row] = await db
     .select({
-      oneOff: sql<number>`coalesce(sum(${expenses.amount}) filter (
-        where ${expenses.monthly} = false
-          and ${expenses.at} >= ${fromAt}::timestamptz
-          and ${expenses.at} < ${toAt}::timestamptz
-      ), 0)::int`,
-
-      monthlyShare: sql<number>`coalesce(round(sum(
-        case when ${expenses.monthly} then
-          ${expenses.amount} * greatest(0, extract(epoch from (
-            least(coalesce(${expenses.endedAt}, ${toAt}::timestamptz), ${toAt}::timestamptz)
-            - greatest(${expenses.at}, ${fromAt}::timestamptz)
-          )) / 86400.0) / ${spread}::numeric
-        else 0 end
-      )), 0)::int`,
+      oneOff: sql<number>`coalesce(sum(${share}) filter (where ${expenses.monthly} = false), 0)::int`,
+      monthlyShare: sql<number>`coalesce(sum(${share}) filter (where ${expenses.monthly}), 0)::int`,
     })
     .from(expenses)
     .where(eq(expenses.tenantId, tenantId));

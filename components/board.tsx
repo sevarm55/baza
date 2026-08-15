@@ -90,8 +90,14 @@ export function Reading({
   caption: ReactNode;
   value: ReactNode;
   compare?: ReactNode;
-  /** окраска сравнения: рост, падение или молчание */
-  tone?: 'good' | 'warn';
+  /**
+   * Окраска сравнения: рост, падение, выключено или молчание.
+   *
+   * `off` — не «плохо», а «не горит»: смена, которая ещё не начиналась
+   * или уже закончилась. Янтарный на её месте объявлял бы обычный вечер
+   * предупреждением, а зелёный — говорил бы, что человек на смене.
+   */
+  tone?: 'good' | 'warn' | 'off';
 }) {
   const compareColor =
     tone === 'good'
@@ -134,9 +140,16 @@ export function Reading({
           className="num mt-3 flex items-center gap-2 text-[13px] font-semibold"
           style={{ color: compareColor }}
         >
+          {/* Точка залита, когда горит, и пустая, когда нет. Одного
+              цвета для этого мало: приглушённый серый и зелёный на
+              солнце различаются хуже, чем кольцо и пятно. */}
           <span
             className="size-1.5 shrink-0 rounded-full"
-            style={{ background: 'currentColor' }}
+            style={
+              tone === 'off'
+                ? { boxShadow: 'inset 0 0 0 1.5px currentColor' }
+                : { background: 'currentColor' }
+            }
             aria-hidden
           />
           {compare}
@@ -183,8 +196,11 @@ export function Panel({
       className={`flex min-w-0 flex-col ${bare ? '' : 'panel-pad rounded-[var(--radius-card)]'} ${className}`}
       style={bare ? undefined : { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
     >
+      {/* Управление переносится под заголовок, когда рядом с ним не
+          помещается: жёлоб из трёх слов на телефоне иначе сжимал
+          название прибора до двух строк по слогу. */}
       {title !== undefined && (
-        <div className="mb-4 flex min-h-[1.75rem] items-center justify-between gap-3">
+        <div className="mb-4 flex min-h-[1.75rem] flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <h2
             className="flex items-baseline gap-2 text-[14px] font-semibold tracking-[-0.01em]"
             style={{ color: 'var(--on-board)' }}
@@ -314,6 +330,11 @@ export type Figure = {
  * Карточка вокруг каждого числа сделала бы их равными плите, и шапка
  * превратилась бы в ряд одинаково важных показаний, между которыми глазу
  * приходится выбирать.
+ *
+ * Звеньев всегда три, и это не совпадение: столько слагаемых у ответа на
+ * каждой денежной странице продукта — приход, люди, траты. Четвёртое
+ * звено на телефоне уже не помещается ни при каком кегле, а второе
+ * оставляет полосу полупустой.
  */
 export function Figures({ items }: { items: Figure[] }) {
   return (

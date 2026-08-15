@@ -27,6 +27,9 @@ struct ClientHistoryView: View {
     @State private var loaded = false
     @State private var name = ""
     @State private var phone = ""
+    /// Первый визит приходит из карточки, а не из списка: в списке
+    /// сравнивают давность последнего.
+    @State private var firstSeen: Date?
     @State private var editing = false
     @State private var saving = false
 
@@ -35,6 +38,8 @@ struct ClientHistoryView: View {
             ScrollView {
                 VStack(spacing: 10) {
                     reading
+
+                    habits
 
                     contacts
 
@@ -104,6 +109,78 @@ struct ClientHistoryView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 6)
+    }
+
+    /**
+     * Привычки клиента.
+     *
+     * Три-четыре факта, из-за которых карточку и открывают перед
+     * разговором: давно ли он тут, что берёт, чем платит и кто его знает.
+     * До этого карточка отвечала только «сколько принёс» и «что было» —
+     * а «что он обычно берёт» приходилось выводить, читая ленту глазами.
+     *
+     * Считается из уже приехавшей истории, а не отдельным запросом:
+     * список визитов и так лежит перед глазами, и спрашивать сервер
+     * второй раз ради подсчёта по нему значило бы платить запросом за
+     * арифметику. Ровно так же это устроено в кабинете.
+     *
+     * У приезжавшего один раз привычек нет: и «первый визит», и «обычно
+     * берёт» пересказали бы ту единственную строку, что стоит ниже.
+     */
+    @ViewBuilder
+    private var habits: some View {
+        if orders.count > 1 {
+            VStack(spacing: 0) {
+                if let firstSeen {
+                    fact("Առաջին այցը", longDay(firstSeen))
+                }
+                if let service = topOf(orders.map(\.serviceName)) {
+                    fact("Հաճախ վերցնում է", service)
+                }
+                if let payment = topOf(orders.map { paymentWord($0.payment) }) {
+                    fact("Սովորաբար վճարում է", payment)
+                }
+                if let who = topOf(orders.compactMap(\.staffName)) {
+                    fact("Սովորաբար սպասարկում է", who)
+                }
+            }
+            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 16))
+        }
+    }
+
+    private func fact(_ title: String, _ value: String) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    /// Что встречается чаще всего. Пусто, когда выбирать не из чего.
+    private func topOf(_ values: [String]) -> String? {
+        guard values.count > 1 else { return nil }
+        var count: [String: Int] = [:]
+        for v in values { count[v, default: 0] += 1 }
+        return count.max { a, b in a.value < b.value }?.key
+    }
+
+    /// «15 օգոստոսի, 2026 թ.» — в поясе бизнеса, как и всё остальное.
+    private func longDay(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hy_AM")
+        f.dateStyle = .long
+        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
+            f.timeZone = zone
+        }
+        return f.string(from: d)
     }
 
     /**
@@ -192,7 +269,7 @@ struct ClientHistoryView: View {
 
                 /* Подсказка только пропавшему: у того, кто был вчера, она
                    превратилась бы в фон, который перестают замечать. */
-                if client.daysSince > 21 {
+                if client.daysSince > API.lostAfterDays {
                     Text("Վաղուց չի եղել — զանգեք կամ առաջարկեք զեղչ")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Brand.warnOnBoard)
@@ -295,6 +372,7 @@ struct ClientHistoryView: View {
             orders = result.orders
             name = result.client.name ?? ""
             phone = result.client.phone ?? ""
+            firstSeen = result.client.firstSeenAt
         }
         loaded = true
     }

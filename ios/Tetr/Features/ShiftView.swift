@@ -33,6 +33,8 @@ struct ShiftView: View {
     @State private var loadID = 0
     /// Машины, переданные этому мойщику владельцем.
     @State private var jobs: [API.Job] = []
+    /// Запись, которую собираются отменить. Пусто — вопроса нет.
+    @State private var revoking: API.ShiftOrder?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -75,12 +77,36 @@ struct ShiftView: View {
         .safeAreaInset(edge: .top) { toggleBar }
         .safeAreaInset(edge: .bottom) { recordButton }
         .sheet(isPresented: $handingOver) {
-            HandoverView(expected: shift?.cashSoFar ?? 0) { cash in
+            HandoverView(
+                expected: shift?.cashSoFar ?? 0,
+                count: shift?.count ?? 0,
+                revenue: shift?.revenue ?? 0,
+                earned: shift?.earned ?? 0,
+                takesShare: takesShare
+            ) { cash in
                 Task { await leaveShift(cash: cash) }
             }
         }
         .fullScreenCover(isPresented: $recording) {
             OrderFlowView { await reload() }
+        }
+        /* Отмена спрашивает и называет машину. Запись при этом не
+           удаляется — она остаётся в истории и в аудите, — но перестаёт
+           попадать в выручку и в заработок, и заработок за день
+           пересчитается на глазах. Поэтому и слово «отменить», а не
+           «удалить»: то же самое видит владелец. */
+        .confirmationDialog(
+            "Չեղարկե՞լ այս գրանցումը",
+            isPresented: .init(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+            titleVisibility: .visible,
+            presenting: revoking
+        ) { order in
+            Button("Չեղարկել գրանցումը", role: .destructive) {
+                Task { await revoke(order) }
+            }
+            Button("Թողնել", role: .cancel) {}
+        } message: { order in
+            Text("\(order.clientKey ?? order.serviceName) · \(order.serviceName) · \(money(order.price, currency))\nՉեղարկելուց հետո այսօրվա վաստակը կվերահաշվարկվի։")
         }
         .task { await reload() }
         .refreshable { await reload() }
@@ -218,19 +244,9 @@ struct ShiftView: View {
                     .lineLimit(1)
 
                 Spacer()
-
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(onShift ? Brand.mintInk : Brand.boardMuted)
-                        .frame(width: 6, height: 6)
-                    Text(onShift ? "ԲԱՑ Է" : "ՓԱԿ Է")
-                        .font(.system(size: 9.5, weight: .black, design: .rounded))
-                        .tracking(0.8)
-                }
-                .foregroundStyle(onShift ? Brand.mintInk : Brand.boardMuted)
             }
 
-            Text(takesShare ? "Քո վաստակը" : "Հերթափոխի հասույթ")
+            Text(takesShare ? "Քո վաստակն այսօր" : "Հերթափոխի հասույթ")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 14)
@@ -243,13 +259,15 @@ struct ShiftView: View {
                 .minimumScaleFactor(0.42)
                 .contentTransition(.numericText(value: Double(value)))
 
-            if takesShare {
-                Text("\(money(shift?.revenue ?? 0, currency)) հասույթ × \(shift?.percent ?? 0)%")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.lavenderInk)
-                    .padding(.top, 4)
-            }
+            /* Состояние смены — строкой под цифрой, а не значком «ԲԱՑ Է» в
+               углу. Значок отвечал только «да или нет», а спрашивают на
+               этом экране другое: с которого часа и сколько уже. Три
+               состояния вместо двух: «ещё не вставал» и «отработал и
+               закрылся» — это утро и вечер одного дня, и человек,
+               закрывший смену, не должен читать про себя то же, что
+               читал до её начала. */
+            shiftLine
+                .padding(.top, 10)
         }
         .padding(17)
         .frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
@@ -258,6 +276,58 @@ struct ShiftView: View {
             RoundedRectangle(cornerRadius: 25, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
+    }
+
+    /**
+     * «Я на смене · с 08:40 · 7 ч 15 мин».
+     *
+     * Точка залита, когда смена идёт, и пустая, когда нет: одного цвета
+     * мало — приглушённый серый и зелёный на солнце различаются хуже, чем
+     * кольцо и пятно. Тот же знак и в вебе, и в списке людей у владельца.
+     *
+     * Длительность тикает от `TimelineView`, а не от таймера в состоянии:
+     * экран открыт часами, и число обязано расти само, но будить всю
+     * страницу ради минутной стрелки незачем.
+     */
+    private var shiftLine: some View {
+        HStack(spacing: 7) {
+            Circle()
+                .strokeBorder(onShift ? Color.clear : Brand.boardMuted, lineWidth: 1.5)
+                .background(Circle().fill(onShift ? Brand.goodOnBoard : Color.clear))
+                .frame(width: 7, height: 7)
+
+            if onShift, let openedAt = shift?.openedAt {
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    Text("Հերթափոխին եմ · \(at(openedAt))-ից · \(lasted(since: openedAt))")
+                        .font(.system(size: 13, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.goodOnBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+            } else if let done = shift?.closedToday {
+                Text("Հերթափոխն ավարտված է · \(at(done.openedAt)) — \(at(done.closedAt))")
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            } else {
+                Text(onShift ? "Հերթափոխին եմ" : "Հերթափոխը դեռ չի սկսվել")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(onShift ? Brand.goodOnBoard : Brand.boardMuted)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// «7 ժ 15 ր». Часы отбрасываются, когда их нет, — как в вебе.
+    private func lasted(since: Date) -> String {
+        let minutes = max(0, Int(Date().timeIntervalSince(since) / 60))
+        return minutes < 60 ? "\(minutes) ր" : "\(minutes / 60) ժ \(minutes % 60) ր"
     }
 
     // ══════════════════════════ волна ══════════════════════════
@@ -357,10 +427,15 @@ struct ShiftView: View {
         let percent = shift?.percent ?? 0
 
         return HStack(spacing: gap) {
+            /* Подпись называет, ЧЬИ это деньги. «Выручка смены» стояло и
+               здесь, и в кабинете владельца, а рядом — заработок мойщика:
+               два похожих числа, и какое из них твоё, приходилось решать.
+               Теперь это «сумма работ», и доля названа долей. Те же слова
+               в вебе. */
             shiftPrimary(
-                title: takesShare ? "Հերթափոխի հասույթ" : "Կանխիկ ձեռքին",
+                title: takesShare ? "Աշխատանքի գումարը" : "Կանխիկ ձեռքին",
                 value: money(takesShare ? revenue : cash, currency),
-                note: takesShare ? "քո \(percent)%-ի հիմքը" : "հանձնելու է վերջում",
+                note: takesShare ? "քո բաժինը՝ \(percent)%" : "հանձնելու է վերջում",
                 background: Brand.lavenderCard,
                 ink: Brand.lavenderInk,
                 animate: Double(takesShare ? revenue : cash)
@@ -559,30 +634,43 @@ struct ShiftView: View {
                 Divider().overlay(Brand.boardInk.opacity(0.07))
             }
 
+            /* Номер машины крупно, услуга и оплата под ним.
+               Из сорока записей за смену «Комплекс» встречается двадцать
+               раз, а номер один: искать свою ошибку по названию услуги —
+               это читать список целиком. Так же в вебе. */
             ForEach(orders) { order in
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
-                        Text(at(order.createdAt))
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(order.clientKey ?? order.serviceName)
+                                    .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Brand.onBoard)
+                                    .lineLimit(1)
+
+                                Image(systemName: newestOrderID == order.id ? "checkmark" : paymentSymbol(order.payment))
+                                    .font(.system(size: 10.5, weight: newestOrderID == order.id ? .bold : .regular))
+                                    .foregroundStyle(newestOrderID == order.id ? Brand.goodOnBoard : Brand.boardMuted)
+                                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                                    .symbolEffect(
+                                        .drawOn,
+                                        options: .nonRepeating,
+                                        isActive: newestOrderID == order.id && !reduceMotion
+                                    )
+                                    .accessibilityLabel(paymentLabel(order.payment))
+                            }
+
+                            Text(
+                                order.clientKey == nil
+                                    ? "\(paymentLabel(order.payment)) · \(at(order.createdAt))"
+                                    : "\(order.serviceName) · \(paymentLabel(order.payment)) · \(at(order.createdAt))"
+                            )
                             .font(.system(size: 12))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
-                            .frame(width: 42, alignment: .leading)
-
-                        Text(order.serviceName)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
-
-                        Image(systemName: newestOrderID == order.id ? "checkmark" : paymentSymbol(order.payment))
-                            .font(.system(size: 10.5, weight: newestOrderID == order.id ? .bold : .regular))
-                            .foregroundStyle(newestOrderID == order.id ? Brand.goodOnBoard : Brand.boardMuted)
-                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                            .symbolEffect(
-                                .drawOn,
-                                options: .nonRepeating,
-                                isActive: newestOrderID == order.id && !reduceMotion
-                            )
-                            .accessibilityLabel(paymentLabel(order.payment))
+                        }
 
                         Spacer(minLength: 8)
 
@@ -590,14 +678,29 @@ struct ShiftView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
+
+                        /* Отмена ошибочной записи — здесь же, а не «позвони
+                           владельцу». Три точки молчат: из сорока записей
+                           отменяют одну, и заметным элементом строки это
+                           действие быть не должно. */
+                        Button {
+                            revoking = order
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.boardMuted)
+                                .frame(width: 30, height: 30)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Գործողություններ՝ \(order.clientKey ?? order.serviceName)")
                     }
                     .padding(.horizontal, 6)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 9)
                     .background(
                         newestOrderID == order.id ? Brand.lime.opacity(0.1) : Color.clear,
                         in: .rect(cornerRadius: 12)
                     )
-                    .accessibilityElement(children: .combine)
 
                     if order.id != orders.last?.id {
                         Rectangle()
@@ -614,12 +717,42 @@ struct ShiftView: View {
         }
     }
 
+    /* Пусто до смены и пусто на смене — разные ответы. Первый говорит,
+       что делать; второй — что всё в порядке и первая машина просто ещё
+       не приехала. Одна строка «смена не начата» на открытой смене
+       читалась поломкой. */
     private var empty: some View {
-        Text("Հերթափոխը դեռ չի սկսվել")
-            .font(.system(size: 14))
-            .foregroundStyle(Brand.boardMuted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 44)
+        VStack(spacing: 6) {
+            Text(onShift ? "Հերթափոխը սկսված է" : "Հերթափոխը դեռ չի սկսվել")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+            Text(onShift
+                ? "Առաջին գրանցումն այստեղ կհայտնվի։"
+                : "Սկսեք հերթափոխը, որպեսզի գրանցեք աշխատանքը։")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+        .padding(.horizontal, 20)
+    }
+
+    /**
+     * Отменить запись.
+     *
+     * Сервер решает, чью запись можно отменить: мойщику — только свою.
+     * После ответа перечитываем смену целиком, а не правим список на
+     * месте: заработок, счётчик и сумма работ обязаны сойтись с сервером,
+     * а не с нашим представлением о нём.
+     */
+    private func revoke(_ order: API.ShiftOrder) async {
+        revoking = nil
+        let done: Bool = (try? await session.authed { token in
+            try await APIClient.shared.raw("orders/\(order.id)/cancel", method: "POST", token: token)
+        }) != nil
+        if done { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        await reload()
     }
 
     // ══════════════════════════ кнопка ══════════════════════════

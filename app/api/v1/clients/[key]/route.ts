@@ -27,7 +27,6 @@ export async function GET(
     if (!found) return fail('NOT_FOUND', 404);
 
     const { client, orders } = found;
-    const now = Date.now();
 
     return ok({
       client: {
@@ -37,8 +36,13 @@ export async function GET(
         phone: client.phone,
         visits: client.visits,
         total: client.total,
+        /* Когда приехал впервые. В списке это не нужно — там сравнивают
+           давность последнего визита, — а в карточке это первое, что
+           спрашивают про постоянного: «он у меня давно?» */
+        firstSeenAt: client.firstSeenAt,
         lastSeenAt: client.lastSeenAt,
-        daysSince: Math.floor((now - client.lastSeenAt.getTime()) / 86_400_000),
+        // считает база, тем же выражением, что и список
+        daysSince: client.daysSince,
       },
       orders: orders.map((o) => ({
         id: o.id,

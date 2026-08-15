@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
 import { compactClientKey } from './client-key';
 import {
@@ -194,11 +194,23 @@ export { startOfDay, startOfDaysAgo, startOfMonth, startOfPrevMonth } from './ti
 
 const notCanceled = isNull(orders.canceledAt);
 
-/** Смена конкретного сотрудника: то, что он видит у себя на экране. */
+/**
+ * Смена конкретного сотрудника: то, что он видит у себя на экране.
+ *
+ * Номер машины приезжает вместе с записью, а не отдельным запросом на
+ * строку. В журнале смены он важнее названия услуги: мойщик ищет там не
+ * «комплекс», которых за день двадцать, а свою машину — ту самую, в
+ * которой он ошибся номером или услугой. Стоит это одного соединения на
+ * весь список, а не сорока запросов по одному.
+ */
 export async function getShift(tenantId: string, staffId: string, from: Date) {
-  const rows = await db
-    .select()
+  const found = await db
+    .select({ order: orders, clientKey: clients.key })
     .from(orders)
+    /* Внешним соединением: клиента могли удалить, и запись при этом
+       остаётся — `orders.client_id` тогда null. Внутреннее соединение
+       молча выкинуло бы такую машину из смены и из заработка. */
+    .leftJoin(clients, eq(clients.id, orders.clientId))
     .where(
       and(
         eq(orders.tenantId, tenantId),
@@ -209,6 +221,7 @@ export async function getShift(tenantId: string, staffId: string, from: Date) {
     )
     .orderBy(desc(orders.createdAt));
 
+  const rows = found.map((r) => ({ ...r.order, clientKey: r.clientKey }));
   const revenue = rows.reduce((s, o) => s + o.price, 0);
   const earned = rows.reduce((s, o) => s + Math.floor((o.price * o.staffPercent) / 100), 0);
   return { orders: rows, count: rows.length, revenue, earned };
@@ -722,6 +735,36 @@ export async function findClient(tenantId: string, key: string) {
   return c ?? null;
 }
 
+/**
+ * Каким классом эту машину записывали в прошлый раз.
+ *
+ * Класс принадлежит машине, а не заезду: джип не станет седаном между
+ * мойками. Поэтому для знакомого номера выбор подставляется сам, и тарифы
+ * не стоят мойщику ни одного лишнего касания сорок раз за смену.
+ *
+ * Живёт здесь, а не в маршруте приложения, потому что спрашивают это
+ * двое — телефон запросом и браузер серверным действием. Два одинаковых
+ * запроса в двух местах расходятся на первой же правке, а расхождение
+ * здесь означает, что на телефоне класс подставился, а в браузере нет.
+ */
+export async function lastTierOf(tenantId: string, clientId: string): Promise<string | null> {
+  const [last] = await db
+    .select({ tier: orders.tier })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        eq(orders.clientId, clientId),
+        isNotNull(orders.tier),
+        notCanceled,
+      ),
+    )
+    .orderBy(desc(orders.createdAt))
+    .limit(1);
+
+  return last?.tier ?? null;
+}
+
 export async function listClients(tenantId: string, limit = 500) {
   return db
     .select({
@@ -737,8 +780,15 @@ export async function listClients(tenantId: string, limit = 500) {
          `Date.now()` в разметке — это чтение часов во время отрисовки:
          у сервера и браузера они разные, и «3 օր առաջ» на сервере
          превращалось в «4 օր առաջ» после гидратации. Тот же приём уже
-         применён к простою бизнесов в админке. */
-      daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
+         применён к простою бизнесов в админке.
+
+         Отрицательных дней не бывает. Запись может лежать позже
+         текущего мгновения — часы телефона мойщика спешат, запись
+         доехала офлайн завтрашним числом, — и «был −1 день назад»
+         читается как поломка. Ближе всего к правде тут «сегодня», и
+         обрезать это надо здесь, а не в каждом из двух клиентов
+         по-своему. */
+      daysSince: sql<number>`greatest(0, floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400))::int`,
     })
     .from(clients)
     .where(and(eq(clients.tenantId, tenantId), realClient))
@@ -767,9 +817,13 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
       phone: clients.phone,
       visits: clients.visits,
       total: clients.total,
+      /* Когда приехал впервые. В списке это не нужно — там сравнивают
+         давность последнего визита, — а в карточке это первое, что
+         спрашивают про постоянного: «он у меня давно?» */
+      firstSeenAt: clients.firstSeenAt,
       lastSeenAt: clients.lastSeenAt,
-      // считает база — см. listClients
-      daysSince: sql<number>`floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400)::int`,
+      // считает база и обрезает нулём — см. listClients
+      daysSince: sql<number>`greatest(0, floor(extract(epoch from (now() - ${clients.lastSeenAt})) / 86400))::int`,
     })
     .from(clients)
     .where(and(eq(clients.tenantId, tenantId), sameClientKey(key)));

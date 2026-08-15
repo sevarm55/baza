@@ -79,3 +79,22 @@ export function toMinor(major: number, currency = 'AMD'): number {
 export function staffShare(price: number, percent: number): number {
   return Math.floor((price * percent) / 100);
 }
+
+/**
+ * Доля в процентах — целыми, но без округлённого нуля.
+ *
+ * «65 000 ֏ · 0 %» в разрезе выручки читается как поломка: деньги вот
+ * они, а доли у них нет. Округление до целых честно для восьми
+ * процентов и врёт для полупроцента — а полупроцент здесь обычное дело,
+ * потому что в разрезе рядом стоит услуга, дающая девяносто девять.
+ *
+ * Меньше процента так и называется — меньше процента. Знак пишется
+ * математический, тот же, что у минуса в деньгах: браузерный `<` в
+ * тексте рядом с числом читается началом разметки.
+ */
+export function formatShare(part: number, whole: number): string {
+  if (whole <= 0) return '0';
+  const exact = (part / whole) * 100;
+  if (exact > 0 && exact < 1) return '<1';
+  return String(Math.round(exact));
+}
