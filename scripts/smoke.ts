@@ -7,6 +7,8 @@
  */
 process.env.PGLITE_DIR = 'memory://';
 
+import { spawn } from 'node:child_process';
+
 let failed = 0;
 
 function check(name: string, condition: boolean, detail?: unknown) {
@@ -1065,6 +1067,47 @@ async function main() {
     { params: Promise.resolve({ id: hiredId }) },
   );
   check('процент больше ста не принимают', badPercent.status === 400, badPercent.status);
+
+  /* PATCH меняет названное и не трогает остальное. Раньше он требовал оба
+     поля сразу: «поднять ставку» одним процентом отвечало 400, а
+     «переименовать» одним именем обнулило бы ставку — то есть оставило бы
+     человека работать бесплатно до первой зарплаты. */
+  const onlyPercent = await staffOne.PATCH(
+    post('/staff', { percent: 55 }, rotated.access),
+    { params: Promise.resolve({ id: hiredId }) },
+  );
+  check('одну ставку менять можно', onlyPercent.status === 200, onlyPercent.status);
+  const afterPercent = (await onlyPercent.json()).staff;
+  check('ставка стала 55', afterPercent.percent === 55, afterPercent.percent);
+  check('имя осталось прежним', afterPercent.name === 'Վարդան', afterPercent.name);
+
+  const onlyName = await staffOne.PATCH(
+    post('/staff', { name: 'Վարդան Մ.' }, rotated.access),
+    { params: Promise.resolve({ id: hiredId }) },
+  );
+  check('одно имя менять можно', onlyName.status === 200, onlyName.status);
+  const afterName = (await onlyName.json()).staff;
+  check('имя поменялось', afterName.name === 'Վարդան Մ.', afterName.name);
+  check('а ставка НЕ обнулилась', afterName.percent === 55, afterName.percent);
+
+  const emptyPatch = await staffOne.PATCH(post('/staff', {}, rotated.access), {
+    params: Promise.resolve({ id: hiredId }),
+  });
+  check('пустая правка — отказ, а не «сохранено»', emptyPatch.status === 400, emptyPatch.status);
+
+  /* `null` в ставке — самый дорогой из кривых запросов: `Number(null)`
+     это ноль, и человек оставался работать бесплатно. Отвечал маршрут при
+     этом «сохранено», так что узнать об этом можно было только в день
+     зарплаты — когда в записях уже лежат снимки с нулём. */
+  for (const junk of [null, '40', true, [], {}] as unknown[]) {
+    const r = await staffOne.PATCH(post('/staff', { percent: junk }, rotated.access), {
+      params: Promise.resolve({ id: hiredId }),
+    });
+    check(`ставка «${JSON.stringify(junk)}» не принимается`, r.status === 400, r.status);
+  }
+  const stillPaid = await staffRoute.GET(get('/staff', rotated.access));
+  const stillRow = (await stillPaid.json()).staff.find((s: any) => s.id === hiredId);
+  check('и ставка осталась прежней', stillRow?.percent === 55, stillRow?.percent);
 
   /* Уволенный теряет доступ СРАЗУ, а не через месяц. Раньше у него
      оставался живой токен на весь его срок — это и проверяем. */
@@ -2517,6 +2560,212 @@ async function main() {
   check('человек пережил удаление своей точки', survivor !== undefined);
   check('и пробный срок остался израсходованным', survivor!.trialUsedAt !== null);
   check('вторая точка у него осталась', (await pointsOf(survivor!.id)).length === 1);
+
+  /* ---------- потолок суммы ----------
+   *
+   * Деньги лежат в `integer`. Всё, что больше двух миллиардов, Postgres
+   * не принимает, и до сих пор это выходило наружу пятисоткой
+   * «INTERNAL» — то есть выглядело поломкой сервера. Лишний ноль в форме
+   * это обычная опечатка, и ответ на неё должен называть причину, иначе
+   * человек жмёт «сохранить» ещё раз. */
+  console.log('\n── суммы больше, чем бывает');
+
+  const bigBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Триллион',
+    ownerName: 'Богач',
+    phone: '077 808 080',
+    pin: '1133',
+  });
+
+  const { addExpense: tryExpense, BadExpenseError } = await import('../lib/expenses');
+  const expenseCode = async (amount: number) => {
+    try {
+      await tryExpense({
+        tenantId: bigBiz.tenant.id,
+        userId: bigBiz.owner.id,
+        amount,
+        category: 'Тест',
+      });
+      return 'ok';
+    } catch (e) {
+      return e instanceof BadExpenseError ? e.message : `СЛОМАЛОСЬ: ${(e as Error).message.slice(0, 60)}`;
+    }
+  };
+
+  check('расход в триллион — понятный отказ, а не 500', (await expenseCode(1e12)) === 'BAD_AMOUNT');
+  check('и в два миллиарда тоже', (await expenseCode(2_100_000_000)) === 'BAD_AMOUNT');
+  check('миллион по-прежнему проходит', (await expenseCode(1_000_000)) === 'ok');
+
+  const bigPrice = await rejects(() =>
+    catalog.upsertService({ tenantId: bigBiz.tenant.id, name: 'Дорого', price: 1e12 }),
+  );
+  check('цена услуги в триллион не принимается', bigPrice);
+
+  /* ---------- номер русскими буквами ----------
+   *
+   * «34АА123» кириллицей и «34AA123» латиницей выглядят на экране
+   * одинаково, а для базы это разные клиенты. Мойщик с русской
+   * раскладкой заводил вторую карточку той же машины, и заметить это
+   * можно было только сравнив коды символов: в списке две одинаковые
+   * строки, у каждой своя история визитов и своя сумма. */
+  console.log('\n── номер русскими буквами — та же машина');
+
+  const { compactClientKey } = await import('../lib/client-key');
+  check(
+    'кириллическая А превращается в латинскую',
+    compactClientKey('34АА123') === '34AA123',
+    compactClientKey('34АА123'),
+  );
+  check('строчные тоже', compactClientKey('34 аа 123') === '34AA123', compactClientKey('34 аа 123'));
+  check('латиница не меняется', compactClientKey('34AA123') === '34AA123');
+  check(
+    'телефон остаётся телефоном',
+    compactClientKey('+374 77 12 34 56') === '+37477123456',
+    compactClientKey('+374 77 12 34 56'),
+  );
+  check(
+    'буква без латинского двойника не трогается',
+    compactClientKey('34ЖД123') === '34ЖД123',
+    compactClientKey('34ЖД123'),
+  );
+
+  const cyrBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Кириллица',
+    ownerName: 'Хозяин',
+    phone: '077 707 070',
+    pin: '1144',
+  });
+  const cyrService = (await q.listServices(cyrBiz.tenant.id))[0];
+
+  await createOrder({
+    tenantId: cyrBiz.tenant.id, staffId: cyrBiz.owner.id, serviceId: cyrService.id,
+    clientKey: '34AA123', payment: 'cash',
+  });
+  await createOrder({
+    tenantId: cyrBiz.tenant.id, staffId: cyrBiz.owner.id, serviceId: cyrService.id,
+    clientKey: '34АА123', payment: 'cash',
+  });
+
+  const oneCar = await q.findClient(cyrBiz.tenant.id, '34AA123');
+  check('обе записи легли на одну машину', oneCar?.visits === 2, oneCar?.visits);
+  const cyrLookup = await q.findClient(cyrBiz.tenant.id, '34АА123');
+  check('и находится она любым написанием', cyrLookup?.id === oneCar?.id);
+
+  /* ---------- одно правило округления на все слои ----------
+   *
+   * Доля человека почти всегда дробная: 999 ֏ под 33 % — это 329,67.
+   * Округлять её можно вниз или к ближайшему, но выбрать надо один раз и
+   * всюду: смена, зарплата, выгрузка и SQL-пересчёт обязаны назвать одно
+   * число. Продукт округляет ВНИЗ (`lib/money.ts`), и проверка здесь
+   * стоит на цифре, где два способа расходятся, — иначе она проходит на
+   * круглых демо-ценах и молчит там, где важна.
+   *
+   * Расхождение уже было: `scripts/audit-numbers.ts` — тот самый скрипт,
+   * которым сверяют цифры, когда им не верят, — считал `round`. На живой
+   * мойке со скидками он спорил бы с правильным ответом. */
+  console.log('\n── округление доли: одно правило везде');
+
+  const oddBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Округление',
+    ownerName: 'Проверяющий',
+    phone: '077 909 090',
+    pin: '1122',
+  });
+
+  const [oddWasher] = await db
+    .insert(users)
+    .values({
+      tenantId: oddBiz.tenant.id,
+      phone: '+37477909091',
+      pinHash: await hashPin('3344'),
+      name: 'Դրոբնի',
+      role: 'staff',
+      percent: 33,
+    })
+    .returning();
+
+  const oddService = (await q.listServices(oddBiz.tenant.id))[0];
+  await db.update(services).set({ price: 1000 }).where(eq(services.id, oddService.id));
+
+  // 999 × 33 % = 329,67 → вниз 329, к ближайшему 330
+  await createOrder({
+    tenantId: oddBiz.tenant.id,
+    staffId: oddWasher.id,
+    serviceId: oddService.id,
+    clientKey: '99 OD 999',
+    payment: 'cash',
+    price: 999,
+  });
+
+  const oddShift = await q.getShift(oddBiz.tenant.id, oddWasher.id, q.startOfDay(oddBiz.tenant.timezone));
+  check('смена округляет вниз: 999 × 33 % = 329', oddShift.earned === 329, oddShift.earned);
+
+  const oddDue = (await q.getUnsettledPayroll(oddBiz.tenant.id)).find(
+    (r) => r.staffId === oddWasher.id,
+  );
+  check('зарплата считает то же самое', oddDue?.earned === 329, oddDue?.earned);
+
+  const oddDays = (await q.getUnsettledByDay(oddBiz.tenant.id, oddBiz.tenant.timezone)).filter(
+    (d) => d.staffId === oddWasher.id,
+  );
+  check(
+    'дневной лист тоже',
+    oddDays.reduce((s, d) => s + d.earned, 0) === 329,
+    oddDays.map((d) => d.earned),
+  );
+
+  const oddSql = await db.execute(
+    sql`select coalesce(sum(floor(price * staff_percent / 100.0)), 0)::int as owed
+        from orders where tenant_id = ${oddBiz.tenant.id} and canceled_at is null`,
+  );
+  const oddOwed = Number(((oddSql as any).rows ?? oddSql)[0].owed);
+  check('и пересчёт голым SQL — тем же правилом', oddOwed === 329, oddOwed);
+
+  /* ---------- замок на боевую базу ----------
+   *
+   * Проверяется запуском отдельного процесса, а не вызовом функции:
+   * замок стоит на загрузке модуля базы, и в этом процессе она уже
+   * загружена — своей, в памяти. Второй процесс с чужим DATABASE_URL —
+   * единственный способ увидеть то же, что увидит человек, у которого в
+   * `.env.local` осталась боевая строка. */
+  console.log('\n── замок на чужую базу в режиме разработки');
+
+  const REMOTE = 'postgres://user:pw@db.example.com:5432/app';
+  const LOCAL = 'postgres://tetr:tetr@127.0.0.1:5433/tetr';
+
+  const loadsDb = (env: Record<string, string>) =>
+    new Promise<{ code: number; err: string }>((resolve) => {
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '-e', "import('./lib/db').then(() => {})"],
+        { env: { ...process.env, PGLITE_DIR: 'memory://', ...env }, stdio: 'pipe' },
+      );
+      let err = '';
+      child.stderr.on('data', (c) => (err += String(c)));
+      child.on('close', (code) => resolve({ code: code ?? 0, err }));
+    });
+
+  const stopped = await loadsDb({ NODE_ENV: 'development', DATABASE_URL: REMOTE });
+  check('чужая база в разработке не открывается', stopped.code !== 0, stopped.code);
+  check('и объясняет, чем это грозит', stopped.err.includes('боевая база'), stopped.err.slice(0, 200));
+
+  const own = await loadsDb({ NODE_ENV: 'development', DATABASE_URL: LOCAL });
+  check('своя база открывается как обычно', own.code === 0, own.err.slice(0, 200));
+
+  const allowed = await loadsDb({
+    NODE_ENV: 'development',
+    DATABASE_URL: REMOTE,
+    TETR_ALLOW_REMOTE_DB: '1',
+  });
+  check('осознанный доступ к чужой базе разрешён', allowed.code === 0, allowed.err.slice(0, 200));
+
+  /* Сервер и скрипты замка не касаются: миграции и активация подписки
+     ходят в боевую базу по делу, и NODE_ENV у них не `development`. */
+  const server = await loadsDb({ NODE_ENV: 'production', DATABASE_URL: REMOTE, SESSION_SECRET: 'x'.repeat(32) });
+  check('на сервере замка нет', server.code === 0, server.err.slice(0, 200));
 
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
