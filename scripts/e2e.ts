@@ -26,7 +26,29 @@ try {
 }
 
 const BASE = process.env.BASE ?? 'http://localhost:3100';
-const READONLY = BASE !== 'http://localhost:3100';
+
+/**
+ * Писать разрешено только по своей машине.
+ *
+ * Раньше условие было буквальным — «адрес в точности localhost:3100», — и
+ * второй сервер на соседнем порту молча превращал прогон в
+ * четыре проверки из семидесяти шести: он считался продом. Порт при этом
+ * меняют постоянно: 3100 занят первым же запущенным `npm run dev`.
+ *
+ * Решает не порт, а хозяин адреса: свой компьютер — пишем, что угодно
+ * другое — только читаем. Ошибка теперь может быть лишь в безопасную
+ * сторону: незнакомый адрес пишущим не станет никогда.
+ */
+const READONLY = !isLocal(BASE);
+
+function isLocal(base: string): boolean {
+  try {
+    const { hostname } = new URL(base);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false;
+  }
+}
 
 let passed = 0;
 const failures: string[] = [];

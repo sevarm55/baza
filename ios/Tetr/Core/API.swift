@@ -758,25 +758,58 @@ actor APIClient {
        до следующего обновления. */
     private let base = APIClient.baseURL()
 
+    /// Боевой адрес. Единственное место, где он написан.
+    static let production = URL(string: "https://tetrin.pro/api/v1/")!
+
+    /// Куда ходит отладочная сборка, если её не попросили о другом.
+    static let development = URL(string: "http://localhost:3100/api/v1/")!
+
     /**
      * Адрес сервера.
      *
-     * В обычной сборке он один и зашит намертво. В отладочной его можно
-     * подменить переменной окружения `TETR_API` — без этого проверить
-     * приложение можно только на боевом сервере, то есть на живых
-     * клиентах. Схема запуска в Xcode переменных не несёт: ставится руками
-     * или через `xcrun simctl launch`.
+     * Отладочная сборка ходит на свой компьютер, магазинная — на боевой
+     * сервер. Иначе не бывает: обратное означало бы, что проверка нового
+     * экрана идёт по живым клиентам — заводит им машины, тратит их
+     * абонементы и портит им зарплату за месяц. Такую ошибку нельзя
+     * заметить вовремя, потому что выглядит она как работающее приложение.
+     *
+     * Раньше умолчанием здесь был как раз прод: `TETR_API` подменял адрес,
+     * но переменную надо было не забыть, а забывается она молча. Теперь
+     * забыть можно только в безопасную сторону — сборка с отладкой упрётся
+     * в «нет связи», если сервер не поднят, и это видно сразу.
+     *
+     * Переменная осталась, и смысла у неё три:
+     *
+     *     TETR_API=http://192.168.1.5:3100/api/v1/   телефон в той же сети
+     *     TETR_API=prod                              осознанно по бою
+     *     TETR_API=<пусто>                           localhost, как обычно
+     *
+     * Ставится в схеме Xcode (она описана в `ios/project.yml`, галочка
+     * рядом со значением) или при запуске:
      *
      *     xcrun simctl launch --console <udid> com.sevarm.tetr \
      *       --setenv TETR_API http://localhost:3100/api/v1/
      */
     private static func baseURL() -> URL {
         #if DEBUG
-        if let raw = ProcessInfo.processInfo.environment["TETR_API"], let url = URL(string: raw) {
-            return url
-        }
+        let raw = ProcessInfo.processInfo.environment["TETR_API"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if raw.isEmpty { return development }
+        if raw == "prod" || raw == "production" { return production }
+
+        /* Пустой хост — это опечатка вроде «localhost:3100/api/v1/» без
+           схемы: URL такую строку принимает, а запрос по ней не уходит
+           никуда. Молча падать в прод на опечатке нельзя, поэтому
+           остаёмся на своей машине. */
+        guard let url = URL(string: raw), url.host != nil else { return development }
+        return url
+        #else
+        /* Магазинная сборка адрес не выбирает: переменные окружения
+           задаются тем, кто запускает процесс, и на чужом устройстве это
+           не мы. */
+        return production
         #endif
-        return URL(string: "https://tetrin.pro/api/v1/")!
     }
     private let session: URLSession
 

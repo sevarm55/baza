@@ -32,10 +32,65 @@ function databaseUrl(): string | undefined {
   return process.env.DATABASE_URL || process.env.POSTGRES_URL || undefined;
 }
 
+/**
+ * Не дать `npm run dev` уехать на боевую базу.
+ *
+ * Адрес база берёт из `.env.local`, а файл этот у каждого свой и в гит не
+ * попадает. Один раз вставленная туда боевая строка — чтобы «посмотреть,
+ * как там на самом деле» — остаётся навсегда, и дальше каждая проверка
+ * идёт по живым мойкам: заведённые машины, потраченные абонементы,
+ * съехавшая зарплата за месяц. Со стороны это выглядит как нормально
+ * работающее приложение, поэтому поймать такое можно только случайно.
+ *
+ * Проверка стоит ровно на `next dev`: NODE_ENV там `development`.
+ * Сборка, сервер и скрипты (миграции, активация подписки) идут с другим
+ * NODE_ENV и сюда не попадают — им боевая база и нужна.
+ *
+ * Выход из положения на случай, когда чужая база действительно нужна:
+ * `TETR_ALLOW_REMOTE_DB=1 npm run dev`. Это уже осознанное действие, а не
+ * забытая строчка в файле.
+ */
+function guardRemoteDatabase(url: string) {
+  if (process.env.NODE_ENV !== 'development') return;
+  if (process.env.TETR_ALLOW_REMOTE_DB === '1') return;
+
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    // Разобрать не смогли — пусть об этом расскажет драйвер, а не мы
+    return;
+  }
+
+  const local =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    // docker compose: база под своим именем в сети контейнеров
+    host === 'db' ||
+    host === 'postgres' ||
+    host === 'tetr-dev-db' ||
+    host.endsWith('.local') ||
+    host.endsWith('.localhost');
+
+  if (local) return;
+
+  throw new Error(
+    `DATABASE_URL в режиме разработки указывает на чужой сервер: ${host}\n` +
+      'Это боевая база — записи, зарплаты и абонементы там принадлежат живым мойкам.\n' +
+      'Локальная база поднимается двумя командами:\n' +
+      '  npm run db:up\n' +
+      '  npm run db:fresh\n' +
+      'Если чужая база нужна осознанно: TETR_ALLOW_REMOTE_DB=1 npm run dev',
+  );
+}
+
 function createClient() {
   const url = databaseUrl();
 
   if (url) {
+    guardRemoteDatabase(url);
     const client =
       globalForDb.__pg ??
       postgres(url, {
