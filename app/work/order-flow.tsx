@@ -1,5 +1,7 @@
 'use client';
 
+import { useT } from '@/lib/i18n/client';
+import type { Dict } from '@/lib/i18n';
 import {
   useCallback,
   useEffect,
@@ -11,7 +13,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { addOrder, lookupClient } from '@/app/actions';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { RevokeOrder } from './revoke-order';
 import { EmptyState } from '@/components/empty-state';
 import { Panel, Row } from '@/components/board';
@@ -97,11 +98,13 @@ const PANEL = { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent
  *
  * Теперь все три спокойные и одинаковые, а цвет несёт ровно одно:
  * который из них выбран. */
-const PAYMENTS: { key: Payment; label: string; Icon: typeof IconCash }[] = [
-  { key: 'cash', label: hy.payment.cash, Icon: IconCash },
-  { key: 'card', label: hy.payment.card, Icon: IconCard },
-  { key: 'transfer', label: hy.payment.transfer, Icon: IconTransfer },
-];
+function payments(t: Dict): { key: Payment; label: string; Icon: typeof IconCash }[] {
+  return [
+    { key: 'cash', label: t.payment.cash, Icon: IconCash },
+    { key: 'card', label: t.payment.card, Icon: IconCard },
+    { key: 'transfer', label: t.payment.transfer, Icon: IconTransfer },
+  ];
+}
 
 export function OrderFlow({
   canWrite,
@@ -138,6 +141,7 @@ export function OrderFlow({
   /** смена открыта: пусто здесь означает разное до неё и внутри неё */
   shiftOpen: boolean;
 }) {
+  const t = useT();
   const [wanted, setStep] = useState<Step>('home');
   const [clientKey, setClientKey] = useState('');
   const [service, setService] = useState<Service | null>(null);
@@ -327,7 +331,7 @@ export function OrderFlow({
         /* Набранное остаётся на месте. Мойщик набирал номер мокрыми
            руками; заставить его набрать всё заново из-за пропавшей на
            секунду связи — это потерять машину, а не запись. */
-        setError(hy.work.addFailed);
+        setError(t.work.addFailed);
       } finally {
         sending.current = false;
       }
@@ -336,19 +340,19 @@ export function OrderFlow({
 
   /* ------------------------------ журнал ------------------------------ */
   const journal = (
-    <Panel title={hy.work.recent} count={recent.length + queue.length}>
+    <Panel title={t.work.recent} count={recent.length + queue.length}>
       <div className="board-journal">
         {queue.map((q) => (
           <Row key={q.ref}>
             <span className="min-w-0 flex-1">
               <span className="num block truncate text-[14.5px] font-semibold">{q.clientKey}</span>
               <span className="block truncate text-[12.5px]" style={{ color: 'var(--warn-on-board)' }}>
-                {[q.serviceName, hy.work.pending].join(' · ')}
+                {[q.serviceName, t.work.pending].join(' · ')}
               </span>
             </span>
             <span className="shrink-0 text-end">
               <span className="num block text-[14px] font-semibold">
-                {formatMoney(q.price, currency)}
+                {formatMoney(q.price, currency, t.locale)}
               </span>
               <span className="num block text-[12px]" style={{ color: 'var(--board-muted)' }}>
                 {hhmm(q.at, timezone)}
@@ -362,8 +366,8 @@ export function OrderFlow({
              говорит, что делать; второй — что всё в порядке и первая
              машина просто ещё не приехала. */
           <EmptyState
-            title={shiftOpen ? hy.work.emptyOpen : hy.work.emptyOff}
-            note={shiftOpen ? hy.work.emptyOpenNote : hy.work.emptyOffNote}
+            title={shiftOpen ? t.work.emptyOpen : t.work.emptyOff}
+            note={shiftOpen ? t.work.emptyOpenNote : t.work.emptyOffNote}
           />
         ) : (
           recent.map((o) => {
@@ -371,7 +375,7 @@ export function OrderFlow({
                записей за смену «Комплекс» встречается двадцать раз, а
                номер один: искать свою ошибку по названию услуги — это
                читать список целиком. */
-            const detail = [o.serviceName, paymentLabel(o.payment), hhmm(o.at, timezone)].join(
+            const detail = [o.serviceName, paymentLabel(o.payment, t), hhmm(o.at, timezone)].join(
               ' · ',
             );
             return (
@@ -384,11 +388,11 @@ export function OrderFlow({
                     className="block truncate text-[12.5px]"
                     style={{ color: 'var(--board-muted)' }}
                   >
-                    {o.clientKey ? detail : `${paymentLabel(o.payment)} · ${hhmm(o.at, timezone)}`}
+                    {o.clientKey ? detail : `${paymentLabel(o.payment, t)} · ${hhmm(o.at, timezone)}`}
                   </span>
                 </span>
                 <span className="num shrink-0 text-[14px] font-semibold">
-                  {formatMoney(o.price, currency)}
+                  {formatMoney(o.price, currency, t.locale)}
                 </span>
                 {/* Ошибся номером или услугой — исправляет сам, не бегая
                     к владельцу. Стоит последним и тихо: отменять
@@ -396,7 +400,7 @@ export function OrderFlow({
                 <RevokeOrder
                   orderId={o.id}
                   title={o.clientKey ?? o.serviceName}
-                  detail={`${o.serviceName} · ${formatMoney(o.price, currency)}`}
+                  detail={`${o.serviceName} · ${formatMoney(o.price, currency, t.locale)}`}
                 />
               </Row>
             );
@@ -423,7 +427,7 @@ export function OrderFlow({
 
         {/* Мойщик должен видеть, что его работа не потерялась, даже если
             связи нет прямо сейчас. */}
-        {queue.length > 0 && <div className="hint-warn">{hy.work.waitingToSend(queue.length)}</div>}
+        {queue.length > 0 && <div className="hint-warn">{t.work.waitingToSend(queue.length)}</div>}
 
         {/* Журнал — прибор с подложкой, как списки в кабинете. Раньше он
             лежал прямо на полотне: строки висели в пустоте, а время и
@@ -443,7 +447,7 @@ export function OrderFlow({
   const usingPass = payment === 'pass' && Boolean(activePass);
   const ready = resolvedClientKey.length > 0 && service !== null && payment !== null;
   const sum = usingPass
-    ? hy.payment.pass
+    ? t.payment.pass
     : formatMoney(service ? priceOf(service) : 0, currency);
 
   /* Запись — на той же подложке, что журнал на её месте. Иначе при
@@ -491,10 +495,10 @@ export function OrderFlow({
             назовёт цену. */}
         {known && (
           <div className="hint-good mt-2">
-            {hy.work.knownClient(
+            {t.work.knownClient(
               known.visits,
-              agoLabel(known.lastSeenAt),
-              formatMoney(known.total, currency),
+              agoLabel(known.lastSeenAt, t),
+              formatMoney(known.total, currency, t.locale),
             )}
           </div>
         )}
@@ -524,7 +528,7 @@ export function OrderFlow({
           </>
         )}
 
-        <div className="label mt-4 mb-2">{hy.work.stepService}</div>
+        <div className="label mt-4 mb-2">{t.work.stepService}</div>
         {/* Услуги фишками, а не столбцом кнопок: их пять-шесть, названия
             разной длины, и в столбце они занимали пол-экрана — до оплаты
             приходилось листать. Повторное нажатие снимает выбор. */}
@@ -566,12 +570,12 @@ export function OrderFlow({
               мойщик не должен, а сказать её клиенту должен вслух. */}
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <span className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
-              {hy.work.toPay}
+              {t.work.toPay}
             </span>
             <span className="num text-[24px] leading-none font-bold tracking-[-0.03em]">{sum}</span>
           </div>
 
-          <div className="label mb-2">{hy.work.stepPayment}</div>
+          <div className="label mb-2">{t.work.stepPayment}</div>
 
           {/* Абонемент идёт первым и во всю ширину: если он у клиента
               есть, брать деньги повторно — прямая ошибка. */}
@@ -588,16 +592,16 @@ export function OrderFlow({
             >
               <span className="flex items-center gap-2.5 font-semibold">
                 <IconTicket className="size-[18px] shrink-0" />
-                {hy.payment.pass}
+                {t.payment.pass}
               </span>
               <span className="num">
-                {hy.passes.remaining} {activePass.remaining}
+                {t.passes.remaining} {activePass.remaining}
               </span>
             </button>
           )}
 
           <div className="grid grid-cols-3 gap-2">
-            {PAYMENTS.map((p) => (
+            {payments(t).map((p) => (
               <button
                 key={p.key}
                 type="button"
@@ -626,13 +630,13 @@ export function OrderFlow({
           disabled={!ready || pending}
           onClick={submit}
         >
-          {pending ? hy.common.loading : hy.work.addFor(unitOne, sum)}
+          {pending ? t.common.loading : t.work.addFor(unitOne, sum)}
         </button>
 
         {error && <p className="alert mt-2.5">{error}</p>}
 
         <button className="btn btn-ghost mt-2.5" disabled={pending} onClick={close}>
-          {hy.common.cancel}
+          {t.common.cancel}
         </button>
       </div>
 
@@ -646,16 +650,16 @@ export function OrderFlow({
 
 /* ------------------------------ мелочи ------------------------------ */
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }
 
-function agoLabel(iso: string): string {
+function agoLabel(iso: string, t: Dict): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  return days <= 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(days);
+  return days <= 0 ? t.owner.lastVisitToday : t.owner.lastVisitAgo(days);
 }
 
 /**
@@ -668,10 +672,11 @@ function agoLabel(iso: string): string {
  * равно другое: машина, появившаяся в журнале под формой.
  */
 function Saved({ className = '' }: { className?: string }) {
+  const t = useT();
   return (
     <p className={`saved-line ${className}`}>
       <IconCheck className="size-[15px] shrink-0" aria-hidden />
-      {hy.work.saved}
+      {t.work.saved}
     </p>
   );
 }

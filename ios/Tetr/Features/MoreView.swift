@@ -50,10 +50,10 @@ struct MoreView: View {
      */
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Ավելին")
+            Text(L("more.title"))
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(Brand.onBoard)
-            Text("Ձեր բիզնեսի քարտեզը")
+            Text(L("more.lead"))
                 .font(.system(size: 13.5))
                 .foregroundStyle(Brand.boardMuted)
         }
@@ -67,15 +67,15 @@ struct MoreView: View {
         let all = session.points.count
         let closed = session.points.filter { !$0.canRead }.count
         return closed == 0
-            ? "\(all) մասնաճյուղ · բոլորը բաց են"
-            : "\(all) մասնաճյուղ · \(closed) սպասում է վճարման"
+            ? L("more.pointsAllOpen", all)
+            : L("more.pointsSomeClosed", all, closed)
     }
 
     // ══════════════════════════ карта разделов ══════════════════════════
 
     private var pointsCard: some View {
         NavigationLink {
-            PointsView().navigationTitle("Իմ մասնաճյուղերը")
+            PointsView().navigationTitle(L("points.title"))
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "building.2.fill")
@@ -84,7 +84,7 @@ struct MoreView: View {
                     .frame(width: 38, height: 38)
                     .background(Brand.lavenderCard, in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Մասնաճյուղեր")
+                    Text(L("more.points"))
                         .font(.system(size: 15, weight: .semibold))
                     Text(points)
                         .font(.system(size: 12.5))
@@ -130,10 +130,10 @@ struct MoreView: View {
                         .font(.system(size: 11, weight: .black, design: .rounded))
                         .tracking(1.4)
                         .foregroundStyle(Brand.lavenderInk.opacity(0.75))
-                    Text("Օրացույց")
+                    Text(L("calendar.title"))
                         .font(.system(size: 25, weight: .bold))
                         .foregroundStyle(Brand.onBoard)
-                    Text("Օրեր, ամիսներ, ամբողջ պատմությունը")
+                    Text(L("calendar.lead"))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -156,17 +156,17 @@ struct MoreView: View {
     private var controlMosaic: some View {
         HStack(spacing: 10) {
             NavigationLink {
-                ClientsView().navigationTitle("Հաճախորդներ")
+                ClientsView().navigationTitle(L("owner.tabClients"))
             } label: {
                 VStack(alignment: .leading, spacing: 0) {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(Brand.mintInk)
                     Spacer()
-                    Text("Հաճախորդներ")
+                    Text(L("owner.tabClients"))
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(Brand.mintInk)
-                    Text("Այցեր ու մեքենաների պատմություն")
+                    Text(L("more.clientsLead"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.mintInk.opacity(0.7))
                         .multilineTextAlignment(.leading)
@@ -179,16 +179,16 @@ struct MoreView: View {
 
             VStack(spacing: 10) {
                 smallTile(
-                    "Ծառայություններ", "tag.fill",
+                    L("settings.tabServices"), "tag.fill",
                     fill: Brand.lavenderCard, ink: Brand.lavenderInk
                 ) {
-                    ServicesView().navigationTitle("Ծառայություններ և գներ")
+                    ServicesView().navigationTitle(L("settings.services"))
                 }
                 smallTile(
-                    "Ծախսեր", "arrow.down",
+                    L("expenses.title"), "arrow.down",
                     fill: Brand.sandCard, ink: Brand.sandInk
                 ) {
-                    ExpensesView().navigationTitle("Ծախսեր")
+                    ExpensesView().navigationTitle(L("expenses.title"))
                 }
             }
             .frame(maxWidth: .infinity)
@@ -234,17 +234,17 @@ struct MoreView: View {
      */
     private var staffCard: some View {
         NavigationLink {
-            StaffView().navigationTitle("Թիմ")
+            StaffView().navigationTitle(L("more.team"))
         } label: {
             HStack(spacing: 11) {
                 Image(systemName: "person.2.fill")
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(Brand.mintInk)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Թիմ")
+                    Text(L("more.team"))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Brand.onBoard)
-                    Text("աշխատակիցներ և տոկոսներ")
+                    Text(L("more.teamLead"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -268,7 +268,7 @@ struct MoreView: View {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(Brand.boardMuted)
-                Text("Պրոֆիլ և մուտք")
+                Text(L("more.profileLead"))
                     .font(.system(size: 14.5, weight: .semibold))
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -311,10 +311,10 @@ struct MoreView: View {
                     .background(Brand.grapeFill, in: .rect(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(exporting ? "Պատրաստվում է…" : "Արտահանել տվյալները")
+                    Text(exporting ? L("common.preparing") : L("more.export"))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
-                    Text("վերջին 30 օրը")
+                    Text(L("more.exportLead"))
                         .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                 }

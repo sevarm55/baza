@@ -37,7 +37,7 @@ struct ShiftLiveActivityWidget: Widget {
                             .monospacedDigit()
                             .contentTransition(.numericText())
                             .privacySensitive()
-                        Text("հասույթ")
+                        Text(L("widget.revenue"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -58,7 +58,7 @@ struct ShiftLiveActivityWidget: Widget {
 
                         Spacer(minLength: 4)
 
-                        Text("Կանխիկ \(money(context.state.cash, context.attributes.currency))")
+                        Text(L("day.cashInShift", money(context.state.cash, context.attributes.currency)))
                             .font(.caption)
                             .monospacedDigit()
                             .privacySensitive()
@@ -103,7 +103,7 @@ struct ShiftLiveActivityWidget: Widget {
                     Circle()
                         .fill(ShiftLiveStyle.lime)
                         .frame(width: 6, height: 6)
-                    Text("Հերթափոխը բաց է")
+                    Text(L("work.signOutOpenTitle"))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.68))
                     Text(context.attributes.openedAt, style: .timer)
@@ -115,7 +115,7 @@ struct ShiftLiveActivityWidget: Widget {
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 3) {
-                Text("\(context.state.count) \(unit(context.attributes.unitName, count: context.state.count))")
+                Text(units(context.attributes.unitName, count: context.state.count))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .contentTransition(.numericText())
@@ -132,14 +132,21 @@ struct ShiftLiveActivityWidget: Widget {
         .padding(.vertical, 12)
     }
 
+    /// Подпись под числом — множественное: «машины», а не «машина».
     private func unit(_ value: String, count: Int) -> String {
-        value.isEmpty ? "գրանցում" : value
+        value.isEmpty ? L("widget.records") : Terms.unit(value).many
+    }
+
+    /// «3 машины» — число и слово вместе, с формой по числу.
+    private func units(_ value: String, count: Int) -> String {
+        value.isEmpty ? "\(count) \(L("widget.records"))" : Terms.units(count, value)
     }
 
     private func money(_ value: Int, _ currency: String) -> String {
         let f = NumberFormatter()
         f.numberStyle = .decimal
-        f.groupingSeparator = "\u{202F}"
+        // разряды по языку интерфейса; валюта от языка не зависит
+        f.groupingSeparator = LangStore.currentLang.groupSeparator
         let amount = f.string(from: NSNumber(value: value)) ?? "\(value)"
         return currency == "AMD" ? "\(amount) ֏" : "\(amount) \(currency)"
     }

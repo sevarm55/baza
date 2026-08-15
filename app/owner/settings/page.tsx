@@ -3,12 +3,14 @@ import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getServiceStats, getTenant, listServices, startOfMonth } from '@/lib/queries';
 import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { Segmented } from '@/components/segmented';
 import { Services, type ServiceRow } from './services';
 import { BusinessForm } from './business-form';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull } from '@/lib/i18n/terms';
 
 type Tab = 'services' | 'business' | 'data';
 
@@ -37,8 +39,12 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ s?: string; delete?: string }>;
 }) {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   const asked = await searchParams;
@@ -49,11 +55,11 @@ export default async function SettingsPage({
   const failure = asked.delete;
   const deleteError =
     failure === 'pin'
-      ? hy.settings.deleteWrongPin
+      ? t.settings.deleteWrongPin
       : failure === 'throttled'
-        ? hy.settings.deleteThrottled
+        ? t.settings.deleteThrottled
         : failure
-          ? hy.settings.deleteFailed
+          ? t.settings.deleteFailed
           : null;
 
   /* Рядом с прейскурантом — что из него берут за месяц: цену правят
@@ -65,14 +71,14 @@ export default async function SettingsPage({
 
   const symbol = currencySymbol(tenant.currency);
   const step = toMajor(1, tenant.currency);
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const sold = new Map(month.map((m) => [m.serviceId ?? '', m]));
 
   const rows: ServiceRow[] = services.map((s) => ({
     id: s.id,
     name: s.name,
     price: toMajor(s.price, tenant.currency),
-    display: formatAmount(s.price, tenant.currency),
+    display: formatAmount(s.price, tenant.currency, t.locale),
     count: sold.get(s.id)?.count ?? 0,
     revenue: money(sold.get(s.id)?.revenue ?? 0),
   }));
@@ -89,16 +95,16 @@ export default async function SettingsPage({
 
   return (
     <>
-      <PageHead title={hy.owner.tabSettings} meta={hy.settings.lead}>
+      <PageHead title={t.owner.tabSettings} meta={t.settings.lead}>
         <Segmented
           id="settings-tabs"
           current={tab}
           full
-          label={hy.owner.tabSettings}
+          label={t.owner.tabSettings}
           items={[
-            { key: 'services', label: hy.settings.tabServices, href: href('services') },
-            { key: 'business', label: hy.settings.business, href: href('business') },
-            { key: 'data', label: hy.settings.tabData, href: href('data') },
+            { key: 'services', label: t.settings.tabServices, href: href('services') },
+            { key: 'business', label: t.settings.business, href: href('business') },
+            { key: 'data', label: t.settings.tabData, href: href('data') },
           ]}
         />
       </PageHead>
@@ -109,20 +115,20 @@ export default async function SettingsPage({
               прейскуранте, по какой средней цене и что он принёс за
               месяц. Числа справочные, и весить как показания им незачем. */}
           <p className="quick">
-            <b className="num">{services.length}</b> {hy.owner.colService.toLocaleLowerCase('hy')}
+            <b className="num">{services.length}</b> {t.owner.colService.toLocaleLowerCase(t.locale)}
             {avgPrice > 0 && (
               <>
                 <i />
-                {hy.owner.avgShort} <b className="num">{money(avgPrice)}</b>
+                {t.owner.avgShort} <b className="num">{money(avgPrice)}</b>
               </>
             )}
             {cars > 0 && (
               <>
                 <i />
-                <b className="num">{cars}</b> {tenant.unitOne}
+                {unitCount(cars, tenant.unitOne, t.locale)}
                 <i />
                 <b className="num">{money(revenue)}</b>{' '}
-                {hy.owner.periodMonth.toLocaleLowerCase('hy')}
+                {t.owner.periodMonth.toLocaleLowerCase(t.locale)}
               </>
             )}
           </p>
@@ -135,12 +141,12 @@ export default async function SettingsPage({
 
       {tab === 'business' && (
         <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-          <Panel title={hy.settings.business} className="lg:col-span-7">
+          <Panel title={t.settings.business} className="lg:col-span-7">
             {/* Подпись отдельной строкой, а не оберткой: внутри своя
                 форма, а форму в `<label>` заворачивать нельзя — поле
                 внутри неё перестаёт быть подписанным. */}
             <div className="grid gap-1.5">
-              <span className="label">{hy.settings.businessName}</span>
+              <span className="label">{t.settings.businessName}</span>
               <BusinessForm name={tenant.name} />
             </div>
 
@@ -149,10 +155,10 @@ export default async function SettingsPage({
                 каждый был отдельный прибор с одной широкой кнопкой. */}
             <div className="rows mt-4">
               <Link className="link-row" href="/owner/profile">
-                {hy.profile.title}
+                {t.profile.title}
               </Link>
               <Link className="link-row" href="/owner/points">
-                {hy.points.title}
+                {t.points.title}
               </Link>
             </div>
           </Panel>
@@ -165,14 +171,14 @@ export default async function SettingsPage({
 
       {tab === 'data' && (
         <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-          <Panel title={hy.settings.export} className="lg:col-span-7">
+          <Panel title={t.settings.export} className="lg:col-span-7">
             <p className="text-[14px]" style={{ color: 'var(--board-muted)' }}>
-              {hy.settings.exportNote}
+              {t.settings.exportNote}
             </p>
 
             <div className="mt-4">
               <a className="btn-inline" href="/owner/export?days=30" download>
-                {hy.settings.exportCsv}
+                {t.settings.exportCsv}
               </a>
             </div>
           </Panel>
@@ -190,7 +196,8 @@ export default async function SettingsPage({
  * осознанно. Раньше оно лежало прямо под ссылкой на выгрузку, в одной
  * колонке с названием точки.
  */
-function DangerZone({ deleteError }: { deleteError: string | null }) {
+async function DangerZone({ deleteError }: { deleteError: string | null }) {
+  const t = await getDict();
   /* Подложка и поле — те же, что у прибора, а не `.card`: на странице,
      где всё остальное собрано из приборов, карточка с другим полем
      читается деталью из другого набора. */
@@ -201,15 +208,15 @@ function DangerZone({ deleteError }: { deleteError: string | null }) {
       open={deleteError !== null}
     >
       <summary className="cursor-pointer text-[14px] font-semibold">
-        {hy.settings.deleteTitle}
+        {t.settings.deleteTitle}
       </summary>
 
-      <p className="note mt-3">{hy.settings.deleteWhat}</p>
-      <p className="note note-warn mt-1.5 font-semibold">{hy.settings.deleteNoWayBack}</p>
+      <p className="note mt-3">{t.settings.deleteWhat}</p>
+      <p className="note note-warn mt-1.5 font-semibold">{t.settings.deleteNoWayBack}</p>
 
       <form method="post" action="/owner/settings/delete" className="mt-3.5 grid gap-2.5">
         <label className="grid gap-1.5">
-          <span className="label">{hy.settings.deletePin}</span>
+          <span className="label">{t.settings.deletePin}</span>
           <input
             className="field"
             name="pin"
@@ -227,14 +234,14 @@ function DangerZone({ deleteError }: { deleteError: string | null }) {
         {/* Сохраняющий путь первым: по умолчанию человек уносит свои
             данные с собой, а не теряет их молча. */}
         <button className="btn" name="mode" value="keep">
-          {hy.settings.deleteKeep}
+          {t.settings.deleteKeep}
         </button>
         <button className="btn btn-ghost text-bad" name="mode" value="wipe">
-          {hy.settings.deleteWipe}
+          {t.settings.deleteWipe}
         </button>
       </form>
 
-      <p className="note mt-2.5">{hy.settings.deleteHint}</p>
+      <p className="note mt-2.5">{t.settings.deleteHint}</p>
     </details>
   );
 }

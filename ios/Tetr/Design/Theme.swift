@@ -266,24 +266,44 @@ extension View {
 func money(_ amount: Int, _ currency: String = "AMD") -> String {
     let f = NumberFormatter()
     f.numberStyle = .decimal
-    f.groupingSeparator = "\u{202F}"
+    /* Разряды по языку интерфейса, а не по языку телефона: сумма обязана
+       выглядеть одинаково в приложении и в браузере до символа. Валюта от
+       языка НЕ зависит — мойка в Ереване берёт драмы, на каком бы языке
+       владелец ни читал экран. */
+    f.groupingSeparator = LangStore.currentLang.groupSeparator
+    f.decimalSeparator = LangStore.currentLang.decimalSeparator
     let number = f.string(from: NSNumber(value: amount)) ?? "\(amount)"
     let symbol = currency == "AMD" ? "֏" : currency
     return "\(number)\u{202F}\(symbol)"
 }
 
 /**
- * Отложительный падеж: «մեքենա» → «մեքենայից».
+ * «с одной машины» — единица учёта в нужной форме.
  *
- * Единица приходит с сервера словом, которое придумал владелец, — у мойки
- * машина, у барбера клиент, — и приклеить к нему «-ից» через дефис нельзя:
- * «մեքենա-ից» читается опечаткой, а не словом. После гласной между основой
- * и окончанием встаёт «յ», после согласной — ничего.
+ * Единица приходит с сервера словом: у мойки машина, у барбера клиент, —
+ * и рамка вокруг него у каждого языка своя.
+ *
+ * По-армянски это отложительный падеж, и склеить его дефисом нельзя:
+ * «մեքենա-ից» читается опечаткой, а не словом. Правило языка простое и
+ * верное для любого армянского слова, включая придуманное владельцем:
+ * после гласной между основой и окончанием встаёт «յ», после согласной —
+ * ничего.
+ *
+ * По-русски и по-английски падеж чужого слова не построить вовсе — там
+ * рамка обходится без него, а само слово идёт как пришло. Сервер к этому
+ * моменту уже прислал его на языке интерфейса (см. lib/i18n/terms.ts),
+ * так что в русском это «машина», а не «մեքենա».
  */
-func ablative(_ word: String) -> String {
-    guard let last = word.last else { return word }
-    let vowels: Set<Character> = ["ա", "ե", "է", "ը", "ի", "ո", "օ"]
-    return vowels.contains(last) ? "\(word)յից" : "\(word)ից"
+func perOneUnit(_ word: String) -> String {
+    guard !word.isEmpty else { return word }
+    switch LangStore.currentLang {
+    case .hy:
+        let vowels: Set<Character> = ["ա", "ե", "է", "ը", "ի", "ո", "օ"]
+        let tail = vowels.contains(word.last!) ? "յից" : "ից"
+        return L("summary.perOne", "\(word)\(tail)")
+    case .ru, .en:
+        return L("summary.perOne", word)
+    }
 }
 
 /// Главная кнопка: лайм под тёмным текстом, во всю ширину.
@@ -844,7 +864,7 @@ struct TetrLoader: View {
             .frame(width: size * 1.2, height: size)
         }
         .accessibilityElement()
-        .accessibilityLabel("Բեռնվում է")
+        .accessibilityLabel(L("common.loadingShort"))
         .accessibilityAddTraits(.updatesFrequently)
     }
 

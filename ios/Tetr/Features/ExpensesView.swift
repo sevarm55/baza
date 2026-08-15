@@ -35,7 +35,7 @@ struct ExpensesView: View {
 
     enum Month: String, CaseIterable {
         case current, prev
-        var label: String { self == .current ? "Այս ամիս" : "Անցյալ ամիս" }
+        var label: String { self == .current ? L("owner.periodMonth") : L("owner.periodPrevMonth") }
     }
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
@@ -70,7 +70,7 @@ struct ExpensesView: View {
             }
 
             if !monthlyOnes.isEmpty {
-                heading("Ամսական ծախսեր", "\(monthlyOnes.count)")
+                heading(L("expenses.monthlyOnes"), "\(monthlyOnes.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
@@ -92,7 +92,7 @@ struct ExpensesView: View {
             }
 
             if !oneOffs.isEmpty {
-                heading("Միանգամյա ծախսեր", "\(oneOffs.count)")
+                heading(L("expenses.oneOffs"), "\(oneOffs.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
@@ -117,7 +117,7 @@ struct ExpensesView: View {
             }
 
             if loaded && items.isEmpty {
-                Text("Ծախսեր դեռ չկան")
+                Text(L("expenses.empty"))
                     .font(.system(size: 14))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(maxWidth: .infinity)
@@ -135,7 +135,7 @@ struct ExpensesView: View {
             // те же слова, что в кабинете (`hy.expenses.note`): одно и то
             // же правило, объяснённое двумя разными фразами, читается как
             // два разных правила
-            Text("Ամսական ծախսերը (վարձ, հոսանք) բաշխվում են ամսվա բոլոր օրերին։ Միանվագները մնում են իրենց օրում։")
+            Text(L("expenses.note"))
                 .font(.system(size: 11.5))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -158,14 +158,14 @@ struct ExpensesView: View {
                 .presentationDragIndicator(.visible)
         }
         .alert(
-            "Հեռացնե՞լ ծախսը",
+            L("expenses.removeTitle"),
             isPresented: .init(
                 get: { confirmingRemoval != nil },
                 set: { if !$0 { confirmingRemoval = nil } }
             )
         ) {
-            Button("Չեղարկել", role: .cancel) { confirmingRemoval = nil }
-            Button("Հեռացնել", role: .destructive) {
+            Button(L("common.cancel"), role: .cancel) { confirmingRemoval = nil }
+            Button(L("expenses.remove"), role: .destructive) {
                 if let item = confirmingRemoval { Task { await remove(item) } }
                 confirmingRemoval = nil
             }
@@ -173,8 +173,8 @@ struct ExpensesView: View {
             if let item = confirmingRemoval {
                 Text(
                     item.monthly
-                        ? "Այսօրվանից այն այլևս չի հաշվարկվի։ Նախորդ օրերի ծախսերը կմնան։"
-                        : "Այս ծախսը կջնջվի հաշվառումից։"
+                        ? L("expenses.removeMonthlyNote")
+                        : L("expenses.removeOneOffNote")
                 )
             }
         }
@@ -216,7 +216,7 @@ struct ExpensesView: View {
                 .contentTransition(.numericText(value: Double(spentTotal)))
 
             if let share = revenueShare {
-                Text("հասույթի \(share)%")
+                Text(L("expenses.shareOfRevenue", share))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
@@ -286,10 +286,10 @@ struct ExpensesView: View {
     /// Из чего сложился итог: постоянные, разовые и сколько это в день.
     private var breakdown: String {
         var parts = [
-            "Ամսական \(money(spentMonthly, currency))",
-            "Միանգամյա \(money(spentOneOff, currency))",
+            L("expenses.monthlySpent", money(spentMonthly, currency)),
+            L("expenses.oneOffSpent", money(spentOneOff, currency)),
         ]
-        if perDayAvg > 0 { parts.append("օրական \(money(perDayAvg, currency))") }
+        if perDayAvg > 0 { parts.append(L("expenses.perDay", money(perDayAvg, currency))) }
         return parts.joined(separator: " · ")
     }
 
@@ -328,12 +328,12 @@ struct ExpensesView: View {
             Button {
                 editing = item
             } label: {
-                line(title: item.category, badge: "ամսական", note: monthlyNote(item), amount: item.amount)
+                line(title: item.category, badge: L("expenses.perMonth"), note: monthlyNote(item), amount: item.amount)
             }
             .buttonStyle(.press)
             .accessibilityElement(children: .combine)
         } else {
-            line(title: item.category, badge: "ամսական", note: monthlyNote(item), amount: item.amount)
+            line(title: item.category, badge: L("expenses.perMonth"), note: monthlyNote(item), amount: item.amount)
         }
     }
 
@@ -350,11 +350,11 @@ struct ExpensesView: View {
      * кабинетом ровно там, где её и проверяют.
      */
     private func monthlyNote(_ item: API.Expense) -> String {
-        if let ended = item.endedAt { return "դադարեցվել է \(day(ended))" }
+        if let ended = item.endedAt { return L("expenses.stoppedOn", day(ended)) }
 
         var parts: [String] = []
-        if let share = item.share { parts.append("հաշվարկված \(money(share, currency))") }
-        if let perDay = item.perDay, perDay > 0 { parts.append("օրական \(money(perDay, currency))") }
+        if let share = item.share { parts.append(L("expenses.accruedSum", money(share, currency))) }
+        if let perDay = item.perDay, perDay > 0 { parts.append(L("expenses.perDay", money(perDay, currency))) }
         return parts.joined(separator: " · ")
     }
 
@@ -437,15 +437,20 @@ struct ExpensesView: View {
     /// это то, что мойка вписывает чаще всего; всё остальное получает
     /// нейтральный конверт, а не случайную картинку.
     private func symbol(for category: String) -> String {
-        switch category {
-        case "Քիմիա": return "drop.triangle.fill"
-        case "Վարձ": return "house.fill"
-        case "Հոսանք": return "bolt.fill"
-        case "Ջուր": return "drop.fill"
-        case "Գույք": return "shippingbox.fill"
-        case "Վերանորոգում": return "wrench.and.screwdriver.fill"
-        default: return "tray.fill"
-        }
+        /* Сверяем со всеми языками сразу, а не с текущим. Название
+           категории лежит в базе на том языке, на котором расход завели,
+           и владелец, переключивший интерфейс, не должен из-за этого
+           получить конверты вместо крана и лампочки. */
+        let icons: [(String, String)] = [
+            ("expenses.hint1", "drop.triangle.fill"),
+            ("expenses.hint2", "house.fill"),
+            ("expenses.hint3", "bolt.fill"),
+            ("expenses.hint4", "drop.fill"),
+            ("expenses.hint5", "shippingbox.fill"),
+            ("expenses.hint6", "wrench.and.screwdriver.fill"),
+        ]
+        for (key, symbol) in icons where LAll(key).contains(category) { return symbol }
+        return "tray.fill"
     }
 
     /// Добавление — строкой в самом списке, а не плюсиком в панели: плюсик
@@ -460,7 +465,7 @@ struct ExpensesView: View {
                     .foregroundStyle(Brand.grape)
                     .frame(width: 44, height: 44)
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
-                Text("Ավելացնել ծախս")
+                Text(L("expenses.addExpense"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                 Spacer(minLength: 0)
@@ -488,11 +493,14 @@ struct ExpensesView: View {
         if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
             cal.timeZone = zone
         }
-        if cal.isDateInToday(d) { return "Այսօր" }
-        if cal.isDateInYesterday(d) { return "Երեկ" }
+        if cal.isDateInToday(d) { return L("common.today") }
+        if cal.isDateInYesterday(d) { return L("common.yesterday") }
 
+        /* Число цифрами, но в порядке своего языка: «16.08» по-русски и
+           «8/16» по-английски — одна дата, и перепутать их нельзя. */
         let f = DateFormatter()
-        f.dateFormat = "dd.MM"
+        f.locale = LangStore.currentLang.locale
+        f.setLocalizedDateFormatFromTemplate("dd.MM")
         f.timeZone = cal.timeZone
         return f.string(from: d)
     }
@@ -520,7 +528,7 @@ struct ExpensesView: View {
         Button(role: .destructive) {
             confirmingRemoval = item
         } label: {
-            Label("Ջնջել", systemImage: "trash")
+            Label(L("common.delete"), systemImage: "trash")
         }
         .tint(.red)
     }
@@ -642,7 +650,7 @@ struct ExpenseEditor: View {
                 if isNew {
                     kindPicker
                 } else if amountChanged {
-                    note("Հին գումարը մնում է անցած օրերին։ Նորը գործում է այսօրվանից։")
+                    note(L("expenses.changeNote"))
                 }
 
                 /* Разовый спрашивает день, постоянный — нет: у него `at`
@@ -651,7 +659,7 @@ struct ExpenseEditor: View {
                    постоянный говорит, с какого дня начнёт считаться. */
                 if monthly {
                     if isNew {
-                        note("Ամսական ծախսը գործում է այսօրվանից և ամեն օր հաշվարկվում է ինքն իրեն։")
+                        note(L("expenses.monthlyStartNote"))
                     }
                 } else {
                     dayField
@@ -694,11 +702,11 @@ struct ExpenseEditor: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
-            Text(isNew ? "Նոր ծախս" : "Ծախս")
+            Text(isNew ? L("expenses.newTitle") : L("expenses.one"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
 
@@ -733,11 +741,11 @@ struct ExpenseEditor: View {
             Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
 
             HStack(spacing: 12) {
-                Text("Ինչի համար")
+                Text(L("expenses.category"))
                     .font(.system(size: 14))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer(minLength: 8)
-                TextField("վարձ, ջուր, քիմիա", text: $category)
+                TextField(L("expenses.categoryPlaceholder"), text: $category)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .multilineTextAlignment(.trailing)
@@ -752,7 +760,7 @@ struct ExpenseEditor: View {
     /// было, не бывает, и сервер такую дату всё равно отбросит.
     private var dayField: some View {
         HStack(spacing: 12) {
-            Text("Ամսաթիվ")
+            Text(L("expenses.date"))
                 .font(.system(size: 14))
                 .foregroundStyle(Brand.boardMuted)
             Spacer(minLength: 8)
@@ -769,15 +777,15 @@ struct ExpenseEditor: View {
     private var kindPicker: some View {
         HStack(spacing: 10) {
             kind(
-                title: "Միանվագ",
-                note: "մնում է այսօրվա օրում",
+                title: L("expenses.oneOff"),
+                note: L("expenses.kindOneNote"),
                 icon: "cart.fill",
                 on: !monthly
             ) { monthly = false }
 
             kind(
-                title: "Ամսական",
-                note: "բաշխվում է ամսվա բոլոր օրերին",
+                title: L("expenses.monthly"),
+                note: L("expenses.kindMonthlyNote"),
                 icon: "arrow.trianglehead.2.clockwise",
                 on: monthly
             ) { monthly = true }
@@ -832,7 +840,7 @@ struct ExpenseEditor: View {
         Button {
             Task { await save() }
         } label: {
-            Text("Պահպանել")
+            Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
                 .loading(busy, tint: Brand.onLime, size: 20)
@@ -890,7 +898,7 @@ struct ExpenseEditor: View {
             await onSave()
             dismiss()
         } catch {
-            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+            self.error = L("payroll.failed")
         }
     }
 }

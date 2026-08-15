@@ -88,7 +88,7 @@ struct StaffView: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
                         if person.isMe {
-                            Text("դուք")
+                            Text(L("common.you"))
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.85))
                                 .padding(.horizontal, 7)
@@ -101,7 +101,7 @@ struct StaffView: View {
                            Метка, а не зелёная точка: плитка сама цветная,
                            и точка на ней читалась бы украшением. */
                         if person.onShift == true {
-                            Text("հերթափոխին")
+                            Text(L("staff.onShift"))
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 7)
@@ -120,7 +120,7 @@ struct StaffView: View {
                        в сводку и в зарплаты. Месяц, а не день: за один
                        день «чего стоит человек» не видно. */
                     if let cars = person.cars, let earned = person.earned, cars > 0 {
-                        Text("\(cars) \(session.tenant?.unitOne ?? "") · \(money(earned, session.tenant?.currency ?? "AMD"))")
+                        Text("\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, session.tenant?.currency ?? "AMD"))")
                             .font(.system(size: 12, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(.white.opacity(0.9))
@@ -132,7 +132,7 @@ struct StaffView: View {
                        здесь потому, что вопрос «сколько я ему должен»
                        задают, глядя на человека, а не на ведомость. */
                     if let due = person.due, due > 0 {
-                        Text("վճարելու է \(money(due, session.tenant?.currency ?? "AMD"))")
+                        Text(L("staff.due", money(due, session.tenant?.currency ?? "AMD")))
                             .font(.system(size: 12, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(.white.opacity(0.9))
@@ -145,7 +145,7 @@ struct StaffView: View {
                    слово: у него ставка обычно нулевая, и «0 %» рядом с
                    именем читается как ошибка, а не как «долю не берёт». */
                 if owner {
-                    Text("Սեփականատեր")
+                    Text(L("roles.owner"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.trailing)
@@ -155,7 +155,7 @@ struct StaffView: View {
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.white)
-                        Text("գրանցումից")
+                        Text(L("staff.perRecord"))
                             .font(.system(size: 10))
                             .foregroundStyle(.white.opacity(0.7))
                     }
@@ -183,7 +183,7 @@ struct StaffView: View {
                     .foregroundStyle(Brand.grape)
                     .frame(width: 44, height: 44)
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
-                Text("Ավելացնել \(session.tenant?.staffRole ?? "աշխատակից")")
+                Text(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                 Spacer(minLength: 0)
@@ -248,12 +248,12 @@ struct StaffEditor: View {
                 header
 
                 VStack(spacing: 0) {
-                    field("Անուն", text: $name, placeholder: "Դավիթ")
+                    field(L("owner.clientName"), text: $name, placeholder: L("staff.namePlaceholder"))
                     if isNew {
                         divider
-                        field("Հեռախոս", text: $phone, placeholder: "+374 …", keyboard: .phonePad)
+                        field(L("auth.phone"), text: $phone, placeholder: "+374 …", keyboard: .phonePad)
                         divider
-                        field("PIN · 4 նիշ", text: $pin, placeholder: "••••", keyboard: .numberPad)
+                        field(L("auth.pinShort"), text: $pin, placeholder: "••••", keyboard: .numberPad)
                             .onChange(of: pin) { _, v in
                                 if v.count > 4 { pin = String(v.prefix(4)) }
                             }
@@ -282,15 +282,15 @@ struct StaffEditor: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
-        .alert("Անջատե՞լ աշխատակցին", isPresented: $firing) {
-            Button("Չեղարկել", role: .cancel) {}
-            Button("Անջատել", role: .destructive) {
+        .alert(L("staff.deactivateTitle"), isPresented: $firing) {
+            Button(L("common.cancel"), role: .cancel) {}
+            Button(L("staff.deactivate"), role: .destructive) {
                 if let person { Task { await fire(person) } }
             }
         } message: {
             // это не косметика: увольнение гасит его сессии, и человек
             // теряет доступ немедленно
-            Text("Մուտքը փակվում է անմիջապես։ Պատմությունը մնում է։")
+            Text(L("staff.deactivateNote"))
         }
         .onAppear {
             name = person?.name ?? ""
@@ -313,11 +313,11 @@ struct StaffEditor: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
-            Text(isNew ? "Նոր \(session.tenant?.staffRole ?? "աշխատակից")" : (person?.name ?? ""))
+            Text(isNew ? L("staff.newTitle", Terms.staff(session.tenant?.staffRole ?? "").nom) : (person?.name ?? ""))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
@@ -363,7 +363,7 @@ struct StaffEditor: View {
      */
     private var percentPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Տոկոս գրանցումից")
+            Text(L("staff.percentField"))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
 
@@ -374,7 +374,7 @@ struct StaffEditor: View {
                         percent = value
                     }
                 }
-                chip("Այլ", on: custom) {
+                chip(L("common.other"), on: custom) {
                     custom = true
                     customText = String(percent)
                 }
@@ -404,7 +404,7 @@ struct StaffEditor: View {
                 .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
             }
 
-            Text("Փոփոխությունը գործում է նոր գրանցումների համար։ Հները չեն վերահաշվարկվում։")
+            Text(L("staff.percentNote"))
                 .font(.system(size: 11.5))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -438,10 +438,10 @@ struct StaffEditor: View {
                     .foregroundStyle(.red)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Անջատել աշխատակցին")
+                    Text(L("staff.deactivateAction"))
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(.red)
-                    Text("Մուտքը փակվում է անմիջապես։ Պատմությունը մնում է։")
+                    Text(L("staff.deactivateNote"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -462,7 +462,7 @@ struct StaffEditor: View {
         Button {
             Task { await save() }
         } label: {
-            Text("Պահպանել")
+            Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
                 .loading(busy, tint: Brand.onLime, size: 20)
@@ -510,8 +510,8 @@ struct StaffEditor: View {
             dismiss()
         } catch let e as APIError {
             error = e.code == "PHONE_TAKEN"
-                ? "Այս համարն արդեն գրանցված է"
-                : "Չհաջողվեց (\(e.code ?? "\(e.status)"))"
+                ? L("auth.phoneTaken")
+                : L("errors.failedCode", e.code ?? "\(e.status)")
         } catch {
             self.error = "\(error)"
         }

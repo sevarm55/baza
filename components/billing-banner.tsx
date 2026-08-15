@@ -1,24 +1,25 @@
-﻿import { hy } from '@/lib/i18n/hy';
-import type { Access } from '@/lib/subscription';
+﻿import type { Access } from '@/lib/subscription';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Напоминание о сроке. Показывается только когда это уместно:
  * постоянная плашка про подписку раздражает и перестаёт читаться.
  */
-export function BillingBanner({ access, role }: { access: Access; role: 'owner' | 'staff' }) {
+export async function BillingBanner({ access, role }: { access: Access; role: 'owner' | 'staff' }) {
+  const t = await getDict();
   if (!access.warn) return null;
 
   if (access.state === 'expired') {
     return (
       <div className="mb-3.5 rounded-[var(--radius-sm)] border border-bad-line bg-bad-bg p-3.5">
         <div className="mb-1 text-[15px] font-semibold text-bad-ink">
-          {hy.billing.expiredTitle}
+          {t.billing.expiredTitle}
         </div>
         <p className="text-[13.5px] leading-relaxed text-muted">
-          {role === 'owner' ? hy.billing.expiredOwner : hy.billing.expiredWorker}
+          {role === 'owner' ? t.billing.expiredOwner : t.billing.expiredWorker}
         </p>
         {role === 'owner' && (
-          <p className="mt-2 text-[13.5px] text-bad-ink">{hy.billing.renew}</p>
+          <p className="mt-2 text-[13.5px] text-bad-ink">{t.billing.renew}</p>
         )}
       </div>
     );
@@ -45,8 +46,8 @@ export function BillingBanner({ access, role }: { access: Access; role: 'owner' 
           <path d="M8 5v3.4l2 1.4" />
         </svg>
         {access.state === 'trial'
-          ? hy.billing.trialLeft(access.daysLeft)
-          : hy.billing.paidLeft(access.daysLeft)}
+          ? t.billing.trialLeft(access.daysLeft)
+          : t.billing.paidLeft(access.daysLeft)}
       </span>
     </div>
   );

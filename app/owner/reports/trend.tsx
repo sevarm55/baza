@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { Panel } from '@/components/board';
 import { Segmented } from '@/components/segmented';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { Metric, TrendPoint } from './model';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Ход бизнеса по месяцам.
@@ -40,9 +40,10 @@ export function Trend({
   currency: string;
   unitOne: string;
 }) {
+  const t = useT();
   const [metric, setMetric] = useState<Metric>('profit');
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const valueOf = (p: TrendPoint) =>
     metric === 'profit' ? p.profit : metric === 'revenue' ? p.revenue : p.count;
   const label = (n: number) => (metric === 'count' ? String(n) : money(n));
@@ -58,17 +59,17 @@ export function Trend({
 
   return (
     <Panel
-      title={hy.reports.trend}
+      title={t.reports.trend}
       className="lg:col-span-8"
       actions={
         <Segmented
           id="report-metric"
           current={metric}
           onSelect={(key) => setMetric(key as Metric)}
-          label={hy.reports.trend}
+          label={t.reports.trend}
           items={[
-            { key: 'profit', label: hy.owner.profit },
-            { key: 'revenue', label: hy.owner.revenue },
+            { key: 'profit', label: t.owner.profit },
+            { key: 'revenue', label: t.owner.revenue },
             { key: 'count', label: unitOne },
           ]}
         />

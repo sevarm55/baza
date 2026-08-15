@@ -32,7 +32,7 @@ struct PointsView: View {
                    этом здесь, а не искать кнопку. Правила App Store
                    (3.1.3f) не разрешают начинать внутри приложения
                    платный путь, а вторая точка платная сразу. */
-                Text("Նոր մասնաճյուղն ավելացվում է կայքում՝ tetrin.pro")
+                Text(L("points.addOnWeb"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
                     .multilineTextAlignment(.center)
@@ -45,10 +45,10 @@ struct PointsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
-        .alert("Չհաջողվեց", isPresented: $failed) {
-            Button("Լավ", role: .cancel) {}
+        .alert(L("common.failed"), isPresented: $failed) {
+            Button(L("common.ok"), role: .cancel) {}
         } message: {
-            Text("Չստացվեց անցնել։ Ստուգեք կապը և կրկնեք։")
+            Text(L("points.switchFailed"))
         }
     }
 
@@ -63,7 +63,7 @@ struct PointsView: View {
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
-                    Text(point.role == "owner" ? "Սեփականատեր" : "Աշխատակից")
+                    Text(point.role == "owner" ? L("roles.owner") : L("roles.staff"))
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.7))
                 }
@@ -71,7 +71,7 @@ struct PointsView: View {
                 Spacer(minLength: 8)
 
                 if here {
-                    Text("այստեղ եք")
+                    Text(L("points.here"))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Brand.onLime)
                         .padding(.horizontal, 8)
@@ -100,7 +100,7 @@ struct PointsView: View {
                         }
                     }
                 } label: {
-                    Text("Անցնել")
+                    Text(L("points.open"))
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
                         .loading(going == point.id, tint: .white, size: 16)
@@ -119,12 +119,12 @@ struct PointsView: View {
     private func state(_ point: API.Point) -> String {
         let days = point.daysLeft ?? 0
         switch point.state {
-        case "active": return days > 0 ? "Վճարված է · \(days) օր" : "Վճարված է"
-        case "trial": return "Փորձնական · \(days) օր"
-        case "unpaid": return "Սպասում է վճարման"
-        case "expired": return "Ժամկետը լրացել է"
-        case "blocked": return "Հասանելիությունը փակ է"
-        default: return point.canRead ? "Աշխատում է" : "Փակ է"
+        case "active": return days > 0 ? L("points.paidDays", days) : L("payroll.paid")
+        case "trial": return L("points.trialDays", days)
+        case "unpaid": return L("points.awaitingPayment")
+        case "expired": return L("billing.expiredTitle")
+        case "blocked": return L("billing.blockedTitle")
+        default: return point.canRead ? L("points.working") : L("points.closed")
         }
     }
 }

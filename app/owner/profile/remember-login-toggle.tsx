@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { setRememberLogin } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /** Настройка этого браузера: без перезагрузки и без хранения токена в JS. */
 export function RememberLoginToggle({ initial }: { initial: boolean }) {
+  const t = useT();
   const [on, setOn] = useState(initial);
   const [pending, startTransition] = useTransition();
 
@@ -32,10 +33,10 @@ export function RememberLoginToggle({ initial }: { initial: boolean }) {
     >
       <span className="min-w-0">
         <span className="block text-[14px] font-semibold" style={{ color: 'var(--on-board)' }}>
-          {hy.profile.rememberLogin}
+          {t.profile.rememberLogin}
         </span>
         <span className="mt-0.5 block text-[12px] leading-snug" style={{ color: 'var(--board-muted)' }}>
-          {hy.profile.rememberLoginNote}
+          {t.profile.rememberLoginNote}
         </span>
       </span>
 

@@ -4,6 +4,7 @@ import { listServices } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
+import { clientIdLabelTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
 import { failFromError, ok } from '@/lib/api/respond';
 
 /**
@@ -36,10 +37,14 @@ export async function GET(request: Request) {
         currency: ctx.tenant.currency,
         locale: ctx.tenant.locale,
         timezone: ctx.tenant.timezone,
-        clientIdLabel: ctx.tenant.clientIdLabel,
+        /* Заводские слова ниши приезжают на языке телефона; своё
+           название владельца проходит насквозь — см. lib/i18n/terms.ts.
+           Приложению по-прежнему не надо знать, что бывают ниши: оно
+           получает готовые слова, как и раньше. */
+        clientIdLabel: clientIdLabelTerm(ctx.tenant.clientIdLabel, ctx.locale),
         clientIdType: ctx.tenant.clientIdType,
-        staffRole: ctx.tenant.staffRole,
-        unitOne: ctx.tenant.unitOne,
+        staffRole: staffRoleTerm(ctx.tenant.staffRole, ctx.locale),
+        unitOne: unitForms(ctx.tenant.unitOne, ctx.locale).nom,
         /* Тарифы. Пустой список — свойства у бизнеса нет, и приложение не
            показывает ни ряда классов, ни второй цены. Именно списком, а не
            флагом: слова придумывает владелец, продукт про «седаны» ничего

@@ -7,6 +7,8 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
+import { getDict } from '@/lib/i18n/server';
+import { intlLocale } from '@/lib/i18n/format';
 import {
   findClient,
   getClientHistory,
@@ -43,7 +45,6 @@ import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { accountByPhone, listPoints, markPointUsed, pointForLogin } from '@/lib/accounts';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
-import { hy } from '@/lib/i18n/hy';
 
 /**
  * Успех помечен явным `ok`, а не отсутствием ошибки.
@@ -63,6 +64,7 @@ export async function registerBusiness(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   await ensureDb();
 
   const niche = String(formData.get('niche') ?? '');
@@ -72,10 +74,10 @@ export async function registerBusiness(
   const pin = String(formData.get('pin') ?? '');
 
   // действие открыто наружу, поэтому нишу проверяем здесь, а не только в UI
-  if (!isNicheAvailable(niche)) return { error: hy.errors.generic };
-  if (businessName.length < 2 || ownerName.length < 2) return { error: hy.errors.required };
-  if (!isValidPhone(phone)) return { error: hy.errors.badPhone };
-  if (!isValidPin(pin)) return { error: hy.errors.badPin };
+  if (!isNicheAvailable(niche)) return { error: t.errors.generic };
+  if (businessName.length < 2 || ownerName.length < 2) return { error: t.errors.required };
+  if (!isValidPhone(phone)) return { error: t.errors.badPhone };
+  if (!isValidPin(pin)) return { error: t.errors.badPin };
 
   try {
     const { tenant, owner } = await createBusiness({
@@ -87,7 +89,7 @@ export async function registerBusiness(
     });
     await startSession({ uid: owner.id, tid: tenant.id, role: 'owner' });
   } catch (e) {
-    if (e instanceof PhoneTakenError) return { error: hy.auth.phoneTaken };
+    if (e instanceof PhoneTakenError) return { error: t.auth.phoneTaken };
     throw e;
   }
 
@@ -95,6 +97,7 @@ export async function registerBusiness(
 }
 
 export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
   await ensureDb();
 
   const phone = normalizePhone(String(formData.get('phone') ?? ''));
@@ -105,7 +108,7 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
      выполнялся ни дорогой scrypt, ни сама проверка. */
   const guard = await checkLogin(phone, ip);
   if (!guard.allowed) {
-    return { error: hy.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
+    return { error: t.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
   }
 
   /* Код принадлежит человеку, а не его работе на точке. */
@@ -122,7 +125,7 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   const secret = account?.pinHash ?? legacy?.pinHash;
   const ok = secret ? await verifyPin(pin, secret) : false;
   await noteLogin(phone, ip, ok);
-  if (!ok) return { error: hy.auth.wrongCredentials };
+  if (!ok) return { error: t.auth.wrongCredentials };
 
   /* Куда вести — решает pointForLogin, а не порядок строк: телефон
      больше не уникален, и «первая попавшаяся» означала бы случайную
@@ -138,7 +141,7 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
         }
       : null;
 
-  if (!membership) return { error: hy.auth.wrongCredentials };
+  if (!membership) return { error: t.auth.wrongCredentials };
 
   await startSession(
     { uid: membership.id, tid: membership.tid, role: membership.role },
@@ -159,11 +162,12 @@ export async function resumeSavedAccount(
   _prev: FormState,
   _formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   void _prev;
   void _formData;
   await ensureDb();
   const role = await resumeRememberedSession();
-  if (!role) return { error: hy.auth.rememberedExpired };
+  if (!role) return { error: t.auth.rememberedExpired };
   redirect(role === 'owner' ? '/owner' : '/work');
 }
 
@@ -220,14 +224,15 @@ export async function switchPoint(formData: FormData): Promise<void> {
  * узнать, что бесплатно не будет, человек должен до нажатия.
  */
 export async function createPoint(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
   const niche = String(formData.get('niche') ?? '');
   const businessName = String(formData.get('businessName') ?? '').trim();
 
-  if (!isNicheAvailable(niche)) return { error: hy.errors.generic };
-  if (businessName.length < 2) return { error: hy.errors.required };
+  if (!isNicheAvailable(niche)) return { error: t.errors.generic };
+  if (businessName.length < 2) return { error: t.errors.required };
 
   const me = await getUser(session.tid, session.uid);
   if (!me?.accountId) redirect('/session-ended');
@@ -236,7 +241,7 @@ export async function createPoint(_prev: FormState, formData: FormData): Promise
      можно послать сто запросов подряд. Десять точек — это больше, чем
      бывает у настоящей сети, и меньше, чем нужно для вреда. */
   const mine = await listPoints(me.accountId);
-  if (mine.length >= 10) return { error: hy.errors.generic };
+  if (mine.length >= 10) return { error: t.errors.generic };
 
   const made = await createBusiness({
     niche: niche as NicheKey,
@@ -262,6 +267,7 @@ export async function createPoint(_prev: FormState, formData: FormData): Promise
 /* -------------------------- сотрудники -------------------------- */
 
 export async function addStaff(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
@@ -270,20 +276,20 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   const pin = String(formData.get('pin') ?? '');
   const percent = Number(formData.get('percent') ?? 0);
 
-  if (name.length < 2) return { error: hy.errors.required };
-  if (!isValidPhone(phone)) return { error: hy.errors.badPhone };
-  if (!isValidPin(pin)) return { error: hy.errors.badPin };
+  if (name.length < 2) return { error: t.errors.required };
+  if (!isValidPhone(phone)) return { error: t.errors.badPhone };
+  if (!isValidPin(pin)) return { error: t.errors.badPin };
   if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
-    return { error: hy.errors.badPercent };
+    return { error: t.errors.badPercent };
   }
 
   try {
     await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
-      return { error: hy.auth.phoneTaken };
+      return { error: t.auth.phoneTaken };
     }
-    return { error: hy.errors.required };
+    return { error: t.errors.required };
   }
 
   revalidatePath('/owner/staff');
@@ -327,11 +333,12 @@ export async function saveService(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return { error: hy.errors.generic };
+  if (!tenant) return { error: t.errors.generic };
 
   const id = String(formData.get('id') ?? '');
   const name = String(formData.get('name') ?? '').trim();
@@ -344,7 +351,7 @@ export async function saveService(
        прайс по классам, выставленный с телефона. */
     await catalog.upsertService({ tenantId: session.tid, id: id || undefined, name, price });
   } catch {
-    return { error: hy.errors.required };
+    return { error: t.errors.required };
   }
 
   revalidatePath('/owner/settings');
@@ -363,6 +370,7 @@ export async function archiveService(formData: FormData): Promise<void> {
 }
 
 export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
@@ -373,7 +381,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   try {
     await catalog.saveStaff({ tenantId: session.tid, id, name, percent });
   } catch {
-    return { error: hy.errors.badPercent };
+    return { error: t.errors.badPercent };
   }
 
   revalidatePath('/owner/staff');
@@ -408,6 +416,7 @@ export async function archiveStaff(formData: FormData): Promise<void> {
  * новым.
  */
 export async function changePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
   const session = await requireSession();
   await ensureDb();
 
@@ -418,9 +427,9 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
     await changePin(session.uid, current, next);
   } catch (e) {
     if (e instanceof ProfileError) {
-      return { error: e.message === "BAD_PIN" ? hy.errors.badPin : hy.auth.wrongPin };
+      return { error: e.message === "BAD_PIN" ? t.errors.badPin : t.auth.wrongPin };
     }
-    return { error: hy.errors.generic };
+    return { error: t.errors.generic };
   }
 
   // сессия только что отозвана — идти внутрь больше некуда
@@ -485,6 +494,7 @@ export async function saveClientContact(
 }
 
 export async function clientHistory(key: string) {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
@@ -498,7 +508,7 @@ export async function clientHistory(key: string) {
      сервер-клиент: `Date` туда проходит, но час пересчёта на той стороне
      будет чужой, и «первый визит 1 августа» у владельца в поездке
      превратился бы в 31 июля. */
-  const day = new Intl.DateTimeFormat('hy-AM', {
+  const day = new Intl.DateTimeFormat(intlLocale(t.locale), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -683,13 +693,14 @@ export async function sellPassAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
-  if (!passesEnabled()) return { error: hy.errors.generic };
+  if (!passesEnabled()) return { error: t.errors.generic };
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return { error: hy.errors.generic };
-  if (!currentAccess(tenant).canWrite) return { error: hy.billing.expiredTitle };
+  if (!tenant) return { error: t.errors.generic };
+  if (!currentAccess(tenant).canWrite) return { error: t.billing.expiredTitle };
 
   const clientKey = String(formData.get('clientKey') ?? '').trim();
   const serviceId = String(formData.get('serviceId') ?? '');
@@ -697,9 +708,9 @@ export async function sellPassAction(
   const price = toMinor(Number(formData.get('price') ?? 0), tenant.currency);
   const validDays = Number(formData.get('validDays') ?? 0);
 
-  if (!clientKey || !serviceId) return { error: hy.errors.required };
-  if (!Number.isInteger(totalUses) || totalUses < 1) return { error: hy.errors.required };
-  if (!Number.isFinite(price) || price < 0) return { error: hy.errors.required };
+  if (!clientKey || !serviceId) return { error: t.errors.required };
+  if (!Number.isInteger(totalUses) || totalUses < 1) return { error: t.errors.required };
+  if (!Number.isFinite(price) || price < 0) return { error: t.errors.required };
 
   try {
     await sellPass({
@@ -712,7 +723,7 @@ export async function sellPassAction(
       validDays: Number.isFinite(validDays) && validDays > 0 ? validDays : undefined,
     });
   } catch {
-    return { error: hy.errors.generic };
+    return { error: t.errors.generic };
   }
 
   revalidatePath('/owner/passes');
@@ -751,11 +762,12 @@ export async function addExpenseAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return { error: hy.errors.generic };
+  if (!tenant) return { error: t.errors.generic };
 
   const amount = toMinor(Number(formData.get('amount') ?? 0), tenant.currency);
   const category = String(formData.get('category') ?? '').trim();
@@ -780,7 +792,7 @@ export async function addExpenseAction(
       at: monthly ? startOfDay(tenant.timezone) : (day ?? undefined),
     });
   } catch {
-    return { error: hy.errors.required };
+    return { error: t.errors.required };
   }
 
   revalidateExpenses();
@@ -805,18 +817,19 @@ export async function removeExpenseAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return { error: hy.errors.generic };
+  if (!tenant) return { error: t.errors.generic };
 
   const removed = await removeExpense(
     session.tid,
     String(formData.get('id') ?? ''),
     startOfDay(tenant.timezone),
   );
-  if (!removed) return { error: hy.errors.generic };
+  if (!removed) return { error: t.errors.generic };
 
   revalidateExpenses();
   return { ok: true };
@@ -832,11 +845,12 @@ export async function saveExpenseAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
   const tenant = await getTenant(session.tid);
-  if (!tenant) return { error: hy.errors.generic };
+  if (!tenant) return { error: t.errors.generic };
 
   try {
     const row = await editExpense({
@@ -852,9 +866,9 @@ export async function saveExpenseAction(
       at: pastDay(String(formData.get('at') ?? ''), tenant.timezone) ?? undefined,
       dayStart: startOfDay(tenant.timezone),
     });
-    if (!row) return { error: hy.errors.generic };
+    if (!row) return { error: t.errors.generic };
   } catch {
-    return { error: hy.errors.required };
+    return { error: t.errors.required };
   }
 
   revalidateExpenses();
@@ -883,9 +897,9 @@ export async function toggleShiftAction(formData: FormData): Promise<void> {
   if (!tenant) return;
 
   if (String(formData.get('open')) === 'true') {
-    await openShift(session.tid, session.uid, startOfDay(tenant.timezone));
+    await openShift(session.tid, session.uid, startOfDay(tenant.timezone), tenant.locale);
   } else {
-    await closeShift(session.tid, session.uid);
+    await closeShift(session.tid, session.uid, undefined, tenant.locale);
   }
 
   revalidatePath('/work');

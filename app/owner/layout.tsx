@@ -11,9 +11,10 @@ import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
@@ -31,7 +32,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   /* Поводы считаются здесь, в раскладке: колокольчик стоит на каждой
      странице кабинета, и число на нём должно совпадать с тем, что
      человек увидит внутри, на какой бы странице он ни нажал. */
-  const alerts = await getAlerts(tenant.id, me.id, tenant.timezone);
+  const alerts = await getAlerts(tenant.id, me.id, tenant.timezone, t.locale);
   const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
 
   /* Два способа показать одно и то же.
@@ -57,7 +58,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
 
       <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
         <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
-          <SidebarTrigger aria-label={hy.common.expand} title={hy.common.expand} />
+          <SidebarTrigger aria-label={t.common.expand} title={t.common.expand} />
           <Logo size={24} withName={false} />
           <div className="min-w-0">
             <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>

@@ -39,6 +39,12 @@ struct ShiftView: View {
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
+    /// Слово ниши под числом плитки — в форме, которую требует само число.
+    private func unitLabel(_ count: Int) -> String {
+        let word = Terms.unitWord(count, session.tenant?.unitOne ?? "")
+        return word.isEmpty ? L("shift.record") : word
+    }
+
     private let gap: CGFloat = 10
 
     var body: some View {
@@ -86,17 +92,17 @@ struct ShiftView: View {
            пересчитается на глазах. Поэтому и слово «отменить», а не
            «удалить»: то же самое видит владелец. */
         .confirmationDialog(
-            "Չեղարկե՞լ այս գրանցումը",
+            L("work.revokeTitle"),
             isPresented: .init(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
             titleVisibility: .visible,
             presenting: revoking
         ) { order in
-            Button("Չեղարկել գրանցումը", role: .destructive) {
+            Button(L("work.revoke"), role: .destructive) {
                 Task { await revoke(order) }
             }
-            Button("Թողնել", role: .cancel) {}
+            Button(L("work.revokeKeep"), role: .cancel) {}
         } message: { order in
-            Text("\(order.clientKey ?? order.serviceName) · \(order.serviceName) · \(money(order.price, currency))\nՉեղարկելուց հետո այսօրվա վաստակը կվերահաշվարկվի։")
+            Text(L("shift.revokeBody", order.clientKey ?? order.serviceName, order.serviceName, money(order.price, currency)))
         }
         .task { await reload() }
         .refreshable { await reload() }
@@ -132,7 +138,7 @@ struct ShiftView: View {
                 Circle()
                     .fill(onShift ? Brand.goodOnBoard : Brand.boardMuted.opacity(0.5))
                     .frame(width: 8, height: 8)
-                Text(onShift ? "Հերթափոխին եմ" : "Հերթափոխից դուրս")
+                Text(onShift ? L("work.onShift") : L("shift.offShift"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
@@ -216,11 +222,11 @@ struct ShiftView: View {
 
     private var hello: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: return "Բարի լույս"
-        case 12..<18: return "Բարի օր"
-        case 18..<24: return "Բարի երեկո"
+        case 5..<12: return L("shift.greetingMorning")
+        case 12..<18: return L("shift.greetingDay")
+        case 18..<24: return L("shift.greetingEvening")
         // ночью «доброй ночи» звучит прощанием, поэтому нейтральное
-        default: return "Բարև"
+        default: return L("shift.greetingPlain")
         }
     }
 
@@ -236,7 +242,7 @@ struct ShiftView: View {
                 Spacer()
             }
 
-            Text(takesShare ? "Քո վաստակն այսօր" : "Հերթափոխի հասույթ")
+            Text(takesShare ? L("work.earnedToday") : L("work.shiftRevenue"))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 14)
@@ -288,7 +294,7 @@ struct ShiftView: View {
 
             if onShift, let openedAt = shift?.openedAt {
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
-                    Text("Հերթափոխին եմ · \(at(openedAt))-ից · \(lasted(since: openedAt))")
+                    Text(L("shift.onShiftSince", at(openedAt), lasted(since: openedAt)))
                         .font(.system(size: 13, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.goodOnBoard)
@@ -296,14 +302,14 @@ struct ShiftView: View {
                         .minimumScaleFactor(0.75)
                 }
             } else if let done = shift?.closedToday {
-                Text("Հերթափոխն ավարտված է · \(at(done.openedAt)) — \(at(done.closedAt))")
+                Text(L("shift.doneRange", at(done.openedAt), at(done.closedAt)))
                     .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             } else {
-                Text(onShift ? "Հերթափոխին եմ" : "Հերթափոխը դեռ չի սկսվել")
+                Text(onShift ? L("work.onShift") : L("work.emptyOff"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(onShift ? Brand.goodOnBoard : Brand.boardMuted)
                     .lineLimit(1)
@@ -317,7 +323,7 @@ struct ShiftView: View {
     /// «7 ժ 15 ր». Часы отбрасываются, когда их нет, — как в вебе.
     private func lasted(since: Date) -> String {
         let minutes = max(0, Int(Date().timeIntervalSince(since) / 60))
-        return minutes < 60 ? "\(minutes) ր" : "\(minutes / 60) ժ \(minutes % 60) ր"
+        return minutes < 60 ? L("shift.lastedMinutes", minutes) : L("shift.lastedHours", minutes / 60, minutes % 60)
     }
 
     // ══════════════════════════ сетка плиток ══════════════════════════
@@ -347,9 +353,9 @@ struct ShiftView: View {
                Теперь это «сумма работ», и доля названа долей. Те же слова
                в вебе. */
             shiftPrimary(
-                title: takesShare ? "Աշխատանքի գումարը" : "Կանխիկ ձեռքին",
+                title: takesShare ? L("work.worksTotal") : L("shift.cashInHand"),
                 value: money(takesShare ? revenue : cash, currency),
-                note: takesShare ? "քո բաժինը՝ \(percent)%" : "հանձնելու է վերջում",
+                note: takesShare ? L("shift.yourShare", percent) : L("shift.toHandOver"),
                 background: Brand.lavenderCard,
                 ink: Brand.lavenderInk,
                 animate: Double(takesShare ? revenue : cash)
@@ -357,14 +363,15 @@ struct ShiftView: View {
 
             VStack(spacing: gap) {
                 shiftSmall(
-                    title: session.tenant?.unitOne ?? "Գրանցում",
+                    // подпись над числом — множественное: «машины», не «машина»
+                    title: unitLabel(count),
                     value: "\(count)",
                     background: Brand.mintCard,
                     ink: Brand.mintInk,
                     animate: Double(count)
                 )
                 shiftSmall(
-                    title: takesShare ? "Կանխիկ" : "Միջին չեկ",
+                    title: takesShare ? L("payment.cash") : L("owner.avgCheck"),
                     value: takesShare
                         ? money(cash, currency)
                         : money(count > 0 ? revenue / count : 0, currency),
@@ -449,7 +456,7 @@ struct ShiftView: View {
                 .foregroundStyle(Brand.boardMuted)
                 .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
                 .symbolEffect(.drawOn, options: .nonRepeating, isActive: loading && !reduceMotion)
-            Text("\(queue.waiting(at: session.tenant?.id).count) գրանցում սպասում է կապի")
+            Text(L("shift.waitingToSend", queue.waiting(at: session.tenant?.id).count))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -484,9 +491,9 @@ struct ShiftView: View {
             }
 
             HStack(spacing: 8) {
-                Button("Կրկնել") { queue.retry(item.ref) }
+                Button(L("common.retry")) { queue.retry(item.ref) }
                     .buttonStyle(.glass)
-                Button("Հեռացնել") { queue.drop(item.ref) }
+                Button(L("expenses.remove")) { queue.drop(item.ref) }
                     .buttonStyle(.glass)
                     .tint(Brand.muted)
             }
@@ -501,7 +508,7 @@ struct ShiftView: View {
     private func journal(_ orders: [API.ShiftOrder]) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Վերջինները")
+                Text(L("shift.latest"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
@@ -573,7 +580,7 @@ struct ShiftView: View {
                                 .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Գործողություններ՝ \(order.clientKey ?? order.serviceName)")
+                        .accessibilityLabel(L("shift.rowActions", order.clientKey ?? order.serviceName))
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 9)
@@ -603,12 +610,12 @@ struct ShiftView: View {
        читалась поломкой. */
     private var empty: some View {
         VStack(spacing: 6) {
-            Text(onShift ? "Հերթափոխը սկսված է" : "Հերթափոխը դեռ չի սկսվել")
+            Text(onShift ? L("work.emptyOpen") : L("work.emptyOff"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
             Text(onShift
-                ? "Առաջին գրանցումն այստեղ կհայտնվի։"
-                : "Սկսեք հերթափոխը, որպեսզի գրանցեք աշխատանքը։")
+                ? L("work.emptyOpenNote")
+                : L("work.emptyOffNote"))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .multilineTextAlignment(.center)
@@ -645,14 +652,14 @@ struct ShiftView: View {
     private var recordButton: some View {
         VStack(spacing: 8) {
             if !onShift {
-                Text("Գրանցելու համար միացրեք հերթափոխը")
+                Text(L("work.needShift"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Button("+ \(session.tenant?.unitOne ?? "")") {
+            Button("+ \(Terms.unit(session.tenant?.unitOne ?? "").acc)") {
                 recording = true
             }
             .accessibilityIdentifier("shift.record")
@@ -700,7 +707,7 @@ struct ShiftView: View {
     /// смену, начатую в шесть утра.
     private func at(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
+        f.locale = LangStore.currentLang.locale
         f.dateFormat = "HH:mm"
         if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
             f.timeZone = zone
@@ -785,10 +792,10 @@ func paymentSymbol(_ key: String) -> String {
 
 func paymentLabel(_ key: String) -> String {
     switch key {
-    case "cash": return "Կանխիկ"
-    case "card": return "Քարտ"
-    case "transfer": return "Փոխանցում"
-    case "pass": return "Աբոնեմենտ"
+    case "cash": return L("payment.cash")
+    case "card": return L("payment.card")
+    case "transfer": return L("payment.transfer")
+    case "pass": return L("payment.pass")
     default: return key
     }
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Panel } from '@/components/board';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount, unitForms } from '@/lib/i18n/terms';
 
 export type MonthRow = {
   key: string;
@@ -33,7 +34,7 @@ export type MonthRow = {
  * Строка открывает свой месяц: из таблицы попадают в разбор, а не
  * наоборот.
  */
-export function MonthsTable({
+export async function MonthsTable({
   rows,
   unitOne,
   className,
@@ -42,8 +43,9 @@ export function MonthsTable({
   unitOne: string;
   className?: string;
 }) {
+  const t = await getDict();
   return (
-    <Panel title={hy.reports.byMonth} count={rows.length} className={className}>
+    <Panel title={t.reports.byMonth} count={rows.length} className={className}>
       {/* Телефон: строками. Шесть колонок на экране в ладонь шириной
           превращаются либо в горизонтальную прокрутку, где не видно
           начала строки, либо в кашу. */}
@@ -57,8 +59,8 @@ export function MonthsTable({
                 style={{ color: 'var(--board-muted)' }}
               >
                 {m.empty
-                  ? hy.reports.emptyMonth
-                  : `${m.count} ${unitOne} · ${m.revenue}`}
+                  ? t.reports.emptyMonth
+                  : `${unitCount(m.count, unitOne, t.locale)} · ${m.revenue}`}
               </span>
             </span>
             {!m.empty && (
@@ -81,12 +83,12 @@ export function MonthsTable({
       <table className="tbl hidden lg:table">
         <thead>
           <tr>
-            <th>{hy.reports.month}</th>
-            <th className="end">{unitOne}</th>
-            <th className="end">{hy.owner.revenue}</th>
-            <th className="end">{hy.owner.payrollAccrued}</th>
-            <th className="end">{hy.owner.costs}</th>
-            <th className="end">{hy.owner.profit}</th>
+            <th>{t.reports.month}</th>
+            <th className="end">{unitForms(unitOne, t.locale).many}</th>
+            <th className="end">{t.owner.revenue}</th>
+            <th className="end">{t.owner.payrollAccrued}</th>
+            <th className="end">{t.owner.costs}</th>
+            <th className="end">{t.owner.profit}</th>
           </tr>
         </thead>
         <tbody>
@@ -104,7 +106,7 @@ export function MonthsTable({
               {m.empty ? (
                 /* Пустой месяц — одна фраза вместо пяти нулей. */
                 <td colSpan={5} className="text-center" style={{ color: 'var(--board-muted)' }}>
-                  {hy.reports.emptyMonth}
+                  {t.reports.emptyMonth}
                 </td>
               ) : (
                 <>

@@ -51,7 +51,7 @@ struct LoginView: View {
                     .tracking(4)
                     .foregroundStyle(Brand.lime)
 
-                Text(session.rememberedAccount != nil && !manual ? "Կրկին բարև" : "Մուտք")
+                Text(session.rememberedAccount != nil && !manual ? L("auth.welcomeBack") : L("auth.signInTitle"))
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.top, 10)
@@ -110,7 +110,7 @@ struct LoginView: View {
             }
             .buttonStyle(.plain)
             .disabled(busy)
-            .accessibilityLabel("Մուտք գործել որպես \(account.name)")
+            .accessibilityLabel(L("auth.signInAs", account.name))
 
             VStack(spacing: 3) {
                 Text(account.name)
@@ -124,7 +124,7 @@ struct LoginView: View {
             if busy {
                 TetrLoader(size: 22, tint: Brand.lime)
             } else {
-                Text("Հպեք ավատարին՝ մուտք գործելու համար")
+                Text(L("auth.tapAvatarPhone"))
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
             }
@@ -136,7 +136,7 @@ struct LoginView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button("Մուտք գործել այլ համարով") {
+            Button(L("auth.anotherAccount")) {
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.96)) {
                     manual = true
                 }
@@ -151,7 +151,7 @@ struct LoginView: View {
 
     private var manualForm: some View {
         VStack(alignment: .leading, spacing: 0) {
-            field(title: "Հեռախոս") {
+            field(title: L("auth.phone")) {
                 TextField("+374 77 123 456", text: $phone)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
@@ -160,15 +160,15 @@ struct LoginView: View {
                        Плейсхолдер озвучивать нечего: «+374 77 123 456»
                        читается как набор цифр, а не как «телефон». */
                     .accessibilityIdentifier("login.phone")
-                    .accessibilityLabel("Հեռախոս")
+                    .accessibilityLabel(L("auth.phone"))
             }
 
-            field(title: "PIN կոդ · 4 նիշ") {
+            field(title: L("auth.pinField")) {
                 SecureField("••••", text: $pin)
                     .keyboardType(.numberPad)
                     .focused($focus, equals: .pin)
                     .accessibilityIdentifier("login.pin")
-                    .accessibilityLabel("PIN կոդ")
+                    .accessibilityLabel(L("auth.pin"))
                     .onChange(of: pin) { _, value in
                         if value.count > 4 { pin = String(value.prefix(4)) }
                     }
@@ -182,7 +182,7 @@ struct LoginView: View {
                     .padding(.top, 14)
             }
 
-            Button("Մուտք գործել") {
+            Button(L("auth.signIn")) {
                 Task { await submit() }
             }
             .accessibilityIdentifier("login.submit")
@@ -191,7 +191,7 @@ struct LoginView: View {
             .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
             .padding(.top, 28)
 
-            Text("Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը")
+            Text(L("auth.staffNote"))
                 .font(.system(size: 13.5))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.6))
@@ -237,7 +237,7 @@ struct LoginView: View {
             pin = ""
             error = message(for: e)
         } catch {
-            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+            self.error = L("payroll.failed")
         }
     }
 
@@ -261,10 +261,10 @@ struct LoginView: View {
          * не знать, свой PIN знает всегда.
          */
         if lock.available {
-            guard await lock.authenticate(reason: "Մուտք գործել որպես \(account.name)") else {
+            guard await lock.authenticate(reason: L("auth.signInAs", account.name)) else {
                 phone = account.phone
                 pin = ""
-                error = "\(lock.kindName)-ը չհաստատվեց։ Մուտքագրեք PIN-ը։"
+                error = L("lock.failed", lock.kindName)
                 withAnimation(.easeOut(duration: 0.2)) { manual = true }
                 focus = .pin
                 return
@@ -276,22 +276,22 @@ struct LoginView: View {
         } catch {
             phone = account.phone
             pin = ""
-            self.error = "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։"
+            self.error = L("auth.rememberedExpiredPin")
             withAnimation(.easeOut(duration: 0.2)) { manual = true }
             focus = .pin
         }
     }
 
     private func message(for error: APIError) -> String {
-        if error.isOffline { return "Կապ չկա։" }
+        if error.isOffline { return L("errors.offline") }
         switch error.code {
         case "TOO_MANY_TRIES":
             let minutes = max(1, (error.retryAfter ?? 60) / 60)
-            return "Չափազանց շատ փորձեր։ Կրկնեք \(minutes) րոպեից։"
+            return Ln("auth.tooManyTries", minutes)
         case "WRONG_CREDENTIALS":
-            return "Սխալ հեռախոս կամ PIN"
+            return L("auth.wrongCredentials")
         default:
-            return "Չհաջողվեց։ Փորձեք կրկին։"
+            return L("payroll.failed")
         }
     }
 }

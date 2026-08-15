@@ -4,8 +4,8 @@ import { useActionState, useState } from 'react';
 import { removeExpenseAction, saveExpenseAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { ExpenseItem } from './model';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Карточка расхода: что это было и что с этим можно сделать.
@@ -45,6 +45,7 @@ export function ExpenseSheet({
   readOnly: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveExpenseAction, null);
   const [removeState, removeAction, removing] = useActionState<FormState, FormData>(
     removeExpenseAction,
@@ -80,7 +81,7 @@ export function ExpenseSheet({
     onClose();
   }
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const frozen = readOnly || (item?.closed ?? false);
   const changed = item !== null && draft !== '' && draft !== String(item.major);
 
@@ -101,10 +102,10 @@ export function ExpenseSheet({
               onClick={() => setConfirming(false)}
               disabled={removing}
             >
-              {hy.common.cancel}
+              {t.common.cancel}
             </button>
             <button form="expense-remove" className="btn-inline btn-inline-danger" disabled={removing}>
-              {removing ? hy.common.loading : hy.expenses.remove}
+              {removing ? t.common.loading : t.expenses.remove}
             </button>
           </>
         ) : (
@@ -114,10 +115,10 @@ export function ExpenseSheet({
               className="btn-inline btn-inline-danger me-auto"
               onClick={() => setConfirming(true)}
             >
-              {hy.expenses.remove}
+              {t.expenses.remove}
             </button>
             <button form="expense-edit" className="btn btn-auto" disabled={pending}>
-              {pending ? hy.common.loading : hy.settings.save}
+              {pending ? t.common.loading : t.settings.save}
             </button>
           </>
         )
@@ -130,21 +131,21 @@ export function ExpenseSheet({
               не объясняет, почему в месяце набежало девяносто семь. */}
           <dl className="facts">
             <div>
-              <dt>{hy.expenses.detailKind}</dt>
-              <dd>{item.monthly ? hy.expenses.monthly : hy.expenses.oneOff}</dd>
+              <dt>{t.expenses.detailKind}</dt>
+              <dd>{item.monthly ? t.expenses.monthly : t.expenses.oneOff}</dd>
             </div>
             <div>
-              <dt>{item.monthly ? hy.expenses.activeSince : hy.expenses.date}</dt>
+              <dt>{item.monthly ? t.expenses.activeSince : t.expenses.date}</dt>
               <dd className="num">{item.closedOn ?? item.day}</dd>
             </div>
             {item.monthly && (
               <>
                 <div>
-                  <dt>{hy.expenses.accrued}</dt>
+                  <dt>{t.expenses.accrued}</dt>
                   <dd className="num">{money(item.share)}</dd>
                 </div>
                 <div>
-                  <dt>{hy.expenses.perDay}</dt>
+                  <dt>{t.expenses.perDay}</dt>
                   <dd className="num">{money(item.perDay)}</dd>
                 </div>
               </>
@@ -153,15 +154,15 @@ export function ExpenseSheet({
 
           {confirming ? (
             <div className="mt-4 grid gap-3">
-              <p className="text-[14px] font-semibold">{hy.expenses.removeTitle}</p>
+              <p className="text-[14px] font-semibold">{t.expenses.removeTitle}</p>
               <p className="note">
-                {item.monthly ? hy.expenses.removeMonthlyNote : hy.expenses.removeOneOffNote}
+                {item.monthly ? t.expenses.removeMonthlyNote : t.expenses.removeOneOffNote}
               </p>
               {removeState?.error && <p className="alert">{removeState.error}</p>}
             </div>
           ) : frozen ? (
             <p className="note mt-4">
-              {item.closed ? hy.expenses.closedNote : hy.expenses.pastMonth}
+              {item.closed ? t.expenses.closedNote : t.expenses.pastMonth}
             </p>
           ) : (
             /* Ключом стоит расход: при переходе к другому поля обязаны
@@ -170,7 +171,7 @@ export function ExpenseSheet({
               <input type="hidden" name="id" value={item.id} />
 
               <label className="grid gap-1.5">
-                <span className="label">{hy.expenses.category}</span>
+                <span className="label">{t.expenses.category}</span>
                 <input
                   className="field"
                   name="category"
@@ -181,7 +182,7 @@ export function ExpenseSheet({
               </label>
 
               <label className="grid gap-1.5">
-                <span className="label">{hy.expenses.amount}</span>
+                <span className="label">{t.expenses.amount}</span>
                 <div className="relative">
                   <input
                     className="field num !ps-8"
@@ -205,7 +206,7 @@ export function ExpenseSheet({
                   переписать прибыль за уже прожитые дни. */}
               {!item.monthly && (
                 <label className="grid gap-1.5">
-                  <span className="label">{hy.expenses.date}</span>
+                  <span className="label">{t.expenses.date}</span>
                   <input
                     className="field num"
                     name="at"
@@ -216,7 +217,7 @@ export function ExpenseSheet({
                 </label>
               )}
 
-              {item.monthly && changed && <p className="note">{hy.expenses.changeNote}</p>}
+              {item.monthly && changed && <p className="note">{t.expenses.changeNote}</p>}
               {state?.error && <p className="alert">{state.error}</p>}
             </form>
           )}

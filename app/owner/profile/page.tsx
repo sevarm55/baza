@@ -5,12 +5,14 @@ import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
 import { formatPhone } from '@/lib/phone';
 import { personColor } from '@/lib/person-color';
-import { hy } from '@/lib/i18n/hy';
 import { Panel, Tile } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ChangePinForm } from './change-pin-form';
 import { RememberLoginToggle } from './remember-login-toggle';
+import { getDict } from '@/lib/i18n/server';
+import { LanguagePicker } from '@/components/language-picker';
+import { localizeTenant } from '@/lib/i18n/terms';
 
 /**
  * Профиль — то же, что на телефоне.
@@ -26,22 +28,27 @@ import { RememberLoginToggle } from './remember-login-toggle';
  * доступ владельцу было нечем, кроме телефона.
  */
 export default async function ProfilePage() {
+  const t = await getDict();
   const session = await requireSession();
   await ensureDb();
 
-  const [tenant, me, rememberLogin] = await Promise.all([
+  const [raw, me, rememberLogin] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
     rememberedLoginEnabled(),
   ]);
-  if (!tenant || !me) redirect('/session-ended');
+  if (!raw || !me) redirect('/session-ended');
+
+  /* Слова бизнеса — на языке того, кто смотрит; заводские переводятся,
+     своё название владельца проходит насквозь (см. terms.ts). */
+  const tenant = localizeTenant(raw, t.locale);
 
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
 
   return (
     <>
-      <PageHead title={hy.profile.title} standalone />
+      <PageHead title={t.profile.title} standalone />
 
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
@@ -63,13 +70,13 @@ export default async function ProfilePage() {
               <div className="min-w-0">
                 <div className="truncate text-[20px] leading-tight font-bold">{me.name}</div>
                 <div className="num truncate text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {formatPhone(me.phone)} · {owner ? hy.roles.owner : tenant.staffRole}
+                  {formatPhone(me.phone)} · {owner ? t.roles.owner : tenant.staffRole}
                 </div>
               </div>
             </div>
           </Panel>
 
-          <Panel title={hy.auth.changePin}>
+          <Panel title={t.auth.changePin}>
             <ChangePinForm />
           </Panel>
         </div>
@@ -85,27 +92,33 @@ export default async function ProfilePage() {
           {owner ? (
             <Tile
               tone={access.warn ? 'amber' : 'teal'}
-              label={hy.profile.access}
+              label={t.profile.access}
               value={
                 access.state === 'trial'
-                  ? hy.billing.trialLeft(access.daysLeft)
+                  ? t.billing.trialLeft(access.daysLeft)
                   : access.state === 'active'
-                    ? hy.billing.paidLeft(access.daysLeft)
-                    : hy.billing.expiredTitle
+                    ? t.billing.paidLeft(access.daysLeft)
+                    : t.billing.expiredTitle
               }
               note={tenant.name}
             />
           ) : (
-            <Tile tone="slate" label={hy.settings.business} value={tenant.name} />
+            <Tile tone="slate" label={t.settings.business} value={tenant.name} />
           )}
 
-          <Panel title={hy.profile.session}>
+          {/* Язык стоит внутри «этого устройства», а не отдельной
+              панелью с тем же словом в заголовке: язык выбирает человек
+              для себя и на своём экране, а не владелец для всей мойки.
+              Мойщик на той же мойке может записывать машины
+              по-армянски, пока владелец читает отчёты по-русски. */}
+          <Panel title={t.profile.session}>
+            <LanguagePicker />
             <RememberLoginToggle initial={rememberLogin} />
-            <p className="note !mt-3 !border-0 !pt-0">{hy.profile.signOutNote}</p>
+            <p className="note !mt-3 !border-0 !pt-0">{t.profile.signOutNote}</p>
             <div className="mt-3 flex items-center gap-2.5">
               <SignOutButton />
               <span className="text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                {hy.auth.signOut}
+                {t.auth.signOut}
               </span>
             </div>
           </Panel>

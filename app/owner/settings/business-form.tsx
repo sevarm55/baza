@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { saveBusiness } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Название бизнеса.
@@ -16,6 +16,7 @@ import { hy } from '@/lib/i18n/hy';
  * же набранной букве.
  */
 export function BusinessForm({ name }: { name: string }) {
+  const t = useT();
   const [draft, setDraft] = useState(name);
   const dirty = draft.trim() !== name && draft.trim().length >= 2;
 
@@ -24,13 +25,13 @@ export function BusinessForm({ name }: { name: string }) {
       <input
         className="field field-sm min-w-0 flex-1"
         name="name"
-        aria-label={hy.settings.businessName}
+        aria-label={t.settings.businessName}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         required
       />
       <button className={`btn-inline btn-inline-primary ${dirty ? '' : 'invisible'}`}>
-        {hy.settings.save}
+        {t.settings.save}
       </button>
     </form>
   );

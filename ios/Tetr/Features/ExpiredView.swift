@@ -55,11 +55,11 @@ struct ExpiredView: View {
        его. */
     private var ownerText: String {
         guard isOwner else {
-            return "Այս մասնաճյուղում գրանցումները ժամանակավորապես փակ են։ Դիմեք սեփականատիրոջը։"
+            return L("expired.worker")
         }
         return fresh
-            ? "Սկսում ենք վճարումից հետո։ Ձեր մյուս մասնաճյուղերն աշխատում են ինչպես առաջ։"
-            : "Մուտքը ժամանակավորապես դադարեցված է։ Ձեր տվյալները տեղում են՝ գրանցումները, հասույթը, հաճախորդների բազան։ Ոչինչ չի կորել։"
+            ? L("expired.fresh")
+            : L("expired.blocked")
     }
 
     var body: some View {
@@ -80,7 +80,7 @@ struct ExpiredView: View {
                 }
 
             VStack(alignment: .leading, spacing: 14) {
-                Text(isOwner ? (fresh ? "Մասնաճյուղը ստեղծված է" : "Ժամկետը լրացել է") : "Մուտքը փակ է")
+                Text(isOwner ? (fresh ? L("points.freshTitle") : L("billing.expiredTitle")) : L("expired.blockedTitle"))
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
 
@@ -128,7 +128,7 @@ struct ExpiredView: View {
                    что человеку тут по-настоящему нужно: забрать своё.
                    У новой точки её нет: там пока нечего забирать. */
                 if isOwner && !fresh {
-                    Button(exporting ? "…" : "Ներբեռնել տվյալները") {
+                    Button(exporting ? "…" : L("billing.wallDownload")) {
                         Task { await exportCsv() }
                     }
                     .buttonStyle(LimeButton())
@@ -141,12 +141,12 @@ struct ExpiredView: View {
                    мойщику его не показываем вовсе: бизнес не его, и
                    сервер такую попытку всё равно отвергает. */
                 if isOwner {
-                    Button("Ջնջել բիզնեսը", role: .destructive) { deleting = true }
+                    Button(L("billing.wallDelete"), role: .destructive) { deleting = true }
                         .font(.system(size: 14.5, weight: .semibold))
                         .padding(.top, 2)
                 }
 
-                Button("Դուրս գալ") {
+                Button(L("auth.signOut")) {
                     Task { await session.signOut() }
                 }
                 .font(.system(size: 14, weight: .semibold))

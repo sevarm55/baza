@@ -5,10 +5,10 @@ import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { Segmented } from '@/components/segmented';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { AddExpense } from './add-expense';
 import { ExpenseSheet } from './expense-sheet';
 import type { ExpenseDay, ExpenseItem } from './model';
+import { useT } from '@/lib/i18n/client';
 
 type Kind = 'all' | 'monthly' | 'oneOff';
 
@@ -55,10 +55,11 @@ export function ExpenseList({
   /** закрытый месяц: его строки нельзя менять задним числом */
   readOnly: boolean;
 }) {
+  const t = useT();
   const [kind, setKind] = useState<Kind>('all');
   const [open, setOpen] = useState<string | null>(null);
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const all = [...monthly, ...days.flatMap((d) => d.items)];
   const item = all.find((x) => x.id === open) ?? null;
 
@@ -66,8 +67,8 @@ export function ExpenseList({
     return (
       <Panel>
         <EmptyState
-          title={hy.expenses.empty}
-          note={hy.expenses.emptyNote}
+          title={t.expenses.empty}
+          note={t.expenses.emptyNote}
           action={
             readOnly ? undefined : (
               <AddExpense
@@ -97,17 +98,17 @@ export function ExpenseList({
           id="expense-kind"
           current={kind}
           onSelect={(key) => setKind(key as Kind)}
-          label={hy.expenses.kind}
+          label={t.expenses.kind}
           items={[
-            { key: 'all', label: hy.today.all, count: all.length },
-            { key: 'monthly', label: hy.expenses.monthly, count: monthly.length },
-            { key: 'oneOff', label: hy.expenses.oneOff, count: oneOffCount },
+            { key: 'all', label: t.today.all, count: all.length },
+            { key: 'monthly', label: t.expenses.monthly, count: monthly.length },
+            { key: 'oneOff', label: t.expenses.oneOff, count: oneOffCount },
           ]}
         />
       )}
 
       {showMonthly && (
-        <Panel title={hy.expenses.monthlyOnes} count={monthly.length}>
+        <Panel title={t.expenses.monthlyOnes} count={monthly.length}>
           <div className="rows">
             {monthly.map((e) => (
               <Line
@@ -122,12 +123,12 @@ export function ExpenseList({
 
           {/* Как считается постоянный расход — сноской под теми строками,
               к которым она относится, а не подписью раздела наверху. */}
-          <p className="note mt-3">{hy.expenses.note}</p>
+          <p className="note mt-3">{t.expenses.note}</p>
         </Panel>
       )}
 
       {showOneOff && (
-        <Panel title={hy.expenses.oneOffs} count={oneOffCount}>
+        <Panel title={t.expenses.oneOffs} count={oneOffCount}>
           {days.map((day) => (
             <section key={day.key} className="expense-day">
               {/* Итог дня — только когда трат в нём несколько: под одной
@@ -185,7 +186,8 @@ function Line({
   currencySymbol: string;
   onOpen: () => void;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = useT();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   const body = (
     <>
@@ -193,7 +195,7 @@ function Line({
         <span className="block truncate text-[15px] font-medium">{item.category}</span>
         {item.monthly ? (
           <span className="num block truncate text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-            {hy.expenses.accrued} {money(item.share)} · {hy.expenses.perDay} {money(item.perDay)}
+            {t.expenses.accrued} {money(item.share)} · {t.expenses.perDay} {money(item.perDay)}
             {item.closedOn && ` · ${item.closedOn}`}
           </span>
         ) : (
@@ -209,7 +211,7 @@ function Line({
         {item.display} <span className="text-faint">{currencySymbol}</span>
         {item.monthly && (
           <span className="block text-[11.5px] font-normal" style={{ color: 'var(--board-muted)' }}>
-            {hy.expenses.perMonth}
+            {t.expenses.perMonth}
           </span>
         )}
       </span>

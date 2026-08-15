@@ -3,6 +3,8 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { getDict, getLocale } from '@/lib/i18n/server';
+import { I18nProvider } from '@/lib/i18n/client';
 
 /**
  * Mardoto — весь текст продукта.
@@ -29,19 +31,29 @@ const sans = localFont({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: 'Tetrin',
-  description: 'Հաշվառում սպասարկման բիզնեսի համար',
-  manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Tetrin', statusBarStyle: 'black-translucent' },
-  icons: {
-    icon: [
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: '/apple-icon.png',
-  },
-};
+/**
+ * Заголовок вкладки и описание — на языке страницы.
+ *
+ * Название продукта не переводится ни на одном языке: Tetrin — марка.
+ * Переводится строка под ним, потому что её читает и человек в поиске,
+ * и предпросмотр ссылки в мессенджере.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return {
+    title: t.app.name,
+    description: t.app.tagline,
+    manifest: '/manifest.webmanifest',
+    appleWebApp: { capable: true, title: t.app.name, statusBarStyle: 'black-translucent' },
+    icons: {
+      icon: [
+        { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: '/apple-icon.png',
+    },
+  };
+}
 
 export const viewport: Viewport = {
   // цвет строки состояния на телефоне должен совпадать с фоном страницы,
@@ -56,16 +68,21 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
   modal,
 }: {
   children: React.ReactNode;
   modal: React.ReactNode;
 }) {
+  /* Язык читается здесь и больше нигде: разметка получает `lang`, а
+     клиентские компоненты — код языка через провайдер. Ниже по дереву
+     никто не спрашивает «какой сейчас язык» — все спрашивают слова. */
+  const locale = await getLocale();
+
   return (
     <html
-      lang="hy"
+      lang={locale}
       className={`${sans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -84,10 +101,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>
-          {children}
-          {modal}
-        </TooltipProvider>
+        <I18nProvider locale={locale}>
+          <TooltipProvider>
+            {children}
+            {modal}
+          </TooltipProvider>
+        </I18nProvider>
         <ServiceWorker />
       </body>
     </html>

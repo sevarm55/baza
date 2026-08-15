@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { toggleShiftAction } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Начало и конец смены.
@@ -30,6 +30,7 @@ function toggle(open: boolean) {
 }
 
 export function StartShift() {
+  const t = useT();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -44,13 +45,13 @@ export function StartShift() {
         disabled={pending}
         onClick={() => startTransition(async () => void (await toggle(true)))}
       >
-        {pending ? hy.common.loading : hy.work.startShift}
+        {pending ? t.common.loading : t.work.startShift}
       </button>
       {/* Вне смены записывать нельзя: машина, записанная мимо смены, не
           попадает в сдачу наличных при закрытии. То же правило в
           приложении и на сервере. Объяснение стоит под кнопкой, которая
           это правило снимает, а не под той, которую оно гасит. */}
-      <p className="note mt-2.5">{hy.work.needShift}</p>
+      <p className="note mt-2.5">{t.work.needShift}</p>
     </div>
   );
 }
@@ -68,6 +69,7 @@ export function EndShift({
   currency: string;
   unitOne: string;
 }) {
+  const t = useT();
   const [asking, setAsking] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -83,7 +85,7 @@ export function EndShift({
         disabled={pending}
         onClick={() => setAsking(true)}
       >
-        {hy.work.endShift}
+        {t.work.endShift}
       </button>
 
       {/* Окно продукта, а не браузерный вопрос: `confirm` умеет показать
@@ -93,7 +95,7 @@ export function EndShift({
       <Sheet
         open={asking}
         onClose={pending ? () => {} : () => setAsking(false)}
-        title={hy.work.endTitle}
+        title={t.work.endTitle}
         footer={
           <>
             <button
@@ -102,7 +104,7 @@ export function EndShift({
               onClick={() => setAsking(false)}
               disabled={pending}
             >
-              {hy.work.endStay}
+              {t.work.endStay}
             </button>
             <button
               type="button"
@@ -110,7 +112,7 @@ export function EndShift({
               disabled={pending}
               onClick={() => startTransition(async () => void (await toggle(false)))}
             >
-              {pending ? hy.common.loading : hy.work.endConfirm}
+              {pending ? t.common.loading : t.work.endConfirm}
             </button>
           </>
         }
@@ -118,13 +120,13 @@ export function EndShift({
         <div className="grid gap-3">
           <div className="board-journal">
             <Line label={unitOne} value={String(count)} />
-            <Line label={hy.work.worksTotal} value={formatMoney(revenue, currency)} />
+            <Line label={t.work.worksTotal} value={formatMoney(revenue, currency, t.locale)} />
             {/* Свои деньги — последними и полужирным: из трёх строк это
                 та, ради которой человек читает окно. */}
-            <Line label={hy.work.earnedToday} value={formatMoney(earned, currency)} strong />
+            <Line label={t.work.earnedToday} value={formatMoney(earned, currency, t.locale)} strong />
           </div>
           <p className="text-[12.5px]" style={{ color: 'var(--muted)' }}>
-            {hy.work.endNote(unitOne)}
+            {t.work.endNote(unitOne)}
           </p>
         </div>
       </Sheet>

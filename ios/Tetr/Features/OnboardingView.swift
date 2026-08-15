@@ -27,30 +27,26 @@ struct OnboardingView: View {
         Slide(
             id: 0,
             image: "onboarding-1.jpg",
-            title: "Ամեն մեքենան՝ գրանցված",
-            text: "Լվացողը գրանցում է երեք հպումով՝ համարանիշ, ծառայություն, վճարում։ "
-                + "Դուք տեսնում եք նույն վայրկյանին։"
+            title: L("onboarding.s1Title"),
+            text: L("onboarding.s1Body")
         ),
         Slide(
             id: 1,
             image: "onboarding-2.jpg",
-            title: "Աշխատավարձը հաշվվում է ինքնաշխատ",
-            text: "Ամեն մեքենայից՝ լվացողի տոկոսը։ Տոկոսը պահվում է գրանցման պահին, "
-                + "ուստի գների փոփոխությունը անցյալը չի փոխում։"
+            title: L("onboarding.s2Title"),
+            text: L("onboarding.s2Body")
         ),
         Slide(
             id: 2,
             image: "onboarding-3.jpg",
-            title: "Երևում է, թե որքան է մնում",
-            text: "Հասույթից հանվում են աշխատավարձը և ծախսերը՝ վարձ, քիմիա, հոսանք։ "
-                + "Մնացածը ձեր շահույթն է։"
+            title: L("onboarding.s3Title"),
+            text: L("onboarding.s3Body")
         ),
         Slide(
             id: 3,
             image: "onboarding-4.jpg",
-            title: "Տվյալները ձերն են",
-            text: "Ներբեռնեք ամեն ինչ Excel-ով ցանկացած պահի։ Կապը կտրվե՞ց — "
-                + "գրանցումները սպասում են հեռախոսում և ուղարկվում իրենք։"
+            title: L("onboarding.s4Title"),
+            text: L("onboarding.s4Body")
         ),
     ]
 
@@ -72,7 +68,7 @@ struct OnboardingView: View {
             /* Выход есть на каждом экране. Онбординг, из которого нельзя
                выйти, — это не объяснение, а препятствие: человек уже
                завёл бизнес и хочет работать. */
-            Button("Բաց թողնել") { onDone() }
+            Button(L("common.skip")) { onDone() }
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 22)
@@ -152,7 +148,7 @@ struct OnboardingView: View {
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: page)
 
-            Button(page == slides.count - 1 ? "Սկսել" : "Հաջորդը") {
+            Button(page == slides.count - 1 ? L("common.start") : L("common.next")) {
                 if page == slides.count - 1 {
                     onDone()
                 } else {

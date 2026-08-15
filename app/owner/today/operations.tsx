@@ -5,8 +5,9 @@ import { ChevronRight, Search } from 'lucide-react';
 import { Panel } from '@/components/board';
 import { OrderMenu } from '@/components/order-menu';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { Op } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * Сегодняшняя работа.
@@ -54,11 +55,12 @@ export function TodayOperations({
   empty: { title: string; note?: string };
   methods: { key: string; label: string }[];
 }) {
+  const t = useT();
   const [method, setMethod] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   /* Фильтры появляются, только когда есть что фильтровать: на дне из
      четырёх машин с одними наличными полоса кнопок — это управление,
@@ -98,8 +100,8 @@ export function TodayOperations({
               className="num"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={hy.owner.clientsSearch}
-              aria-label={hy.owner.clientsSearch}
+              placeholder={t.owner.clientsSearch}
+              aria-label={t.owner.clientsSearch}
               autoComplete="off"
             />
           </label>
@@ -111,9 +113,9 @@ export function TodayOperations({
       </p>
 
       {filterable && (
-        <div className="op-filters" role="group" aria-label={hy.owner.colPayment}>
+        <div className="op-filters" role="group" aria-label={t.owner.colPayment}>
           <button type="button" data-on={method === null ? '' : undefined} onClick={() => setMethod(null)}>
-            {hy.today.all}
+            {t.today.all}
           </button>
           {methods.map((m) => (
             <button
@@ -131,7 +133,7 @@ export function TodayOperations({
       {ops.length === 0 ? (
         <Empty title={empty.title} note={empty.note} />
       ) : shown.length === 0 ? (
-        <Empty title={hy.owner.clientsNotFound} />
+        <Empty title={t.owner.clientsNotFound} />
       ) : (
         <>
           {/* ─────────── телефон: карточки ─────────── */}
@@ -158,10 +160,10 @@ export function TodayOperations({
                     раскрытием: на телефоне место есть, а лишнее нажатие
                     мокрыми руками стоит дороже строки текста. */}
                 <span className="op-card-split num">
-                  {hy.owner.colShare} {money(o.share)}
+                  {t.owner.colShare} {money(o.share)}
                   {o.percent > 0 && ` · ${o.percent}%`}
                   {' · '}
-                  {hy.today.toBusiness} {money(o.yours)}
+                  {t.today.toBusiness} {money(o.yours)}
                 </span>
 
                 <span className="op-card-menu">
@@ -172,10 +174,10 @@ export function TodayOperations({
 
             <div className="op-total">
               <span>
-                {hy.owner.feedTotal}
+                {t.owner.feedTotal}
                 <b className="num">
                   {' '}
-                  · {shown.length} {unitOne}
+                  · {unitCount(shown.length, unitOne, t.locale)}
                 </b>
               </span>
               <span className="num">
@@ -196,14 +198,14 @@ export function TodayOperations({
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>{hy.owner.colTime}</th>
+                  <th>{t.owner.colTime}</th>
                   <th>{clientIdLabel}</th>
                   <th>{staffRole}</th>
-                  <th>{hy.owner.colService}</th>
-                  <th>{hy.owner.colPayment}</th>
-                  <th className="end">{hy.owner.colPrice}</th>
-                  <th className="end">{hy.owner.colShare}</th>
-                  <th className="end hidden xl:table-cell">{hy.today.toBusiness}</th>
+                  <th>{t.owner.colService}</th>
+                  <th>{t.owner.colPayment}</th>
+                  <th className="end">{t.owner.colPrice}</th>
+                  <th className="end">{t.owner.colShare}</th>
+                  <th className="end hidden xl:table-cell">{t.today.toBusiness}</th>
                   <th />
                 </tr>
               </thead>
@@ -226,7 +228,7 @@ export function TodayOperations({
               <tfoot>
                 <tr>
                   <td colSpan={5}>
-                    {hy.owner.feedTotal} · {shown.length} {unitOne}
+                    {t.owner.feedTotal} · {unitCount(shown.length, unitOne, t.locale)}
                   </td>
                   <td className="num end">{money(totals.price)}</td>
                   <td className="num end">{money(totals.share)}</td>
@@ -263,7 +265,8 @@ function Line({
   open: boolean;
   onToggle: () => void;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = useT();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const cut = op.price > 0 ? Math.round((op.share / op.price) * 100) : 0;
 
   return (
@@ -345,7 +348,7 @@ function Line({
           <td colSpan={9}>
             <div className="op-split">
               <span className="op-split-head">
-                {hy.today.clientPaid} <b className="num">{money(op.price)}</b>
+                {t.today.clientPaid} <b className="num">{money(op.price)}</b>
               </span>
 
               <span className="op-split-bar" aria-hidden>
@@ -370,7 +373,7 @@ function Line({
                     style={{ background: 'var(--tone-violet-glow)' }}
                     aria-hidden
                   />
-                  {hy.today.toBusiness}
+                  {t.today.toBusiness}
                   <b className="num">{money(op.yours)}</b>
                 </span>
               </span>

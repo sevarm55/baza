@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getRememberedAccount, getSession } from '@/lib/auth';
-import { hy } from '@/lib/i18n/hy';
 import { startHref } from '@/lib/niches';
 import { Logo } from '@/components/logo';
 import { LoginForm } from './login-form';
+import { getDict } from '@/lib/i18n/server';
 
 export default async function LoginPage() {
+  const t = await getDict();
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
   const remembered = await getRememberedAccount();
@@ -43,7 +44,7 @@ export default async function LoginPage() {
         <Logo size={30} />
 
         <p className="max-w-[15ch] text-[clamp(30px,3.2vw,46px)] leading-[1.12] font-bold tracking-tight">
-          {hy.app.tagline}
+          {t.app.tagline}
         </p>
 
         <span className="text-[13.5px] opacity-60">tetrin.pro</span>
@@ -56,7 +57,7 @@ export default async function LoginPage() {
                 лишний, и заголовок начинает страницу сам. */}
             <Logo size={28} className="mb-4 lg:hidden" />
             <h1 className="text-2xl font-semibold">
-              {remembered ? hy.auth.welcomeBack : hy.auth.signInTitle}
+              {remembered ? t.auth.welcomeBack : t.auth.signInTitle}
             </h1>
           </header>
 
@@ -64,7 +65,7 @@ export default async function LoginPage() {
 
           <p className="mt-7 text-center text-sm text-muted">
             <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">
-              {hy.onboarding.createAccount}
+              {t.onboarding.createAccount}
             </Link>
           </p>
         </div>

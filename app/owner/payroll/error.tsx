@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Зарплаты не доехали.
@@ -21,21 +21,22 @@ export default function PayrollError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT();
   useEffect(() => {
     console.error(error);
   }, [error]);
 
   return (
     <>
-      <h1 className="page-title">{hy.owner.tabPayroll}</h1>
+      <h1 className="page-title">{t.owner.tabPayroll}</h1>
 
       <div
         className="panel-pad mt-[var(--seam)] grid justify-items-center gap-2 rounded-[var(--radius-card)] py-12 text-center"
         style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
       >
-        <p className="text-[15px] font-semibold">{hy.payroll.loadFailed}</p>
+        <p className="text-[15px] font-semibold">{t.payroll.loadFailed}</p>
         <button type="button" className="btn-inline mt-2" onClick={reset}>
-          {hy.payroll.retry}
+          {t.payroll.retry}
         </button>
       </div>
     </>

@@ -1,7 +1,8 @@
 import { Panel, Row } from '@/components/board';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { CrewMember } from './model';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * Кто сегодня работает.
@@ -22,7 +23,7 @@ import type { CrewMember } from './model';
  * «сейчас здесь». Цветом человека помечено имя — тот же цвет, что в
  * ленте, во дворе и на зарплатах.
  */
-export function TodayCrew({
+export async function TodayCrew({
   className,
   crew,
   currency,
@@ -38,13 +39,14 @@ export function TodayCrew({
   unitOne: string;
   title: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   return (
     <Panel className={className} title={title} count={crew.length > 0 ? crew.length : undefined}>
       {crew.length === 0 ? (
         <p className="py-6 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.today.nobodyOnShift}
+          {t.today.nobodyOnShift}
         </p>
       ) : (
         <div className="board-journal">
@@ -56,7 +58,7 @@ export function TodayCrew({
                   оформление, и читалка экрана обязана его назвать. */}
               <span
                 className={`size-2 shrink-0 rounded-full ${s.present ? 'dot-live' : 'dot-idle'}`}
-                aria-label={s.present ? hy.owner.onShiftNow : undefined}
+                aria-label={s.present ? t.owner.onShiftNow : undefined}
                 aria-hidden={s.present ? undefined : true}
               />
               <span
@@ -69,7 +71,7 @@ export function TodayCrew({
               {/* Счёт машин приглушён: он объясняет сумму справа, а не
                   спорит с ней за внимание. */}
               <span className="num shrink-0 text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                {s.count} {unitOne}
+                {unitCount(s.count, unitOne, t.locale)}
               </span>
               <span
                 className="num shrink-0 text-right text-[15px] font-semibold tabular-nums"

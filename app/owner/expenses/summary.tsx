@@ -1,6 +1,6 @@
 import { Figures, Plate } from '@/components/board';
 import { formatMoney, formatShare } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Ответ расходов и его разбор.
@@ -20,7 +20,7 @@ import { hy } from '@/lib/i18n/hy';
  * процентов и обычный месяц, а при выручке в двести — это беда. Число
  * появляется только когда есть выручка: процент от нуля не существует.
  */
-export function ExpensesSummary({
+export async function ExpensesSummary({
   currency,
   total,
   monthlyShare,
@@ -43,7 +43,8 @@ export function ExpensesSummary({
   /** «օգոստոս» — под каким числом стоит итог */
   monthName: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const share = revenue > 0 ? formatShare(total, revenue) : null;
 
   return (
@@ -51,28 +52,28 @@ export function ExpensesSummary({
       /* Порог тот же, что у сводки и зарплат: до 1024 плита и полоса
          идут друг под другом, иначе числа и подписи обрезаются. */
       className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-      aria-label={hy.expenses.title}
+      aria-label={t.expenses.title}
     >
       <Plate
-        label={hy.expenses.title}
+        label={t.expenses.title}
         value={money(total)}
         note={
-          share !== null ? `${monthName} · ${hy.expenses.shareOfRevenue(share)}` : monthName
+          share !== null ? `${monthName} · ${t.expenses.shareOfRevenue(share)}` : monthName
         }
       />
 
       <Figures
         items={[
           {
-            label: hy.expenses.monthlyAccrued,
+            label: t.expenses.monthlyAccrued,
             value: money(monthlyShare),
             /* Под накопленной долей стоит номинал, иначе число не с чем
                сверить: «19 355» само по себе не говорит ничего,
                «19 355 из 300 000» говорит всё. */
-            note: monthlyNominal > 0 ? hy.expenses.outOf(money(monthlyNominal)) : undefined,
+            note: monthlyNominal > 0 ? t.expenses.outOf(money(monthlyNominal)) : undefined,
           },
-          { label: hy.expenses.oneOffs, value: money(oneOff) },
-          { label: hy.expenses.perDayAvg, value: money(perDay) },
+          { label: t.expenses.oneOffs, value: money(oneOff) },
+          { label: t.expenses.perDayAvg, value: money(perDay) },
         ]}
       />
     </section>

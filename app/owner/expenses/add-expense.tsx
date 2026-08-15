@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addExpenseAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Новый расход.
@@ -39,6 +39,7 @@ export function AddExpense({
   today: string;
   variant?: 'head' | 'cta';
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(addExpenseAction, null);
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState('');
@@ -71,17 +72,17 @@ export function AddExpense({
         onClick={() => setOpen(true)}
       >
         <Plus className="size-4" aria-hidden />
-        {hy.expenses.addExpense}
+        {t.expenses.addExpense}
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} side title={hy.expenses.addExpense}>
+      <Sheet open={open} onClose={() => setOpen(false)} side title={t.expenses.addExpense}>
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлым недописанным расходом. */}
         <form key={String(open)} action={action} className="grid gap-3.5">
           {/* Сумма первой и крупно: с ней приходят. Название вспоминают
               уже после того, как посмотрели в чек. */}
           <label className="grid gap-1.5">
-            <span className="label">{hy.expenses.amount}</span>
+            <span className="label">{t.expenses.amount}</span>
             <div className="relative">
               <input
                 className="field auth-field num !ps-9 !text-[19px] !font-semibold"
@@ -100,7 +101,7 @@ export function AddExpense({
           </label>
 
           <div className="grid gap-2">
-            <span className="label">{hy.expenses.category}</span>
+            <span className="label">{t.expenses.category}</span>
 
             <div className="flex flex-wrap gap-1.5">
               {hints.map((h) => (
@@ -124,18 +125,18 @@ export function AddExpense({
               name="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder={hy.expenses.category}
+              placeholder={t.expenses.category}
               required
               autoComplete="off"
             />
           </div>
 
           <div className="grid gap-2">
-            <span className="label">{hy.expenses.kind}</span>
+            <span className="label">{t.expenses.kind}</span>
             <div className="kind">
               <Kind
-                title={hy.expenses.oneOff}
-                note={hy.expenses.kindOneNote}
+                title={t.expenses.oneOff}
+                note={t.expenses.kindOneNote}
                 on={!monthly}
                 onPick={() => setMonthly(false)}
                 icon={
@@ -147,8 +148,8 @@ export function AddExpense({
                 }
               />
               <Kind
-                title={hy.expenses.monthly}
-                note={hy.expenses.kindMonthlyNote}
+                title={t.expenses.monthly}
+                note={t.expenses.kindMonthlyNote}
                 on={monthly}
                 onPick={() => setMonthly(true)}
                 icon={
@@ -165,10 +166,10 @@ export function AddExpense({
           </div>
 
           {monthly ? (
-            <p className="note">{hy.expenses.monthlyStartNote}</p>
+            <p className="note">{t.expenses.monthlyStartNote}</p>
           ) : (
             <label className="grid gap-1.5">
-              <span className="label">{hy.expenses.date}</span>
+              <span className="label">{t.expenses.date}</span>
               <input
                 className="field num"
                 name="at"
@@ -180,7 +181,7 @@ export function AddExpense({
           )}
 
           <button className="btn mt-0.5" disabled={pending}>
-            {pending ? hy.common.loading : hy.expenses.add}
+            {pending ? t.common.loading : t.expenses.add}
           </button>
 
           {state?.error && <p className="alert">{state.error}</p>}

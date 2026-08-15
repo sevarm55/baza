@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { sellPassAction, type FormState } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 type Service = { id: string; name: string; price: number };
 
@@ -15,6 +15,7 @@ export function SellPassForm({
   clientIdLabel: string;
   clientIdPlaceholder: string;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(sellPassAction, null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -48,7 +49,7 @@ export function SellPassForm({
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs text-muted">{hy.settings.services}</span>
+        <span className="text-xs text-muted">{t.settings.services}</span>
         <select
           className="field"
           name="serviceId"
@@ -66,7 +67,7 @@ export function SellPassForm({
 
       <div className="grid grid-cols-3 gap-2.5">
         <label className="grid gap-1.5">
-          <span className="text-xs text-muted">{hy.passes.uses}</span>
+          <span className="text-xs text-muted">{t.passes.uses}</span>
           <input
             className="field !text-center"
             name="totalUses"
@@ -79,7 +80,7 @@ export function SellPassForm({
         </label>
 
         <label className="grid gap-1.5">
-          <span className="text-xs text-muted">{hy.passes.price}</span>
+          <span className="text-xs text-muted">{t.passes.price}</span>
           <input
             className="field !text-center"
             name="price"
@@ -93,14 +94,14 @@ export function SellPassForm({
         </label>
 
         <label className="grid gap-1.5">
-          <span className="text-xs text-muted">{hy.passes.validDays}</span>
+          <span className="text-xs text-muted">{t.passes.validDays}</span>
           <input
             className="field !text-center"
             name="validDays"
             type="number"
             min={0}
             defaultValue={30}
-            placeholder={hy.passes.unlimited}
+            placeholder={t.passes.unlimited}
           />
         </label>
       </div>
@@ -117,7 +118,7 @@ export function SellPassForm({
       {state?.error && <p className="alert">{state.error}</p>}
 
       <button className="btn" disabled={pending}>
-        {pending ? hy.common.loading : hy.passes.sell}
+        {pending ? t.common.loading : t.passes.sell}
       </button>
     </form>
   );

@@ -2,8 +2,7 @@ import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getPeriodStats, getTenant } from '@/lib/queries';
 import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
-import { EXPENSE_HINTS, getPeriodCosts, listPeriodExpenses } from '@/lib/expenses';
+import { expenseHints, getPeriodCosts, listPeriodExpenses } from '@/lib/expenses';
 import { windowFor } from '@/lib/summary-window';
 import { startOfDaysAgo, ymd } from '@/lib/time';
 import { PageHead } from '@/components/page-head';
@@ -12,6 +11,9 @@ import { ExpenseList } from './expense-list';
 import { ExpensesSummary } from './summary';
 import { MonthTabs, type MonthKey } from './month-tabs';
 import type { ExpenseDay, ExpenseItem } from './model';
+import { getDict } from '@/lib/i18n/server';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 
 /**
  * Расходы бизнеса.
@@ -48,6 +50,7 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<{ m?: string }>;
 }) {
+  const t = await getDict();
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/session-ended');
@@ -73,7 +76,7 @@ export default async function ExpensesPage({
   ]);
 
   const zone = tenant.timezone;
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   // у драма нет копеек, у рубля есть — шаг ввода берём из валюты
   const step = toMajor(1, tenant.currency);
   /* Часы читает `lib/time`, а не разметка: `Date.now()` в теле
@@ -81,12 +84,12 @@ export default async function ExpensesPage({
   const todayKey = ymd(startOfDaysAgo(zone, 0), zone);
   const yesterdayKey = ymd(startOfDaysAgo(zone, 1), zone);
 
-  const longDay = new Intl.DateTimeFormat('hy-AM', {
+  const longDay = new Intl.DateTimeFormat(intlLocale(t.locale), {
     day: 'numeric',
     month: 'long',
     timeZone: zone,
   });
-  const monthName = new Intl.DateTimeFormat('hy-AM', {
+  const monthName = new Intl.DateTimeFormat(intlLocale(t.locale), {
     month: 'long',
     timeZone: zone,
   }).format(period.from);
@@ -102,11 +105,11 @@ export default async function ExpensesPage({
        нельзя: первого числа аренда стоила бы месячную сумму в сутки. */
     perDay: e.monthly ? Math.round(e.amount / period.spread) : 0,
     major: toMajor(e.amount, tenant.currency),
-    display: formatAmount(e.amount, tenant.currency),
+    display: formatAmount(e.amount, tenant.currency, t.locale),
     day: longDay.format(e.at),
     dayKey: ymd(e.at, zone),
     closed: e.endedAt !== null,
-    closedOn: e.endedAt ? hy.expenses.until(longDay.format(e.endedAt)) : null,
+    closedOn: e.endedAt ? t.expenses.until(longDay.format(e.endedAt)) : null,
     note: e.note,
   });
 
@@ -122,7 +125,7 @@ export default async function ExpensesPage({
     if (!group) {
       group = {
         key: item.dayKey,
-        title: dayTitle(item.dayKey, item.day, todayKey, yesterdayKey),
+        title: dayTitle(item.dayKey, item.day, todayKey, yesterdayKey, t),
         total: 0,
         items: [],
       };
@@ -139,7 +142,7 @@ export default async function ExpensesPage({
 
   return (
     <>
-      <PageHead title={hy.expenses.title} meta={hy.expenses.lead}>
+      <PageHead title={t.expenses.title} meta={t.expenses.lead}>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <MonthTabs current={month} />
           {/* В прошлом месяце заводить нечего: запись всё равно легла бы
@@ -147,7 +150,7 @@ export default async function ExpensesPage({
           {!prev && (
             <AddExpense
               currencySymbol={currencySymbol(tenant.currency)}
-              hints={EXPENSE_HINTS}
+              hints={expenseHints(t.locale)}
               today={todayKey}
             />
           )}
@@ -174,14 +177,14 @@ export default async function ExpensesPage({
           сравнивать строки списка глазами. */}
       {rows.length > 0 && (
         <p className="quick">
-          <b className="num">{rows.length}</b> {hy.expenses.records}
+          <b className="num">{rows.length}</b> {t.expenses.records(rows.length)}
           {/* Самый крупный расход называется, только когда есть из чего
               выбирать: под единственной строкой «самый большой» — это её
               же название, написанное второй раз. */}
           {rows.length > 1 && biggest && biggest.share > 0 && (
             <>
               <i />
-              {hy.expenses.biggest} <b>{biggest.category}</b>{' '}
+              {t.expenses.biggest} <b>{biggest.category}</b>{' '}
               <b className="num">{money(biggest.share)}</b>
             </>
           )}
@@ -195,7 +198,7 @@ export default async function ExpensesPage({
           oneOffCount={oneOff.length}
           currency={tenant.currency}
           currencySymbol={currencySymbol(tenant.currency)}
-          hints={EXPENSE_HINTS}
+          hints={expenseHints(t.locale)}
           step={step}
           today={todayKey}
           readOnly={prev}
@@ -218,7 +221,8 @@ function dayTitle(
   formatted: string,
   todayKey: string,
   yesterdayKey: string,
+  t: Dict,
 ): string {
-  if (key === todayKey) return `${hy.common.today} · ${formatted}`;
-  return key === yesterdayKey ? `${hy.common.yesterday} · ${formatted}` : formatted;
+  if (key === todayKey) return `${t.common.today} · ${formatted}`;
+  return key === yesterdayKey ? `${t.common.yesterday} · ${formatted}` : formatted;
 }

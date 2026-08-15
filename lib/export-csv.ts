@@ -1,7 +1,9 @@
 import type { Tenant } from './db/schema';
+import type { Dict } from './i18n';
 import { exportOrders } from './queries';
 import { toMajor } from './money';
-import { hy } from './i18n/hy';
+import { DEFAULT_LOCALE, dict } from './i18n';
+import { clientIdLabelTerm, staffRoleTerm } from './i18n/terms';
 import { hhmm, ymd } from './time';
 
 /**
@@ -16,7 +18,15 @@ import { hhmm, ymd } from './time';
  * владелец не должен обнаружить, что выгрузки с телефона и с компьютера
  * отличаются столбцами.
  */
-export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
+export async function buildOrdersCsv(
+  tenant: Tenant,
+  days: number | 'all',
+  /* Язык шапки и слова «отменено». Приходит снаружи: файл забирают двое —
+     кабинет на языке страницы и приложение на языке телефона. Цифры,
+     номера и названия услуг от языка не зависят: это данные. */
+  locale: string = DEFAULT_LOCALE,
+) {
+  const t = dict(locale);
   /* 'all' — с самого первого дня бизнеса. Нужно при удалении аккаунта:
      прощальный архив за последние тридцать дней был бы обманом, человек
      забирает всё или не забирает ничего. */
@@ -28,16 +38,16 @@ export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
   const rows = await exportOrders(tenant.id, from);
 
   const header = [
-    'Ամսաթիվ',
-    'Ժամ',
-    tenant.clientIdLabel,
-    'Ծառայություն',
-    'Գին',
-    'Վճարում',
-    tenant.staffRole,
-    'Տոկոս',
-    hy.settings.exportEarned,
-    hy.settings.exportCanceled,
+    t.csv.date,
+    t.csv.time,
+    clientIdLabelTerm(tenant.clientIdLabel, locale),
+    t.csv.service,
+    t.csv.price,
+    t.csv.payment,
+    staffRoleTerm(tenant.staffRole, locale),
+    t.csv.percent,
+    t.settings.exportEarned,
+    t.settings.exportCanceled,
   ];
 
   /* Дата и время — в часовом поясе мойки, а не сервера. Через `getHours()`
@@ -50,11 +60,11 @@ export async function buildOrdersCsv(tenant: Tenant, days: number | 'all') {
     r.clientKey ?? '',
     r.serviceName,
     String(toMajor(r.price, tenant.currency)),
-    paymentLabel(r.payment),
+    paymentLabel(r.payment, t),
     r.staffName ?? '',
     String(r.staffPercent),
     String(toMajor(Math.floor((r.price * r.staffPercent) / 100), tenant.currency)),
-    r.canceledAt ? hy.common.yes : '',
+    r.canceledAt ? t.common.yes : '',
   ]);
 
   const csv = [header, ...body].map((line) => line.map(escape).join(';')).join('\r\n');
@@ -71,9 +81,9 @@ function escape(value: string): string {
   return /[";\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }

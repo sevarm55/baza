@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconClose } from '@/components/icons';
 import { Logo } from '@/components/logo';
 import { SwitchMark } from '@/components/switch-mark';
-import { hy } from '@/lib/i18n/hy';
 import { LoginForm } from '@/app/login/login-form';
 import { RegisterForm } from '@/app/start/[niche]/register-form';
 import type { RememberedWebAccount } from '@/lib/auth';
 import s from './auth-dialog.module.css';
+import { useT } from '@/lib/i18n/client';
 
 export type AuthMode = 'signIn' | 'register';
 
@@ -43,6 +43,7 @@ export function AuthDialog({
   remembered?: RememberedWebAccount | null;
   onClose: () => void;
 }) {
+  const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -95,12 +96,12 @@ export function AuthDialog({
             логотип и строка: место там дороже объяснений. */}
         <aside className={s.aside}>
           <Logo size={30} />
-          <p className={s.pitch}>{hy.app.tagline}</p>
-          <p className={s.asideNote}>{hy.auth.note}</p>
+          <p className={s.pitch}>{t.app.tagline}</p>
+          <p className={s.asideNote}>{t.auth.note}</p>
         </aside>
 
         <div className={s.form}>
-          <button type="button" className={s.close} onClick={dismiss} aria-label={hy.common.cancel}>
+          <button type="button" className={s.close} onClick={dismiss} aria-label={t.common.cancel}>
             <IconClose />
           </button>
 
@@ -121,7 +122,7 @@ export function AuthDialog({
                   <SwitchMark id="auth-tabs" radius={8} fill="var(--surface)" />
                 )}
                 <span className={s.tabLabel}>
-                  {k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}
+                  {k === 'signIn' ? t.auth.signInTitle : t.onboarding.createAccount}
                 </span>
               </button>
             ))}

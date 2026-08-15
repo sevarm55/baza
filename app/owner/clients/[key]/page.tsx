@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getClientHistory, getTenant } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { LOST_AFTER_DAYS } from '@/lib/alerts';
 import { Figures, Panel, Plate } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
@@ -11,6 +10,10 @@ import { PageHead } from '@/components/page-head';
 import { personColor } from '@/lib/person-color';
 import { formatPhone } from '@/lib/phone';
 import { dayMonth, hhmm } from '@/lib/time';
+import { getDict } from '@/lib/i18n/server';
+import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 
 /**
  * История одной машины — отдельной страницей.
@@ -29,8 +32,12 @@ import { dayMonth, hhmm } from '@/lib/time';
  * под ней.
  */
 export default async function ClientPage({ params }: { params: Promise<{ key: string }> }) {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   const { key } = await params;
@@ -38,13 +45,13 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   if (!found) notFound();
 
   const { client, orders } = found;
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const days = client.daysSince;
   const avg = client.visits > 0 ? Math.round(client.total / client.visits) : 0;
   const lost = days > LOST_AFTER_DAYS;
-  const last = days === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(days);
+  const last = days === 0 ? t.owner.lastVisitToday : t.owner.lastVisitAgo(days);
 
-  const longDay = new Intl.DateTimeFormat('hy-AM', {
+  const longDay = new Intl.DateTimeFormat(intlLocale(t.locale), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -53,7 +60,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
 
   const service = topOf(orders.map((o) => o.serviceName));
   const staff = topOf(orders.map((o) => o.staffName).filter((n): n is string => Boolean(n)));
-  const payment = topOf(orders.map((o) => paymentLabel(o.payment)));
+  const payment = topOf(orders.map((o) => paymentLabel(o.payment, t)));
 
   return (
     <>
@@ -62,17 +69,17 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
         standalone
         meta={
           <Link href="/owner/clients" style={{ color: 'var(--board-muted)' }}>
-            ← {hy.owner.tabClients}
+            ← {t.owner.tabClients}
           </Link>
         }
       >
         {client.phone && (
           <div className="flex flex-wrap items-center gap-2">
             <a className="btn-inline btn-inline-primary" href={`tel:${client.phone}`}>
-              {hy.owner.clientCall}
+              {t.owner.clientCall}
             </a>
             <a className="btn-inline" href={`sms:${client.phone}`}>
-              {hy.owner.clientWrite}
+              {t.owner.clientWrite}
             </a>
           </div>
         )}
@@ -80,50 +87,50 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
 
       <section
         className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-        aria-label={hy.owner.clientsTotalSpent}
+        aria-label={t.owner.clientsTotalSpent}
       >
         <Plate
-          label={hy.owner.clientsTotalSpent}
+          label={t.owner.clientsTotalSpent}
           value={money(client.total)}
           note={contactLine(client.name, client.phone) || undefined}
         />
 
         <Figures
           items={[
-            { label: hy.owner.visits, value: String(client.visits) },
-            { label: hy.owner.clientAvg, value: money(avg) },
-            { label: hy.owner.lastVisit, value: last },
+            { label: t.owner.visits, value: String(client.visits) },
+            { label: t.owner.clientAvg, value: money(avg) },
+            { label: t.owner.lastVisit, value: last },
           ]}
         />
       </section>
 
       {/* Пропавшему — строкой у показаний, а не плашкой во всю ширину:
           это повод позвонить, а не тревога. */}
-      {lost && <p className="signal mt-3.5">{hy.owner.clientLostHint}</p>}
+      {lost && <p className="signal mt-3.5">{t.owner.clientLostHint}</p>}
 
       <div className="mt-[var(--seam)] grid gap-[var(--seam)]">
         {orders.length > 0 && (
-          <Panel title={hy.owner.clientHabits}>
+          <Panel title={t.owner.clientHabits}>
             <dl className="facts">
               <div>
-                <dt>{hy.owner.clientFirstVisit}</dt>
+                <dt>{t.owner.clientFirstVisit}</dt>
                 <dd className="num">{longDay.format(client.firstSeenAt)}</dd>
               </div>
               {service && (
                 <div>
-                  <dt>{hy.owner.clientOftenTakes}</dt>
+                  <dt>{t.owner.clientOftenTakes}</dt>
                   <dd className="truncate">{service}</dd>
                 </div>
               )}
               {payment && (
                 <div>
-                  <dt>{hy.owner.clientOftenPays}</dt>
+                  <dt>{t.owner.clientOftenPays}</dt>
                   <dd>{payment}</dd>
                 </div>
               )}
               {staff && (
                 <div>
-                  <dt>{hy.owner.clientOftenServed}</dt>
+                  <dt>{t.owner.clientOftenServed}</dt>
                   <dd className="truncate">{staff}</dd>
                 </div>
               )}
@@ -131,9 +138,9 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
           </Panel>
         )}
 
-        <Panel title={hy.owner.clientHistory} count={orders.length}>
+        <Panel title={t.owner.clientHistory} count={orders.length}>
           {orders.length === 0 ? (
-            <EmptyState title={hy.common.empty} />
+            <EmptyState title={t.common.empty} />
           ) : (
             <>
               {/* Телефон: строками, как и в списке клиентов. */}
@@ -153,7 +160,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                           style={{ background: personColor(o.staffName) }}
                           aria-hidden
                         />
-                        {o.staffName ?? '—'} · {paymentLabel(o.payment)} ·{' '}
+                        {o.staffName ?? '—'} · {paymentLabel(o.payment, t)} ·{' '}
                         {dayMonth(o.createdAt, tenant.timezone)}
                       </span>
                     </span>
@@ -165,11 +172,11 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
               <table className="tbl hidden lg:table">
                 <thead>
                   <tr>
-                    <th>{hy.owner.colService}</th>
+                    <th>{t.owner.colService}</th>
                     <th>{tenant.staffRole}</th>
-                    <th>{hy.owner.colPayment}</th>
-                    <th className="end">{hy.owner.colPrice}</th>
-                    <th className="end">{hy.owner.colTime}</th>
+                    <th>{t.owner.colPayment}</th>
+                    <th className="end">{t.owner.colPrice}</th>
+                    <th className="end">{t.owner.colTime}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -187,7 +194,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                         </span>
                       </td>
                       <td>
-                        <span className="tag">{paymentLabel(o.payment)}</span>
+                        <span className="tag">{paymentLabel(o.payment, t)}</span>
                       </td>
                       <td className="num end font-semibold">{money(o.price)}</td>
                       <td className="num end" style={{ color: 'var(--board-muted)' }}>
@@ -226,9 +233,9 @@ function contactLine(name: string | null, phone: string | null): string {
   return [name, phone ? formatPhone(phone) : null].filter(Boolean).join(' · ');
 }
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }

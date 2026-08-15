@@ -1,7 +1,7 @@
 import { Panel } from '@/components/board';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { MixSlice } from './model';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Чем платили.
@@ -20,7 +20,7 @@ import type { MixSlice } from './model';
  * подряд выглядят как поломка, а сообщают ровно то же, что одна строка
  * словами.
  */
-export function PaymentMix({
+export async function PaymentMix({
   className,
   slices,
   currency,
@@ -29,11 +29,12 @@ export function PaymentMix({
   slices: MixSlice[];
   currency: string;
 }) {
+  const t = await getDict();
   return (
-    <Panel className={className} title={hy.today.paidWith}>
+    <Panel className={className} title={t.today.paidWith}>
       {slices.length === 0 ? (
         <p className="py-6 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.today.noPayments}
+          {t.today.noPayments}
         </p>
       ) : (
         <div className="grid gap-3">
@@ -47,7 +48,7 @@ export function PaymentMix({
                 />
                 <span className="truncate">{s.label}</span>
               </span>
-              <span className="num mix-value">{formatMoney(s.value, currency)}</span>
+              <span className="num mix-value">{formatMoney(s.value, currency, t.locale)}</span>
               <span className="num mix-share">{s.share}%</span>
               {/* Полоса прямая, без скруглений: радиус на ленте высотой в
                   шесть пикселей съедает края, и доля выглядит меньше, чем

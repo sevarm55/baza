@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { changePinAction, type FormState } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Смена PIN.
@@ -12,13 +12,14 @@ import { hy } from '@/lib/i18n/hy';
  * ДО кнопки — это последствие, а не сноска.
  */
 export function ChangePinForm() {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(changePinAction, null);
 
   return (
     <form action={action} className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5">
-          <span className="label">{hy.auth.currentPin}</span>
+          <span className="label">{t.auth.currentPin}</span>
           <input
             className="field num !text-center"
             name="current"
@@ -33,7 +34,7 @@ export function ChangePinForm() {
 
         <label className="grid gap-1.5">
           <span className="label">
-            {hy.auth.newPin} · {hy.auth.pinHint}
+            {t.auth.newPin} · {t.auth.pinHint}
           </span>
           <input
             className="field num !text-center"
@@ -48,12 +49,12 @@ export function ChangePinForm() {
         </label>
       </div>
 
-      <p className="note">{hy.auth.pinChangedNote}</p>
+      <p className="note">{t.auth.pinChangedNote}</p>
 
       {state?.error && <p className="alert">{state.error}</p>}
 
       <button className="btn btn-ghost" disabled={pending}>
-        {pending ? hy.common.loading : hy.auth.changePin}
+        {pending ? t.common.loading : t.auth.changePin}
       </button>
     </form>
   );

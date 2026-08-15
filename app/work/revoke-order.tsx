@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { revokeOrder } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Отмена ошибочной записи.
@@ -34,6 +34,7 @@ export function RevokeOrder({
   /** услуга и сумма — то, по чему запись узнают во второй раз */
   detail: string;
 }) {
+  const t = useT();
   const [asking, setAsking] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -43,8 +44,8 @@ export function RevokeOrder({
         type="button"
         className="flex size-8 shrink-0 items-center justify-center rounded-[6px] transition disabled:opacity-40"
         style={{ color: 'var(--board-muted)' }}
-        title={hy.work.rowActions}
-        aria-label={`${hy.work.rowActions}: ${title}`}
+        title={t.work.rowActions}
+        aria-label={`${t.work.rowActions}: ${title}`}
         disabled={pending}
         onClick={() => setAsking(true)}
       >
@@ -54,7 +55,7 @@ export function RevokeOrder({
       <Sheet
         open={asking}
         onClose={pending ? () => {} : () => setAsking(false)}
-        title={hy.work.revokeTitle}
+        title={t.work.revokeTitle}
         footer={
           <>
             <button
@@ -63,7 +64,7 @@ export function RevokeOrder({
               onClick={() => setAsking(false)}
               disabled={pending}
             >
-              {hy.work.revokeKeep}
+              {t.work.revokeKeep}
             </button>
             <button
               type="button"
@@ -76,7 +77,7 @@ export function RevokeOrder({
                 })
               }
             >
-              {pending ? hy.common.loading : hy.work.revoke}
+              {pending ? t.common.loading : t.work.revoke}
             </button>
           </>
         }
@@ -89,7 +90,7 @@ export function RevokeOrder({
             {detail}
           </div>
           <p className="mt-1 text-[12.5px]" style={{ color: 'var(--muted)' }}>
-            {hy.work.revokeNote}
+            {t.work.revokeNote}
           </p>
         </div>
       </Sheet>

@@ -2,12 +2,16 @@ import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getPaymentSplit, getTenant } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { personColor } from '@/lib/person-color';
 import { daysInMonthOf } from '@/lib/time';
 import { PageHead } from '@/components/page-head';
 import { Segmented } from '@/components/segmented';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 import {
   getCostsByCategory,
   getEarnedByService,
@@ -62,8 +66,12 @@ export default async function ReportsPage({
   /** какой месяц открыт: 0 — текущий, 1 — прошлый и так далее */
   searchParams: Promise<{ m?: string }>;
 }) {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   const months = await getMonthlyReport(tenant.id, tenant.timezone, MONTHS);
@@ -84,10 +92,10 @@ export default async function ReportsPage({
     getMonthBase(tenant.id, tenant.timezone, current),
   ]);
 
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const monthName = (m: ReportMonth) =>
-    new Intl.DateTimeFormat('hy-AM', { month: 'long', timeZone: tenant.timezone }).format(m.from);
-  const shortMonth = new Intl.DateTimeFormat('hy-AM', {
+    new Intl.DateTimeFormat(intlLocale(t.locale), { month: 'long', timeZone: tenant.timezone }).format(m.from);
+  const shortMonth = new Intl.DateTimeFormat(intlLocale(t.locale), {
     month: 'short',
     timeZone: tenant.timezone,
   });
@@ -126,7 +134,7 @@ export default async function ReportsPage({
   const services: BarRow[] = earned.map((e) => ({
     key: e.name,
     name: e.name,
-    note: `${e.count} ${hy.owner.timesShort}`,
+    note: `${e.count} ${t.owner.timesShort}`,
     value: e.revenue,
     money: money(e.revenue),
   }));
@@ -134,7 +142,7 @@ export default async function ReportsPage({
   const costRows: BarRow[] = costs.map((c) => ({
     key: `${c.category}-${c.monthly}`,
     name: c.category,
-    note: c.monthly ? hy.expenses.perMonth : hy.expenses.oneOff,
+    note: c.monthly ? t.expenses.perMonth : t.expenses.oneOff,
     value: c.amount,
     money: money(c.amount),
   }));
@@ -147,8 +155,8 @@ export default async function ReportsPage({
     .sort((a, b) => b.revenue - a.revenue)
     .map((x) => ({
       key: x.payment,
-      name: paymentLabel(x.payment),
-      note: `${x.count} ${tenant.unitOne}`,
+      name: paymentLabel(x.payment, t),
+      note: unitCount(x.count, tenant.unitOne, t.locale),
       value: x.revenue,
       money: money(x.revenue),
     }));
@@ -176,14 +184,14 @@ export default async function ReportsPage({
 
   return (
     <>
-      <PageHead title={hy.reports.title} meta={hy.reports.note}>
+      <PageHead title={t.reports.title} meta={t.reports.note}>
         {/* Месяцы тем же жёлобом, что период на сводке: один орган
             управления на всех экранах, где выбирают срок. */}
         <Segmented
           id="report-months"
           current={String(index)}
           scroll
-          label={hy.owner.periodLabel}
+          label={t.owner.periodLabel}
           items={months.map((m, i) => ({ key: String(i), label: monthName(m), href: href(i) }))}
         />
       </PageHead>
@@ -207,7 +215,7 @@ export default async function ReportsPage({
         {current.avgCheck > 0 && (
           <>
             <i />
-            {hy.owner.avgCheck} <b className="num">{money(current.avgCheck)}</b>
+            {t.owner.avgCheck} <b className="num">{money(current.avgCheck)}</b>
           </>
         )}
         <i />
@@ -223,10 +231,10 @@ export default async function ReportsPage({
           }}
         >
           {delta === null
-            ? hy.owner.noBase
+            ? t.owner.noBase
             : `${delta >= 0 ? '+' : '−'}${
                 growth !== null ? `${Math.abs(growth)}%` : money(Math.abs(delta))
-              } ${hy.owner.vsPrev}`}
+              } ${t.owner.vsPrev}`}
         </span>
       </p>
 
@@ -246,36 +254,36 @@ export default async function ReportsPage({
             месяца, поэтому в один ряд и одинакового веса. */}
         <Bars
           className="lg:col-span-4"
-          title={hy.reports.whereFrom}
+          title={t.reports.whereFrom}
           rows={services}
           total={services.reduce((s, r) => s + r.value, 0)}
           tone="var(--tone-violet-glow)"
-          empty={hy.reports.emptyMonth}
+          empty={t.reports.emptyMonth}
         />
 
         <Bars
           className="lg:col-span-4"
-          title={hy.reports.whereGone}
+          title={t.reports.whereGone}
           rows={costRows}
           total={current.costs}
           tone="var(--tone-amber-glow)"
-          empty={hy.expenses.empty}
+          empty={t.expenses.empty}
         />
 
         <Bars
           className="lg:col-span-4"
-          title={hy.today.paidWith}
+          title={t.today.paidWith}
           rows={payments}
           total={paidTotal}
           tone="var(--tone-teal-glow)"
-          empty={hy.today.noPayments}
+          empty={t.today.noPayments}
         />
 
         <ReportTeam
           className="lg:col-span-4"
           rows={team}
           unitOne={tenant.unitOne}
-          staffRole={hy.settings.staff}
+          staffRole={t.settings.staff}
         />
 
         <MonthsTable className="lg:col-span-8" rows={monthRows} unitOne={tenant.unitOne} />
@@ -284,9 +292,9 @@ export default async function ReportsPage({
   );
 }
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }

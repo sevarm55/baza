@@ -1,15 +1,16 @@
 import Link from 'next/link';
-import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguagePicker } from '@/components/language-picker';
 import { Logo } from '@/components/logo';
 import { PointSwitcher } from '@/components/point-switcher';
 import type { Point } from '@/lib/accounts';
 import type { Role } from '@/lib/auth';
 import { Bell } from '@/components/bell';
 import type { Alert } from '@/lib/alerts';
+import { getDict } from '@/lib/i18n/server';
 
-export function TopBar({
+export async function TopBar({
   tenantName,
   subtitle,
   role,
@@ -31,6 +32,7 @@ export function TopBar({
   /** смена открыта: выход тогда объясняет, что она такой и останется */
   shiftOpen?: boolean;
 }) {
+  const t = await getDict();
   /* У кого одна мойка, тот не должен узнать, что бывают вторые: ни
      стрелки, ни лишнего элемента, ни изменившейся разметки. Условие
      стоит здесь, а не внутри переключателя, именно поэтому — ветка
@@ -65,7 +67,7 @@ export function TopBar({
                   машины на чужой заработок. У владельца её называют
                   вкладки ниже, поэтому там она не повторяется. */}
               <div className="truncate text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                {role === 'owner' ? subtitle : `${subtitle} · ${hy.roles.staff}`}
+                {role === 'owner' ? subtitle : `${subtitle} · ${t.roles.staff}`}
               </div>
             </div>
           )}
@@ -73,6 +75,10 @@ export function TopBar({
 
         <div className="order-2 flex shrink-0 items-center gap-1">
           {alerts && <Bell alerts={alerts} />}
+          {/* Язык — здесь же, где тема: у мойщика нет ни кабинета, ни
+              страницы профиля, и это единственное место, где он может
+              переключить продукт на свой язык. */}
+          <LanguagePicker compact />
           <ThemeToggle />
           <SignOutButton shiftOpen={shiftOpen} />
         </div>
@@ -89,8 +95,8 @@ export function TopBar({
           >
             {(
               [
-                { href: '/work', key: 'work', label: hy.roles.staff },
-                { href: '/owner', key: 'owner', label: hy.roles.owner },
+                { href: '/work', key: 'work', label: t.roles.staff },
+                { href: '/owner', key: 'owner', label: t.roles.owner },
               ] as const
             ).map((tab) => (
               <Link

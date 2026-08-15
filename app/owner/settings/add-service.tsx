@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { saveService, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Новая услуга.
@@ -27,6 +27,7 @@ export function AddService({
   /** в заголовке прибора — тихой кнопкой, в пустом месте — главной */
   variant?: 'head' | 'cta';
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
   const [open, setOpen] = useState(false);
 
@@ -44,20 +45,20 @@ export function AddService({
         onClick={() => setOpen(true)}
       >
         <Plus className="size-4" aria-hidden />
-        {hy.settings.newService}
+        {t.settings.newService}
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} side title={hy.settings.newService}>
+      <Sheet open={open} onClose={() => setOpen(false)} side title={t.settings.newService}>
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлой недописанной услугой. */}
         <form key={String(open)} action={action} className="grid gap-3">
           <label className="grid gap-1.5">
-            <span className="label">{hy.settings.name}</span>
+            <span className="label">{t.settings.name}</span>
             <input className="field auth-field" name="name" required autoComplete="off" autoFocus />
           </label>
 
           <label className="grid gap-1.5">
-            <span className="label">{hy.settings.price}</span>
+            <span className="label">{t.settings.price}</span>
             <div className="relative">
               <input
                 className="field auth-field num !ps-9 !text-[19px] !font-semibold"
@@ -75,10 +76,10 @@ export function AddService({
             </div>
           </label>
 
-          <p className="note">{hy.settings.priceNote}</p>
+          <p className="note">{t.settings.priceNote}</p>
 
           <button className="btn mt-0.5" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.addService}
+            {pending ? t.common.loading : t.settings.addService}
           </button>
 
           {state?.error && <p className="alert">{state.error}</p>}

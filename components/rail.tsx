@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { Building2 } from 'lucide-react';
-import { hy } from '@/lib/i18n/hy';
 import { Bell } from '@/components/bell';
 import type { Alert } from '@/lib/alerts';
 import { Logo } from '@/components/logo';
 import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
 import { SidebarAccountMenu } from '@/components/sidebar-account-menu';
+import { getDict } from '@/lib/i18n/server';
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,7 @@ import {
 import type { Point } from '@/lib/accounts';
 
 /** Tetrin navigation composed on the official shadcn Sidebar primitive. */
-export function Rail({
+export async function Rail({
   tenantName,
   userName,
   points,
@@ -39,6 +39,7 @@ export function Rail({
   active: 'owner' | 'work';
   alerts?: Alert[];
 }) {
+  const t = await getDict();
   const many = !!points && points.length > 1 && !!currentTid;
 
   return (
@@ -47,18 +48,18 @@ export function Rail({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link href="/owner" aria-label={hy.app.name} />}
+              render={<Link href="/owner" aria-label={t.app.name} />}
               size="lg"
-              tooltip={hy.app.name}
+              tooltip={t.app.name}
             >
               <Logo size={32} withName={false} className="shrink-0" />
               <span className="truncate font-bold tracking-[.18em]">
-                {hy.app.name.toUpperCase()}
+                {t.app.name.toUpperCase()}
               </span>
             </SidebarMenuButton>
             <SidebarTrigger
-              aria-label={hy.common.collapse}
-              title={`${hy.common.collapse} · ⌘B`}
+              aria-label={t.common.collapse}
+              title={`${t.common.collapse} · ⌘B`}
               className="absolute right-2.5 top-2.5 group-data-[collapsible=icon]:hidden"
             />
           </SidebarMenuItem>
@@ -108,8 +109,8 @@ export function Rail({
         <SidebarAccountMenu userName={userName} active={active} />
         <div className="hidden justify-center group-data-[collapsible=icon]:flex">
           <SidebarTrigger
-            aria-label={hy.common.expand}
-            title={`${hy.common.expand} · ⌘B`}
+            aria-label={t.common.expand}
+            title={`${t.common.expand} · ⌘B`}
             className="size-10 rounded-md bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
           />
         </div>

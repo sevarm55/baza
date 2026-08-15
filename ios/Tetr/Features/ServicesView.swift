@@ -34,7 +34,7 @@ struct ServicesView: View {
                 serviceRail
 
                 if loaded && services.isEmpty {
-                    Text("Գնացուցակը դատարկ է")
+                    Text(L("services.empty"))
                         .font(.system(size: 14))
                         .foregroundStyle(Brand.boardMuted)
                         .frame(maxWidth: .infinity)
@@ -43,7 +43,7 @@ struct ServicesView: View {
 
                 tiersButton
 
-                Text("Գնի փոփոխությունը չի ազդում արդեն կատարված գրանցումների վրա։")
+                Text(L("services.priceNote"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -92,14 +92,14 @@ struct ServicesView: View {
 
         return HStack(alignment: .bottom, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("ԳՆԱՑՈՒՑԱԿ")
+                Text(L("services.header"))
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .tracking(1.5)
                     .foregroundStyle(Brand.lime)
-                Text("Ծառայություններ")
+                Text(L("settings.tabServices"))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
-                Text("\(services.count) դիրք")
+                Text(L("services.count", services.count))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(.white.opacity(0.58))
@@ -108,7 +108,7 @@ struct ServicesView: View {
             Spacer(minLength: 0)
 
             VStack(alignment: .trailing, spacing: 3) {
-                Text("միջին գին")
+                Text(L("services.avgPrice"))
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.white.opacity(0.58))
                 Text(money(avg, currency))
@@ -179,7 +179,7 @@ struct ServicesView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .bold))
-                    Text("Նոր ծառայություն")
+                    Text(L("settings.newService"))
                         .font(.system(size: 15, weight: .semibold))
                     Spacer()
                 }
@@ -208,14 +208,14 @@ struct ServicesView: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tiers.isEmpty
-                         ? "Ավելացնել դասեր"
+                         ? L("services.addTiers")
                          : "\(session.tenant?.tierLabel ?? "Դաս") · \(tiers.joined(separator: ", "))")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
                     Text(tiers.isEmpty
-                         ? "օրինակ՝ սեդան, կրոսովեր, ջիպ"
-                         : "ամեն դասի՝ իր գինը")
+                         ? L("services.tiersExample")
+                         : L("services.tiersNote"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
@@ -292,14 +292,14 @@ struct ServiceEditor: View {
                    одной безымянной стопкой, причём цены сверху, — и по
                    ней нельзя было понять, что вообще заводится: то ли
                    услуга, то ли прайс на что-то уже существующее. */
-                caption("Ի՞նչ ծառայություն")
+                caption(L("services.nameField"))
 
                 HStack(spacing: 12) {
-                    Text("Անուն")
+                    Text(L("owner.clientName"))
                         .font(.system(size: 14))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer(minLength: 8)
-                    TextField("Կոմպլեքս", text: $name)
+                    TextField(L("services.namePlaceholder"), text: $name)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                         .multilineTextAlignment(.trailing)
@@ -308,7 +308,7 @@ struct ServiceEditor: View {
                 .padding(.vertical, 15)
                 .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
 
-                caption(tiers.isEmpty ? "Գինը" : "Գինը՝ ըստ մեքենայի դասի")
+                caption(tiers.isEmpty ? L("services.priceTitle") : L("services.priceByTier"))
 
                 VStack(spacing: 0) {
                     if tiers.isEmpty {
@@ -370,11 +370,11 @@ struct ServiceEditor: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
-        .alert("Հեռացնե՞լ գնացուցակից", isPresented: $archiving) {
-            Button("Չեղարկել", role: .cancel) {}
-            Button("Հեռացնել", role: .destructive) { Task { await archive() } }
+        .alert(L("services.removeTitle"), isPresented: $archiving) {
+            Button(L("common.cancel"), role: .cancel) {}
+            Button(L("expenses.remove"), role: .destructive) { Task { await archive() } }
         } message: {
-            Text("Գրանցումների պատմությունը մնում է տեղում։")
+            Text(L("services.removeNote"))
         }
         .onAppear {
             name = service?.name ?? ""
@@ -424,11 +424,11 @@ struct ServiceEditor: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
-            Text(isNew ? "Նոր ծառայություն" : "Ծառայություն")
+            Text(isNew ? L("settings.newService") : L("owner.colService"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
 
@@ -449,10 +449,10 @@ struct ServiceEditor: View {
                     .foregroundStyle(.red)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Հեռացնել գնացուցակից")
+                    Text(L("services.remove"))
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(.red)
-                    Text("Գրանցումների պատմությունը մնում է տեղում")
+                    Text(L("services.removeNoteShort"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -471,7 +471,7 @@ struct ServiceEditor: View {
         Button {
             Task { await save() }
         } label: {
-            Text("Պահպանել")
+            Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
                 .loading(busy, tint: Brand.onLime, size: 20)
@@ -564,11 +564,11 @@ struct TierEditor: View {
                 header
 
                 HStack(spacing: 12) {
-                    Text("Ինչպես կոչվի")
+                    Text(L("services.tierNameField"))
                         .font(.system(size: 14))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer(minLength: 8)
-                    TextField("Դաս", text: $label)
+                    TextField(L("work.tier"), text: $label)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                         .multilineTextAlignment(.trailing)
@@ -586,7 +586,7 @@ struct TierEditor: View {
                                 .foregroundStyle(Brand.boardMuted)
                                 .frame(width: 18, alignment: .leading)
 
-                            TextField("Սեդան", text: binding(i))
+                            TextField(L("services.tierPlaceholder"), text: binding(i))
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Brand.onBoard)
 
@@ -598,7 +598,7 @@ struct TierEditor: View {
                                     .foregroundStyle(Brand.boardMuted.opacity(0.6))
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Հեռացնել")
+                            .accessibilityLabel(L("expenses.remove"))
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 13)
@@ -618,7 +618,7 @@ struct TierEditor: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "plus")
                                     .font(.system(size: 13, weight: .bold))
-                                Text("Ավելացնել դաս")
+                                Text(L("services.addTier"))
                                     .font(.system(size: 14.5, weight: .semibold))
                                 Spacer(minLength: 0)
                             }
@@ -640,8 +640,8 @@ struct TierEditor: View {
                 }
 
                 Text(clean.isEmpty
-                     ? "Առանց դասերի ամեն ծառայություն ունի մեկ գին։"
-                     : "Ամեն ծառայության մոտ կհայտնվի \(clean.count) գին։ Հին գրանցումները չեն փոխվում։")
+                     ? L("services.noTiersNote")
+                     : L("services.tiersApplyNote", clean.count))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -656,7 +656,7 @@ struct TierEditor: View {
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
         .onAppear {
-            label = session.tenant?.tierLabel ?? "Դաս"
+            label = session.tenant?.tierLabel ?? L("work.tier")
             names = session.tenant?.tiers ?? []
         }
     }
@@ -678,11 +678,11 @@ struct TierEditor: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
-            Text("Դասեր")
+            Text(L("services.tiers"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
 
@@ -697,7 +697,7 @@ struct TierEditor: View {
         Button {
             Task { await save() }
         } label: {
-            Text("Պահպանել")
+            Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
                 .loading(busy, tint: Brand.onLime, size: 20)
@@ -735,7 +735,7 @@ struct TierEditor: View {
             await onSave()
             dismiss()
         } catch {
-            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+            self.error = L("payroll.failed")
         }
     }
 }

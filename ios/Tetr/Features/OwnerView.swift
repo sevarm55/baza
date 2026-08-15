@@ -54,7 +54,7 @@ struct OwnerView: View {
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
-    private let periods = [("today", "Այսօր"), ("month", "Այս ամիս"), ("prevmonth", "Անցյալ ամիս")]
+    private let periods = [("today", L("common.today")), ("month", L("owner.periodMonth")), ("prevmonth", L("owner.periodPrevMonth"))]
 
     private let gap: CGFloat = 12
 
@@ -100,11 +100,11 @@ struct OwnerView: View {
             ClientsView().environmentObject(session)
         }
         .alert(
-            "Չեղարկե՞լ այս գրանցումը",
+            L("work.revokeTitle"),
             isPresented: .init(get: { cancelling != nil }, set: { if !$0 { cancelling = nil } })
         ) {
-            Button("Ոչ", role: .cancel) { cancelling = nil }
-            Button("Չեղարկել", role: .destructive) {
+            Button(L("common.no"), role: .cancel) { cancelling = nil }
+            Button(L("common.cancel"), role: .destructive) {
                 if let item = cancelling { Task { await cancel(item) } }
                 cancelling = nil
             }
@@ -126,7 +126,7 @@ struct OwnerView: View {
     private var chips: some View {
         HStack(spacing: 10) {
             Picker(
-                "Ժամանակահատված",
+                L("owner.periodLabel"),
                 selection: Binding(
                     get: { period },
                     set: { key in Task { await selectPeriod(key) } }
@@ -167,7 +167,7 @@ struct OwnerView: View {
                строке, и круг отделяет её от прямоугольного переключателя
                периода рядом, не прибавляя ни веса, ни размера. */
             .buttonBorderShape(.circle)
-            .accessibilityLabel("Ուշադրություն")
+            .accessibilityLabel(L("alerts.title"))
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -230,11 +230,11 @@ struct OwnerView: View {
     private func breakdown(_ s: API.Summary) -> some View {
         if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
             HStack(spacing: 0) {
-                moneySource("Վճարել են", amount: s.stats.revenue, sign: "+", ink: Brand.mintInk)
+                moneySource(L("summary.paidIn"), amount: s.stats.revenue, sign: "+", ink: Brand.mintInk)
                 sourceDivider
-                moneySource("Աշխատակիցներին", amount: s.stats.payroll, sign: "−", ink: Brand.lavenderInk)
+                moneySource(L("summary.toStaff"), amount: s.stats.payroll, sign: "−", ink: Brand.lavenderInk)
                 sourceDivider
-                moneySource("Ծախսեր", amount: s.costs.total, sign: "−", ink: Brand.sandInk)
+                moneySource(L("expenses.title"), amount: s.costs.total, sign: "−", ink: Brand.sandInk)
             }
             .padding(.vertical, 10)
             .background(Brand.boardSurface, in: .rect(cornerRadius: 19))
@@ -244,9 +244,15 @@ struct OwnerView: View {
             }
             .padding(.top, 10)
             .frame(maxWidth: 360)
+            /* Читалка экрана произносит показания фразой, а не набором
+               чисел, — и на языке интерфейса, как и всё остальное. */
             .accessibilityLabel(
-                "Հասույթ \(plain(s.stats.revenue)), ծախս \(plain(s.costs.total)),"
-                + " աշխատակիցներին \(plain(s.stats.payroll))"
+                L(
+                    "summary.voiceover",
+                    plain(s.stats.revenue),
+                    plain(s.costs.total),
+                    plain(s.stats.payroll)
+                )
             )
         }
     }
@@ -342,7 +348,7 @@ struct OwnerView: View {
     private var crewChip: some View {
         if let present = summary?.onShift, !present.isEmpty {
             NavigationLink {
-                StaffView().navigationTitle(session.tenant?.staffRole ?? "Աշխատակիցներ")
+                StaffView().navigationTitle(Terms.staff(session.tenant?.staffRole ?? "").many)
             } label: {
                 HStack(spacing: 5) {
                     // единственный настоящий кружок в продукте: точка
@@ -368,7 +374,7 @@ struct OwnerView: View {
             }
             .buttonStyle(.press)
             .accessibilityLabel(
-                present.map { "\($0.name) հերթափոխին \(since($0.openedAt))" }.joined(separator: ", ")
+                present.map { L("summary.onShiftSince", $0.name, since($0.openedAt)) }.joined(separator: ", ")
             )
         }
     }
@@ -429,7 +435,7 @@ struct OwnerView: View {
         if !lines.isEmpty {
             VStack(spacing: 0) {
                 HStack {
-                    Text("Այսօր աշխատում են")
+                    Text(L("today.working"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                     Text("\(lines.count)")
@@ -481,7 +487,7 @@ struct OwnerView: View {
 
             Spacer(minLength: 8)
 
-            Text("\(line.count) \(session.tenant?.unitOne ?? "")".trimmingCharacters(in: .whitespaces))
+            Text(Terms.units(line.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
                 .font(.system(size: 12.5))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
@@ -564,11 +570,11 @@ struct OwnerView: View {
      */
     private func todaySnapshot(_ s: API.Summary) -> some View {
         HStack(spacing: 0) {
-            snapshotValue("Սպասարկվել է", "\(s.stats.count)")
+            snapshotValue(L("summary.served"), "\(s.stats.count)")
             snapshotDivider
-            snapshotValue("Միջին չեկ", money(s.stats.avgCheck, currency))
+            snapshotValue(L("owner.avgCheck"), money(s.stats.avgCheck, currency))
             snapshotDivider
-            snapshotValue("Հերթափոխին", "\(s.onShift.count)")
+            snapshotValue(L("owner.onShift"), "\(s.onShift.count)")
         }
         .padding(.top, 20)
         .padding(.vertical, 13)
@@ -640,7 +646,7 @@ struct OwnerView: View {
     }
 
     private var chartTitle: String {
-        summaryPeriod == "today" ? "Օրվա վճարումները" : "Ամսվա վճարումները"
+        summaryPeriod == "today" ? L("summary.paymentsDay") : L("summary.paymentsMonth")
     }
 
     private func axis(_ point: API.SeriesPoint?) -> String {
@@ -657,24 +663,24 @@ struct OwnerView: View {
         два операционных показателя — данные, которых в формуле нет,
         поэтому ни одна большая сумма не повторяется. */
     private func grid(_ s: API.Summary) -> some View {
-        let unit = session.tenant?.unitOne ?? ""
+        let unit = Terms.unit(session.tenant?.unitOne ?? "").nom
 
         return HStack(spacing: gap) {
             softMetric(
                 background: Brand.mintCard,
                 ink: Brand.mintInk,
-                title: "Սպասարկվել է",
+                title: L("summary.served"),
                 value: "\(s.stats.count) \(unit)".trimmingCharacters(in: .whitespaces),
-                foot: "այս ժամանակահատվածում",
+                foot: L("summary.inPeriod"),
                 symbol: "car.fill",
                 animate: Double(s.stats.count)
             )
             softMetric(
                 background: Brand.lavenderCard,
                 ink: Brand.lavenderInk,
-                title: "Միջին վճարումը",
+                title: L("summary.avgPayment"),
                 value: money(s.stats.avgCheck, currency),
-                foot: unit.isEmpty ? "" : "մեկ \(ablative(unit))",
+                foot: unit.isEmpty ? "" : perOneUnit(unit),
                 symbol: "creditcard.fill",
                 animate: Double(s.stats.avgCheck)
             )
@@ -706,7 +712,7 @@ struct OwnerView: View {
 
         VStack(alignment: .leading, spacing: 13) {
             HStack {
-                Text("Ինչով են վճարել")
+                Text(L("today.paidWith"))
                     .font(.system(size: 13.5, weight: .semibold))
                 Spacer()
                 Image(systemName: "wallet.bifold")
@@ -715,7 +721,7 @@ struct OwnerView: View {
             }
 
             if parts.isEmpty {
-                Text("Վճարումներ դեռ չկան")
+                Text(L("today.noPayments"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
             } else {
@@ -866,11 +872,11 @@ struct OwnerView: View {
                        смотреть не на строки базы, а на то, что за день
                        сделали. За длинный период это уже не «сегодня», и
                        раздел честно называется потоком. */
-                    Text(summaryPeriod == "today" ? "Այսօրվա աշխատանքը" : "Հոսք")
+                    Text(summaryPeriod == "today" ? L("today.work") : L("owner.feed"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer()
-                    Text("\(feed.count) \(session.tenant?.unitOne ?? "")".trimmingCharacters(in: .whitespaces))
+                    Text(Terms.units(feed.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
                         .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
@@ -957,14 +963,14 @@ struct OwnerView: View {
                 Spacer(minLength: 8)
 
                 if (item.staffPercent ?? 0) > 0 {
-                    Text("Բաժին \(money(item.earned, currency))")
+                    Text(L("summary.share", money(item.earned, currency)))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
                     Text("·")
                         .foregroundStyle(Brand.boardMuted.opacity(0.6))
                 }
-                Text("Բիզնեսին \(money(item.price - item.earned, currency))")
+                Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .lineLimit(1)
@@ -990,7 +996,7 @@ struct OwnerView: View {
         // попадать в выручку и зарплату. Поэтому и спрашиваем — вернуть её
         // обратно нельзя.
         .contextMenu {
-            Button("Չեղարկել գրանցումը", role: .destructive) {
+            Button(L("work.revoke"), role: .destructive) {
                 cancelling = item
             }
         }
@@ -1005,7 +1011,7 @@ struct OwnerView: View {
                 .font(.system(size: 14))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Brand.boardMuted)
-            Button("Կրկնել") { Task { await reload() } }
+            Button(L("common.retry")) { Task { await reload() } }
                 .buttonStyle(.glass)
         }
         .frame(maxWidth: .infinity)
@@ -1022,9 +1028,9 @@ struct OwnerView: View {
        похоже, потому что это не термин, а обычная речь. */
     private var profitTitle: String {
         switch summaryPeriod {
-        case "month": return isLoss ? "Այս ամիս մինուսի մեջ եք" : "Այս ամիս ձեզ մնում է"
-        case "prevmonth": return isLoss ? "Անցյալ ամիս մինուսում էիք" : "Անցյալ ամիս ձեզ մնացել է"
-        default: return isLoss ? "Այսօր մինուսի մեջ եք" : "Այսօր ձեզ մնում է"
+        case "month": return isLoss ? L("summary.redMonth") : L("summary.keptMonth")
+        case "prevmonth": return isLoss ? L("summary.redPrevMonth") : L("summary.keptPrevMonth")
+        default: return isLoss ? L("summary.redToday") : L("summary.keptToday")
         }
     }
 
@@ -1034,17 +1040,17 @@ struct OwnerView: View {
        читается однозначно. */
     private var paidTitle: String {
         switch summaryPeriod {
-        case "month": return "Այս ամիս վճարել են"
-        case "prevmonth": return "Անցյալ ամիս վճարել են"
-        default: return "Այսօր վճարել են"
+        case "month": return L("summary.paidMonth")
+        case "prevmonth": return L("summary.paidPrevMonth")
+        default: return L("summary.paidToday")
         }
     }
 
     private var spentTitle: String {
         switch summaryPeriod {
-        case "month": return "Այս ամիս ծախսվել է"
-        case "prevmonth": return "Անցյալ ամիս ծախսվել է"
-        default: return "Այսօր ծախսվել է"
+        case "month": return L("summary.spentMonth")
+        case "prevmonth": return L("summary.spentPrevMonth")
+        default: return L("summary.spentToday")
         }
     }
 
@@ -1053,8 +1059,11 @@ struct OwnerView: View {
     /// в половине первого, видел ноль и решал, что данные ушли.
     private var periodDates: String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
-        f.dateFormat = "d MMMM"
+        f.locale = LangStore.currentLang.locale
+        /* Шаблон, а не жёсткий формат: от языка зависит не только имя
+           месяца, но и порядок. «16 августа» и «August 16» — одна и та же
+           дата, записанная так, как её пишет язык. */
+        f.setLocalizedDateFormatFromTemplate("d MMMM")
         guard let from = summary?.from, summaryPeriod != "today" else {
             return f.string(from: summary?.from ?? Date())
         }
@@ -1077,11 +1086,11 @@ struct OwnerView: View {
 
         let label: String
         if summaryPeriod == "today" {
-            label = "մեկ շաբաթ առաջ այս ժամին"
+            label = L("summary.vsLastWeek")
         } else if let f = s.previous.from, let t = s.previous.to {
             label = range(f, t)
         } else {
-            label = "նախորդ ամիս"
+            label = L("summary.vsPrevMonth")
         }
 
         return (
@@ -1095,8 +1104,8 @@ struct OwnerView: View {
     /// «1 — 7 օգոստոսի». Месяц не повторяется дважды, когда он один.
     private func range(_ from: Date, _ to: Date) -> String {
         let full = DateFormatter()
-        full.locale = Locale(identifier: "hy_AM")
-        full.dateFormat = "d MMMM"
+        full.locale = LangStore.currentLang.locale
+        full.setLocalizedDateFormatFromTemplate("d MMMM")
         let dayOnly = DateFormatter()
         dayOnly.locale = full.locale
         dayOnly.dateFormat = "d"
@@ -1114,7 +1123,7 @@ struct OwnerView: View {
     /// смену, начатую в шесть утра.
     private func clock() -> DateFormatter {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
+        f.locale = LangStore.currentLang.locale
         f.dateFormat = "HH:mm"
         if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
             f.timeZone = zone
@@ -1126,7 +1135,7 @@ struct OwnerView: View {
 
     /// «с 09:40» — время выхода, а не длительность: длительность пришлось бы
     /// пересчитывать каждую минуту, иначе она врёт.
-    private func since(_ date: Date) -> String { "\(clock().string(from: date))-ից" }
+    private func since(_ date: Date) -> String { L("summary.since", clock().string(from: date)) }
 
     private func cancel(_ item: API.FeedItem) async {
         _ = try? await session.authed { token in
@@ -1226,8 +1235,8 @@ struct OwnerView: View {
             detailsVisible = true
             period = summaryPeriod
             failure = error.isOffline
-                ? "Կապ չկա։"
-                : "Սերվերը չպատասխանեց (\(error.status) \(error.code ?? "—"))"
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
         } catch {
             detailsVisible = true
             period = summaryPeriod

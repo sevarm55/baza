@@ -10,6 +10,11 @@
 name: Tetr
 options:
   bundleIdPrefix: com.sevarm
+  # Исходный язык продукта — армянский: на нём он написан, и он же
+  # запасной, когда в другом языке чего-то не хватило. Строки лежат в
+  # `Tetr/Localizable.xcstrings`, разрешения — в `Tetr/InfoPlist.xcstrings`;
+  # оба каталога попадают в сборку сами, потому что лежат внутри `Tetr`.
+  developmentLanguage: hy
   deploymentTarget:
     # 26, а не 16: Liquid Glass существует только здесь. Цена известна —
     # телефоны старше остаются без приложения, и для мойщиков это заметная
@@ -120,6 +125,13 @@ targets:
     sources:
       - path: TetrWidgets
       - path: Shared
+      # Виджет — отдельная цель со своим бандлом, и общий код туда надо
+      # положить явно. Строки ему нужны те же самые: «выручка» на плитке
+      # блокировки и «выручка» в приложении обязаны совпадать до буквы, а
+      # «3 машины» на ней — склоняться так же, как в приложении.
+      - path: Tetr/Core/Lang.swift
+      - path: Tetr/Core/Terms.swift
+      - path: Tetr/Localizable.xcstrings
     info:
       path: TetrWidgets/Info.plist
       properties:
@@ -143,6 +155,11 @@ targets:
     platform: iOS
     sources:
       - path: TetrUITests
+      # Проход ищет кнопки по подписям, а подписи теперь берутся из
+      # словаря. Без него тест искал бы армянскую строку в русском
+      # интерфейсе и не находил бы ничего — но не потому, что сломано.
+      - path: Tetr/Core/Lang.swift
+      - path: Tetr/Localizable.xcstrings
     dependencies:
       - target: Tetr
     settings:

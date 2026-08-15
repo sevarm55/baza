@@ -6,12 +6,14 @@ import { getPayrollBoard } from '@/lib/payroll-board';
 import { whoIsOnShift } from '@/lib/shifts';
 import { formatMoney } from '@/lib/money';
 import { hhmm } from '@/lib/time';
-import { hy } from '@/lib/i18n/hy';
 import { Figures, Plate } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { AddStaff } from './add-staff';
 import { StaffRoster } from './roster';
 import type { StaffPerson } from './model';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount, unitWord } from '@/lib/i18n/terms';
+import { localizeTenantOrNull } from '@/lib/i18n/terms';
 
 /**
  * Люди.
@@ -34,8 +36,12 @@ import type { StaffPerson } from './model';
  * Долг считает тот же лист (`getPayrollBoard`), которым живут зарплаты.
  */
 export default async function StaffPage() {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   /* «Кто на смене» — всегда сейчас, а не за месяц: это вопрос про
@@ -47,7 +53,7 @@ export default async function StaffPage() {
     getPayrollBoard(tenant.id, tenant.timezone),
   ]);
 
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const shiftOf = new Map(present.map((p) => [p.userId, p.openedAt]));
   const worked = new Map(month.byStaff.map((s) => [s.staffId ?? '', s]));
 
@@ -68,7 +74,7 @@ export default async function StaffPage() {
       name: s.name,
       phone: s.phone,
       percent: s.percent,
-      roleLabel: s.role === 'owner' ? hy.roles.owner : tenant.staffRole,
+      roleLabel: s.role === 'owner' ? t.roles.owner : tenant.staffRole,
       owner: s.role === 'owner',
       // себя отключить нельзя — владелец потеряет доступ к кабинету
       canRemove: s.id !== session.uid,
@@ -94,13 +100,13 @@ export default async function StaffPage() {
 
   return (
     <>
-      <PageHead title={hy.settings.staff} meta={hy.settings.staffLead}>
+      <PageHead title={t.settings.staff} meta={t.settings.staffLead}>
         <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           {/* Повод — строкой, тем же приёмом, что «пора платить» на
               зарплатах: это подсказка, а не показание. */}
           {board.totals.outstanding > 0 && (
             <Link className="signal" href="/owner/payroll">
-              {hy.owner.toPay} {money(board.totals.outstanding)}
+              {t.owner.toPay} {money(board.totals.outstanding)}
             </Link>
           )}
           <AddStaff staffRole={tenant.staffRole} />
@@ -112,19 +118,19 @@ export default async function StaffPage() {
           стоят полосой втрое тише. */}
       <section
         className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-        aria-label={hy.owner.payrollAccrued}
+        aria-label={t.owner.payrollAccrued}
       >
         <Plate
-          label={hy.owner.payrollAccrued}
+          label={t.owner.payrollAccrued}
           value={money(payroll)}
-          note={hy.owner.periodMonth.toLocaleLowerCase('hy')}
+          note={t.owner.periodMonth.toLocaleLowerCase(t.locale)}
         />
 
         <Figures
           items={[
-            { label: hy.settings.staff, value: String(staff.length) },
-            { label: hy.owner.onShift, value: String(present.length) },
-            { label: tenant.unitOne, value: String(cars) },
+            { label: t.settings.staff, value: String(staff.length) },
+            { label: t.owner.onShift, value: String(present.length) },
+            { label: unitWord(cars, tenant.unitOne, t.locale), value: String(cars) },
           ]}
         />
       </section>

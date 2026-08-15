@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IconHalf, IconMoon, IconSun } from '@/components/icons';
+import { useT } from '@/lib/i18n/client';
 
 type Theme = 'light' | 'dark';
 
@@ -12,6 +13,7 @@ type Theme = 'light' | 'dark';
  * приходится гадать, солнце — это «сейчас светло» или «сделать светло».
  */
 export function ThemeToggle() {
+  const t = useT();
   const [theme, setTheme] = useState<Theme | null>(null);
 
   // до монтирования тему знает только скрипт в <head>, поэтому
@@ -31,7 +33,7 @@ export function ThemeToggle() {
     setTheme(next);
   }
 
-  const label = theme === 'light' ? 'Մուգ' : 'Լուսավոր';
+  const label = theme === 'light' ? t.common.themeDark : t.common.themeLight;
 
   return (
     <button className="btn-icon btn-icon-board" onClick={flip} title={label} aria-label={label}>

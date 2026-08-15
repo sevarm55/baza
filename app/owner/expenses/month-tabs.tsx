@@ -1,7 +1,7 @@
 'use client';
 
 import { Segmented } from '@/components/segmented';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 export type MonthKey = 'current' | 'prev';
 
@@ -14,15 +14,16 @@ export type MonthKey = 'current' | 'prev';
  * одному дню.
  */
 export function MonthTabs({ current }: { current: MonthKey }) {
+  const t = useT();
   return (
     <Segmented
       id="expense-month"
       current={current}
       full
-      label={hy.owner.periodLabel}
+      label={t.owner.periodLabel}
       items={[
-        { key: 'current', label: hy.owner.periodMonth, href: '/owner/expenses' },
-        { key: 'prev', label: hy.owner.periodPrevMonth, href: '/owner/expenses?m=prev' },
+        { key: 'current', label: t.owner.periodMonth, href: '/owner/expenses' },
+        { key: 'prev', label: t.owner.periodPrevMonth, href: '/owner/expenses?m=prev' },
       ]}
     />
   );

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Copy, Check, MoreVertical, UserRound, X } from 'lucide-react';
 import { revokeOrder } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +29,7 @@ import {
  * но перестаёт попадать в выручку и зарплату. Поэтому и спрашиваем.
  */
 export function OrderMenu({ orderId, clientKey }: { orderId: string; clientKey?: string | null }) {
+  const t = useT();
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
   const [armed, setArmed] = useState(false);
@@ -71,8 +72,8 @@ export function OrderMenu({ orderId, clientKey }: { orderId: string; clientKey?:
         render={
           <button
             type="button"
-            title={hy.owner.rowActions}
-            aria-label={hy.owner.rowActions}
+            title={t.owner.rowActions}
+            aria-label={t.owner.rowActions}
             disabled={pending}
             /* `ms-auto`, а не выравнивание текста у ячейки: кнопка —
                блочный флекс, и `text-align: end` её не двигает. Без
@@ -94,12 +95,12 @@ export function OrderMenu({ orderId, clientKey }: { orderId: string; clientKey?:
               className="py-2"
             >
               <UserRound aria-hidden />
-              {hy.owner.openClient}
+              {t.owner.openClient}
             </DropdownMenuItem>
 
             <DropdownMenuItem className="py-2" onClick={copyKey} closeOnClick={false}>
               {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-              <span className="num">{copied ? hy.owner.copiedKey : clientKey}</span>
+              <span className="num">{copied ? t.owner.copiedKey : clientKey}</span>
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
@@ -128,7 +129,7 @@ export function OrderMenu({ orderId, clientKey }: { orderId: string; clientKey?:
           }}
         >
           <X aria-hidden />
-          {armed ? hy.owner.confirmCancel : hy.owner.cancelOrder}
+          {armed ? t.owner.confirmCancel : t.owner.cancelOrder}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

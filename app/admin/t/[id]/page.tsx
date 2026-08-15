@@ -67,7 +67,7 @@ export default async function TenantCard({ params }: { params: Promise<{ id: str
 
   const access = accessOf(t);
   const siblings = owner?.accountId ? await otherPointsOf(owner.accountId, t.id) : [];
-  const money = (n: number) => formatMoney(n, t.currency);
+  const money = (n: number) => formatMoney(n, t.currency, 'ru');
   const niche = NICHES[t.niche as NicheKey];
 
   const periods = [

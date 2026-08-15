@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { Bell as BellIcon } from 'lucide-react';
 import { snoozeAlert } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
 import { IconClock, IconWallet } from '@/components/flow-icons';
 import type { Alert } from '@/lib/alerts';
 import { Button } from '@/components/ui/button';
 import { SidebarMenuBadge, SidebarMenuButton } from '@/components/ui/sidebar';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Колокольчик владельца.
@@ -28,6 +28,7 @@ import { SidebarMenuBadge, SidebarMenuButton } from '@/components/ui/sidebar';
  * ней остаётся на месте, и видно, откуда пришёл.
  */
 export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -35,9 +36,9 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
     <>
       {sidebar ? (
         <>
-          <SidebarMenuButton className="h-10 px-4" tooltip={hy.alerts.title} onClick={() => setOpen(true)}>
+          <SidebarMenuButton className="h-10 px-4" tooltip={t.alerts.title} onClick={() => setOpen(true)}>
             <BellIcon aria-hidden="true" />
-            <span>{hy.alerts.title}</span>
+            <span>{t.alerts.title}</span>
           </SidebarMenuButton>
           {alerts.length > 0 && <SidebarMenuBadge>{alerts.length}</SidebarMenuBadge>}
         </>
@@ -48,7 +49,7 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
           size="icon"
           className="relative"
           onClick={() => setOpen(true)}
-          aria-label={hy.alerts.title}
+          aria-label={t.alerts.title}
         >
           <BellIcon aria-hidden="true" />
           {alerts.length > 0 && (
@@ -59,12 +60,12 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
         </Button>
       )}
 
-      <Sheet open={open} onClose={() => setOpen(false)} side title={hy.alerts.title}>
+      <Sheet open={open} onClose={() => setOpen(false)} side title={t.alerts.title}>
         {alerts.length === 0 ? (
           <div className="py-10 text-center">
-            <p className="text-[15px] font-semibold">{hy.alerts.empty}</p>
+            <p className="text-[15px] font-semibold">{t.alerts.empty}</p>
             <p className="mt-1.5 text-[13px]" style={{ color: 'var(--board-muted)' }}>
-              {hy.alerts.emptyNote}
+              {t.alerts.emptyNote}
             </p>
           </div>
         ) : (
@@ -104,7 +105,7 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
                   disabled={pending}
                   onClick={() => startTransition(() => snoozeAlert(a.key))}
                 >
-                  {hy.alerts.later}
+                  {t.alerts.later}
                 </button>
               </div>
             ))}

@@ -1,5 +1,9 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
+import { getDict } from '@/lib/i18n/server';
+import { localizeTenantOrNull, unitCount, staffCount } from '@/lib/i18n/terms';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 import {
   getFeed,
   getPaymentSplit,
@@ -11,7 +15,6 @@ import {
 import { windowFor } from '@/lib/summary-window';
 import { hhmm, ymd } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
@@ -78,17 +81,21 @@ export default async function TodayPage({
 }: {
   searchParams: Promise<{ p?: string }>;
 }) {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   const { p } = await searchParams;
   const period = getPeriod(p);
-  const isToday = period.key === 'today';
+  const isToday = period === 'today';
 
   /* Границы и база сравнения считаются там же, где для приложения: у сайта
      и телефона должны быть одни и те же деньги за один и тот же день. */
-  const w = windowFor(period.key, tenant.timezone);
+  const w = windowFor(period, tenant.timezone);
   const { byHour, from, to, prevFrom, prevTo } = w;
 
   const [stats, feed, series, split, costs, prevStats, prevCosts] = await Promise.all([
@@ -119,7 +126,7 @@ export default async function TodayPage({
   const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
   const presentIds = new Set(present.map((x) => x.userId));
 
-  const money = (n: number) => formatMoney(n, tenant.currency);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const profit = profitOf(stats.revenue, stats.payroll, costs);
   const prevProfit = profitOf(prevStats.revenue, prevStats.payroll, prevCosts);
   const diff = profit - prevProfit;
@@ -167,7 +174,7 @@ export default async function TodayPage({
       staffColor: personColor(o.staffName),
       serviceName: o.serviceName,
       payment: o.payment,
-      paymentLabel: paymentLabel(o.payment),
+      paymentLabel: paymentLabel(o.payment, t),
       price: o.price,
       percent: o.staffPercent,
       share,
@@ -185,7 +192,7 @@ export default async function TodayPage({
     .sort((a, b) => b.revenue - a.revenue)
     .map((x) => ({
       key: x.payment,
-      label: paymentLabel(x.payment),
+      label: paymentLabel(x.payment, t),
       value: x.revenue,
       share: mixTotal > 0 ? Math.round((x.revenue / mixTotal) * 100) : 0,
       color: PAYMENT_COLORS[x.payment] ?? 'var(--board-muted)',
@@ -211,17 +218,17 @@ export default async function TodayPage({
   /* Точки под графиком. У сегодняшнего дня это настоящие записи по
      минутам, у периода — дни, в которые была работа: за неделю записей
      сотни, и точки слились бы в сплошную полосу. */
-  const events = flow ? buildEvents(flow, ops, byHour, tenant.unitOne) : [];
+  const events = flow ? buildEvents(flow, ops, byHour, tenant.unitOne, t.locale) : [];
 
-  const dayLabel = periodDates(from, to, tenant.timezone, byHour);
+  const dayLabel = periodDates(from, to, tenant.timezone, byHour, t.locale);
 
   return (
     <>
       {/* Дата обязательна — сутки считаются по времени бизнеса и в
           полночь начинаются заново; без неё владелец, открывший кабинет
           в половине первого, видит ноль и решает, что данные пропали. */}
-      <PageHead title={hy.owner.tabToday} meta={dayLabel}>
-        <PeriodTabs current={period.key} />
+      <PageHead title={t.owner.tabToday} meta={dayLabel}>
+        <PeriodTabs current={period} />
       </PageHead>
 
       <TodaySummary
@@ -243,24 +250,23 @@ export default async function TodayPage({
           равных показаний. Здесь это подпись к ним: сколько машин, по
           какому чеку и сколько людей за этим стояло. */}
       <p className="quick">
-        <b className="num">{stats.count}</b> {tenant.unitOne}
+        {unitCount(stats.count, tenant.unitOne, t.locale)}
         {stats.avgCheck > 0 && (
           <>
             <i />
-            {hy.owner.avgCheck} <b className="num">{money(stats.avgCheck)}</b>
+            {t.owner.avgCheck} <b className="num">{money(stats.avgCheck)}</b>
           </>
         )}
         <i />
-        <b className="num">{isToday ? present.length : crew.length}</b>{' '}
-        {tenant.staffRole.toLocaleLowerCase('hy')}
-        {isToday && ` ${hy.owner.onShift.toLocaleLowerCase('hy')}`}
+        {staffCount(isToday ? present.length : crew.length, tenant.staffRole, t.locale)}
+        {isToday && ` ${t.owner.onShift.toLocaleLowerCase(t.locale)}`}
         {/* Время открытия смены — единственное, что оставалось своего у
             прибора «Հիմա»: состояние людей и так стоит точками в списке
             ниже, а число на смене — здесь же, двумя словами левее. */}
         {isToday && present[0] && (
           <>
             <i />
-            <span className="num">{hy.today.since(hhmm(present[0].openedAt, tenant.timezone))}</span>
+            <span className="num">{t.today.since(hhmm(present[0].openedAt, tenant.timezone))}</span>
           </>
         )}
       </p>
@@ -293,7 +299,7 @@ export default async function TodayPage({
             здесь же и отвечал то же самое дважды: состояние людей — а
             оно и есть точки в этом списке. */}
         <Panel
-          title={byHour ? hy.today.flowDay : hy.today.flowPeriod}
+          title={byHour ? t.today.flowDay : t.today.flowPeriod}
           className="lg:col-span-8 lg:col-start-1 lg:row-start-1"
           actions={
             <span
@@ -308,9 +314,9 @@ export default async function TodayPage({
               }}
             >
               {prevStats.count === 0
-                ? hy.owner.noBase
+                ? t.owner.noBase
                 : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
-                    isToday ? hy.owner.vsLastWeek : hy.owner.vsPrev
+                    isToday ? t.owner.vsLastWeek : t.owner.vsPrev
                   }`}
             </span>
           }
@@ -328,9 +334,9 @@ export default async function TodayPage({
                получилось, и предлагает повторить — остальная страница
                при этом на месте и продолжает отвечать. */
             <div className="grid justify-items-center gap-2 py-12 text-center">
-              <p className="text-[14px] font-semibold">{hy.today.flowFailed}</p>
-              <a className="btn-inline" href={period.key === 'today' ? '/owner' : `/owner?p=${period.key}`}>
-                {hy.payroll.retry}
+              <p className="text-[14px] font-semibold">{t.today.flowFailed}</p>
+              <a className="btn-inline" href={period === 'today' ? '/owner' : `/owner?p=${period}`}>
+                {t.payroll.retry}
               </a>
             </div>
           )}
@@ -345,7 +351,7 @@ export default async function TodayPage({
           crew={crew}
           currency={tenant.currency}
           unitOne={tenant.unitOne}
-          title={isToday ? hy.today.working : hy.settings.staff}
+          title={isToday ? t.today.working : t.settings.staff}
         />
 
         {/* Чем платили — во всю ширину вторым рядом. Соседа у него не
@@ -363,18 +369,18 @@ export default async function TodayPage({
           unitOne={tenant.unitOne}
           staffRole={tenant.staffRole}
           clientIdLabel={tenant.clientIdLabel}
-          title={isToday ? hy.today.work : hy.owner.feed}
+          title={isToday ? t.today.work : t.owner.feed}
           note={
             feed.length >= FEED_LIMIT
-              ? hy.today.lastRecords(feed.length)
-              : hy.today.workAll(dayLabel)
+              ? t.today.lastRecords(feed.length)
+              : t.today.workAll(dayLabel)
           }
           /* «Сегодня ещё нет записей» у закрытого месяца — неправда
              дважды: месяц не сегодня, и ничего уже не «ещё». */
           empty={
             isToday
-              ? { title: hy.owner.emptyToday, note: hy.today.emptyNote }
-              : { title: hy.today.noRecords }
+              ? { title: t.owner.emptyToday, note: t.today.emptyNote }
+              : { title: t.today.noRecords }
           }
           methods={methods}
         />
@@ -389,13 +395,23 @@ export default async function TodayPage({
  * Верхняя граница берётся из окна, а не из «сегодня»: у прошлого месяца
  * период закончился, и подписывать его сегодняшним числом — врать.
  */
-function periodDates(from: Date, to: Date, timezone: string, single: boolean): string {
-  const f = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', month: 'long', timeZone: timezone });
+function periodDates(
+  from: Date,
+  to: Date,
+  timezone: string,
+  single: boolean,
+  locale: string,
+): string {
+  const f = new Intl.DateTimeFormat(intlLocale(locale), {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  });
   if (single) return f.format(from);
 
   // верхняя граница — начало следующих суток, поэтому день назад
   const last = new Date(Math.min(to.getTime(), Date.now()) - 1);
-  const day = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', timeZone: timezone });
+  const day = new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', timeZone: timezone });
   const sameMonth =
     new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(from) ===
     new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(last);
@@ -517,6 +533,7 @@ function buildEvents(
   ops: Op[],
   byHour: boolean,
   unitOne: string,
+  locale: string,
 ): FlowEvent[] {
   if (points.length === 0) return [];
 
@@ -529,7 +546,7 @@ function buildEvents(
         id: `d-${p.label}-${i}`,
         at: span > 0 ? i / span : 0.5,
         time: p.label,
-        title: `${p.count} ${unitOne}`,
+        title: unitCount(p.count, unitOne, locale),
         note: p.people.length > 0 ? p.people.join(', ') : null,
         price: p.value,
         who: null,
@@ -561,9 +578,9 @@ function buildEvents(
   });
 }
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }

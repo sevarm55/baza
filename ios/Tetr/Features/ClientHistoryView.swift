@@ -58,7 +58,7 @@ struct ClientHistoryView: View {
                     }
 
                     if loaded && orders.isEmpty {
-                        Text("Գրանցումներ չկան")
+                        Text(L("today.noRecords"))
                             .font(.system(size: 14))
                             .foregroundStyle(Brand.boardMuted)
                             .frame(maxWidth: .infinity)
@@ -74,7 +74,7 @@ struct ClientHistoryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Փակել") { dismiss() }
+                    Button(L("common.close")) { dismiss() }
                 }
             }
             .task { await reload() }
@@ -89,7 +89,7 @@ struct ClientHistoryView: View {
     /// разойтись.
     private var reading: some View {
         VStack(spacing: 0) {
-            Text("Ընդամենը")
+            Text(L("common.total"))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
                 .padding(.top, 6)
@@ -132,16 +132,16 @@ struct ClientHistoryView: View {
         if orders.count > 1 {
             VStack(spacing: 0) {
                 if let firstSeen {
-                    fact("Առաջին այցը", longDay(firstSeen))
+                    fact(L("owner.clientFirstVisit"), longDay(firstSeen))
                 }
                 if let service = topOf(orders.map(\.serviceName)) {
-                    fact("Հաճախ վերցնում է", service)
+                    fact(L("owner.clientOftenTakes"), service)
                 }
                 if let payment = topOf(orders.map { paymentWord($0.payment) }) {
-                    fact("Սովորաբար վճարում է", payment)
+                    fact(L("owner.clientOftenPays"), payment)
                 }
                 if let who = topOf(orders.compactMap(\.staffName)) {
-                    fact("Սովորաբար սպասարկում է", who)
+                    fact(L("owner.clientOftenServed"), who)
                 }
             }
             .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 16))
@@ -175,7 +175,7 @@ struct ClientHistoryView: View {
     /// «15 օգոստոսի, 2026 թ.» — в поясе бизнеса, как и всё остальное.
     private func longDay(_ d: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
+        f.locale = LangStore.currentLang.locale
         f.dateStyle = .long
         if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
             f.timeZone = zone
@@ -199,7 +199,7 @@ struct ClientHistoryView: View {
     private var contacts: some View {
         VStack(alignment: .leading, spacing: 10) {
             if editing {
-                TextField("Անուն", text: $name)
+                TextField(L("owner.clientName"), text: $name)
                     .textFieldStyle(.plain)
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.onBoard)
@@ -224,7 +224,7 @@ struct ClientHistoryView: View {
                     Button {
                         Task { await saveContact() }
                     } label: {
-                        Text(saving ? "…" : "Պահպանել")
+                        Text(saving ? "…" : L("common.save"))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Brand.onLime)
                             .padding(.horizontal, 16)
@@ -234,20 +234,20 @@ struct ClientHistoryView: View {
                     .buttonStyle(.press)
                     .disabled(saving)
 
-                    Button("Չեղարկել") { editing = false }
+                    Button(L("common.cancel")) { editing = false }
                         .font(.system(size: 14))
                         .foregroundStyle(Brand.boardMuted)
                 }
             } else {
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Կապ")
+                        Text(L("owner.clientContacts"))
                             .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                         Text(name.isEmpty ? client.key : name)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
-                        Text(phone.isEmpty ? "Հեռախոսը գրված չէ" : phone)
+                        Text(phone.isEmpty ? L("owner.clientNoPhone") : phone)
                             .font(.system(size: 13))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
@@ -255,22 +255,22 @@ struct ClientHistoryView: View {
 
                     Spacer(minLength: 8)
 
-                    Button("Փոխել") { editing = true }
+                    Button(L("common.edit")) { editing = true }
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                 }
 
                 if !phone.isEmpty {
                     HStack(spacing: 8) {
-                        link("Զանգել", "tel:\(phone)", filled: true)
-                        link("Գրել", "sms:\(phone)", filled: false)
+                        link(L("owner.clientCall"), "tel:\(phone)", filled: true)
+                        link(L("owner.clientWrite"), "sms:\(phone)", filled: false)
                     }
                 }
 
                 /* Подсказка только пропавшему: у того, кто был вчера, она
                    превратилась бы в фон, который перестают замечать. */
                 if client.daysSince > API.lostAfterDays {
-                    Text("Վաղուց չի եղել — զանգեք կամ առաջարկեք զեղչ")
+                    Text(L("owner.clientLostHint"))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Brand.warnOnBoard)
                 }
@@ -312,8 +312,13 @@ struct ClientHistoryView: View {
 
     private var subtitle: String {
         let avg = client.visits > 0 ? client.total / client.visits : 0
-        let last = client.daysSince == 0 ? "այսօր" : "\(client.daysSince) օր առաջ"
-        return "\(client.visits) այց · միջինը \(money(avg, currency)) · վերջինը՝ \(last)"
+        let last = client.daysSince == 0 ? L("owner.lastVisitToday") : Ln("clients.daysAgo", client.daysSince)
+        return L(
+            "clients.summaryLine",
+            Ln("clients.visitsCount", client.visits),
+            money(avg, currency),
+            last
+        )
     }
 
     private func row(_ order: API.ClientOrder) -> some View {
@@ -356,10 +361,10 @@ struct ClientHistoryView: View {
 
     private func paymentWord(_ p: String) -> String {
         switch p {
-        case "cash": return "Կանխիկ"
-        case "card": return "Քարտ"
-        case "pass": return "Աբոնեմենտ"
-        default: return "Փոխանցում"
+        case "cash": return L("payment.cash")
+        case "card": return L("payment.card")
+        case "pass": return L("payment.pass")
+        default: return L("payment.transfer")
         }
     }
 

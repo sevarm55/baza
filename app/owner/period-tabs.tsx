@@ -1,8 +1,8 @@
 'use client';
 
 import { Segmented } from '@/components/segmented';
-import { hy } from '@/lib/i18n/hy';
-import { PERIODS, periodHref, type PeriodKey } from './periods';
+import { periods, periodHref, type PeriodKey } from './periods';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Какой период открыт. Он же лежит в адресе, поэтому вкладки — ссылки:
@@ -13,13 +13,14 @@ import { PERIODS, periodHref, type PeriodKey } from './periods';
  * `components/segmented.tsx`.
  */
 export function PeriodTabs({ current }: { current: PeriodKey }) {
+  const t = useT();
   return (
     <Segmented
       id="period-tabs"
       current={current}
       full
-      label={hy.owner.periodLabel}
-      items={PERIODS.map((x) => ({ key: x.key, label: x.label, href: periodHref(x.key) }))}
+      label={t.owner.periodLabel}
+      items={periods(t).map((x) => ({ key: x.key, label: x.label, href: periodHref(x.key) }))}
     />
   );
 }

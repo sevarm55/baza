@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { expenses } from './db/schema';
 import { isSaneMoney } from './money';
+import { dict } from './i18n';
 
 /**
  * Расходы и прибыль.
@@ -417,12 +418,14 @@ export function profitOf(revenue: number, payroll: number, costs: PeriodCosts): 
   return revenue - payroll - costs.total;
 }
 
-/** Подсказки в форме: то, на что мойка тратит чаще всего. */
-export const EXPENSE_HINTS = [
-  'Քիմիա',
-  'Վարձ',
-  'Հոսանք',
-  'Ջուր',
-  'Գույք',
-  'Վերանորոգում',
-] as const;
+/**
+ * Подсказки в форме: то, на что мойка тратит чаще всего.
+ *
+ * Это кнопки, а не содержимое базы. Нажатие кладёт в расход ровно то
+ * слово, которое человек увидел на кнопке, то есть на его языке, — и
+ * дальше оно живёт как его собственное название категории, которое
+ * никакой перевод больше не трогает.
+ */
+export function expenseHints(locale: string): readonly string[] {
+  return dict(locale).expenses.hints;
+}

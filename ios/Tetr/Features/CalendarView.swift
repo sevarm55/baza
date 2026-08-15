@@ -33,7 +33,10 @@ struct CalendarView: View {
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
     /// Понедельник первым: в Армении неделя начинается с него.
-    private let weekdays = ["Երկ", "Երք", "Չրք", "Հնգ", "Ուր", "Շբթ", "Կիր"]
+    ///
+    /// Имена берёт система на языке интерфейса — выписывать семь слов
+    /// трижды значило бы держать три списка и забывать один из них.
+    private var weekdays: [String] { LocalDate.shortWeekdays }
 
     private let gap: CGFloat = 10
 
@@ -79,7 +82,7 @@ struct CalendarView: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.press)
-            .accessibilityLabel("Հետ")
+            .accessibilityLabel(L("common.back"))
 
             Text(Self.title(month))
                 .font(.system(size: 17, weight: .bold))
@@ -87,10 +90,10 @@ struct CalendarView: View {
                 .frame(maxWidth: .infinity)
                 .contentTransition(.numericText())
 
-            arrow("chevron.left", "Նախորդ ամիս") { shift(by: -1) }
+            arrow("chevron.left", L("owner.vsPrevPeriod")) { shift(by: -1) }
 
             // вперёд дальше текущего месяца незачем: там пусто по определению
-            arrow("chevron.right", "Հաջորդ ամիս") { shift(by: 1) }
+            arrow("chevron.right", L("calendar.nextMonth")) { shift(by: 1) }
                 .disabled(month >= Self.currentMonth())
                 .opacity(month >= Self.currentMonth() ? 0.3 : 1)
         }
@@ -115,7 +118,7 @@ struct CalendarView: View {
 
     private func reading(_ total: API.MonthTotal) -> some View {
         VStack(spacing: 0) {
-            Text(total.profit >= 0 ? "Ամսվա շահույթ" : "Ամիսը մինուսում")
+            Text(total.profit >= 0 ? L("calendar.monthProfit") : L("calendar.monthInTheRed"))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
                 .padding(.top, 6)
@@ -231,15 +234,15 @@ struct CalendarView: View {
         .buttonStyle(.press)
         .disabled(day.revenue == 0)
         .accessibilityLabel("\(Int(day.date.suffix(2)) ?? 0)")
-        .accessibilityValue(day.revenue > 0 ? "\(day.count) · \(money(day.revenue, currency))" : "դատարկ")
+        .accessibilityValue(day.revenue > 0 ? "\(day.count) · \(money(day.revenue, currency))" : L("common.empty"))
     }
 
     // ══════════════════════════ итоги ══════════════════════════
 
     private func totals(_ total: API.MonthTotal) -> some View {
         HStack(spacing: gap) {
-            small(.teal, "Հասույթ", money(total.revenue, currency), Double(total.revenue))
-            small(.slate, session.tenant?.unitOne ?? "", "\(total.count)", Double(total.count))
+            small(.teal, L("owner.revenue"), money(total.revenue, currency), Double(total.revenue))
+            small(.slate, Terms.unitWord(total.count, session.tenant?.unitOne ?? ""), "\(total.count)", Double(total.count))
         }
     }
 
@@ -282,7 +285,7 @@ struct CalendarView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Շաբաթվա պատկերը")
+                    Text(L("calendar.weekShape"))
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                     Spacer()
@@ -394,11 +397,8 @@ extension CalendarView {
     }
 
     static func title(_ month: String) -> String {
-        let names = ["Հունվար", "Փետրվար", "Մարտ", "Ապրիլ", "Մայիս", "Հունիս",
-                     "Հուլիս", "Օգոստոս", "Սեպտեմբեր", "Հոկտեմբեր", "Նոյեմբեր", "Դեկտեմբեր"]
-        let parts = month.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 2, (1...12).contains(parts[1]) else { return month }
-        return "\(names[parts[1] - 1]) \(parts[0])"
+        guard let date = LocalDate.fromYM(month) else { return month }
+        return LocalDate.monthYear(date)
     }
 
     /// Сколько пустых клеток перед первым числом.

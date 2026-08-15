@@ -1,6 +1,7 @@
 import { Figures, Plate } from '@/components/board';
 import { formatMoney } from '@/lib/money';
-import { fromOneUnit, hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
+import { fromOneUnit } from '@/lib/i18n/terms';
 
 /**
  * Ответ дня и его разбор.
@@ -20,7 +21,7 @@ import { fromOneUnit, hy } from '@/lib/i18n/hy';
  * Ни одно из этих чисел ниже по странице не повторяется: график
  * показывает ход, а не сумму, лента — записи, а не итог дня.
  */
-export function TodaySummary({
+export async function TodaySummary({
   currency,
   unitOne,
   revenue,
@@ -43,7 +44,8 @@ export function TodaySummary({
   profit: number;
   count: number;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   /* Доля и «с одной машины» — то, что превращает сумму в оценку дня.
      Обе считаются только когда есть от чего: процент от нуля и деление
@@ -53,10 +55,10 @@ export function TodaySummary({
 
   const note =
     profit < 0
-      ? hy.owner.inTheRed
+      ? t.owner.inTheRed
       : [
-          kept !== null ? `${kept}% ${hy.owner.kept}` : null,
-          perUnit !== null ? `${money(perUnit)} ${fromOneUnit(unitOne)}` : null,
+          kept !== null ? `${kept}% ${t.owner.kept}` : null,
+          perUnit !== null ? `${money(perUnit)} ${fromOneUnit(unitOne, t.locale)}` : null,
         ]
           .filter(Boolean)
           .join(' · ') || undefined;
@@ -72,15 +74,15 @@ export function TodaySummary({
        ширину, и всё помещается целиком. */
     <section
       className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-      aria-label={hy.owner.profit}
+      aria-label={t.owner.profit}
     >
-      <Plate label={hy.owner.profit} value={money(profit)} note={note} bad={profit < 0} />
+      <Plate label={t.owner.profit} value={money(profit)} note={note} bad={profit < 0} />
 
       <Figures
         items={[
-          { label: hy.owner.revenue, value: money(revenue) },
+          { label: t.owner.revenue, value: money(revenue) },
           {
-            label: hy.owner.payrollAccrued,
+            label: t.owner.payrollAccrued,
             value: money(payroll),
             sign: '−',
             /* Ведёт на зарплаты: сводка называет сумму, а кому и за какой
@@ -89,7 +91,7 @@ export function TodaySummary({
             href: payroll > 0 ? '/owner/payroll' : undefined,
           },
           {
-            label: hy.owner.costs,
+            label: t.owner.costs,
             value: money(costs),
             sign: '−',
             /* Разовые и доля постоянных — разные вещи: первое случилось

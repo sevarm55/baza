@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { signOut } from '@/app/actions';
 import { IconPower } from '@/components/icons';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * При выходе просим service worker выбросить кэш страниц.
@@ -21,6 +21,7 @@ function dropCache() {
 }
 
 export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
+  const t = useT();
   const [asking, setAsking] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -32,8 +33,8 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
       <form action={signOut} onSubmit={dropCache}>
         <button
           className="btn-icon btn-icon-board"
-          title={hy.auth.signOut}
-          aria-label={hy.auth.signOut}
+          title={t.auth.signOut}
+          aria-label={t.auth.signOut}
         >
           <IconPower className="size-4" />
         </button>
@@ -50,8 +51,8 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
       <button
         type="button"
         className="btn-icon btn-icon-board"
-        title={hy.auth.signOut}
-        aria-label={hy.auth.signOut}
+        title={t.auth.signOut}
+        aria-label={t.auth.signOut}
         disabled={pending}
         onClick={() => setAsking(true)}
       >
@@ -61,7 +62,7 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
       <Sheet
         open={asking}
         onClose={pending ? () => {} : () => setAsking(false)}
-        title={hy.work.signOutOpenTitle}
+        title={t.work.signOutOpenTitle}
         footer={
           <>
             <button
@@ -70,7 +71,7 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
               onClick={() => setAsking(false)}
               disabled={pending}
             >
-              {hy.work.endStay}
+              {t.work.endStay}
             </button>
             <button
               type="button"
@@ -83,13 +84,13 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
                 })
               }
             >
-              {pending ? hy.common.loading : hy.auth.signOut}
+              {pending ? t.common.loading : t.auth.signOut}
             </button>
           </>
         }
       >
         <p className="text-[13.5px] leading-[1.6]" style={{ color: 'var(--muted)' }}>
-          {hy.work.signOutOpenNote}
+          {t.work.signOutOpenNote}
         </p>
       </Sheet>
     </>

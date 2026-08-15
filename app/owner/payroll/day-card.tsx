@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
 import { Panel } from '@/components/board';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { StaffRow } from './staff-row';
 import type { DayGroup } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount, staffCount } from '@/lib/i18n/terms';
 
 /**
  * Рабочий день — блоком.
@@ -48,8 +49,9 @@ export function DayCard({
   /** день закрыт: показываем строкой, пока её не откроют */
   collapsed?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(!collapsed);
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   const payable = group.people.filter((p) => p.staffId && p.earned > 0);
   const mine = payable.filter((p) => picked.has(p.key));
@@ -62,7 +64,7 @@ export function DayCard({
           <span className="text-[15px] font-semibold">{group.title}</span>
           <span className="tag-good">
             <Check className="me-1 size-3" aria-hidden />
-            {hy.payroll.dayAllPaid}
+            {t.payroll.dayAllPaid}
           </span>
           <span className="num ms-auto text-[15px] font-semibold">{money(group.paid)}</span>
           <ChevronRight className="size-4 shrink-0" style={{ color: 'var(--faint)' }} aria-hidden />
@@ -81,7 +83,8 @@ export function DayCard({
               ничего не добавляет. */}
           <h2 className="text-[16px] leading-tight font-semibold">{group.title}</h2>
           <p className="num mt-0.5 text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-            {group.people.length} {staffRole.toLocaleLowerCase('hy')} · {group.units} {unitOne}
+            {staffCount(group.people.length, staffRole, t.locale)} ·{' '}
+            {unitCount(group.units, unitOne, t.locale)}
           </p>
         </div>
 
@@ -100,7 +103,7 @@ export function DayCard({
               disabled={busy}
               onClick={() => onPickAll(payable.map((p) => p.key))}
             >
-              {hy.payroll.selectAll}
+              {t.payroll.selectAll}
             </button>
           )}
 
@@ -111,7 +114,7 @@ export function DayCard({
                   {money(group.outstanding)}
                 </div>
                 <div className="mt-1 text-[11.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {hy.payroll.dayToPay}
+                  {t.payroll.dayToPay}
                 </div>
               </>
             ) : (
@@ -120,7 +123,7 @@ export function DayCard({
                 style={{ color: 'var(--good-on-board)' }}
               >
                 <Check className="size-4" aria-hidden />
-                {hy.payroll.dayAllPaid}
+                {t.payroll.dayAllPaid}
               </div>
             )}
           </div>
@@ -129,7 +132,7 @@ export function DayCard({
 
       {group.people.length === 0 ? (
         <p className="py-5 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.payroll.dayEmpty}
+          {t.payroll.dayEmpty}
         </p>
       ) : (
         <div className="board-journal">
@@ -157,7 +160,7 @@ export function DayCard({
               которого нажимают, обязано быть в том месте, куда смотрят
               перед нажатием, и повторять его дважды незачем. */}
           <span className="num text-[13px]" style={{ color: 'var(--board-muted)' }}>
-            {hy.payroll.selected(mine.length)}
+            {t.payroll.selected(mine.length)}
           </span>
           <button
             type="button"
@@ -165,7 +168,7 @@ export function DayCard({
             disabled={busy}
             onClick={() => onPay(mine.map((p) => p.key))}
           >
-            {hy.payroll.paySum(money(chosen))}
+            {t.payroll.paySum(money(chosen))}
           </button>
         </div>
       )}

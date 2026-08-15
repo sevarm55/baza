@@ -2,15 +2,16 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { NICHES, type NicheKey } from '@/lib/niches';
 import { getSession } from '@/lib/auth';
-import { hy } from '@/lib/i18n/hy';
 import { Logo } from '@/components/logo';
 import { RegisterPanel } from './register-panel';
+import { getDict } from '@/lib/i18n/server';
 
 export default async function RegisterPage({
   params,
 }: {
   params: Promise<{ niche: string }>;
 }) {
+  const t = await getDict();
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
 
@@ -34,12 +35,12 @@ export default async function RegisterPage({
           } as React.CSSProperties
         }
       >
-        <Link href="/" aria-label={hy.app.name}>
+        <Link href="/" aria-label={t.app.name}>
           <Logo size={30} />
         </Link>
 
         <p className="max-w-[15ch] text-[clamp(30px,3.2vw,46px)] leading-[1.12] font-bold tracking-tight">
-          {hy.app.tagline}
+          {t.app.tagline}
         </p>
 
         <span className="text-[13.5px] opacity-60">tetrin.pro</span>
@@ -51,7 +52,7 @@ export default async function RegisterPage({
               Ссылка на вход живёт внизу панели — она одна и та же на
               странице и в окне, дублировать её в шапке незачем. */}
           <header className="mb-6 lg:hidden">
-            <Link href="/" aria-label={hy.app.name}>
+            <Link href="/" aria-label={t.app.name}>
               <Logo size={28} />
             </Link>
           </header>

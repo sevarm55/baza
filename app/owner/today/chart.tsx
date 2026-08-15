@@ -2,8 +2,9 @@
 
 import { useState, type CSSProperties } from 'react';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { FlowEvent, FlowPoint } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * Ход периода: сколько накопилось, когда пришло и что именно приехало.
@@ -47,6 +48,7 @@ export function FlowChart({
   /** день по часам или период по дням: от этого зависят подписи */
   byHour: boolean;
 }) {
+  const t = useT();
   /* Что под курсором. `null` — курсора нет, и тогда подпись внизу
      показывает пик: экран, на который просто смотрят, обязан отвечать
      без наведения. */
@@ -58,7 +60,7 @@ export function FlowChart({
 
   if (points.length === 0) return null;
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const max = Math.max(...points.map((p) => p.value));
   const peakIndex = Math.max(
     0,
@@ -152,11 +154,11 @@ export function FlowChart({
         <div className="chart-legend">
           <span>
             <span className="chart-key chart-key-line" aria-hidden />
-            {hy.today.accumulated}
+            {t.today.accumulated}
           </span>
           <span>
             <span className="chart-key chart-key-bar" aria-hidden />
-            {byHour ? hy.today.inHour : hy.today.inDay}
+            {byHour ? t.today.inHour : t.today.inDay}
           </span>
           {events.length > 0 && (
             <span>
@@ -174,7 +176,7 @@ export function FlowChart({
         className="chart-plot"
         role="group"
         tabIndex={0}
-        aria-label={byHour ? hy.today.flowDay : hy.today.flowPeriod}
+        aria-label={byHour ? t.today.flowDay : t.today.flowPeriod}
         onPointerLeave={() => setAt(null)}
         onBlur={() => setAt(null)}
         onPointerMove={(e) => {
@@ -387,7 +389,7 @@ export function FlowChart({
             }}
           >
             {points[i]?.label}
-            {i === nowIndex && <b>{hy.today.nowMark}</b>}
+            {i === nowIndex && <b>{t.today.nowMark}</b>}
           </span>
         ))}
       </div>
@@ -408,22 +410,22 @@ export function FlowChart({
       <div className="chart-read" aria-live="polite">
         {empty ? (
           <span style={{ color: 'var(--board-muted)' }}>
-            {byHour ? hy.owner.emptyToday : hy.today.noRecords}
+            {byHour ? t.owner.emptyToday : t.today.noRecords}
           </span>
         ) : (
           <>
             {at === null && (
-              <span style={{ color: 'var(--board-muted)' }}>{hy.today.peak}</span>
+              <span style={{ color: 'var(--board-muted)' }}>{t.today.peak}</span>
             )}
             <b className="num">{active.label}</b>
             <span className="num">
-              {active.count} {unitOne}
+              {unitCount(active.count, unitOne, t.locale)}
             </span>
             <span className="num">
-              {byHour ? hy.today.inHour : hy.today.inDay} {money(active.value)}
+              {byHour ? t.today.inHour : t.today.inDay} {money(active.value)}
             </span>
             <span className="num" style={{ color: 'var(--board-muted)' }}>
-              {hy.today.accumulated} {money(running[shown] ?? 0)}
+              {t.today.accumulated} {money(running[shown] ?? 0)}
             </span>
             {active.people.length > 0 && (
               <span className="chart-read-who truncate">{active.people.join(', ')}</span>

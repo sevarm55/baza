@@ -5,8 +5,8 @@ import { getTenant, getUser } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
 import { PointForm } from '@/components/point-form';
 import { currentAccess } from '@/lib/subscription';
-import { hy } from '@/lib/i18n/hy';
 import { SignOutButton } from '@/components/sign-out-button';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Стена: срок вышел.
@@ -25,6 +25,7 @@ import { SignOutButton } from '@/components/sign-out-button';
  * судьбой бизнеса ему нечем.
  */
 export default async function BlockedPage() {
+  const t = await getDict();
   const session = await requireSession();
   await ensureDb();
 
@@ -64,11 +65,11 @@ export default async function BlockedPage() {
 
       <div className="relative mx-auto w-full max-w-[440px] px-6 pb-12">
         <h1 className="text-[30px] leading-tight font-bold text-white">
-          {fresh ? hy.points.freshTitle : blocked ? hy.billing.blockedTitle : hy.billing.wallTitle}
+          {fresh ? t.points.freshTitle : blocked ? t.billing.blockedTitle : t.billing.wallTitle}
         </h1>
 
         <p className="mt-3.5 text-[17px] leading-relaxed text-white/80">
-          {fresh ? hy.points.freshText : blocked ? hy.billing.blockedText : hy.billing.wallLead}
+          {fresh ? t.points.freshText : blocked ? t.billing.blockedText : t.billing.wallLead}
         </p>
 
         {/* Одна закрытая точка не имеет права запирать открытую. Без этого
@@ -92,7 +93,7 @@ export default async function BlockedPage() {
                     {point.name}
                   </span>
                   <span className="shrink-0 text-[12px] text-white/50">
-                    {point.canRead ? hy.points.go : hy.points.needsPayment}
+                    {point.canRead ? t.points.go : t.points.needsPayment}
                   </span>
                 </button>
               </PointForm>
@@ -100,7 +101,7 @@ export default async function BlockedPage() {
           </div>
         )}
 
-        <p className="mt-5 text-[15px] text-white/70">{hy.billing.wallContinue}</p>
+        <p className="mt-5 text-[15px] text-white/70">{t.billing.wallContinue}</p>
         {/* Звонок — главное действие: продолжить пользоваться хотят обе стороны */}
         {/* Цвета фирменные, а не тематические: экран всегда тёмный —
             под ним картинка, — и переменные светлой темы дали бы здесь
@@ -111,7 +112,7 @@ export default async function BlockedPage() {
           className="mt-2 block rounded-[10px] py-4 text-center text-[17px] font-bold no-underline"
           style={{ backgroundColor: '#D7FF00', color: '#2E1065' }}
         >
-          {hy.billing.wallPhone}
+          {t.billing.wallPhone}
         </a>
 
         {isOwner && (
@@ -127,7 +128,7 @@ export default async function BlockedPage() {
                 download
                 className="flex-1 rounded-[10px] border border-white/20 py-3 text-center text-[15px] font-semibold text-white no-underline"
               >
-                {hy.billing.wallDownload}
+                {t.billing.wallDownload}
               </a>
             </div>
 
@@ -137,10 +138,10 @@ export default async function BlockedPage() {
                 необратимо и на глаза попадаться не должно. */}
             <details className="mt-4">
               <summary className="cursor-pointer text-[15px] font-semibold text-white/70">
-                {hy.billing.wallDelete}
+                {t.billing.wallDelete}
               </summary>
 
-              <p className="mt-2 text-[13.5px] text-white/45">{hy.billing.wallDeleteNote}</p>
+              <p className="mt-2 text-[13.5px] text-white/45">{t.billing.wallDeleteNote}</p>
 
               <form
                 method="post"
@@ -155,8 +156,8 @@ export default async function BlockedPage() {
                   pattern="[0-9]{4}"
                   maxLength={4}
                   autoComplete="off"
-                  aria-label={hy.settings.deletePin}
-                  placeholder={hy.settings.deletePin}
+                  aria-label={t.settings.deletePin}
+                  placeholder={t.settings.deletePin}
                   required
                 />
                 <button
@@ -164,7 +165,7 @@ export default async function BlockedPage() {
                   name="mode"
                   value="wipe"
                 >
-                  {hy.settings.deleteWipe}
+                  {t.settings.deleteWipe}
                 </button>
               </form>
             </details>

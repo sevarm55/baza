@@ -190,7 +190,7 @@ final class AppFlowTests: XCTestCase {
             /* На аватар не нажимаем: за ним стоит Face ID, а в
                симуляторе лица нет. Идём «другим номером» — там форма с
                PIN, которую тест и умеет заполнить. */
-            let another = app.buttons["Մուտք գործել այլ համարով"]
+            let another = app.buttons[L("auth.anotherAccount")]
             if another.waitForExistence(timeout: 5) { another.tap() }
             waitForLogin(app)
             submitLogin(app)

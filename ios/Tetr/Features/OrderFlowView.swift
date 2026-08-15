@@ -67,9 +67,9 @@ struct OrderFlowView: View {
      * Теперь все три спокойные, а цвет несёт ровно одно: который выбран.
      * Тот же язык, что у выбора услуги выше, и тот же, что в вебе. */
     private let payments: [(key: String, label: String, icon: String)] = [
-        ("cash", "Կանխիկ", "banknote.fill"),
-        ("card", "Քարտ", "creditcard.fill"),
-        ("transfer", "Փոխանցում", "arrow.left.arrow.right"),
+        ("cash", L("payment.cash"), "banknote.fill"),
+        ("card", L("payment.card"), "creditcard.fill"),
+        ("transfer", L("payment.transfer"), "arrow.left.arrow.right"),
     ]
 
     var body: some View {
@@ -98,7 +98,7 @@ struct OrderFlowView: View {
                      * закрывает — а подтверждение, которому мойщик верит,
                      * всё равно другое: машина в журнале смены. */
                     if saved {
-                        Label("Գրանցված է", systemImage: "checkmark.circle.fill")
+                        Label(L("work.saved"), systemImage: "checkmark.circle.fill")
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.bottom, 12)
@@ -110,7 +110,7 @@ struct OrderFlowView: View {
                     if let known {
                         // узнавание постоянного клиента прямо при вводе — то,
                         // ради чего экран и существует
-                        Text("Արդեն եղել է \(known.visits) անգամ · ընդամենը \(money(known.total, currency))")
+                        Text(L("order.knownClient", known.visits, money(known.total, currency)))
                             .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.top, 8)
@@ -137,7 +137,7 @@ struct OrderFlowView: View {
                         ))
                     }
 
-                    section("Ծառայություն")
+                    section(L("owner.colService"))
                     services
                     discountRow
                 }
@@ -171,11 +171,11 @@ struct OrderFlowView: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
-            Text("Նոր \(session.tenant?.unitOne ?? "")")
+            Text(L("order.newUnit", Terms.unit(session.tenant?.unitOne ?? "").acc))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
 
@@ -202,7 +202,7 @@ struct OrderFlowView: View {
 
     private var plateRow: some View {
         HStack(spacing: 10) {
-            TextField(session.tenant?.clientIdLabel ?? "", text: $clientKey)
+            TextField(Terms.clientId(session.tenant?.clientIdLabel ?? ""), text: $clientKey)
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(Brand.onBoard)
                 .textInputAutocapitalization(.characters)
@@ -213,7 +213,7 @@ struct OrderFlowView: View {
                    плейсхолдер, а VoiceOver читал бы пустоту. Здесь же
                    имя, по которому его находят UI-тесты. */
                 .accessibilityIdentifier("order.clientKey")
-                .accessibilityLabel(session.tenant?.clientIdLabel ?? "")
+                .accessibilityLabel(Terms.clientId(session.tenant?.clientIdLabel ?? ""))
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
@@ -275,7 +275,7 @@ struct OrderFlowView: View {
                     )
                     .glassEffectID("plate-scan", in: glass)
                     .glassEffectTransition(.matchedGeometry)
-                    .accessibilityLabel(scanning ? "Փակել տեսախցիկը" : "Բացել տեսախցիկը")
+                    .accessibilityLabel(scanning ? L("order.closeCamera") : L("order.openCamera"))
                 }
             }
         }
@@ -307,7 +307,7 @@ struct OrderFlowView: View {
      */
     private var tierRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(session.tenant?.tierLabel ?? "Դաս")
+            Text(session.tenant?.tierLabel ?? L("work.tier"))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
 
@@ -404,7 +404,7 @@ struct OrderFlowView: View {
     private var discountRow: some View {
         if showDiscount {
             HStack(spacing: 10) {
-                Text("Զեղչով")
+                Text(L("order.discounted"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
 
@@ -427,7 +427,7 @@ struct OrderFlowView: View {
             .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
             .padding(.top, 12)
         } else if !chosen.isEmpty {
-            Button("Զեղչ տալ") { showDiscount = true }
+            Button(L("order.giveDiscount")) { showDiscount = true }
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Brand.grape)
                 .padding(.top, 14)
@@ -450,7 +450,7 @@ struct OrderFlowView: View {
     private var checkout: some View {
         VStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Վճարման գումարը")
+                Text(L("work.toPay"))
                     .font(.system(size: 13))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
@@ -512,8 +512,8 @@ struct OrderFlowView: View {
                 record()
             } label: {
                 Text(sending
-                     ? "Գրանցվում է…"
-                     : "Ավելացնել \(session.tenant?.unitOne ?? "") · \(money(charged, currency))")
+                     ? L("order.saving")
+                     : L("work.addFor", Terms.unit(session.tenant?.unitOne ?? "").acc, money(charged, currency)))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

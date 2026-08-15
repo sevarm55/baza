@@ -36,7 +36,7 @@ struct PointMenu: View {
                     } else if point.canRead {
                         Text(point.name)
                     } else {
-                        Text("\(point.name) · սպասում է վճարման")
+                        Text(L("points.rowAwaiting", point.name))
                     }
                 }
                 .disabled(point.id == currentId)

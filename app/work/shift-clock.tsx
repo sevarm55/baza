@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Сколько человек уже на смене.
@@ -17,6 +17,7 @@ import { hy } from '@/lib/i18n/hy';
  * место, которое через мгновение заполняется, честнее мигающего числа.
  */
 export function ShiftClock({ openedAt }: { openedAt: string }) {
+  const t = useT();
   const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,13 +27,16 @@ export function ShiftClock({ openedAt }: { openedAt: string }) {
        обновлять нечего. Часы на мойке никто не сверяет по секундам. */
     const tick = () => {
       const minutes = Math.max(0, Math.floor((Date.now() - start) / 60_000));
-      setText(hy.work.lasted(Math.floor(minutes / 60), minutes % 60));
+      setText(t.work.lasted(Math.floor(minutes / 60), minutes % 60));
     };
 
     tick();
     const timer = setInterval(tick, 30_000);
     return () => clearInterval(timer);
-  }, [openedAt]);
+    /* Словарь в зависимостях не случайно: при смене языка «7 ч 15 мин»
+       обязано стать «7 h 15 min» сразу, а не через полминуты до
+       следующего тика. */
+  }, [openedAt, t.work]);
 
   if (text === null) return null;
   return <span> · {text}</span>;

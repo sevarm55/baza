@@ -6,8 +6,8 @@ import { archiveService, saveService, type FormState } from '@/app/actions';
 import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
 import { AddService } from './add-service';
+import { useT } from '@/lib/i18n/client';
 
 export type ServiceRow = {
   id: string;
@@ -47,15 +47,16 @@ export function Services({
   step: number;
   currencySymbol: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const service = rows.find((r) => r.id === open) ?? null;
 
   if (rows.length === 0) {
     return (
-      <Panel title={hy.settings.services}>
+      <Panel title={t.settings.services}>
         <EmptyState
-          title={hy.settings.servicesEmpty}
-          note={hy.settings.servicesEmptyNote}
+          title={t.settings.servicesEmpty}
+          note={t.settings.servicesEmptyNote}
           action={<AddService variant="cta" currencySymbol={currencySymbol} step={step} />}
         />
       </Panel>
@@ -64,7 +65,7 @@ export function Services({
 
   return (
     <Panel
-      title={hy.settings.services}
+      title={t.settings.services}
       count={rows.length}
       actions={<AddService currencySymbol={currencySymbol} step={step} />}
     >
@@ -74,7 +75,7 @@ export function Services({
             key={s.id}
             type="button"
             onClick={() => setOpen(s.id)}
-            aria-label={`${s.name} · ${hy.common.edit}`}
+            aria-label={`${s.name} · ${t.common.edit}`}
             className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
           >
             <span className="min-w-0 flex-1">
@@ -84,7 +85,7 @@ export function Services({
                   className="num block truncate text-[12px]"
                   style={{ color: 'var(--board-muted)' }}
                 >
-                  {s.count} {hy.owner.timesShort} · {s.revenue}
+                  {s.count} {t.owner.timesShort} · {s.revenue}
                 </span>
               )}
             </span>
@@ -103,10 +104,10 @@ export function Services({
       <table className="tbl hidden lg:table">
         <thead>
           <tr>
-            <th>{hy.owner.colService}</th>
-            <th className="end">{hy.owner.timesShort}</th>
-            <th className="end">{hy.owner.revenue}</th>
-            <th className="end">{hy.settings.price}</th>
+            <th>{t.owner.colService}</th>
+            <th className="end">{t.owner.timesShort}</th>
+            <th className="end">{t.owner.revenue}</th>
+            <th className="end">{t.settings.price}</th>
             <th />
           </tr>
         </thead>
@@ -134,7 +135,7 @@ export function Services({
                 <button
                   type="button"
                   onClick={() => setOpen(s.id)}
-                  aria-label={`${s.name} · ${hy.common.edit}`}
+                  aria-label={`${s.name} · ${t.common.edit}`}
                   style={{ color: 'var(--board-muted)' }}
                 >
                   <ChevronRight className="size-3.5" aria-hidden />
@@ -145,7 +146,7 @@ export function Services({
         </tbody>
       </table>
 
-      <p className="note mt-3.5">{hy.settings.priceNote}</p>
+      <p className="note mt-3.5">{t.settings.priceNote}</p>
 
       <ServiceEditor
         service={service}
@@ -175,6 +176,7 @@ function ServiceEditor({
   currencySymbol: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
 
   /* Панель закрывается, когда сервер подтвердил запись. Состояние
@@ -199,10 +201,10 @@ function ServiceEditor({
               вовсе — десять кнопок «убрать» в прейскуранте предлагали
               удалить там, где просто читают. */}
           <button form="service-remove" className="btn-inline btn-inline-danger me-auto">
-            {hy.settings.remove}
+            {t.settings.remove}
           </button>
           <button form="service-edit" className="btn btn-auto" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.save}
+            {pending ? t.common.loading : t.settings.save}
           </button>
         </>
       }
@@ -215,11 +217,11 @@ function ServiceEditor({
           {service.count > 0 && (
             <dl className="facts">
               <div>
-                <dt>{hy.owner.timesShort}</dt>
+                <dt>{t.owner.timesShort}</dt>
                 <dd className="num">{service.count}</dd>
               </div>
               <div>
-                <dt>{hy.owner.revenue}</dt>
+                <dt>{t.owner.revenue}</dt>
                 <dd className="num">{service.revenue}</dd>
               </div>
             </dl>
@@ -231,12 +233,12 @@ function ServiceEditor({
             <input type="hidden" name="id" value={service.id} />
 
             <label className="grid gap-1.5">
-              <span className="label">{hy.settings.name}</span>
+              <span className="label">{t.settings.name}</span>
               <input className="field" name="name" defaultValue={service.name} required autoFocus />
             </label>
 
             <label className="grid gap-1.5">
-              <span className="label">{hy.settings.price}</span>
+              <span className="label">{t.settings.price}</span>
               <div className="relative">
                 <input
                   className="field num !ps-8"
@@ -254,7 +256,7 @@ function ServiceEditor({
               </div>
             </label>
 
-            <p className="note">{hy.settings.priceNote}</p>
+            <p className="note">{t.settings.priceNote}</p>
             {state?.error && <p className="alert">{state.error}</p>}
           </form>
 

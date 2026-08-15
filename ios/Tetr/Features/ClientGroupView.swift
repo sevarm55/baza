@@ -24,10 +24,10 @@ struct ClientGroupView: View {
 
         var title: String {
             switch self {
-            case .all: return "Բազայում"
-            case .loyal: return "Մշտական"
-            case .fresh: return "Նոր"
-            case .lost: return "Վաղուց չեն եղել"
+            case .all: return L("owner.clientsTotal")
+            case .loyal: return L("owner.clientsLoyal")
+            case .fresh: return L("owner.clientsFresh")
+            case .lost: return L("owner.clientsLost")
             }
         }
     }
@@ -77,7 +77,7 @@ struct ClientGroupView: View {
                     }
 
                     if sorted.isEmpty {
-                        Text("Դեռ տվյալներ չկան")
+                        Text(L("common.empty"))
                             .font(.system(size: 14))
                             .foregroundStyle(Brand.boardMuted)
                             .frame(maxWidth: .infinity)
@@ -100,7 +100,7 @@ struct ClientGroupView: View {
                         .foregroundStyle(Brand.boardMuted)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Փակել") { dismiss() }
+                    Button(L("common.close")) { dismiss() }
                 }
             }
         }
@@ -120,7 +120,7 @@ struct ClientGroupView: View {
                         .lineLimit(1)
 
                     if client.visits > 1 {
-                        Text("մշտական")
+                        Text(L("owner.clientLoyal"))
                             .font(.system(size: 10.5, weight: .semibold))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.horizontal, 5)
@@ -155,8 +155,8 @@ struct ClientGroupView: View {
     }
 
     private func visitLine(_ client: API.Client) -> String {
-        let visits = "\(client.visits) այց"
-        if client.daysSince == 0 { return "\(visits) · վերջինը՝ այսօր" }
-        return "\(visits) · վերջինը՝ \(client.daysSince) օր առաջ"
+        let visits = Ln("clients.visitsCount", client.visits)
+        if client.daysSince == 0 { return L("clients.visitsLastToday", visits) }
+        return L("clients.visitsLastAgo", visits, Ln("clients.daysAgo", client.daysSince))
     }
 }

@@ -3,8 +3,9 @@
 import { useId, useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { StaffEntry } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * Человек внутри рабочего дня.
@@ -40,10 +41,11 @@ export function StaffRow({
   onPay: ((key: string) => void) | null;
   busy: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const id = useId();
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const owed = entry.earned > 0;
   const closed = !owed && entry.paid > 0;
   const lines = entry.lines;
@@ -98,7 +100,7 @@ export function StaffRow({
         </span>
 
         <span className="pay-facts">
-          {entry.count} {unitOne}
+          {unitCount(entry.count, unitOne, t.locale)}
           {entry.rate && ` · ${entry.rate}`}
         </span>
 
@@ -111,7 +113,7 @@ export function StaffRow({
               Здесь же ей и место по смыслу — это про деньги, а не про
               действие: сверху сколько осталось, под ним сколько ушло. */}
           {owed && entry.paid > 0 && (
-            <span className="pay-money-note">{hy.payroll.alreadyPaid(money(entry.paid))}</span>
+            <span className="pay-money-note">{t.payroll.alreadyPaid(money(entry.paid))}</span>
           )}
         </span>
 
@@ -127,17 +129,17 @@ export function StaffRow({
                   onPay(entry.key);
                 }}
               >
-                {hy.payroll.pay}
+                {t.payroll.pay}
               </button>
             ) : (
-              <span>{hy.payroll.unpaid}</span>
+              <span>{t.payroll.unpaid}</span>
             )
           ) : closed ? (
             <span className="pay-state-paid truncate" title={entry.paidNote ?? undefined}>
               {entry.paidAt}
             </span>
           ) : (
-            <span>{hy.payroll.unpaid}</span>
+            <span>{t.payroll.unpaid}</span>
           )}
         </span>
 
@@ -148,7 +150,7 @@ export function StaffRow({
             data-open={open ? '' : undefined}
             aria-expanded={open}
             aria-controls={id}
-            aria-label={hy.payroll.details}
+            aria-label={t.payroll.details}
             onClick={(event) => {
               event.stopPropagation();
               setOpen((was) => !was);

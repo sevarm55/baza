@@ -6,6 +6,7 @@ import { accountOf } from '../accounts';
 import { readToken, sessionAlive, type Claims } from '../auth';
 import { currentAccess, type Access } from '../subscription';
 import { fail } from './respond';
+import { resolveLocale, type Locale } from '../i18n';
 
 /**
  * Проверка запроса к API.
@@ -27,6 +28,18 @@ export type ApiContext = {
   /** человек: телефон, код, его точки */
   account: Account;
   access: Access;
+  /**
+   * Язык ответа.
+   *
+   * Приложение присылает его заголовком `Accept-Language` — тем самым,
+   * который телефон и так шлёт всюду. Отдельного поля в токене нет и не
+   * будет: язык человек меняет в настройках телефона, а токен живёт
+   * тридцать дней, и переключение языка не должно требовать перевхода.
+   *
+   * Если заголовка нет или в нём чужой язык — берём язык бизнеса из
+   * `tenants.locale`, и только потом армянский.
+   */
+  locale: Locale;
 };
 
 export type Need = {
@@ -102,7 +115,12 @@ export async function authorize(
   }
   if (need.owner && user.role !== 'owner') return fail('FORBIDDEN', 403);
 
-  return { claims, tenant, user, account, access };
+  const locale = resolveLocale({
+    header: request.headers.get('accept-language'),
+    tenant: tenant.locale,
+  });
+
+  return { claims, tenant, user, account, access, locale };
 }
 
 /** Отличить контекст от готового ответа с ошибкой. */

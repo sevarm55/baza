@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { hy } from '@/lib/i18n/hy';
 import s from '../legal.module.css';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Политика конфиденциальности.
@@ -18,14 +18,15 @@ import s from '../legal.module.css';
  * Страница открыта без входа — так и задумано: proxy.ts закрывает только
  * /work и /owner.
  */
-export const metadata: Metadata = {
-  title: 'Գաղտնիության քաղաքականություն · Tetrin',
-  description: 'Ի՞նչ տվյալներ է պահում Tetrin-ը և ինչի համար',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return { title: t.meta.privacyTitle, description: t.meta.privacyDescription };
+}
 
 const UPDATED = '31.07.2026';
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const t = await getDict();
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
@@ -110,7 +111,7 @@ export default function PrivacyPage() {
       <p className={s.p}>
         Հարցերի դեպքում զանգահարեք{' '}
         <a className={s.link} href="tel:+37499855546">
-          {hy.billing.wallPhone}
+          {t.billing.wallPhone}
         </a>
         ։
       </p>
@@ -180,7 +181,7 @@ export default function PrivacyPage() {
         <p className={s.p}>
           Call{' '}
           <a className={s.link} href="tel:+37499855546">
-            {hy.billing.wallPhone}
+            {t.billing.wallPhone}
           </a>
           .
         </p>

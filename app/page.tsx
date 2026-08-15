@@ -5,12 +5,12 @@ import localFont from 'next/font/local';
 import { redirect } from 'next/navigation';
 import { getRememberedAccount, getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
 import { ACTIVE_NICHES } from '@/lib/niches';
 import { AuthTrigger } from '@/components/auth-buttons';
 import { CampaignReveal } from './campaign-motion';
 import s from './landing.module.css';
+import { getDict } from '@/lib/i18n/server';
 
 const display = localFont({
   src: './fonts/NotoSansArmenian-XCondBlack.woff2',
@@ -18,15 +18,15 @@ const display = localFont({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: 'Tetrin | Ավտոլվացումը ձեր վերահսկողության տակ',
-  description:
-    'Մեքենաները, աշխատողները, աշխատավարձն ու մաքուր արդյունքը մեկ պարզ համակարգում։',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return { title: t.meta.landingTitle, description: t.meta.landingDescription };
+}
 
 const photo = (name: string) => `/landing/v2/${name}`;
 
 export default async function Home() {
+  const t = await getDict();
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
   const remembered = await getRememberedAccount();
@@ -53,7 +53,7 @@ export default async function Home() {
 
           <div className={s.navActions}>
             <AuthTrigger mode="signIn" niche={niche} remembered={remembered} className={s.signIn}>
-              {hy.auth.signInTitle}
+              {t.auth.signInTitle}
             </AuthTrigger>
             <AuthTrigger mode="register" niche={niche} className={s.navCta}>
               Սկսել <span aria-hidden="true">↗</span>
@@ -244,8 +244,8 @@ export default async function Home() {
             </Link>
             <span>Հաշվառում ավտոլվացումների համար</span>
             <nav aria-label="Իրավական և աջակցություն">
-              <Link href="/privacy">{hy.legal.privacy}</Link>
-              <Link href="/support">{hy.legal.support}</Link>
+              <Link href="/privacy">{t.legal.privacy}</Link>
+              <Link href="/support">{t.legal.support}</Link>
             </nav>
           </footer>
         </section>

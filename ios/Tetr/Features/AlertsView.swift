@@ -51,11 +51,11 @@ struct AlertsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Brand.board.ignoresSafeArea())
-            .navigationTitle("Ուշադրություն")
+            .navigationTitle(L("alerts.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Փակել") { dismiss() }
+                    Button(L("common.close")) { dismiss() }
                 }
             }
             .task { await reload() }
@@ -106,7 +106,7 @@ struct AlertsView: View {
             Button {
                 Task { await snooze(alert.key) }
             } label: {
-                Text("Հետո")
+                Text(L("alerts.later"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
             }
@@ -119,10 +119,10 @@ struct AlertsView: View {
 
     private var empty: some View {
         VStack(spacing: 6) {
-            Text("Ամեն ինչ կարգին է")
+            Text(L("alerts.empty"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
-            Text("Անելիք չկա։ Երբ որևէ բան պահանջի ուշադրություն, կհայտնվի այստեղ։")
+            Text(L("alerts.emptyNote"))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .multilineTextAlignment(.center)

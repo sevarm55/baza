@@ -28,7 +28,7 @@ export async function GET(request: Request) {
        единственная причина, по которой выгрузка доступна и с закрытой
        подпиской: забрать своё человек вправе в любом состоянии счёта. */
     const raw = new URL(request.url).searchParams.get('days') ?? '30';
-    const csv = await buildOrdersCsv(ctx.tenant, raw === 'all' ? 'all' : Number(raw));
+    const csv = await buildOrdersCsv(ctx.tenant, raw === 'all' ? 'all' : Number(raw), ctx.locale);
 
     return new Response(csv.content, {
       headers: {

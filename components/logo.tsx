@@ -1,4 +1,4 @@
-import { hy } from '@/lib/i18n/hy';
+import { BRAND } from '@/lib/brand';
 
 /**
  * Знак и название рядом.
@@ -46,7 +46,7 @@ export function Logo({
             letterSpacing: '0.2em',
           }}
         >
-          {hy.app.name.toUpperCase()}
+          {BRAND.toUpperCase()}
         </span>
       )}
     </span>

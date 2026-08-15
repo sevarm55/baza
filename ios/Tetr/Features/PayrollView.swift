@@ -60,7 +60,7 @@ struct PayrollView: View {
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var unitOne: String { session.tenant?.unitOne ?? "" }
-    private var staffRole: String { (session.tenant?.staffRole ?? "").lowercased() }
+    private var staffRole: String { session.tenant?.staffRole ?? "" }
 
     private let gap: CGFloat = 10
 
@@ -96,11 +96,11 @@ struct PayrollView: View {
         .task { await reload() }
         .refreshable { await reload() }
         .alert(
-            "Հաստատել վճարումը",
+            L("payroll.confirmTitle"),
             isPresented: .init(get: { asking != nil }, set: { if !$0 { asking = nil } })
         ) {
-            Button("Չեղարկել", role: .cancel) { asking = nil }
-            Button("Հաստատել") {
+            Button(L("common.cancel"), role: .cancel) { asking = nil }
+            Button(L("payroll.confirm")) {
                 if let items = asking { Task { await settle(items) } }
                 asking = nil
             }
@@ -140,7 +140,7 @@ struct PayrollView: View {
                 .offset(x: 220, y: 30)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("ՎՃԱՐԵԼՈՒ Է")
+                Text(L("payroll.dueHeader"))
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .tracking(1.35)
                     .foregroundStyle(Brand.lime)
@@ -153,7 +153,7 @@ struct PayrollView: View {
                     .minimumScaleFactor(0.42)
                     .contentTransition(.numericText(value: Double(total)))
 
-                Text(total > 0 ? "\(board.totals.owedTo) \(staffRole)" : "Ամեն ինչ վճարված է")
+                Text(total > 0 ? Terms.staff(board.totals.owedTo, staffRole) : L("payroll.dayAllPaid"))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(.white.opacity(0.58))
@@ -169,11 +169,11 @@ struct PayrollView: View {
     /// плитка вокруг каждого сделала бы их равными плите.
     private func metrics(_ board: API.PayrollBoard) -> some View {
         HStack(spacing: 0) {
-            metric("Աշխատավարձ", money(board.totals.accrued, currency))
+            metric(L("owner.payrollAccrued"), money(board.totals.accrued, currency))
             divider
-            metric("Վճարված է", money(board.totals.settled, currency))
+            metric(L("payroll.paid"), money(board.totals.settled, currency))
             divider
-            metric(unitOne, "\(board.totals.units)")
+            metric(Terms.unitWord(board.totals.units, unitOne), "\(board.totals.units)")
         }
         .padding(.vertical, 12)
         .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
@@ -212,8 +212,8 @@ struct PayrollView: View {
      */
     private func tabs(_ board: API.PayrollBoard) -> some View {
         Picker("", selection: $tab) {
-            Text(board.totals.outstanding > 0 ? "Վճարելու է" : "Վճարելու է ✓").tag(Tab.due)
-            Text("Պատմություն").tag(Tab.history)
+            Text(board.totals.outstanding > 0 ? L("owner.toPay") : L("payroll.allPaidMark")).tag(Tab.due)
+            Text(L("payroll.tabHistory")).tag(Tab.history)
         }
         .pickerStyle(.segmented)
         .padding(.top, 2)
@@ -249,7 +249,7 @@ struct PayrollView: View {
             Button {
                 withAnimation(.snappy(duration: 0.24)) { showClosed.toggle() }
             } label: {
-                Text(showClosed ? "Թաքցնել վճարված օրերը" : "Ցույց տալ վճարված օրերը (\(closed.count))")
+                Text(showClosed ? L("payroll.hidePaidDays") : Ln("payroll.showPaidDays", closed.count))
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -293,7 +293,7 @@ struct PayrollView: View {
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                    Text("\(day.people.count) \(staffRole) · \(day.units) \(unitOne)")
+                    Text("\(Terms.staff(day.people.count, staffRole)) · \(Terms.units(day.units, unitOne))")
                         .font(.system(size: 11.5))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
@@ -309,7 +309,7 @@ struct PayrollView: View {
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
-                        Text("վճարելու է")
+                        Text(L("payroll.dayToPay"))
                             .font(.system(size: 10.5))
                             .foregroundStyle(Brand.boardMuted)
                     }
@@ -318,7 +318,7 @@ struct PayrollView: View {
                        заголовок на две строки — на телефоне на эту полку
                        не помещаются две фразы сразу. Полная стоит там,
                        где место есть, — в пустом состоянии. */
-                    Label("Վճարված է", systemImage: "checkmark")
+                    Label(L("payroll.paid"), systemImage: "checkmark")
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(Brand.goodOnBoard)
                         .fixedSize()
@@ -332,7 +332,7 @@ struct PayrollView: View {
                 Button {
                     for person in payable { picked.insert(key(day.day, person)) }
                 } label: {
-                    Text("Ընտրել բոլորին")
+                    Text(L("payroll.selectAll"))
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(Brand.grape)
                 }
@@ -378,7 +378,7 @@ struct PayrollView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
 
-                Label("Վճարված է", systemImage: "checkmark")
+                Label(L("payroll.paid"), systemImage: "checkmark")
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(Brand.goodOnBoard)
 
@@ -480,12 +480,12 @@ struct PayrollView: View {
                     } else if owed, person.paid > 0 {
                         /* День, за который заплатили днём, а вечером
                            намыли ещё, иначе выглядит неоплаченным целиком. */
-                        Text("արդեն՝ \(money(person.paid, currency))")
+                        Text(L("payroll.alreadyPaid", money(person.paid, currency)))
                             .font(.system(size: 11))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
                     } else if owed {
-                        Text("Չվճարված")
+                        Text(L("payroll.unpaid"))
                             .font(.system(size: 11))
                             .foregroundStyle(Brand.boardMuted)
                     }
@@ -541,7 +541,7 @@ struct PayrollView: View {
     }
 
     private func facts(_ person: API.PayrollPerson) -> String {
-        let left = "\(person.count) \(unitOne)"
+        let left = Terms.units(person.count, unitOne)
         guard let rate = person.rateLabel else { return left }
         return "\(left) · \(rate)"
     }
@@ -553,15 +553,15 @@ struct PayrollView: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(Brand.goodOnBoard)
-            Text("Ամեն ինչ վճարված է")
+            Text(L("payroll.dayAllPaid"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
-            Text("Հիմա չվճարված հաշվարկներ չկան։")
+            Text(L("payroll.nothingUnpaid"))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
 
             if !board.payments.isEmpty {
-                Button("Տեսնել պատմությունը") { tab = .history }
+                Button(L("payroll.openHistory")) { tab = .history }
                     .buttonStyle(.glass)
                     .padding(.top, 8)
             }
@@ -578,7 +578,7 @@ struct PayrollView: View {
             Text(dayTitle(today, today: today))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onBoard)
-            Text("Այսօր հաշվարկներ դեռ չկան")
+            Text(L("payroll.dayEmpty"))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -602,13 +602,13 @@ struct PayrollView: View {
             Image(systemName: "arrow.trianglehead.2.clockwise")
                 .font(.system(size: 22))
                 .foregroundStyle(Brand.boardMuted)
-            Text("Աշխատավարձերի ցուցակը սերվերում դեռ չկա։")
+            Text(L("payroll.notOnServer"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
-            Text("Հավելվածն ավելի նոր է, քան սերվերը։")
+            Text(L("errors.appNewer"))
                 .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
-            Button("Կրկնել") { Task { await reload() } }
+            Button(L("common.retry")) { Task { await reload() } }
                 .buttonStyle(.glass)
                 .padding(.top, 6)
         }
@@ -626,7 +626,7 @@ struct PayrollView: View {
                 .font(.system(size: 14))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Brand.boardMuted)
-            Button("Կրկնել") { Task { await reload() } }
+            Button(L("common.retry")) { Task { await reload() } }
                 .buttonStyle(.glass)
         }
         .frame(maxWidth: .infinity)
@@ -651,7 +651,7 @@ struct PayrollView: View {
     @ViewBuilder
     private func history(_ board: API.PayrollBoard) -> some View {
         if board.payments.isEmpty {
-            Text("Վճարումներ դեռ չեն եղել")
+            Text(L("payroll.historyEmpty"))
                 .font(.system(size: 14))
                 .foregroundStyle(Brand.boardMuted)
                 .frame(maxWidth: .infinity)
@@ -712,7 +712,7 @@ struct PayrollView: View {
                         .padding(.top, 3)
 
                     HStack {
-                        Text("Ընդամենը")
+                        Text(L("common.total"))
                             .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                         Spacer()
@@ -741,7 +741,7 @@ struct PayrollView: View {
     private func workLabel(_ payment: API.PayrollPayment) -> String {
         var line: String
         if let day = payment.day {
-            line = "\(longDay(day)) աշխատանքի համար"
+            line = L("payroll.forWork", longDay(day))
         } else {
             /* Старая выплата: она закрывала отрезок целиком, и разложить
                её обратно по дням честно нельзя. Верхняя граница — полночь
@@ -749,15 +749,15 @@ struct PayrollView: View {
                раньше. */
             let last = dayKey(payment.periodTo.addingTimeInterval(-0.001))
             if payment.periodFrom.timeIntervalSince1970 <= 0 {
-                line = "մինչև \(longDay(last)) աշխատանքի համար"
+                line = L("payroll.forWorkUpTo", longDay(last))
             } else {
                 let first = dayKey(payment.periodFrom)
                 line = first == last
-                    ? "\(longDay(first)) աշխատանքի համար"
-                    : "\(longDay(first)) — \(longDay(last)) աշխատանքի համար"
+                    ? L("payroll.forWork", longDay(first))
+                    : L("payroll.forWorkRange", longDay(first), longDay(last))
             }
         }
-        if let units = payment.units, units > 0 { line += " · \(units) \(unitOne)" }
+        if let units = payment.units, units > 0 { line += " · \(Terms.units(units, unitOne))" }
         return line
     }
 
@@ -770,7 +770,7 @@ struct PayrollView: View {
         let items = allPicked()
         if !items.isEmpty {
             HStack(spacing: 12) {
-                Text("Ընտրված է \(items.count)")
+                Text(Ln("payroll.selected", items.count))
                     .font(.system(size: 13))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
@@ -786,7 +786,7 @@ struct PayrollView: View {
                 Button {
                     asking = items
                 } label: {
-                    Text("Վճարել \(money(items.reduce(0) { $0 + $1.amount }, currency))")
+                    Text(L("payroll.paySum", money(items.reduce(0) { $0 + $1.amount }, currency)))
                         .padding(.horizontal, 20)
                 }
                 .buttonStyle(LimeButton(loading: settling))
@@ -824,7 +824,7 @@ struct PayrollView: View {
     private func confirmText(_ items: [Pick]) -> String {
         var lines = items.map { "\($0.name) · \(money($0.amount, currency))" }
         if items.count > 1 {
-            lines.append("Ընդամենը · \(money(items.reduce(0) { $0 + $1.amount }, currency))")
+            lines.append(L("payroll.feedTotal", money(items.reduce(0) { $0 + $1.amount }, currency)))
         }
         let days = Set(items.map(\.day)).sorted()
         let today = dayKey(Date())
@@ -849,7 +849,7 @@ struct PayrollView: View {
             }
         } catch {
             UINotificationFeedbackGenerator().notificationOccurred(.error)
-            show("Չհաջողվեց։ Փորձեք կրկին։")
+            show(L("payroll.failed"))
             /* Часть расчётов могла лечь до сбоя: перечитываем лист и
                снимаем отметки, иначе следующее нажатие заплатит дважды. */
             picked.removeAll()
@@ -862,7 +862,7 @@ struct PayrollView: View {
         // Деньги отданы из рук в руки — толчок подтверждает, что запись
         // легла, не заставляя вчитываться в изменившийся список.
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        show("Վճարումը նշված է՝ \(money(total, currency))")
+        show(L("payroll.done", money(total, currency)))
         await reload()
     }
 
@@ -892,7 +892,7 @@ struct PayrollView: View {
                сломалось — и экран об этом молчит. */
             return
         } catch let error as APIError {
-            failure = error.isOffline ? "Կապ չկա։" : "\(error.status) \(error.code ?? "—")"
+            failure = error.isOffline ? L("errors.offline") : "\(error.status) \(error.code ?? "—")"
         } catch {
             failure = "\(error)"
         }
@@ -920,7 +920,7 @@ struct PayrollView: View {
     }
 
     private func dayTitle(_ day: String, today: String) -> String {
-        day == today ? "Այսօր · \(longDay(day))" : longDay(day)
+        day == today ? L("payroll.todayDay", longDay(day)) : longDay(day)
     }
 
     /* Даты — в поясе мойки, а не устройства: владелец в поездке видит
@@ -929,11 +929,23 @@ struct PayrollView: View {
         session.tenant.flatMap { TimeZone(identifier: $0.timezone) } ?? .current
     }
 
+    /// Технический формат: время и ключи дней, где порядок задан нами.
     private func formatter(_ format: String) -> DateFormatter {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "hy_AM")
+        f.locale = LangStore.currentLang.locale
         f.timeZone = zone
         f.dateFormat = format
+        return f
+    }
+
+        /* Шаблон, а не жёсткий формат: от языка зависит не только имя
+           месяца, но и порядок. «16 августа» и «August 16» — одна и та же
+           дата, записанная так, как её пишет язык. */
+    private func dayFormatter(_ template: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = LangStore.currentLang.locale
+        f.timeZone = zone
+        f.setLocalizedDateFormatFromTemplate(template)
         return f
     }
 
@@ -950,7 +962,7 @@ struct PayrollView: View {
         // полдень по UTC остаётся тем же днём в любом поясе
         let noon = date.addingTimeInterval(12 * 3600)
         let thisYear = formatter("yyyy").string(from: Date())
-        return formatter(day.hasPrefix(thisYear) ? "d MMMM" : "d MMMM yyyy").string(from: noon)
+        return dayFormatter(day.hasPrefix(thisYear) ? "d MMMM" : "d MMMM y").string(from: noon)
     }
 
     /// `YYYY-MM-DD` момента в поясе мойки.
@@ -964,7 +976,7 @@ struct PayrollView: View {
 
     /// «14 օգս, 12:25» — короткая отметка о выдаче в строке.
     private func stamp(_ at: Date) -> String {
-        formatter("d MMM, HH:mm").string(from: at)
+        dayFormatter("d MMM HH:mm").string(from: at)
     }
 
     private func time(_ at: Date) -> String {

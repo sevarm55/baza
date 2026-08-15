@@ -34,6 +34,7 @@ struct TetrApp: App {
     @StateObject private var queue = OrderQueue()
     @StateObject private var lock = BiometricLock()
     @StateObject private var net = Connectivity()
+    @StateObject private var lang = LangStore.shared
 
     @Environment(\.scenePhase) private var phase
 
@@ -70,7 +71,7 @@ struct TetrApp: App {
            Отдельный тестовый таргет ради десятка проверок разбора номера
            стоил бы дороже, чем даёт. */
         if CommandLine.arguments.contains("--self-test") {
-            exit(Int32(PlateReaderTests.run()))
+            exit(Int32(PlateReaderTests.run() + TermsTests.run()))
         }
         #endif
 
@@ -81,6 +82,12 @@ struct TetrApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                /* Смена языка перерисовывает всё дерево: `.id` заставляет
+                   SwiftUI собрать виды заново, и новые строки встают на
+                   место сразу, а не на следующем открытии экрана. Здесь
+                   же — локаль для дат и чисел внутри дерева. */
+                .applyLanguage(lang.current)
+                .environmentObject(lang)
                 .environmentObject(session)
                 .environmentObject(queue)
                 .environmentObject(lock)
@@ -212,6 +219,7 @@ struct RootView: View {
 struct MainTabs: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var queue: OrderQueue
+    @EnvironmentObject private var lang: LangStore
 
     /* Вкладку держим сами: при переходе на другую точку набор вкладок
        может смениться — на одной мойке человек владелец, на другой
@@ -228,7 +236,7 @@ struct MainTabs: View {
                же во всех нишах один и тот же — журнал за смену, — и планшет
                одинаково читается и как карта приёма, и как лист заказов.
                Заодно это ровно то, что значит армянское «տետր» — тетрадь. */
-            Tab("Հերթափոխ", systemImage: "list.clipboard.fill", value: Tabs.shift) {
+            Tab(L("tab.shift"), systemImage: "list.clipboard.fill", value: Tabs.shift) {
                 NavigationStack {
                     ShiftView()
                         .navigationTitle(session.canSwitch ? "" : (session.tenant?.name ?? "Tetrin"))
@@ -246,13 +254,14 @@ struct MainTabs: View {
                                     }
                                 }
                             }
+                            languageMenu
                             signOut
                         }
                 }
             }
 
             if session.me?.isOwner == true {
-                Tab("Ամփոփում", systemImage: "chart.bar.fill", value: Tabs.summary) {
+                Tab(L("tab.summary"), systemImage: "chart.bar.fill", value: Tabs.summary) {
                     NavigationStack {
                         /* Без заголовка панели: на этом экране заголовок
                            страницы — дата, и «Ամփոփում» над ней было бы
@@ -263,7 +272,7 @@ struct MainTabs: View {
                     }
                 }
 
-                Tab("Աշխատավարձ", systemImage: "banknote.fill", value: Tabs.payroll) {
+                Tab(L("tab.payroll"), systemImage: "banknote.fill", value: Tabs.payroll) {
                     NavigationStack {
                         /* Без заголовка панели: показание «Վճարելու է» и
                            есть заголовок страницы, а «Աշխատավարձեր» над ним
@@ -277,7 +286,7 @@ struct MainTabs: View {
                 // Разделы, куда заходят редко. Вкладок должно быть столько,
                 // сколько экранов открывают каждый день; прайс правят раз
                 // в месяц — ему в панели не место.
-                Tab("Ավելին", systemImage: "ellipsis.circle.fill", value: Tabs.more) {
+                Tab(L("tab.more"), systemImage: "ellipsis.circle.fill", value: Tabs.more) {
                     NavigationStack {
                         /* Без заголовка панели: имя раздела уже написано во
                            вкладке, а прозрачная панель поверх плиток давала
@@ -303,6 +312,35 @@ struct MainTabs: View {
            всё дерево ради одного перехода — дороже, чем одно имя. */
         .onReceive(NotificationCenter.default.publisher(for: .openPayroll)) { _ in
             tab = .payroll
+        }
+    }
+
+    /**
+     * Язык — в панели экрана смены.
+     *
+     * Здесь, а не только в профиле, потому что у мойщика профиля нет
+     * вовсе: он открывает приложение, чтобы записать машину, и дальше
+     * экрана смены не заходит. Это единственное место, где он может
+     * переключить продукт на свой язык.
+     */
+    @ToolbarContentBuilder
+    private var languageMenu: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Menu {
+                Picker(L("common.language"), selection: Binding(
+                    get: { lang.current },
+                    set: { lang.set($0) }
+                )) {
+                    ForEach(Lang.allCases, id: \.self) { option in
+                        Text(option.ownName).tag(option)
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Image(systemName: "globe").foregroundStyle(Brand.grape)
+            }
+            .accessibilityLabel(L("common.language"))
+            .accessibilityValue(lang.current.ownName)
         }
     }
 

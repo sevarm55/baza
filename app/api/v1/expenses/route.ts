@@ -5,7 +5,7 @@ import {
   getPeriodCosts,
   listPeriodExpenses,
   BadExpenseError,
-  EXPENSE_HINTS,
+  expenseHints,
 } from '@/lib/expenses';
 import { windowFor } from '@/lib/summary-window';
 import { authorize, denied } from '@/lib/api/guard';
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     ]);
 
     return ok({
-      hints: EXPENSE_HINTS,
+      hints: expenseHints(ctx.locale),
       costs,
       revenue: stats.revenue,
       /* Средний расход в день — по прожитым дням периода, а не по длине

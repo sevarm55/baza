@@ -5,12 +5,15 @@ import { getTenant } from '@/lib/queries';
 import { getPayrollBoard, type BoardPayment } from '@/lib/payroll-board';
 import { PAYROLL_AFTER_DAYS } from '@/lib/alerts';
 import { daysSince, hhmm, ymd } from '@/lib/time';
-import { hy } from '@/lib/i18n/hy';
 import { personColor } from '@/lib/person-color';
 import { PageHead } from '@/components/page-head';
 import { PayrollSummary } from './summary';
 import { PayrollWorkspace } from './workspace';
 import type { DayGroup, HistoryDay, StaffEntry } from './model';
+import { getDict } from '@/lib/i18n/server';
+import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 
 /**
  * Зарплаты.
@@ -38,19 +41,23 @@ import type { DayGroup, HistoryDay, StaffEntry } from './model';
  * совпадать, а как их назвать, каждая сторона решает сама.
  */
 export default async function PayrollPage() {
+  const t = await getDict();
   const session = await requireOwner();
-  const tenant = await getTenant(session.tid);
+  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
+     заводские: своё название владельца проходит насквозь (см. terms.ts).
+     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
   const board = await getPayrollBoard(tenant.id, tenant.timezone);
 
   const zone = tenant.timezone;
   const todayKey = ymd(new Date(), zone);
-  const longDay = dayNamer(zone);
+  const longDay = dayNamer(zone, t.locale);
   /* Короткая дата — только в строке состояния: «Վճարվել է 14 օգոստոսի,
      16:25» в колонку шириной в два слова не помещается, а полная фраза
      остаётся подсказкой и озвучкой. */
-  const shortDay = new Intl.DateTimeFormat('hy-AM', {
+  const shortDay = new Intl.DateTimeFormat(intlLocale(t.locale), {
     day: 'numeric',
     month: 'short',
     timeZone: zone,
@@ -58,7 +65,7 @@ export default async function PayrollPage() {
 
   const dayGroups: DayGroup[] = board.days.map((day) => ({
     day: day.day,
-    title: day.day === todayKey ? `${hy.common.today} · ${longDay(day.day)}` : longDay(day.day),
+    title: day.day === todayKey ? `${t.common.today} · ${longDay(day.day)}` : longDay(day.day),
     today: day.day === todayKey,
     units: day.units,
     outstanding: day.outstanding,
@@ -75,7 +82,7 @@ export default async function PayrollPage() {
         paid: p.paid,
         paidAt: p.paidAt ? `${shortDay.format(p.paidAt)}, ${hhmm(p.paidAt, zone)}` : null,
         paidNote: p.paidAt
-          ? hy.payroll.paidOn(longDay(ymd(p.paidAt, zone)), hhmm(p.paidAt, zone))
+          ? t.payroll.paidOn(longDay(ymd(p.paidAt, zone)), hhmm(p.paidAt, zone))
           : null,
         lines: p.lines,
       }),
@@ -91,7 +98,7 @@ export default async function PayrollPage() {
     if (!group) {
       group = {
         key: dayKey,
-        title: dayKey === todayKey ? `${hy.common.today} · ${longDay(dayKey)}` : longDay(dayKey),
+        title: dayKey === todayKey ? `${t.common.today} · ${longDay(dayKey)}` : longDay(dayKey),
         payments: [],
       };
       historyDays.push(group);
@@ -100,7 +107,7 @@ export default async function PayrollPage() {
     group.payments.push({
       key: payment.key,
       time: hhmm(payment.paidAt, zone),
-      forWork: workLabel(payment, longDay, zone),
+      forWork: workLabel(payment, longDay, zone, t),
       units: payment.units,
       total: payment.total,
       rows: payment.rows.map((r) => ({
@@ -121,7 +128,7 @@ export default async function PayrollPage() {
 
   return (
     <>
-      <PageHead title={hy.owner.tabPayroll} meta={hy.payroll.lead}>
+      <PageHead title={t.owner.tabPayroll} meta={t.payroll.lead}>
         {/* Повод — строкой у заголовка, а не плашкой во всю ширину.
             Он подсказка, а не показание: занять им первый экран значит
             отодвинуть вниз число, ради которого сюда пришли. */}
@@ -131,7 +138,7 @@ export default async function PayrollPage() {
             style={{ color: 'var(--warn-on-board)' }}
           >
             <Clock3 className="size-3.5 shrink-0" aria-hidden />
-            {hy.alerts.payrollNote(idleDays)}
+            {t.alerts.payrollNote(idleDays)}
           </span>
         )}
       </PageHead>
@@ -154,7 +161,7 @@ export default async function PayrollPage() {
         outstanding={board.totals.outstanding}
         days={dayGroups}
         history={historyDays}
-        todayTitle={`${hy.common.today} · ${longDay(todayKey)}`}
+        todayTitle={`${t.common.today} · ${longDay(todayKey)}`}
       />
     </>
   );
@@ -171,12 +178,16 @@ export default async function PayrollPage() {
  * Полдень по UTC внутри — единственный способ превратить дату без
  * времени в момент так, чтобы он остался тем же днём в любом поясе.
  */
-function dayNamer(timezone: string): (day: string) => string {
+function dayNamer(timezone: string, locale: string): (day: string) => string {
   const thisYear = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: timezone }).format(
     new Date(),
   );
-  const short = new Intl.DateTimeFormat('hy-AM', { day: 'numeric', month: 'long', timeZone: timezone });
-  const full = new Intl.DateTimeFormat('hy-AM', {
+  const short = new Intl.DateTimeFormat(intlLocale(locale), {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  });
+  const full = new Intl.DateTimeFormat(intlLocale(locale), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -208,12 +219,13 @@ function workLabel(
   payment: BoardPayment,
   longDay: (day: string) => string,
   timezone: string,
+  t: Dict,
 ): string {
-  if (payment.day) return hy.payroll.forWork(longDay(payment.day));
+  if (payment.day) return t.payroll.forWork(longDay(payment.day));
 
   const last = ymd(new Date(payment.periodTo.getTime() - 1), timezone);
-  if (payment.periodFrom.getTime() <= 0) return hy.payroll.forWorkUpTo(longDay(last));
+  if (payment.periodFrom.getTime() <= 0) return t.payroll.forWorkUpTo(longDay(last));
 
   const first = ymd(payment.periodFrom, timezone);
-  return hy.payroll.forWork(first === last ? longDay(first) : `${longDay(first)} — ${longDay(last)}`);
+  return t.payroll.forWork(first === last ? longDay(first) : `${longDay(first)} — ${longDay(last)}`);
 }

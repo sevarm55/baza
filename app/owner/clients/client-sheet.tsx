@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { clientHistory, saveClientContact } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
 import { personColor } from '@/lib/person-color';
 import { formatPhone } from '@/lib/phone';
+import { useT } from '@/lib/i18n/client';
+import type { Dict } from '@/lib/i18n';
 
 type History = Awaited<ReturnType<typeof clientHistory>>;
 
@@ -43,6 +44,7 @@ export function ClientSheet({
   /** сколько дней молчания считается «пропал» */
   lostAfter: number;
 }) {
+  const t = useT();
   /* Загруженное хранится ВМЕСТЕ с номером, для которого загружено: если
      номер в хранимом не совпадает с открытым, данных просто нет, и
      чужая история под новым номером показаться не может. Сверка идёт
@@ -78,7 +80,7 @@ export function ClientSheet({
 
   const service = topOf(orders.map((o) => o.serviceName));
   const staff = topOf(orders.map((o) => o.staffName).filter((n): n is string => Boolean(n)));
-  const payment = topOf(orders.map((o) => paymentLabel(o.payment)));
+  const payment = topOf(orders.map((o) => paymentLabel(o.payment, t)));
 
   return (
     <Sheet
@@ -88,8 +90,8 @@ export function ClientSheet({
       title={plate ?? ''}
       subtitle={
         c
-          ? `${c.visits} ${hy.owner.visits} · ${hy.owner.lastVisitPrefix} ${
-              c.daysSince === 0 ? hy.owner.lastVisitToday : hy.owner.lastVisitAgo(c.daysSince)
+          ? `${c.visits} ${t.owner.visits} · ${t.owner.lastVisitPrefix} ${
+              c.daysSince === 0 ? t.owner.lastVisitToday : t.owner.lastVisitAgo(c.daysSince)
             }`
           : undefined
       }
@@ -99,11 +101,11 @@ export function ClientSheet({
           он объясняет итог, а не спорит с ним. */}
       {c && (
         <div className="client-total">
-          <span className="client-total-label">{hy.owner.clientsTotalSpent}</span>
+          <span className="client-total-label">{t.owner.clientsTotalSpent}</span>
           <span className="num client-total-value">{money(c.total)}</span>
           {c.visits > 1 && (
             <span className="num client-total-note">
-              {hy.owner.clientAvg} {money(avg)}
+              {t.owner.clientAvg} {money(avg)}
             </span>
           )}
         </div>
@@ -118,12 +120,12 @@ export function ClientSheet({
       {c && orders.length > 1 && (
         <dl className="facts mt-3.5">
           <div>
-            <dt>{hy.owner.clientFirstVisit}</dt>
+            <dt>{t.owner.clientFirstVisit}</dt>
             <dd className="num">{c.firstSeen}</dd>
           </div>
           {service && (
             <div>
-              <dt>{hy.owner.clientOftenTakes}</dt>
+              <dt>{t.owner.clientOftenTakes}</dt>
               <dd className="truncate" title={service}>
                 {service}
               </dd>
@@ -131,13 +133,13 @@ export function ClientSheet({
           )}
           {payment && (
             <div>
-              <dt>{hy.owner.clientOftenPays}</dt>
+              <dt>{t.owner.clientOftenPays}</dt>
               <dd>{payment}</dd>
             </div>
           )}
           {staff && (
             <div>
-              <dt>{hy.owner.clientOftenServed}</dt>
+              <dt>{t.owner.clientOftenServed}</dt>
               <dd className="truncate" title={staff}>
                 {staff}
               </dd>
@@ -159,20 +161,20 @@ export function ClientSheet({
 
       {loading && (
         <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.common.loading}
+          {t.common.loading}
         </p>
       )}
 
       {data && orders.length === 0 && (
         <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.common.empty}
+          {t.common.empty}
         </p>
       )}
 
       {orders.length > 0 && (
         <>
           <h3 className="mt-4 mb-1 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-            {hy.owner.clientHistory}
+            {t.owner.clientHistory}
           </h3>
           <div className="board-journal">
             {orders.map((o) => (
@@ -188,7 +190,7 @@ export function ClientSheet({
                       style={{ background: personColor(o.staffName) }}
                       aria-hidden
                     />
-                    {o.staffName ?? '—'} · {paymentLabel(o.payment)} · {o.day} {o.time}
+                    {o.staffName ?? '—'} · {paymentLabel(o.payment, t)} · {o.day} {o.time}
                   </span>
                 </span>
                 <span className="num shrink-0 text-[14px] font-semibold">{money(o.price)}</span>
@@ -235,6 +237,7 @@ function Contacts({
   lost: boolean;
   onSaved: () => Promise<void>;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -247,26 +250,26 @@ function Contacts({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[13px]" style={{ color: 'var(--muted)' }}>
-              {hy.owner.clientContacts}
+              {t.owner.clientContacts}
             </div>
             <div className="mt-1 truncate text-[15px] font-semibold">{name || plate}</div>
             <div className="num mt-0.5 text-[13px]" style={{ color: 'var(--muted)' }}>
-              {phone ? formatPhone(phone) : hy.owner.clientNoPhone}
+              {phone ? formatPhone(phone) : t.owner.clientNoPhone}
             </div>
           </div>
 
           <button type="button" className="btn-inline" onClick={() => setEditing(true)}>
-            {hy.common.edit}
+            {t.common.edit}
           </button>
         </div>
 
         {phone && (
           <div className="mt-3 flex gap-2">
             <a className="btn-inline btn-inline-primary" href={`tel:${phone}`}>
-              {hy.owner.clientCall}
+              {t.owner.clientCall}
             </a>
             <a className="btn-inline" href={`sms:${phone}`}>
-              {hy.owner.clientWrite}
+              {t.owner.clientWrite}
             </a>
           </div>
         )}
@@ -274,7 +277,7 @@ function Contacts({
         {/* Подсказка только пропавшему: у того, кто был вчера, она
             превращается в фон, который перестают замечать, — и не
             сработает в тот день, когда понадобится. */}
-        {lost && <p className="signal mt-3">{hy.owner.clientLostHint}</p>}
+        {lost && <p className="signal mt-3">{t.owner.clientLostHint}</p>}
       </div>
     );
   }
@@ -307,12 +310,12 @@ function Contacts({
       }}
     >
       <label className="grid gap-1.5">
-        <span className="label">{hy.owner.clientName}</span>
+        <span className="label">{t.owner.clientName}</span>
         <input className="field" name="name" defaultValue={name ?? ''} autoFocus />
       </label>
 
       <label className="grid gap-1.5">
-        <span className="label">{hy.owner.clientPhone}</span>
+        <span className="label">{t.owner.clientPhone}</span>
         <input
           className="field num"
           name="phone"
@@ -325,7 +328,7 @@ function Contacts({
 
       <div className="mt-1 flex gap-2">
         <button className="btn-inline btn-inline-primary" disabled={saving}>
-          {saving ? hy.common.loading : hy.settings.save}
+          {saving ? t.common.loading : t.settings.save}
         </button>
         <button
           type="button"
@@ -333,16 +336,16 @@ function Contacts({
           onClick={() => setEditing(false)}
           disabled={saving}
         >
-          {hy.common.cancel}
+          {t.common.cancel}
         </button>
       </div>
     </form>
   );
 }
 
-function paymentLabel(p: string): string {
-  if (p === 'cash') return hy.payment.cash;
-  if (p === 'card') return hy.payment.card;
-  if (p === 'pass') return hy.payment.pass;
-  return hy.payment.transfer;
+function paymentLabel(p: string, t: Dict): string {
+  if (p === 'cash') return t.payment.cash;
+  if (p === 'card') return t.payment.card;
+  if (p === 'pass') return t.payment.pass;
+  return t.payment.transfer;
 }

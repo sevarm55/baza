@@ -35,9 +35,9 @@ struct ClientsView: View {
 
         var label: String {
             switch self {
-            case .recent: return "Վերջին այցը"
-            case .often: return "Ամենահաճախը"
-            case .richest: return "Ամենաշատ վճարած"
+            case .recent: return L("owner.lastVisit")
+            case .often: return L("owner.sortOften")
+            case .richest: return L("owner.sortRichest")
             }
         }
     }
@@ -91,16 +91,16 @@ struct ClientsView: View {
                 if loaded { head }
 
                 if grouped {
-                    if !lost.isEmpty { group("Արժե զանգել", lost, lostOnes: true) }
-                    if !rest.isEmpty { group("Բոլորը", rest, lostOnes: false) }
+                    if !lost.isEmpty { group(L("clients.worthCalling"), lost, lostOnes: true) }
+                    if !rest.isEmpty { group(L("owner.allClients"), rest, lostOnes: false) }
                 } else if !found.isEmpty {
                     group(sort.label, found, lostOnes: false)
                 }
 
                 if loaded && clients.isEmpty {
-                    empty("Դեռ տվյալներ չկան")
+                    empty(L("common.empty"))
                 } else if loaded && found.isEmpty {
-                    empty("Այդպիսի համար չկա")
+                    empty(L("owner.clientsNotFound"))
                 }
             }
             .padding(.horizontal, 12)
@@ -153,7 +153,7 @@ struct ClientsView: View {
                 /* Подсказка называет всё, по чему ищут. Стояло «по номеру
                    машины», а поиск шёл ещё по имени и телефону — и имя,
                    вписанное вчера, искали номером и не находили. */
-                TextField("Համար, անուն կամ հեռախոս", text: $query)
+                TextField(L("owner.clientsSearch"), text: $query)
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.onBoard)
                     .autocorrectionDisabled()
@@ -219,14 +219,14 @@ struct ClientsView: View {
      */
     private var counters: some View {
         HStack(spacing: 6) {
-            counter("Բազայում", clients.count, tone: Brand.onBoard) { group = .all }
-            counter("Մշտական", loyalAll.count, tone: Brand.goodOnBoard) { group = .loyal }
+            counter(L("owner.clientsTotal"), clients.count, tone: Brand.onBoard) { group = .all }
+            counter(L("owner.clientsLoyal"), loyalAll.count, tone: Brand.goodOnBoard) { group = .loyal }
             /* «Новых» тут не было, а в кабинете они есть: клиент с одним
                визитом — это не то же самое, что постоянный, и вопрос
                «кто у меня ещё не вернулся» задают отдельно. */
-            counter("Նոր", freshAll.count, tone: Brand.onBoard) { group = .fresh }
+            counter(L("owner.clientsFresh"), freshAll.count, tone: Brand.onBoard) { group = .fresh }
             counter(
-                "Վաղուց չեն եղել",
+                L("owner.clientsLost"),
                 lostAll.count,
                 tone: lostAll.isEmpty ? Brand.onBoard : Brand.warnOnBoard
             ) {
@@ -376,7 +376,7 @@ struct ClientsView: View {
                        это человек» — разные вопросы, и второй решается
                        взглядом. */
                     if client.visits > 1 {
-                        Text("մշտական")
+                        Text(L("owner.clientLoyal"))
                             .font(.system(size: 10.5, weight: .semibold))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.horizontal, 5)
@@ -423,9 +423,9 @@ struct ClientsView: View {
     /// числом визитов и читается чем угодно — сроком, промежутком,
     /// давностью первого приезда. Речь о последнем, и это надо сказать.
     private func visitLine(_ client: API.Client) -> String {
-        let visits = "\(client.visits) այց"
-        if client.daysSince == 0 { return "\(visits) · վերջինը՝ այսօր" }
-        return "\(visits) · վերջինը՝ \(client.daysSince) օր առաջ"
+        let visits = Ln("clients.visitsCount", client.visits)
+        if client.daysSince == 0 { return L("clients.visitsLastToday", visits) }
+        return L("clients.visitsLastAgo", visits, Ln("clients.daysAgo", client.daysSince))
     }
 
     private func reload() async {

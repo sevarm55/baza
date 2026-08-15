@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           ? input.cash
           : null;
 
-      const closed = await closeShift(ctx.tenant.id, ctx.user.id, declared);
+      const closed = await closeShift(ctx.tenant.id, ctx.user.id, declared, ctx.tenant.locale);
       return ok({
         onShift: false,
         openedAt: null,
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const shift = await openShift(ctx.tenant.id, ctx.user.id, from);
+    const shift = await openShift(ctx.tenant.id, ctx.user.id, from, ctx.tenant.locale);
     return ok({ onShift: true, openedAt: shift.openedAt });
   } catch (e) {
     return failFromError(e);

@@ -2,7 +2,7 @@ import { and, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { alertSnoozes, clients, payouts } from '@/lib/db/schema';
 import { getPayrollBoard } from '@/lib/payroll-board';
-import { hy } from '@/lib/i18n/hy';
+import { DEFAULT_LOCALE, dict } from '@/lib/i18n';
 
 /** Через сколько дней молчания клиент считается потерянным. */
 export const LOST_AFTER_DAYS = 21;
@@ -65,7 +65,11 @@ export async function getAlerts(
   tenantId: string,
   userId: string,
   timezone: string,
+  /* Язык повода. Приходит снаружи, потому что поводы читают двое: кабинет
+     в браузере — на языке страницы, приложение — на языке телефона. */
+  locale: string = DEFAULT_LOCALE,
 ): Promise<Alert[]> {
+  const t = dict(locale);
   const now = new Date();
 
   const [snoozed, lost, payroll, lastPayout] = await Promise.all([
@@ -112,10 +116,10 @@ export async function getAlerts(
   if (lostCount > 0 && !quiet.has('lost-clients')) {
     out.push({
       key: 'lost-clients',
-      title: hy.alerts.lostTitle(lostCount),
-      note: hy.alerts.lostNote(LOST_AFTER_DAYS),
+      title: t.alerts.lostTitle(lostCount),
+      note: t.alerts.lostNote(LOST_AFTER_DAYS),
       href: '/owner/clients?group=lost',
-      action: hy.alerts.lostAction,
+      action: t.alerts.lostAction,
       tone: 'warn',
     });
   }
@@ -132,10 +136,10 @@ export async function getAlerts(
   if (due > 0 && daysSincePayout >= PAYROLL_AFTER_DAYS && !quiet.has('payroll-due')) {
     out.push({
       key: 'payroll-due',
-      title: hy.alerts.payrollTitle,
-      note: hy.alerts.payrollNote(daysSincePayout),
+      title: t.alerts.payrollTitle,
+      note: t.alerts.payrollNote(daysSincePayout),
       href: '/owner/payroll',
-      action: hy.alerts.payrollAction,
+      action: t.alerts.payrollAction,
       tone: 'plain',
     });
   }

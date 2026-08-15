@@ -5,9 +5,10 @@ import { resumeSavedAccount, signIn, type FormState } from '@/app/actions';
 import { PinInput } from '@/components/pin-input';
 import { personColor } from '@/lib/person-color';
 import type { RememberedWebAccount } from '@/lib/auth';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 export function LoginForm({ remembered = null }: { remembered?: RememberedWebAccount | null }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(signIn, null);
   const [resumeState, resumeAction, resuming] = useActionState<FormState, FormData>(
     resumeSavedAccount,
@@ -22,7 +23,7 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
     return (
       <div className="grid justify-items-center gap-4 text-center">
         <p className="text-[13px] font-semibold tracking-[0.08em] text-muted uppercase">
-          {hy.auth.welcomeBack}
+          {t.auth.welcomeBack}
         </p>
 
         <form action={resumeAction}>
@@ -32,7 +33,7 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
               background: color,
               boxShadow: `0 18px 42px color-mix(in srgb, ${color} 28%, transparent)`,
             }}
-            aria-label={`${hy.auth.signIn}՝ ${remembered.name}`}
+            aria-label={`${t.auth.signIn}՝ ${remembered.name}`}
             disabled={resuming}
           >
             {resuming ? (
@@ -49,14 +50,14 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
           <div className="mt-1 text-[13.5px] text-muted">{remembered.tenant}</div>
         </div>
 
-        <p className="text-[12.5px] text-muted">{hy.auth.tapAvatar}</p>
+        <p className="text-[12.5px] text-muted">{t.auth.tapAvatar}</p>
 
         <button
           type="button"
           className="text-[13.5px] font-semibold text-muted underline decoration-current/30 underline-offset-4 transition hover:text-ink"
           onClick={() => setManual(true)}
         >
-          {hy.auth.anotherAccount}
+          {t.auth.anotherAccount}
         </button>
       </div>
     );
@@ -65,7 +66,7 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
   return (
     <form action={action} className="grid gap-4">
       <label className="grid gap-2">
-        <span className="label">{hy.auth.phone}</span>
+        <span className="label">{t.auth.phone}</span>
         <div className="relative">
           {/* Код страны нарисован в поле, а не набирается: клиенты все
               местные, и восемь лишних нажатий каждый раз — это налог
@@ -89,7 +90,7 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
       </label>
 
       <label className="grid gap-2">
-        <span className="label">{hy.auth.pin}</span>
+        <span className="label">{t.auth.pin}</span>
         <PinInput />
       </label>
 
@@ -98,7 +99,7 @@ export function LoginForm({ remembered = null }: { remembered?: RememberedWebAcc
       )}
 
       <button className="btn mt-1" disabled={pending}>
-        {pending ? hy.common.loading : hy.auth.signIn}
+        {pending ? t.common.loading : t.auth.signIn}
       </button>
     </form>
   );

@@ -2,9 +2,12 @@
 
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useLocale, useSetLocale, useT } from '@/lib/i18n/client';
+import { LOCALES, LOCALE_NAMES } from '@/lib/i18n';
 import {
   Check,
   ChevronsUpDown,
+  Languages,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -13,7 +16,6 @@ import {
   UserRound,
 } from 'lucide-react';
 import { signOut } from '@/app/actions';
-import { hy } from '@/lib/i18n/hy';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,9 +56,12 @@ export function SidebarAccountMenu({
   userName: string;
   active: 'owner' | 'work';
 }) {
+  const t = useT();
+  const locale = useLocale();
+  const { setLocale } = useSetLocale();
   const { isMobile, setOpenMobile } = useSidebar();
   const theme = useSyncExternalStore(subscribeTheme, readTheme, readServerTheme);
-  const activeLabel = active === 'owner' ? hy.roles.owner : hy.roles.staff;
+  const activeLabel = active === 'owner' ? t.roles.owner : t.roles.staff;
 
   function flipTheme() {
     const next: Theme = theme === 'light' ? 'dark' : 'light';
@@ -70,8 +75,8 @@ export function SidebarAccountMenu({
   }
 
   const roles = [
-    { href: '/work', key: 'work', label: hy.roles.staff, icon: SprayCan },
-    { href: '/owner', key: 'owner', label: hy.roles.owner, icon: LayoutDashboard },
+    { href: '/work', key: 'work', label: t.roles.staff, icon: SprayCan },
+    { href: '/owner', key: 'owner', label: t.roles.owner, icon: LayoutDashboard },
   ] as const;
 
   return (
@@ -114,7 +119,7 @@ export function SidebarAccountMenu({
                 className="py-2"
               >
                 <UserRound aria-hidden="true" />
-                {hy.profile.title}
+                {t.profile.title}
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
@@ -137,13 +142,37 @@ export function SidebarAccountMenu({
               })}
             </DropdownMenuGroup>
 
+            {/* Язык — здесь же, где тема: и то и другое человек меняет
+                для себя, а не для бизнеса. Каждый язык подписан своим
+                словом; флагов нет — флаг это страна, а не язык. */}
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {LOCALES.map((code) => (
+                <DropdownMenuItem
+                  key={code}
+                  nativeButton
+                  render={
+                    <button
+                      type="button"
+                      className="w-full py-2 text-start"
+                      onClick={() => setLocale(code)}
+                    />
+                  }
+                >
+                  <Languages aria-hidden="true" />
+                  {LOCALE_NAMES[code]}
+                  {code === locale && <Check className="ml-auto" aria-hidden="true" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
             <DropdownMenuItem
               nativeButton
               render={<button type="button" className="w-full py-2 text-start" onClick={flipTheme} />}
             >
               {theme === 'light' ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
-              {theme === 'light' ? 'Մուգ տեսք' : 'Լուսավոր տեսք'}
+              {theme === 'light' ? t.common.themeDarkLong : t.common.themeLightLong}
             </DropdownMenuItem>
 
             <form
@@ -158,7 +187,7 @@ export function SidebarAccountMenu({
                 render={<button type="submit" className="w-full py-2 text-start" />}
               >
                 <LogOut aria-hidden="true" />
-                {hy.auth.signOut}
+                {t.auth.signOut}
               </DropdownMenuItem>
             </form>
           </DropdownMenuContent>

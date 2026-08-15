@@ -1,8 +1,9 @@
 'use client';
 
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { HistoryDay } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * История выплат.
@@ -33,18 +34,19 @@ export function PayrollHistory({
   currency: string;
   unitOne: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = useT();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   if (days.length === 0) {
     return (
       <p className="py-12 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-        {hy.payroll.historyEmpty}
+        {t.payroll.historyEmpty}
       </p>
     );
   }
 
   return (
-    <div className="grid gap-[var(--seam)]" aria-label={hy.owner.payoutHistory}>
+    <div className="grid gap-[var(--seam)]" aria-label={t.owner.payoutHistory}>
       {days.map((day) => (
         <section key={day.key}>
           <h2 className="mb-2 px-0.5 text-[13.5px] font-semibold" style={{ color: 'var(--board-muted)' }}>
@@ -92,7 +94,7 @@ export function PayrollHistory({
                       style={{ borderColor: 'color-mix(in srgb, var(--board-ink) 10%, transparent)' }}
                     >
                       <span className="text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-                        {hy.common.total}
+                        {t.common.total}
                       </span>
                       <span className="num text-[14.5px] font-bold">{money(payment.total)}</span>
                     </div>
@@ -105,7 +107,7 @@ export function PayrollHistory({
                     {payment.forWork}
                     {payment.units !== null &&
                       payment.units > 0 &&
-                      ` · ${payment.units} ${unitOne}`}
+                      ` · ${unitCount(payment.units, unitOne, t.locale)}`}
                   </p>
                 </div>
               </div>

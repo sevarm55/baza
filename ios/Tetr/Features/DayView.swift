@@ -36,7 +36,7 @@ struct DayView: View {
                     tiles(day)
                     if !day.shifts.isEmpty { crew(day.shifts) }
                     if day.feed.isEmpty {
-                        Text("Այս օրը գրանցումներ չկան")
+                        Text(L("day.empty"))
                             .font(.system(size: 14))
                             .foregroundStyle(Brand.boardMuted)
                             .frame(maxWidth: .infinity)
@@ -70,7 +70,7 @@ struct DayView: View {
                     .background(Brand.boardInk.opacity(0.07), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Փակել")
+            .accessibilityLabel(L("common.close"))
 
             Spacer()
 
@@ -92,7 +92,7 @@ struct DayView: View {
 
     private func reading(_ day: API.Day) -> some View {
         VStack(spacing: 0) {
-            Text(day.profit >= 0 ? "Այդ օրը ձեզ մնաց" : "Այդ օրը մինուսում էիք")
+            Text(day.profit >= 0 ? L("day.kept") : L("day.red"))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
 
@@ -113,8 +113,8 @@ struct DayView: View {
 
     private func tiles(_ day: API.Day) -> some View {
         HStack(spacing: gap) {
-            small(.teal, "Հասույթ", Tetr.money(day.stats.revenue, currency))
-            small(.slate, session.tenant?.unitOne ?? "", "\(day.stats.count)")
+            small(.teal, L("owner.revenue"), Tetr.money(day.stats.revenue, currency))
+            small(.slate, Terms.unitWord(day.stats.count, session.tenant?.unitOne ?? ""), "\(day.stats.count)")
         }
     }
 
@@ -141,7 +141,7 @@ struct DayView: View {
     private func crew(_ shifts: [API.DayShift]) -> some View {
         VStack(spacing: gap) {
             HStack {
-                Text("Հերթափոխին")
+                Text(L("owner.onShift"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
@@ -193,11 +193,11 @@ struct DayView: View {
      */
     private func cash(expected: Int, declared: Int?) -> some View {
         HStack(spacing: 6) {
-            Text("Կանխիկ \(Tetr.money(expected, currency))")
+            Text(L("day.cashInShift", Tetr.money(expected, currency)))
                 .foregroundStyle(.white.opacity(0.85))
 
             if let declared {
-                Text("· հանձնեց \(Tetr.money(declared, currency))")
+                Text(L("day.handedOver", Tetr.money(declared, currency)))
                     .foregroundStyle(.white.opacity(0.85))
 
                 let diff = declared - expected
@@ -209,7 +209,7 @@ struct DayView: View {
                         .foregroundStyle(Brand.warnOnDark)
                 }
             } else {
-                Text("· հանձնումը չի նշվել")
+                Text(L("day.notDeclared"))
                     .foregroundStyle(Brand.warnOnDark)
             }
         }
@@ -225,7 +225,7 @@ struct DayView: View {
     private func records(_ feed: [API.FeedItem]) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Գրանցումներ")
+                Text(L("day.records"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
@@ -300,7 +300,7 @@ struct DayView: View {
 
     /// «09:40 — 19:12» или «с 09:40», если смену не закрыли.
     private func span(_ s: API.DayShift) -> String {
-        guard let closed = s.closedAt else { return "\(hhmm(s.openedAt))-ից" }
+        guard let closed = s.closedAt else { return L("summary.since", hhmm(s.openedAt)) }
         return "\(hhmm(s.openedAt)) — \(hhmm(closed))"
     }
 
@@ -321,11 +321,11 @@ struct DayView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 26))
                 .foregroundStyle(Brand.grape)
-            Text(failure ?? "Չհաջողվեց բացել օրը")
+            Text(failure ?? L("day.loadFailed"))
                 .font(.system(size: 14))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Brand.boardMuted)
-            Button("Կրկնել") { Task { await load() } }
+            Button(L("common.retry")) { Task { await load() } }
                 .buttonStyle(.glass)
         }
         .frame(maxWidth: .infinity)
@@ -345,8 +345,8 @@ struct DayView: View {
             return
         } catch let error as APIError {
             failure = error.isOffline
-                ? "Կապ չկա։"
-                : "Սերվերը չպատասխանեց (\(error.status) \(error.code ?? "—"))"
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
         } catch {
             /* Разбор ответа: показываем как есть — это баг, а не сбой сети.
                Прятать его за «попробуйте позже» значит никогда не найти:
@@ -356,10 +356,7 @@ struct DayView: View {
     }
 
     static func title(_ date: String) -> String {
-        let names = ["հունվարի", "փետրվարի", "մարտի", "ապրիլի", "մայիսի", "հունիսի",
-                     "հուլիսի", "օգոստոսի", "սեպտեմբերի", "հոկտեմբերի", "նոյեմբերի", "դեկտեմբերի"]
-        let parts = date.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 3, (1...12).contains(parts[1]) else { return date }
-        return "\(parts[2]) \(names[parts[1] - 1])"
+        guard let at = LocalDate.fromYMD(date) else { return date }
+        return LocalDate.longDay(at)
     }
 }

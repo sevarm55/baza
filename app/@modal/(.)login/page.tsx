@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { getRememberedAccount, getSession } from '@/lib/auth';
-import { hy } from '@/lib/i18n/hy';
 import { startHref } from '@/lib/niches';
 import { Modal } from '@/components/modal';
 import { Logo } from '@/components/logo';
 import { LoginForm } from '@/app/login/login-form';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Вход, перехваченный поверх страницы.
@@ -15,6 +15,7 @@ import { LoginForm } from '@/app/login/login-form';
  * именно на `/login`, и это должно работать без оговорок.
  */
 export default async function LoginModal() {
+  const t = await getDict();
   const session = await getSession();
   /* Вошедшего уводит отсюда страница /login в основном слоте — здесь
      редиректа быть не должно.
@@ -33,7 +34,7 @@ export default async function LoginModal() {
       <div className="mb-5">
         <Logo size={30} className="mb-4" />
         <h1 className="text-[22px] font-bold">
-          {remembered ? hy.auth.welcomeBack : hy.auth.signInTitle}
+          {remembered ? t.auth.welcomeBack : t.auth.signInTitle}
         </h1>
       </div>
       <LoginForm remembered={remembered} />
@@ -41,7 +42,7 @@ export default async function LoginModal() {
       {/* Окно не должно быть тупиком: у пришедшего впервые аккаунта ещё нет */}
       <p className="mt-6 text-center text-[13.5px] text-muted">
         <Link href={startHref()} className="underline underline-offset-4 hover:text-ink">
-          {hy.onboarding.createAccount}
+          {t.onboarding.createAccount}
         </Link>
       </p>
     </Modal>

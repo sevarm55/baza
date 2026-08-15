@@ -8,6 +8,7 @@ import { verifyPin } from '@/lib/pin';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { deleteBusiness } from '@/lib/account';
 import { buildOrdersCsv } from '@/lib/export-csv';
+import { getLocale } from '@/lib/i18n/server';
 
 /**
  * Удаление бизнеса из кабинета.
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   if (!tenant) return back('failed');
 
   // собираем архив, пока есть что собирать
-  const csv = keepCopy ? await buildOrdersCsv(tenant, 'all') : null;
+  const csv = keepCopy ? await buildOrdersCsv(tenant, 'all', await getLocale()) : null;
 
   const gone = await deleteBusiness(tenant.id);
   await endSession();

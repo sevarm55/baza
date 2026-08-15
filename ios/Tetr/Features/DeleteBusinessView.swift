@@ -35,16 +35,15 @@ struct DeleteBusinessView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Ջնջվում է ամեն ինչ՝ գրանցումները, հաճախորդները, "
-                         + "ծառայությունները և բոլոր աշխատակիցները։")
+                    Text(L("delete.what"))
                         .font(.system(size: 14.5))
-                    Text("Աշխատակիցների մուտքը փակվում է անմիջապես։")
+                    Text(L("delete.staffNote"))
                         .font(.system(size: 14.5))
                         .foregroundStyle(Brand.boardMuted)
                 } header: {
                     Text(session.tenant?.name ?? "")
                 } footer: {
-                    Text("Վերականգնել հնարավոր չէ։")
+                    Text(L("settings.deleteNoWayBack"))
                         .foregroundStyle(.red)
                 }
 
@@ -57,7 +56,7 @@ struct DeleteBusinessView: View {
                             if v.count > 4 { pin = String(v.prefix(4)) }
                         }
                 } header: {
-                    Text("Հաստատեք ձեր PIN-ով")
+                    Text(L("settings.deletePin"))
                 }
 
                 if let error {
@@ -68,26 +67,26 @@ struct DeleteBusinessView: View {
                     /* Сохраняющий путь стоит первым и без роли
                        destructive: по умолчанию человек должен уносить
                        свои данные с собой, а не терять их молча. */
-                    Button(saved ? "Ջնջել բիզնեսը" : "Ներբեռնել տվյալները և ջնջել") {
+                    Button(saved ? L("billing.wallDelete") : L("settings.deleteKeep")) {
                         Task { saved ? await wipe() : await archiveThenWipe() }
                     }
                     .disabled(!ready)
 
-                    Button("Ջնջել առանց ներբեռնելու", role: .destructive) {
+                    Button(L("settings.deleteWipe"), role: .destructive) {
                         Task { await wipe() }
                     }
                     .disabled(!ready)
                 } footer: {
                     Text(saved
-                         ? "Տվյալները ներբեռնված են։"
-                         : "Ֆայլը կպահվի ձեր հեռախոսում՝ Excel-ի համար։")
+                         ? L("delete.downloaded")
+                         : L("delete.fileNote"))
                 }
             }
-            .navigationTitle("Ջնջել բիզնեսը")
+            .navigationTitle(L("billing.wallDelete"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Փակել") { dismiss() }.disabled(busy)
+                    Button(L("common.close")) { dismiss() }.disabled(busy)
                 }
             }
             .disabled(busy)
@@ -117,14 +116,14 @@ struct DeleteBusinessView: View {
             // days=all: прощальный архив за тридцать дней был бы обманом
             try await APIClient.shared.raw("export?days=all", token: token)
         }) else {
-            error = "Չհաջողվեց ներբեռնել տվյալները։"
+            error = L("delete.downloadFailed")
             return
         }
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("tetr-\(Int(Date().timeIntervalSince1970)).csv")
         guard (try? data.write(to: url)) != nil else {
-            error = "Չհաջողվեց պահպանել ֆայլը։"
+            error = L("delete.saveFailed")
             return
         }
         archive = url
@@ -141,12 +140,12 @@ struct DeleteBusinessView: View {
         } catch let e as APIError {
             pin = ""
             switch e.code {
-            case "WRONG_CREDENTIALS": error = "PIN-ը սխալ է"
-            case "TOO_MANY_TRIES": error = "Չափազանց շատ փորձեր։ Սպասեք։"
-            default: error = e.isOffline ? "Կապ չկա։" : "Չհաջողվեց։ Փորձեք կրկին։"
+            case "WRONG_CREDENTIALS": error = L("auth.pinWrong")
+            case "TOO_MANY_TRIES": error = L("auth.throttled")
+            default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }
         } catch {
-            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+            self.error = L("payroll.failed")
         }
     }
 }

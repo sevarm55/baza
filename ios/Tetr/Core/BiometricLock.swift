@@ -34,7 +34,7 @@ final class BiometricLock: ObservableObject {
         switch LAContext().biometryType {
         case .faceID: return "Face ID"
         case .touchID: return "Touch ID"
-        default: return "կոդ"
+        default: return L("lock.code")
         }
     }
 
@@ -62,7 +62,7 @@ final class BiometricLock: ObservableObject {
     }
 
     func unlock() async {
-        locked = !(await authenticate(reason: "Բացել Tetrin-ը"))
+        locked = !(await authenticate(reason: L("lock.unlock")))
     }
 
     /// Та же системная проверка нужна быстрому сохранённому входу. Один
@@ -110,7 +110,7 @@ struct LockView: View {
                     .tracking(4)
                     .foregroundStyle(.white.opacity(0.7))
 
-                Button("Բացել \(lock.kindName)-ով") {
+                Button(L("lock.unlockWith", lock.kindName)) {
                     Task { await lock.unlock() }
                 }
                 .buttonStyle(LimeButton())
@@ -123,7 +123,7 @@ struct LockView: View {
                    заперт снаружи собственного приложения — и починить
                    это можно будет только переустановкой.
                    Вход по телефону и PIN остаётся всегда. */
-                Button("Մուտք գործել հեռախոսով") {
+                Button(L("lock.usePhone")) {
                     Task { await session.signOut() }
                 }
                 .font(.system(size: 14.5, weight: .semibold))

@@ -7,16 +7,11 @@ import { EmptyState } from '@/components/empty-state';
 import { Segmented } from '@/components/segmented';
 import { compactClientKey } from '@/lib/client-key';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { formatPhone } from '@/lib/phone';
 import { ClientSheet } from './client-sheet';
 import type { ClientGroup, ClientRow, ClientSort } from './model';
+import { useT } from '@/lib/i18n/client';
 
-const SORTS: { key: ClientSort; label: string }[] = [
-  { key: 'recent', label: hy.owner.sortRecent },
-  { key: 'often', label: hy.owner.sortOften },
-  { key: 'richest', label: hy.owner.sortRichest },
-];
 
 /**
  * Клиентская база: кто это, кто возвращается и что с этим делать.
@@ -51,12 +46,21 @@ export function ClientsWorkspace({
   /** группа, открытая сразу: сюда приводит колокольчик и полоса показаний */
   initialGroup?: ClientGroup;
 }) {
+  const t = useT();
+
+  /* Порядок строится внутри компонента, а не рядом с файлом: подписи
+     берутся из словаря, а он у каждого языка свой. */
+  const SORTS: { key: ClientSort; label: string }[] = [
+    { key: 'recent', label: t.owner.sortRecent },
+    { key: 'often', label: t.owner.sortOften },
+    { key: 'richest', label: t.owner.sortRichest },
+  ];
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<ClientGroup>(initialGroup);
   const [sort, setSort] = useState<ClientSort>('recent');
   const [open, setOpen] = useState<string | null>(null);
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   const counts = {
     all: rows.length,
@@ -106,12 +110,12 @@ export function ClientsWorkspace({
           current={group}
           onSelect={(key) => setGroup(key as ClientGroup)}
           scroll
-          label={hy.owner.tabClients}
+          label={t.owner.tabClients}
           items={[
-            { key: 'all', label: hy.owner.allClients, count: counts.all },
-            { key: 'loyal', label: hy.owner.clientsLoyal, count: counts.loyal },
-            { key: 'fresh', label: hy.owner.clientsFresh, count: counts.fresh },
-            { key: 'lost', label: hy.owner.clientsLost, count: counts.lost },
+            { key: 'all', label: t.owner.allClients, count: counts.all },
+            { key: 'loyal', label: t.owner.clientsLoyal, count: counts.loyal },
+            { key: 'fresh', label: t.owner.clientsFresh, count: counts.fresh },
+            { key: 'lost', label: t.owner.clientsLost, count: counts.lost },
           ]}
         />
       </div>
@@ -127,8 +131,8 @@ export function ClientsWorkspace({
               className="num !w-full !max-w-none"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={hy.owner.clientsSearch}
-              aria-label={hy.owner.clientsSearch}
+              placeholder={t.owner.clientsSearch}
+              aria-label={t.owner.clientsSearch}
               autoComplete="off"
             />
           </label>
@@ -140,15 +144,15 @@ export function ClientsWorkspace({
             current={sort}
             onSelect={(key) => setSort(key as ClientSort)}
             scroll
-            label={hy.owner.sortRecent}
+            label={t.owner.sortRecent}
             items={SORTS}
           />
         </div>
 
         {found.length === 0 ? (
           <EmptyState
-            title={query ? hy.owner.clientsNotFound : hy.owner.clientsEmpty}
-            note={query ? undefined : hy.owner.clientsEmptyNote}
+            title={query ? t.owner.clientsNotFound : t.owner.clientsEmpty}
+            note={query ? undefined : t.owner.clientsEmptyNote}
           />
         ) : (
           <>
@@ -166,7 +170,7 @@ export function ClientsWorkspace({
                   key={c.id}
                   type="button"
                   onClick={() => setOpen(c.key)}
-                  aria-label={`${c.key} · ${hy.owner.clientHistory}`}
+                  aria-label={`${c.key} · ${t.owner.clientHistory}`}
                   className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
                 >
                   <span className="min-w-0 flex-1">
@@ -174,7 +178,7 @@ export function ClientsWorkspace({
                       <span className="shrink-0 text-[14.5px] font-bold tracking-wide">
                         {c.key}
                       </span>
-                      {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+                      {c.visits > 1 && <span className="tag-good">{t.owner.clientLoyal}</span>}
                       {c.name && (
                         <span
                           className="truncate text-[12.5px]"
@@ -191,7 +195,7 @@ export function ClientsWorkspace({
                         color: c.days > lostAfter ? 'var(--warn-on-board)' : 'var(--board-muted)',
                       }}
                     >
-                      {c.visits} {hy.owner.visits} · {hy.owner.lastVisitPrefix} {c.last}
+                      {c.visits} {t.owner.visits} · {t.owner.lastVisitPrefix} {c.last}
                     </span>
                   </span>
 
@@ -208,11 +212,11 @@ export function ClientsWorkspace({
             <table className="tbl hidden lg:table">
               <thead>
                 <tr>
-                  <th>{hy.owner.tabClients}</th>
-                  <th className="end">{hy.owner.visits}</th>
-                  <th className="end">{hy.owner.clientAvg}</th>
-                  <th className="end">{hy.owner.clientsTotalSpent}</th>
-                  <th className="end">{hy.owner.lastVisit}</th>
+                  <th>{t.owner.tabClients}</th>
+                  <th className="end">{t.owner.visits}</th>
+                  <th className="end">{t.owner.clientAvg}</th>
+                  <th className="end">{t.owner.clientsTotalSpent}</th>
+                  <th className="end">{t.owner.lastVisit}</th>
                   <th />
                 </tr>
               </thead>
@@ -237,7 +241,7 @@ export function ClientsWorkspace({
                           >
                             {c.key}
                           </span>
-                          {c.visits > 1 && <span className="tag-good">{hy.owner.clientLoyal}</span>}
+                          {c.visits > 1 && <span className="tag-good">{t.owner.clientLoyal}</span>}
                           {contactLine(c.name, c.phone) && (
                             <span
                               className="num truncate text-[13px]"
@@ -267,13 +271,13 @@ export function ClientsWorkspace({
                             рядом с числом визитов читается чем угодно —
                             сроком, промежутком, давностью первого
                             приезда. */}
-                        {hy.owner.lastVisitPrefix} {c.last}
+                        {t.owner.lastVisitPrefix} {c.last}
                       </td>
                       <td className="end">
                         <button
                           type="button"
                           onClick={() => setOpen(c.key)}
-                          aria-label={`${c.key} · ${hy.owner.clientHistory}`}
+                          aria-label={`${c.key} · ${t.owner.clientHistory}`}
                           style={{ color: 'var(--board-muted)' }}
                         >
                           <ChevronRight className="size-3.5" aria-hidden />

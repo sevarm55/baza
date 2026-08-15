@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { hy } from '@/lib/i18n/hy';
 import s from '../legal.module.css';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Поддержка.
@@ -15,12 +15,13 @@ import s from '../legal.module.css';
  * (3.1.3f) запрещают внутри приложения звать к оплате снаружи, а на сайт
  * они не распространяются.
  */
-export const metadata: Metadata = {
-  title: 'Աջակցություն · Tetrin',
-  description: 'Օգնություն Tetrin հավելվածի հետ',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return { title: t.meta.supportTitle, description: t.meta.supportDescription };
+}
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const t = await getDict();
   return (
     <div className={s.page}>
       <Link href="/" className={s.back}>
@@ -32,7 +33,7 @@ export default function SupportPage() {
       <p className={s.p}>
         Ցանկացած հարցի դեպքում զանգահարեք{' '}
         <a className={s.link} href="tel:+37499855546">
-          {hy.billing.wallPhone}
+          {t.billing.wallPhone}
         </a>
         ։ Պատասխանում ենք ամեն օր՝ 10:00–20:00։
       </p>
@@ -84,7 +85,7 @@ export default function SupportPage() {
         <p className={s.p}>
           Tetrin is a bookkeeping tool for service businesses in Armenia. For any question, call{' '}
           <a className={s.link} href="tel:+37499855546">
-            {hy.billing.wallPhone}
+            {t.billing.wallPhone}
           </a>{' '}
           (10:00–20:00, daily).
         </p>

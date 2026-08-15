@@ -1,6 +1,7 @@
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { Figures, Plate } from '@/components/board';
+import { getDict } from '@/lib/i18n/server';
+import { staffCount, unitWord } from '@/lib/i18n/terms';
 
 /**
  * Показания наверху страницы.
@@ -19,7 +20,7 @@ import { Figures, Plate } from '@/components/board';
  * сводка дня, и две похожие, но разные шапки внутри одного продукта
  * читались бы как разный расчёт.
  */
-export function PayrollSummary({
+export async function PayrollSummary({
   currency,
   outstanding,
   owedTo,
@@ -40,30 +41,31 @@ export function PayrollSummary({
   unitOne: string;
   staffRole: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   return (
     <section
       /* Порог тот же, что у сводки дня: до 1024 плита и полоса идут
          друг под другом, иначе числа и подписи в них обрезаются. */
       className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-      aria-label={hy.owner.payrollDue}
+      aria-label={t.owner.payrollDue}
     >
       <Plate
-        label={hy.owner.toPay}
+        label={t.owner.toPay}
         value={money(outstanding)}
         note={
           outstanding > 0
-            ? `${owedTo} ${staffRole.toLocaleLowerCase('hy')}`
-            : hy.payroll.dayAllPaid
+            ? staffCount(owedTo, staffRole, t.locale)
+            : t.payroll.dayAllPaid
         }
       />
 
       <Figures
         items={[
-          { label: hy.owner.payrollAccrued, value: money(accrued) },
-          { label: hy.payroll.paid, value: money(settled) },
-          { label: unitOne, value: String(units) },
+          { label: t.owner.payrollAccrued, value: money(accrued) },
+          { label: t.payroll.paid, value: money(settled) },
+          { label: unitWord(units, unitOne, t.locale), value: String(units) },
         ]}
       />
     </section>

@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { registerBusiness, type FormState } from '@/app/actions';
 import { PinInput } from '@/components/pin-input';
 import { TRIAL_DAYS } from '@/lib/plan';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 export function RegisterForm({
   nicheKey,
@@ -13,6 +13,7 @@ export function RegisterForm({
   nicheKey: string;
   defaultName: string;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(
     registerBusiness,
     null,
@@ -30,7 +31,7 @@ export function RegisterForm({
           являются: чей бизнес и кто им владеет. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2">
-          <span className="label">{hy.onboarding.bizName}</span>
+          <span className="label">{t.onboarding.bizName}</span>
           <input
             className="field auth-field !text-[16px]"
             name="businessName"
@@ -41,13 +42,13 @@ export function RegisterForm({
         </label>
 
         <label className="grid gap-2">
-          <span className="label">{hy.onboarding.ownerName}</span>
+          <span className="label">{t.onboarding.ownerName}</span>
           <input className="field auth-field !text-[16px]" name="ownerName" required autoComplete="name" />
         </label>
       </div>
 
       <label className="grid gap-2">
-        <span className="label">{hy.auth.phone}</span>
+        <span className="label">{t.auth.phone}</span>
         <div className="relative">
           <span className="num pointer-events-none absolute inset-y-0 start-4 flex items-center text-[16px] text-faint">
             +374
@@ -66,7 +67,7 @@ export function RegisterForm({
 
       <label className="grid gap-2">
         <span className="label">
-          {hy.auth.pin} · {hy.auth.pinHint}
+          {t.auth.pin} · {t.auth.pinHint}
         </span>
         {/* Здесь без авто-отправки: регистрация — не то действие, которое
             должно случаться от последней набранной цифры. */}
@@ -77,10 +78,10 @@ export function RegisterForm({
 
       <div className="mt-1 grid gap-2">
         <button className="btn" disabled={pending}>
-          {pending ? hy.common.loading : hy.onboarding.createAndStart}
+          {pending ? t.common.loading : t.onboarding.createAndStart}
         </button>
         <p className="text-center text-[13.5px] text-faint">
-          {hy.onboarding.freeDays(TRIAL_DAYS)}
+          {t.onboarding.freeDays(TRIAL_DAYS)}
         </p>
       </div>
     </form>

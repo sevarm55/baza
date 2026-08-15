@@ -20,6 +20,7 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
+    @EnvironmentObject private var lang: LangStore
 
     @State private var businessName = ""
     @State private var myName = ""
@@ -43,6 +44,7 @@ struct ProfileView: View {
                 if let access = session.access { accessTile(access) }
                 fields
                 if changed || saved { saveRow }
+                language
                 switches
                 actions
             }
@@ -112,7 +114,7 @@ struct ProfileView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(access.warn ? Tone.amber.ink : Brand.goodOnBoard)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Մուտք")
+                Text(L("auth.signInTitle"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(access.warn ? Tone.amber.ink.opacity(0.72) : Brand.boardMuted)
                 Text(Self.plan(access))
@@ -131,10 +133,10 @@ struct ProfileView: View {
     private var fields: some View {
         VStack(spacing: 0) {
             if isOwner {
-                field("Բիզնես", $businessName)
+                field(L("settings.business"), $businessName)
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
             }
-            field("Անուն", $myName)
+            field(L("owner.clientName"), $myName)
         }
         .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
     }
@@ -164,7 +166,7 @@ struct ProfileView: View {
             HStack(spacing: 8) {
                 Image(systemName: saved && !changed ? "checkmark" : "arrow.down.to.line")
                     .font(.system(size: 13, weight: .bold))
-                Text(saved && !changed ? "Պահպանված է" : "Պահպանել")
+                Text(saved && !changed ? L("settings.saved") : L("common.save"))
                     .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(Brand.onLime)
@@ -185,8 +187,8 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             if isOwner {
                 toggleRow(
-                    "Ծանուցում ամեն մեքենայի մասին",
-                    "Հերթափոխի բացման մասին ծանուցումը գալիս է միշտ",
+                    L("profile.pushEveryCar"),
+                    L("profile.pushShiftNote"),
                     isOn: Binding(get: { notifyOrders }, set: { on in
                         notifyOrders = on
                         Task { await saveNotify(on) }
@@ -198,21 +200,75 @@ struct ProfileView: View {
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
             }
             toggleRow(
-                "Հիշել այս հաշիվը",
-                "Դուրս գալուց հետո վերադարձեք ավատարով և սարքի հաստատմամբ",
+                L("profile.rememberLogin"),
+                L("profile.rememberNote"),
                 isOn: $session.rememberLogin
             )
 
             if lock.available {
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
                 toggleRow(
-                    "Բացել \(lock.kindName)-ով",
-                    "Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից",
+                    L("lock.unlockWith", lock.kindName),
+                    L("profile.lockNote"),
                     isOn: $lock.enabled
                 )
             }
         }
         .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
+    // ══════════════════════════ язык ══════════════════════════
+
+    /**
+     * Выбор языка.
+     *
+     * Родной для системы `Menu` со списком и галочкой, а не ряд из трёх
+     * кнопок: языков будет больше трёх раньше, чем кажется, а ряд кнопок
+     * ломается уже на четвёртой.
+     *
+     * Каждый язык подписан своим словом — «Русский», а не «RU» и не флагом.
+     * Флаг это страна, а не язык; человек, случайно попавший в чужой
+     * интерфейс, ищет глазами СВОЁ слово, и перевод чужого ему не поможет.
+     *
+     * Переключение мгновенное: экран остаётся тот же, ввод не теряется,
+     * из аккаунта никто не выходит.
+     */
+    private var language: some View {
+        Menu {
+            Picker(L("common.language"), selection: languageBinding) {
+                ForEach(Lang.allCases, id: \.self) { option in
+                    Text(option.ownName).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "globe")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
+                Text(L("common.language"))
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                Spacer(minLength: 8)
+                Text(lang.current.ownName)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        }
+        .accessibilityLabel(L("common.language"))
+        .accessibilityValue(lang.current.ownName)
+    }
+
+    private var languageBinding: Binding<Lang> {
+        Binding(get: { lang.current }, set: { lang.set($0) })
     }
 
     private func toggleRow(_ title: String, _ note: String, isOn: Binding<Bool>) -> some View {
@@ -236,12 +292,12 @@ struct ProfileView: View {
 
     private var actions: some View {
         VStack(spacing: gap) {
-            action("Փոխել PIN-ը", "PIN-ը փոխելուց հետո մյուս հեռախոսներից ելքը փակվում է",
+            action(L("auth.changePin"), L("profile.pinNote"),
                    icon: "lock.rotation", danger: false) {
                 changingPin = true
             }
 
-            action("Դուրս գալ", "", icon: "power", danger: false) {
+            action(L("auth.signOut"), "", icon: "power", danger: false) {
                 Task { await session.signOut() }
             }
 
@@ -249,7 +305,7 @@ struct ProfileView: View {
                 /* Отдельно и в самом низу, с воздухом сверху: «выйти» и
                    «стереть всё» не должны стоять двумя соседними строчками,
                    где промах пальцем стоит бизнеса. */
-                action("Ջնջել բիզնեսը", "Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ",
+                action(L("billing.wallDelete"), L("profile.deleteNote"),
                        icon: "trash", danger: true) {
                     deleting = true
                 }
@@ -341,13 +397,13 @@ struct ProfileView: View {
         switch a.state {
         case "trial", "active":
             let until = Calendar.current.date(byAdding: .day, value: a.daysLeft, to: Date())
-            guard let until else { return "Հասանելի է" }
+            guard let until else { return L("profile.available") }
             let f = DateFormatter()
-            f.locale = Locale(identifier: "hy_AM")
-            f.dateFormat = "d MMMM"
-            return "Հասանելի է մինչև \(f.string(from: until))"
-        case "expired": return "Ժամկետը լրացել է"
-        default: return "Փակ է"
+            f.locale = LangStore.currentLang.locale
+            f.setLocalizedDateFormatFromTemplate("d MMMM")
+            return L("profile.availableUntil", f.string(from: until))
+        case "expired": return L("billing.expiredTitle")
+        default: return L("points.closed")
         }
     }
 }
@@ -393,12 +449,12 @@ struct PinChangeView: View {
         NavigationStack {
             Form {
                 Section {
-                    pin("Ընթացիկ PIN", $current)
-                    pin("Նոր PIN", $next)
-                    pin("Կրկնել", $again)
+                    pin(L("auth.currentPin"), $current)
+                    pin(L("auth.newPin"), $next)
+                    pin(L("common.retry"), $again)
                 } footer: {
                     if !again.isEmpty && next != again {
-                        Text("PIN-երը չեն համընկնում").foregroundStyle(.red)
+                        Text(L("auth.pinMismatch")).foregroundStyle(.red)
                     }
                 }
 
@@ -407,18 +463,18 @@ struct PinChangeView: View {
                 }
 
                 Section {
-                    Button("Փոխել") { Task { await change() } }
+                    Button(L("common.edit")) { Task { await change() } }
                         .loading(busy, tint: Brand.grape, size: 18)
                         .disabled(!ready)
                 } footer: {
-                    Text("Մյուս հեռախոսներից ելքը կփակվի։ Այս հեռախոսը կմնա բացված։")
+                    Text(L("profile.pinChangedNote"))
                 }
             }
-            .navigationTitle("Փոխել PIN-ը")
+            .navigationTitle(L("auth.changePin"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Փակել") { dismiss() }.disabled(busy)
+                    Button(L("common.close")) { dismiss() }.disabled(busy)
                 }
             }
         }
@@ -447,12 +503,12 @@ struct PinChangeView: View {
         } catch let e as APIError {
             current = ""
             switch e.code {
-            case "WRONG_CREDENTIALS": error = "Ընթացիկ PIN-ը սխալ է"
-            case "TOO_MANY_TRIES": error = "Չափազանց շատ փորձեր։ Սպասեք։"
-            default: error = e.isOffline ? "Կապ չկա։" : "Չհաջողվեց։ Փորձեք կրկին։"
+            case "WRONG_CREDENTIALS": error = L("auth.wrongPin")
+            case "TOO_MANY_TRIES": error = L("auth.throttled")
+            default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }
         } catch {
-            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+            self.error = L("payroll.failed")
         }
     }
 }

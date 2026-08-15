@@ -6,10 +6,10 @@ import { listPoints } from '@/lib/accounts';
 import { ACTIVE_NICHES } from '@/lib/niches';
 import { PRICE } from '@/lib/plan';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { NewPointForm } from './new-point-form';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Точки владельца.
@@ -22,6 +22,7 @@ import { NewPointForm } from './new-point-form';
  * нажатия — значит узнать, когда уже нажал.
  */
 export default async function PointsPage() {
+  const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
 
@@ -35,10 +36,10 @@ export default async function PointsPage() {
     <>
       {/* Точки открывают из настроек, в полосе вкладок их нет —
           значит на телефоне назвать раздел больше нечему. */}
-      <PageHead title={hy.points.title} standalone />
+      <PageHead title={t.points.title} standalone />
 
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-        <Panel title={hy.points.title} count={points.length} className="lg:col-span-7">
+        <Panel title={t.points.title} count={points.length} className="lg:col-span-7">
           <div className="grid gap-0">
             {points.map((point, i) => (
               <div
@@ -56,24 +57,24 @@ export default async function PointsPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium">{point.name}</span>
                   <span className="block truncate text-[12px] text-muted">
-                    {point.role === 'owner' ? hy.roles.owner : hy.roles.staff}
-                    {point.id === session.tid ? ` · ${hy.points.here}` : ''}
+                    {point.role === 'owner' ? t.roles.owner : t.roles.staff}
+                    {point.id === session.tid ? ` · ${t.points.here}` : ''}
                   </span>
                 </span>
                 {!point.canRead && (
-                  <span className="shrink-0 text-[12px] text-muted">{hy.points.needsPayment}</span>
+                  <span className="shrink-0 text-[12px] text-muted">{t.points.needsPayment}</span>
                 )}
               </div>
             ))}
           </div>
         </Panel>
 
-        <Panel title={hy.points.add} className="content-start lg:col-span-5">
+        <Panel title={t.points.add} className="content-start lg:col-span-5">
           {/* Цена и отсутствие пробного срока — над кнопкой, обычным
               текстом. Не мелким шрифтом и не после: это условие сделки,
               а не сноска. */}
           <p className="note mb-3">
-            {hy.points.noTrial} {hy.points.price(formatMoney(PRICE, 'AMD'))}
+            {t.points.noTrial} {t.points.price(formatMoney(PRICE, 'AMD'))}
           </p>
 
           <NewPointForm

@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { archiveStaff, saveStaff, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { formatPhone } from '@/lib/phone';
-import { hy } from '@/lib/i18n/hy';
 import type { StaffPerson } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount } from '@/lib/i18n/terms';
 
 /**
  * Карточка сотрудника.
@@ -41,6 +42,7 @@ export function StaffSheet({
   unitOne: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveStaff, null);
 
   /* Панель закрывается, когда сервер подтвердил запись. Состояние
@@ -61,7 +63,7 @@ export function StaffSheet({
       subtitle={
         person
           ? person.present
-            ? `${person.roleLabel} · ${hy.owner.onShiftNow}`
+            ? `${person.roleLabel} · ${t.owner.onShiftNow}`
             : person.roleLabel
           : undefined
       }
@@ -69,11 +71,11 @@ export function StaffSheet({
         <>
           {person?.canRemove && (
             <button form="staff-remove" className="btn-inline btn-inline-danger me-auto">
-              {hy.settings.remove}
+              {t.settings.remove}
             </button>
           )}
           <button form="staff-edit" className="btn btn-auto" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.save}
+            {pending ? t.common.loading : t.settings.save}
           </button>
         </>
       }
@@ -83,28 +85,28 @@ export function StaffSheet({
           {/* Результат месяца. Он и есть ответ на вопрос, ради которого
               карточку открывают: что этот человек приносит. */}
           <div className="client-total">
-            <span className="client-total-label">{hy.owner.payrollAccrued}</span>
+            <span className="client-total-label">{t.owner.payrollAccrued}</span>
             <span className="num client-total-value">{money(person.earned)}</span>
             <span className="num client-total-note">
-              {person.count} {unitOne} · {hy.owner.periodMonth.toLocaleLowerCase('hy')}
+              {unitCount(person.count, unitOne, t.locale)} · {t.owner.periodMonth.toLocaleLowerCase(t.locale)}
             </span>
           </div>
 
           <dl className="facts mt-3.5">
             <div>
-              <dt>{hy.settings.percent}</dt>
+              <dt>{t.settings.percent}</dt>
               <dd className="num">{person.percent}%</dd>
             </div>
             <div>
-              <dt>{hy.owner.onShift}</dt>
+              <dt>{t.owner.onShift}</dt>
               <dd>
                 {person.present ? (
                   <span className="flex items-center gap-1.5">
                     <span className="size-2 shrink-0 rounded-full dot-live" aria-hidden />
-                    {person.since ? hy.today.since(person.since) : hy.owner.onShiftNow}
+                    {person.since ? t.today.since(person.since) : t.owner.onShiftNow}
                   </span>
                 ) : (
-                  <span style={{ color: 'var(--muted)' }}>{hy.owner.offShiftNow}</span>
+                  <span style={{ color: 'var(--muted)' }}>{t.owner.offShiftNow}</span>
                 )}
               </dd>
             </div>
@@ -112,7 +114,7 @@ export function StaffSheet({
                 это не показание, а пустая строка на месте показания. */}
             {person.due > 0 && (
               <div>
-                <dt>{hy.owner.toPay}</dt>
+                <dt>{t.owner.toPay}</dt>
                 <dd className="num">{money(person.due)}</dd>
               </div>
             )}
@@ -124,12 +126,12 @@ export function StaffSheet({
             <input type="hidden" name="id" value={person.id} />
 
             <label className="grid gap-1.5">
-              <span className="label">{hy.settings.name}</span>
+              <span className="label">{t.settings.name}</span>
               <input className="field" name="name" defaultValue={person.name} required autoFocus />
             </label>
 
             <label className="grid gap-1.5">
-              <span className="label">{hy.settings.percent}</span>
+              <span className="label">{t.settings.percent}</span>
               <div className="relative">
                 {/* Знак слева, как «+374» у телефона и как в форме найма:
                     два окна об одном и том же не должны выглядеть
@@ -150,7 +152,7 @@ export function StaffSheet({
               </div>
             </label>
 
-            <p className="note">{hy.settings.percentNote}</p>
+            <p className="note">{t.settings.percentNote}</p>
             {state?.error && <p className="alert">{state.error}</p>}
           </form>
 
@@ -162,29 +164,29 @@ export function StaffSheet({
               которое почему-то нельзя тронуть. */}
           <section className="mt-5">
             <h3 className="mb-2 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-              {hy.settings.access}
+              {t.settings.access}
             </h3>
 
             <dl className="facts">
               <div>
-                <dt>{hy.auth.phone}</dt>
+                <dt>{t.auth.phone}</dt>
                 <dd className="num">{formatPhone(person.phone)}</dd>
               </div>
               <div>
-                <dt>{hy.auth.pin}</dt>
-                <dd style={{ color: 'var(--muted)' }}>{hy.settings.pinHidden}</dd>
+                <dt>{t.auth.pin}</dt>
+                <dd style={{ color: 'var(--muted)' }}>{t.settings.pinHidden}</dd>
               </div>
               <div>
-                <dt>{hy.settings.role}</dt>
+                <dt>{t.settings.role}</dt>
                 <dd>{person.roleLabel}</dd>
               </div>
             </dl>
 
-            <p className="note mt-3">{hy.settings.staffNote}</p>
+            <p className="note mt-3">{t.settings.staffNote}</p>
           </section>
 
           <Link className="link-row mt-5" href="/owner/payroll">
-            {hy.reports.toPayroll}
+            {t.reports.toPayroll}
           </Link>
 
           {/* Форма удаления пустая и скрытая: её кнопка стоит в подвале

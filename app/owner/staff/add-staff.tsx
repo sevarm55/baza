@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addStaff, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
-import { hy } from '@/lib/i18n/hy';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Найм.
@@ -27,6 +27,7 @@ export function AddStaff({
   /** в заголовке раздела — тихой кнопкой, в пустом месте — главной */
   variant?: 'head' | 'cta';
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(addStaff, null);
   const [open, setOpen] = useState(false);
 
@@ -44,21 +45,21 @@ export function AddStaff({
         onClick={() => setOpen(true)}
       >
         <Plus className="size-4" aria-hidden />
-        {hy.settings.addStaff}
+        {t.settings.addStaff}
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} side title={hy.settings.addStaff}>
+      <Sheet open={open} onClose={() => setOpen(false)} side title={t.settings.addStaff}>
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлым недописанным человеком. */}
         <form key={String(open)} action={action} className="grid gap-3">
           <label className="grid gap-1.5">
-            <span className="label">{hy.settings.name}</span>
+            <span className="label">{t.settings.name}</span>
             <input className="field auth-field" name="name" required autoComplete="off" autoFocus />
           </label>
 
           <label className="grid gap-1.5">
             <span className="label">
-              {hy.settings.percent} · {staffRole}
+              {t.settings.percent} · {staffRole}
             </span>
             <div className="relative">
               {/* Знак слева, как «+374» у телефона: все украшения полей в
@@ -84,11 +85,11 @@ export function AddStaff({
           {/* Доступ отделён заголовком, а не просто следующим полем: это
               не продолжение анкеты, а ключ от кабинета. */}
           <h3 className="mt-2 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-            {hy.settings.access}
+            {t.settings.access}
           </h3>
 
           <label className="grid gap-1.5">
-            <span className="label">{hy.auth.phone}</span>
+            <span className="label">{t.auth.phone}</span>
             <input
               className="field auth-field"
               name="phone"
@@ -102,7 +103,7 @@ export function AddStaff({
 
           <label className="grid gap-1.5">
             <span className="label">
-              {hy.auth.pin} · {hy.auth.pinHint}
+              {t.auth.pin} · {t.auth.pinHint}
             </span>
             <input
               className="field auth-field num !text-center !text-[19px] !font-semibold"
@@ -115,10 +116,10 @@ export function AddStaff({
             />
           </label>
 
-          <p className="note">{hy.settings.staffNote}</p>
+          <p className="note">{t.settings.staffNote}</p>
 
           <button className="btn mt-0.5" disabled={pending}>
-            {pending ? hy.common.loading : hy.settings.addStaff}
+            {pending ? t.common.loading : t.settings.addStaff}
           </button>
 
           {state?.error && <p className="alert">{state.error}</p>}

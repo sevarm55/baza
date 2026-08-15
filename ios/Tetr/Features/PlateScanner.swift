@@ -226,7 +226,7 @@ struct PlateCameraPanel: View {
                 VStack(spacing: 10) {
                     Image(systemName: "camera.metering.unknown")
                         .font(.system(size: 26))
-                    Text("Տեսախցիկը հասանելի չէ")
+                    Text(L("scanner.unavailable"))
                         .font(.system(size: 13))
                 }
                 .foregroundStyle(.white.opacity(0.6))
@@ -260,11 +260,11 @@ struct PlateCameraPanel: View {
 
     private var controls: some View {
         HStack {
-            round("xmark", label: "Փակել տեսախցիկը", action: onClose)
+            round("xmark", label: L("order.closeCamera"), action: onClose)
             Spacer()
             shutter
             Spacer()
-            round("keyboard", label: "Ձեռքով") {
+            round("keyboard", label: L("scanner.manual")) {
                 onManual()
                 onClose()
             }
@@ -297,7 +297,7 @@ struct PlateCameraPanel: View {
         }
         .buttonStyle(.plain)
         .disabled(candidate == nil)
-        .accessibilityLabel("Ընդունել")
+        .accessibilityLabel(L("scanner.accept"))
         .accessibilityValue(candidate ?? "")
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: candidate == nil)
     }

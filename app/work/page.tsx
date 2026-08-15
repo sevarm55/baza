@@ -7,7 +7,6 @@ import { closedShiftToday, currentShift } from '@/lib/shifts';
 import { hhmm } from '@/lib/time';
 import { listPoints } from '@/lib/accounts';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { TopBar } from '@/components/top-bar';
 import { Rail } from '@/components/rail';
 import { Logo } from '@/components/logo';
@@ -20,16 +19,24 @@ import { currentAccess } from '@/lib/subscription';
 import { EndShift, StartShift } from './shift-controls';
 import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
+import { getDict } from '@/lib/i18n/server';
+import { unitForms, unitWord } from '@/lib/i18n/terms';
+import { localizeTenant } from '@/lib/i18n/terms';
 
 export default async function WorkPage() {
+  const t = await getDict();
   const session = await requireSession();
   await ensureDb();
 
-  const [tenant, me] = await Promise.all([
+  const [raw, me] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
   ]);
-  if (!tenant || !me) redirect('/session-ended');
+  if (!raw || !me) redirect('/session-ended');
+
+  /* Слова бизнеса — на языке того, кто смотрит; заводские переводятся,
+     своё название владельца проходит насквозь (см. terms.ts). */
+  const tenant = localizeTenant(raw, t.locale);
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
@@ -79,19 +86,19 @@ export default async function WorkPage() {
   const status =
     state === 'on' && open ? (
       <>
-        {hy.work.onShift} · {hy.work.since(hhmm(open.openedAt, tenant.timezone))}
+        {t.work.onShift} · {t.work.since(hhmm(open.openedAt, tenant.timezone))}
         <ShiftClock openedAt={open.openedAt.toISOString()} />
       </>
     ) : state === 'done' && closed ? (
       <>
-        {hy.work.shiftDone} ·{' '}
-        {hy.work.range(
+        {t.work.shiftDone} ·{' '}
+        {t.work.range(
           hhmm(closed.openedAt, tenant.timezone),
           hhmm(closed.closedAt, tenant.timezone),
         )}
       </>
     ) : (
-      hy.work.shiftNotStarted
+      t.work.shiftNotStarted
     );
 
   /* Экран смены на языке табло — одной колонкой, а не разложенный по
@@ -134,7 +141,7 @@ export default async function WorkPage() {
               зелёная точка здесь — тот же знак, которым владелец видит
               человека на смене. */}
           <Reading
-            caption={takesShare ? hy.work.earnedToday : hy.work.shiftRevenue}
+            caption={takesShare ? t.work.earnedToday : t.work.shiftRevenue}
             value={formatMoney(takesShare ? shift.earned : shift.revenue, tenant.currency)}
             compare={status}
             tone={state === 'on' ? 'good' : 'off'}
@@ -150,13 +157,18 @@ export default async function WorkPage() {
               показать одно и то же дважды. Остаются машины — во всю
               ширину. */}
           <Grid>
-            <Tile tone="teal" label={tenant.unitOne} value={shift.count} wide={!takesShare} />
+            <Tile
+              tone="teal"
+              label={unitWord(shift.count, tenant.unitOne, t.locale)}
+              value={shift.count}
+              wide={!takesShare}
+            />
             {takesShare && (
               <Tile
                 tone="slate"
-                label={hy.work.worksTotal}
-                value={formatMoney(shift.revenue, tenant.currency)}
-                note={hy.work.yourShare(me.percent)}
+                label={t.work.worksTotal}
+                value={formatMoney(shift.revenue, tenant.currency, t.locale)}
+                note={t.work.yourShare(me.percent)}
               />
             )}
           </Grid>
@@ -203,12 +215,12 @@ export default async function WorkPage() {
               prices: tiers.map((_, i) => priceForTier(s, i)),
             }))}
             tiers={tiers}
-            tierLabel={tenant.tierLabel ?? hy.work.tier}
+            tierLabel={tenant.tierLabel ?? t.work.tier}
             currency={tenant.currency}
             clientIdLabel={tenant.clientIdLabel}
             clientIdType={tenant.clientIdType}
             unitOne={tenant.unitOne}
-            addLabel={`+ ${tenant.unitOne}`}
+            addLabel={`+ ${unitForms(tenant.unitOne, t.locale).acc}`}
             timezone={tenant.timezone}
             recent={shift.orders.map((o) => ({
               id: o.id,
@@ -249,7 +261,7 @@ export default async function WorkPage() {
         />
         <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
           <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
-            <SidebarTrigger aria-label={hy.common.expand} title={hy.common.expand} />
+            <SidebarTrigger aria-label={t.common.expand} title={t.common.expand} />
             <Logo size={24} withName={false} />
             <div className="min-w-0">
               <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>

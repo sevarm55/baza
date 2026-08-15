@@ -3,6 +3,8 @@ import { db } from './db';
 import { orders, shifts, tenants, users } from './db/schema';
 import { startOfDay } from './queries';
 import { notifyOwnersInBackground } from './push';
+import { DEFAULT_LOCALE, dict } from './i18n';
+import { formatMoney } from './money';
 
 /**
  * Открытая смена.
@@ -121,7 +123,15 @@ export async function closedShiftToday(tenantId: string, userId: string, dayStar
  * Важно не для аккуратности, а потому что кнопку жмут дважды, а запросы
  * приходят из очереди повторно.
  */
-export async function openShift(tenantId: string, userId: string, dayStart: Date) {
+export async function openShift(
+  tenantId: string,
+  userId: string,
+  dayStart: Date,
+  /* Язык уведомления. Пуш собирает сервер, спросить человека негде —
+     поэтому берём язык бизнеса (`tenants.locale`), а не интерфейса того,
+     кто нажал кнопку. */
+  locale: string = DEFAULT_LOCALE,
+) {
   const open = await currentShift(tenantId, userId, dayStart);
   if (open) return open;
 
@@ -131,9 +141,10 @@ export async function openShift(tenantId: string, userId: string, dayStart: Date
      возвращается выше, и владелец не получает второе «вышел на смену»
      о том же человеке. */
   const [who] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+  const t = dict(locale);
   notifyOwnersInBackground(tenantId, userId, {
-    title: 'Հերթափոխ',
-    body: `${who?.name ?? 'Աշխատակից'} դուրս եկավ հերթափոխի`,
+    title: t.push.shiftTitle,
+    body: t.push.shiftOpened(who?.name ?? t.push.someone),
     thread: 'shift',
   });
 
@@ -178,7 +189,12 @@ export async function cashInShift(
  * всегда. Не отметил — владелец увидит именно «не отмечено», а не ноль:
  * это разные вещи.
  */
-export async function closeShift(tenantId: string, userId: string, declared?: number | null) {
+export async function closeShift(
+  tenantId: string,
+  userId: string,
+  declared?: number | null,
+  locale: string = DEFAULT_LOCALE,
+) {
   const [open] = await db
     .select()
     .from(shifts)
@@ -201,24 +217,45 @@ export async function closeShift(tenantId: string, userId: string, declared?: nu
   /* Владельцу сообщаем сразу и с цифрами: смысл сдачи в том, чтобы
      расхождение всплывало в тот же вечер, а не через месяц при сверке. */
   const [who] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+  const t = dict(locale);
   notifyOwnersInBackground(tenantId, userId, {
-    title: 'Հերթափոխը փակվեց',
-    body: cashLine(who?.name ?? '', expected, declared ?? null),
+    title: t.push.shiftClosedTitle,
+    body: cashLine(who?.name ?? '', expected, declared ?? null, locale),
     thread: 'shift',
   });
 
   return { expected, declared: declared ?? null };
 }
 
-/** «Աշոտ · կանխիկ 45 000 ֏ · հանձնեց 43 000 ֏ · −2 000 ֏» */
-function cashLine(name: string, expected: number, declared: number | null): string {
-  const money = (n: number) => `${n.toLocaleString('ru-RU').replace(/ /g, ' ')} ֏`;
+/**
+ * «Աշոտ · կանխիկ 45 000 ֏ · հանձնեց 43 000 ֏ · −2 000 ֏»
+ *
+ * Слова и разделитель разрядов идут за языком бизнеса, валюта — нет.
+ * Мойка в Ереване считает драмы, на каком бы языке владелец ни читал
+ * уведомление; язык интерфейса денег не меняет.
+ *
+ * Сумма собирается общим `formatMoney`, а не своим `toLocaleString`:
+ * то же число тем же способом, что и на всех экранах продукта, — иначе
+ * пуш и сводка расходятся в разрядах на одной и той же цифре.
+ */
+function cashLine(
+  name: string,
+  expected: number,
+  declared: number | null,
+  locale: string,
+  currency = 'AMD',
+): string {
+  const t = dict(locale);
+  const money = (n: number) => formatMoney(n, currency, locale);
+
   if (expected === 0 && declared === null) return name;
-  if (declared === null) return `${name} · կանխիկ ${money(expected)} · չի նշել`;
+  if (declared === null) {
+    return `${name} · ${t.push.cashExpected(money(expected))} · ${t.push.cashNotDeclared}`;
+  }
 
   const diff = declared - expected;
   const tail = diff === 0 ? '' : ` · ${diff > 0 ? '+' : '−'}${money(Math.abs(diff))}`;
-  return `${name} · կանխիկ ${money(expected)} · հանձնեց ${money(declared)}${tail}`;
+  return `${name} · ${t.push.cashExpected(money(expected))} · ${t.push.cashDeclared(money(declared))}${tail}`;
 }
 
 /** Во сколько по местному времени смены закрываются сами. */
@@ -249,6 +286,8 @@ export async function closeEvening(now = new Date()) {
       userId: shifts.userId,
       name: users.name,
       timezone: tenants.timezone,
+      locale: tenants.locale,
+      currency: tenants.currency,
       openedAt: shifts.openedAt,
     })
     .from(shifts)
@@ -258,6 +297,10 @@ export async function closeEvening(now = new Date()) {
 
   type Closing = {
     at: Date;
+    /* Язык и валюта у всех смен одного бизнеса одни и те же — берём их
+       у первой строки и дальше подписываем ими всё уведомление. */
+    locale: string;
+    currency: string;
     rows: { shiftId: string; userId: string; name: string; openedAt: Date }[];
   };
   const byTenant = new Map<string, Closing>();
@@ -267,7 +310,12 @@ export async function closeEvening(now = new Date()) {
     if (now < closing) continue;
     if (row.openedAt >= closing) continue;
 
-    const bucket = byTenant.get(row.tenantId) ?? { at: closing, rows: [] };
+    const bucket = byTenant.get(row.tenantId) ?? {
+      at: closing,
+      locale: row.locale,
+      currency: row.currency,
+      rows: [],
+    };
     bucket.rows.push({
       shiftId: row.shiftId,
       userId: row.userId,
@@ -288,13 +336,13 @@ export async function closeEvening(now = new Date()) {
         .update(shifts)
         .set({ closedAt: bucket.at, cashExpected: expected })
         .where(eq(shifts.id, row.shiftId));
-      lines.push(cashLine(row.name, expected, null));
+      lines.push(cashLine(row.name, expected, null, bucket.locale, bucket.currency));
     }
 
     /* Одно уведомление на бизнес, а не на человека: три закрытых смены —
        это одно событие вечера, а не три новости. */
     notifyOwnersInBackground(tenantId, null, {
-      title: 'Հերթափոխը փակվեց',
+      title: dict(bucket.locale).push.shiftClosedTitle,
       body: lines.join('\n'),
       thread: 'shift',
     });

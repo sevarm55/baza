@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Panel } from '@/components/board';
 import { formatMoney, formatShare } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Какая часть выручки куда ушла.
@@ -22,7 +22,7 @@ import { hy } from '@/lib/i18n/hy';
  * процентов, и полоса начала бы врать в тот единственный месяц, когда её
  * читают внимательнее всего.
  */
-export function ProfitSplit({
+export async function ProfitSplit({
   currency,
   revenue,
   payroll,
@@ -37,28 +37,29 @@ export function ProfitSplit({
   profit: number;
   className?: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const base = Math.max(revenue, payroll + costs);
   const cut = (n: number) => (base > 0 ? (n / base) * 100 : 0);
 
   const parts = [
     {
       key: 'payroll',
-      label: hy.owner.payrollAccrued,
+      label: t.owner.payrollAccrued,
       value: payroll,
       color: 'var(--tone-teal-glow)',
       href: '/owner/payroll',
     },
     {
       key: 'costs',
-      label: hy.owner.costs,
+      label: t.owner.costs,
       value: costs,
       color: 'var(--tone-amber-glow)',
       href: '/owner/expenses',
     },
     {
       key: 'profit',
-      label: profit >= 0 ? hy.owner.profit : hy.owner.inTheRed,
+      label: profit >= 0 ? t.owner.profit : t.owner.inTheRed,
       value: Math.abs(profit),
       color: profit >= 0 ? 'var(--accent-strong)' : 'var(--bad)',
       href: null,
@@ -66,10 +67,10 @@ export function ProfitSplit({
   ];
 
   return (
-    <Panel title={hy.payroll.details} className={className}>
+    <Panel title={t.payroll.details} className={className}>
       {base === 0 ? (
         <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {hy.reports.emptyMonth}
+          {t.reports.emptyMonth}
         </p>
       ) : (
         <>

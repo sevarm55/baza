@@ -836,6 +836,12 @@ actor APIClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
+        /* Язык интерфейса — тем же заголовком, каким его шлёт любой
+           браузер. Сервер отвечает на нём там, где слова собирает он:
+           заводские термины ниши («мойщик», «машина»), поводы для
+           колокольчика, шапка выгрузки. Токен при этом не трогается —
+           язык меняют в настройках, а не перевходом. */
+        request.setValue(LangStore.currentLang.rawValue, forHTTPHeaderField: "Accept-Language")
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

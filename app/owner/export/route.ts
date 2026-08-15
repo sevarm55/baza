@@ -1,6 +1,7 @@
 import { getLiveSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant } from '@/lib/queries';
+import { getLocale } from '@/lib/i18n/server';
 import { buildOrdersCsv } from '@/lib/export-csv';
 
 /**
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   if (!tenant) return new Response('Not found', { status: 404 });
 
   const raw = new URL(request.url).searchParams.get('days') ?? '30';
-  const csv = await buildOrdersCsv(tenant, raw === 'all' ? 'all' : Number(raw));
+  const csv = await buildOrdersCsv(tenant, raw === 'all' ? 'all' : Number(raw), await getLocale());
 
   return new Response(csv.content, {
     headers: {

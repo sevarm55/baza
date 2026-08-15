@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePendingTab } from '@/components/use-pending-tab';
 import { sectionsFor } from '@/components/sections';
+import { useT } from '@/lib/i18n/client';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -17,8 +18,9 @@ import {
 
 /** Primary app navigation composed entirely from shadcn Sidebar parts. */
 export function SideNav({ passes }: { passes: boolean }) {
+  const t = useT();
   const pathname = usePathname();
-  const sections = sectionsFor(passes);
+  const sections = sectionsFor(passes, t);
   const { setOpenMobile } = useSidebar();
 
   const current =
@@ -75,7 +77,7 @@ export function SideNav({ passes }: { passes: boolean }) {
 
       <SidebarGroup className="py-2">
         <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
-          ՖԻՆԱՆՍՆԵՐ
+          {t.nav.finance}
         </SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu className="gap-1">{finance.map(renderSection)}</SidebarMenu>
@@ -86,7 +88,7 @@ export function SideNav({ passes }: { passes: boolean }) {
 
       <SidebarGroup className="py-2">
         <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
-          ԿԱՌԱՎԱՐՈՒՄ
+          {t.nav.management}
         </SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu className="gap-1">{management.map(renderSection)}</SidebarMenu>

@@ -6,11 +6,11 @@ import { settlePayroll } from '@/app/actions';
 import { Panel } from '@/components/board';
 import { Segmented } from '@/components/segmented';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { DayCard } from './day-card';
 import { PayrollHistory } from './history';
 import { ConfirmPayout, type ConfirmGroup } from './confirm-dialog';
 import type { DayGroup, HistoryDay, StaffEntry } from './model';
+import { useT } from '@/lib/i18n/client';
 
 /** Сколько сообщение о выплате держится на экране. */
 const TOAST_MS = 4000;
@@ -46,6 +46,7 @@ export function PayrollWorkspace({
   /** «Այսօր · 14 օգոստոսի» — на случай, если сегодня ещё ничего не намыли */
   todayTitle: string;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<'due' | 'history'>('due');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState<string[] | null>(null);
@@ -58,7 +59,7 @@ export function PayrollWorkspace({
     return () => clearTimeout(id);
   }, [note]);
 
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   /* Ключи живут в данных, а не в состоянии: после расчёта страница
      перечитывается с сервера, и отмеченная строка может исчезнуть.
@@ -113,9 +114,9 @@ export function PayrollWorkspace({
       let done: string;
       try {
         const result = await settlePayroll(items);
-        done = result.ok ? hy.payroll.done(money(result.paid)) : hy.payroll.failed;
+        done = result.ok ? t.payroll.done(money(result.paid)) : t.payroll.failed;
       } catch {
-        done = hy.payroll.failed;
+        done = t.payroll.failed;
       }
 
       setAsking(null);
@@ -152,7 +153,7 @@ export function PayrollWorkspace({
               key: 'due',
               label: (
                 <span className="num flex items-center gap-1.5">
-                  {hy.payroll.tabDue}
+                  {t.payroll.tabDue}
                   {outstanding > 0 ? (
                     <b className="font-semibold">{money(outstanding)}</b>
                   ) : (
@@ -161,7 +162,7 @@ export function PayrollWorkspace({
                 </span>
               ),
             },
-            { key: 'history', label: hy.payroll.tabHistory },
+            { key: 'history', label: t.payroll.tabHistory },
           ]}
         />
       </div>
@@ -172,9 +173,9 @@ export function PayrollWorkspace({
             <Panel>
               <div className="grid justify-items-center gap-1 py-10 text-center">
                 <Check className="size-6" style={{ color: 'var(--good-on-board)' }} aria-hidden />
-                <p className="text-[15px] font-semibold">{hy.payroll.dayAllPaid}</p>
+                <p className="text-[15px] font-semibold">{t.payroll.dayAllPaid}</p>
                 <p className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                  {hy.payroll.nothingUnpaid}
+                  {t.payroll.nothingUnpaid}
                 </p>
                 {history.length > 0 && (
                   <button
@@ -182,7 +183,7 @@ export function PayrollWorkspace({
                     className="btn-inline mt-3"
                     onClick={() => setTab('history')}
                   >
-                    {hy.payroll.openHistory}
+                    {t.payroll.openHistory}
                   </button>
                 )}
               </div>
@@ -196,7 +197,7 @@ export function PayrollWorkspace({
                 <Panel>
                   <h2 className="text-[16px] leading-tight font-semibold">{todayTitle}</h2>
                   <p className="py-5 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                    {hy.payroll.dayEmpty}
+                    {t.payroll.dayEmpty}
                   </p>
                 </Panel>
               )}
@@ -230,7 +231,7 @@ export function PayrollWorkspace({
                 style={{ color: 'var(--board-muted)' }}
                 onClick={() => setShowClosed((was) => !was)}
               >
-                {showClosed ? hy.payroll.hidePaidDays : hy.payroll.showPaidDays(closed.length)}
+                {showClosed ? t.payroll.hidePaidDays : t.payroll.showPaidDays(closed.length)}
               </button>
 
               {showClosed &&
@@ -261,7 +262,7 @@ export function PayrollWorkspace({
       {chosen.length > 0 && (
         <div className="pay-dock">
           <span className="num text-[13px]" style={{ color: 'var(--board-muted)' }}>
-            {hy.payroll.selected(chosen.length)}
+            {t.payroll.selected(chosen.length)}
           </span>
           <button
             type="button"
@@ -269,7 +270,7 @@ export function PayrollWorkspace({
             disabled={pending}
             onClick={() => setAsking(chosen)}
           >
-            {hy.payroll.paySum(money(chosenSum))}
+            {t.payroll.paySum(money(chosenSum))}
           </button>
         </div>
       )}

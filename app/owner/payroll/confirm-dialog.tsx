@@ -2,8 +2,8 @@
 
 import { Sheet } from '@/components/sheet';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import type { StaffEntry } from './model';
+import { useT } from '@/lib/i18n/client';
 
 /** Что подтверждаем: люди, сгруппированные по рабочему дню. */
 export type ConfirmGroup = { day: string; title: string; people: StaffEntry[] };
@@ -33,7 +33,8 @@ export function ConfirmPayout({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = useT();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
   const list = groups ?? [];
   const people = list.flatMap((g) => g.people);
   const total = people.reduce((sum, p) => sum + p.earned, 0);
@@ -46,15 +47,15 @@ export function ConfirmPayout({
     <Sheet
       open={groups !== null}
       onClose={pending ? () => {} : onCancel}
-      title={single ? single.name : hy.payroll.confirmTitle}
+      title={single ? single.name : t.payroll.confirmTitle}
       subtitle={list.length === 1 ? list[0].title : undefined}
       footer={
         <>
           <button type="button" className="btn-inline" onClick={onCancel} disabled={pending}>
-            {hy.common.cancel}
+            {t.common.cancel}
           </button>
           <button type="button" className="btn btn-auto" onClick={onConfirm} disabled={pending}>
-            {pending ? hy.common.loading : hy.payroll.confirm}
+            {pending ? t.common.loading : t.payroll.confirm}
           </button>
         </>
       }
@@ -103,13 +104,13 @@ export function ConfirmPayout({
             className="flex items-center justify-between border-t pt-2.5"
             style={{ borderColor: 'var(--line)' }}
           >
-            <span className="text-[13px] font-semibold">{hy.common.total}</span>
+            <span className="text-[13px] font-semibold">{t.common.total}</span>
             <span className="num text-[17px] font-bold tracking-[-0.02em]">{money(total)}</span>
           </div>
         )}
 
         <p className="text-[12.5px]" style={{ color: 'var(--muted)' }}>
-          {hy.payroll.confirmNote}
+          {t.payroll.confirmNote}
         </p>
       </div>
     </Sheet>

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Panel, Row } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
+import { unitCount } from '@/lib/i18n/terms';
 
 export type TeamMember = {
   key: string;
@@ -23,7 +24,7 @@ export type TeamMember = {
  * Строка ведёт на зарплаты, а не в карточку человека: из отчёта за месяц
  * следующий вопрос про людей всегда один — сколько им осталось отдать.
  */
-export function ReportTeam({
+export async function ReportTeam({
   rows,
   unitOne,
   staffRole,
@@ -34,6 +35,7 @@ export function ReportTeam({
   staffRole: string;
   className?: string;
 }) {
+  const t = await getDict();
   return (
     <Panel
       title={staffRole}
@@ -41,7 +43,7 @@ export function ReportTeam({
       className={className}
     >
       {rows.length === 0 ? (
-        <EmptyState title={hy.reports.emptyMonth} />
+        <EmptyState title={t.reports.emptyMonth} />
       ) : (
         <>
           <div className="board-journal">
@@ -56,7 +58,7 @@ export function ReportTeam({
                   {p.name}
                 </span>
                 <span className="num shrink-0 text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                  {p.count} {unitOne}
+                  {unitCount(p.count, unitOne, t.locale)}
                 </span>
                 <span className="num shrink-0 text-end text-[14.5px] font-semibold tabular-nums">
                   {p.earned}
@@ -66,7 +68,7 @@ export function ReportTeam({
           </div>
 
           <Link className="link-row mt-3.5" href="/owner/payroll">
-            {hy.reports.toPayroll}
+            {t.reports.toPayroll}
           </Link>
         </>
       )}

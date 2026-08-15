@@ -5,10 +5,11 @@ import { ChevronRight } from 'lucide-react';
 import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
 import { AddStaff } from './add-staff';
 import { StaffSheet } from './staff-sheet';
 import type { StaffPerson } from './model';
+import { useT } from '@/lib/i18n/client';
+import { unitCount, unitForms } from '@/lib/i18n/terms';
 
 /**
  * Список людей.
@@ -42,16 +43,17 @@ export function StaffRoster({
   unitOne: string;
   staffRole: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const person = rows.find((r) => r.id === open) ?? null;
-  const money = (n: number) => formatMoney(n, currency);
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   if (rows.length === 0) {
     return (
       <Panel>
         <EmptyState
-          title={hy.settings.staffEmpty}
-          note={hy.settings.staffEmptyNote}
+          title={t.settings.staffEmpty}
+          note={t.settings.staffEmptyNote}
           action={<AddStaff staffRole={staffRole} variant="cta" />}
         />
       </Panel>
@@ -60,7 +62,7 @@ export function StaffRoster({
 
   return (
     <>
-      <Panel title={hy.settings.staff} count={rows.length}>
+      <Panel title={t.settings.staff} count={rows.length}>
         {/* Телефон: строками. */}
         <div className="board-journal lg:hidden">
           {rows.map((p) => (
@@ -69,11 +71,11 @@ export function StaffRoster({
               type="button"
               onClick={() => setOpen(p.id)}
               className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
-              aria-label={`${p.name} · ${hy.common.edit}`}
+              aria-label={`${p.name} · ${t.common.edit}`}
             >
               <span
                 className={`size-2 shrink-0 rounded-full ${p.present ? 'dot-live' : 'dot-idle'}`}
-                aria-label={p.present ? hy.owner.onShiftNow : undefined}
+                aria-label={p.present ? t.owner.onShiftNow : undefined}
                 aria-hidden={p.present ? undefined : true}
               />
               <span className="min-w-0 flex-1">
@@ -85,8 +87,8 @@ export function StaffRoster({
                   className="num block truncate text-[12px]"
                   style={{ color: 'var(--board-muted)' }}
                 >
-                  {p.count} {unitOne} · {p.percent}%
-                  {p.due > 0 && ` · ${hy.owner.toPay.toLocaleLowerCase('hy')} ${money(p.due)}`}
+                  {unitCount(p.count, unitOne, t.locale)} · {p.percent}%
+                  {p.due > 0 && ` · ${t.owner.toPay.toLocaleLowerCase(t.locale)} ${money(p.due)}`}
                 </span>
               </span>
 
@@ -103,10 +105,10 @@ export function StaffRoster({
         <table className="tbl hidden lg:table">
           <thead>
             <tr>
-              <th>{hy.settings.staff}</th>
-              <th className="end">{unitOne}</th>
-              <th className="end">{hy.owner.payrollAccrued}</th>
-              <th className="end">{hy.settings.percent}</th>
+              <th>{t.settings.staff}</th>
+              <th className="end">{unitForms(unitOne, t.locale).many}</th>
+              <th className="end">{t.owner.payrollAccrued}</th>
+              <th className="end">{t.settings.percent}</th>
               <th />
             </tr>
           </thead>
@@ -130,11 +132,11 @@ export function StaffRoster({
                       className={`size-2 shrink-0 rounded-full ${
                         p.present ? 'dot-live' : 'dot-idle'
                       }`}
-                      aria-label={p.present ? hy.owner.onShiftNow : undefined}
+                      aria-label={p.present ? t.owner.onShiftNow : undefined}
                       aria-hidden={p.present ? undefined : true}
                     />
                     <span className="truncate text-[15px] font-semibold">{p.name}</span>
-                    {p.present && <span className="tag-good">{hy.owner.onShift}</span>}
+                    {p.present && <span className="tag-good">{t.owner.onShift}</span>}
                     {p.owner && <span className="tag">{p.roleLabel}</span>}
                   </span>
                 </td>
@@ -151,7 +153,7 @@ export function StaffRoster({
                   <span className="block font-semibold">{money(p.earned)}</span>
                   {p.due > 0 && (
                     <span className="block text-[12px]" style={{ color: 'var(--warn-on-board)' }}>
-                      {hy.owner.toPay.toLocaleLowerCase('hy')} {money(p.due)}
+                      {t.owner.toPay.toLocaleLowerCase(t.locale)} {money(p.due)}
                     </span>
                   )}
                 </td>
@@ -164,7 +166,7 @@ export function StaffRoster({
                   <button
                     type="button"
                     onClick={() => setOpen(p.id)}
-                    aria-label={`${p.name} · ${hy.common.edit}`}
+                    aria-label={`${p.name} · ${t.common.edit}`}
                     style={{ color: 'var(--board-muted)' }}
                   >
                     <ChevronRight className="size-3.5" aria-hidden />

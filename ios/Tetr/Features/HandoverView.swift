@@ -33,7 +33,7 @@ struct HandoverView: View {
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var entered: Int? { Int(amount) }
     private var diff: Int { (entered ?? expected) - expected }
-    private var unitOne: String { session.tenant?.unitOne ?? "Գրանցում" }
+    private var unitOne: String { Terms.unit(session.tenant?.unitOne ?? "").nom }
 
     var body: some View {
         NavigationStack {
@@ -46,39 +46,39 @@ struct HandoverView: View {
                  * именно он закрывает. Три числа читаются за две секунды и
                  * стоят ровно там, где принимается решение. */
                 Section {
-                    LabeledContent(unitOne) {
+                    LabeledContent(unitOne.isEmpty ? L("shift.record") : unitOne) {
                         Text("\(count)").monospacedDigit().foregroundStyle(Brand.boardMuted)
                     }
-                    LabeledContent("Աշխատանքի գումարը") {
+                    LabeledContent(L("work.worksTotal")) {
                         Text(money(revenue, currency))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
                     }
                     if takesShare {
-                        LabeledContent("Քո վաստակն այսօր") {
+                        LabeledContent(L("work.earnedToday")) {
                             Text(money(earned, currency))
                                 .monospacedDigit()
                                 .fontWeight(.semibold)
                         }
                     }
                 } header: {
-                    Text("Այսօր")
+                    Text(L("common.today"))
                 } footer: {
-                    Text("Ավարտելուց հետո \(unitOne) գրանցել կարելի կլինի միայն նոր հերթափոխից հետո։")
+                    Text(L("handover.endNote", Terms.unit(session.tenant?.unitOne ?? "").acc))
                 }
 
                 Section {
-                    LabeledContent("Կանխիկ հերթափոխում") {
+                    LabeledContent(L("handover.cashInShift")) {
                         Text(money(expected, currency))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
                     }
                 } footer: {
-                    Text("Քարտով և փոխանցումով վճարածը հանձնելու կարիք չկա։")
+                    Text(L("handover.cardNote"))
                 }
 
                 Section {
-                    LabeledContent("Հանձնում եմ") {
+                    LabeledContent(L("handover.declaring")) {
                         TextField("", text: $amount)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
@@ -90,30 +90,30 @@ struct HandoverView: View {
                        как она уедет к владельцу уведомлением. */
                     if entered != nil && diff != 0 {
                         Text(diff < 0
-                             ? "Պակասում է \(money(-diff, currency))"
-                             : "Ավելի է \(money(diff, currency))")
+                             ? L("handover.short", money(-diff, currency))
+                             : L("handover.over", money(diff, currency)))
                             .foregroundStyle(Brand.warn)
                     }
                 }
 
                 Section {
-                    Button("Հանձնել և ավարտել") {
+                    Button(L("handover.submit")) {
                         onDone(entered ?? expected)
                         dismiss()
                     }
-                    Button("Բաց թողնել") {
+                    Button(L("common.skip")) {
                         onDone(nil)
                         dismiss()
                     }
                     .foregroundStyle(Brand.boardMuted)
                 }
             }
-            .navigationTitle("Ավարտե՞լ հերթափոխը")
+            .navigationTitle(L("work.endTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     // остаться на смене — тем же словом, что в вебе
-                    Button("Մնալ հերթափոխին") { dismiss() }
+                    Button(L("work.endStay")) { dismiss() }
                 }
             }
         }

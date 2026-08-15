@@ -35,21 +35,36 @@ const SYMBOLS: Record<string, string> = { AMD: '֏', RUB: '₽', USD: '$', EUR: 
    Разделители заданы escape-последовательностями намеренно: в исходнике
    обычный пробел и неразрывный выглядят одинаково, и такую опечатку
    глазами не поймать. */
-const GROUP = ' '; // неразрывный: сумма не разорвётся переносом строки
 const BEFORE_SYMBOL = ' ';
-const DECIMAL = ',';
 
-export function formatMoney(amount: number, currency = 'AMD'): string {
-  const decimals = DECIMALS[currency] ?? 2;
-  const negative = amount < 0;
-  const abs = Math.abs(Math.round(amount));
-  const scale = 10 ** decimals;
+/**
+ * Разряды и дробная часть по языку интерфейса.
+ *
+ * Считаем сами, а не через `Intl`, по той же причине, что и раньше:
+ * результат обязан совпадать на сервере и в браузере до символа, иначе
+ * React ругается на разметку, а сумма моргает при гидратации.
+ *
+ * У армянского и русского разделители одинаковые — неразрывный пробел и
+ * запятая, — и это не совпадение: оба языка так и пишут. Английский
+ * отличается, и «5,000.50» для него так же обязателен, как «5 000,50»
+ * для остальных.
+ *
+ * ВАЛЮТА ОТ ЯЗЫКА НЕ ЗАВИСИТ. Мойка в Ереване берёт драмы, и владелец,
+ * переключивший интерфейс на английский, не начинает получать доллары.
+ * Меняется запись числа, а не деньги.
+ */
+const SEPARATORS: Record<string, { group: string; decimal: string }> = {
+  hy: { group: ' ', decimal: ',' },
+  ru: { group: ' ', decimal: ',' },
+  en: { group: ',', decimal: '.' },
+};
 
-  let out = group(Math.floor(abs / scale));
-  if (decimals > 0) out += DECIMAL + String(abs % scale).padStart(decimals, '0');
-  if (negative) out = '−' + out;
+function separators(locale: string | undefined) {
+  return SEPARATORS[locale ?? 'hy'] ?? SEPARATORS.hy;
+}
 
-  return `${out}${BEFORE_SYMBOL}${SYMBOLS[currency] ?? currency}`;
+export function formatMoney(amount: number, currency = 'AMD', locale?: string): string {
+  return `${formatAmount(amount, currency, locale)}${BEFORE_SYMBOL}${SYMBOLS[currency] ?? currency}`;
 }
 
 /**
@@ -59,25 +74,38 @@ export function formatMoney(amount: number, currency = 'AMD'): string {
  * списков. Разряды при этом обязаны разбиваться так же: «300000» рядом с
  * «305 000 ֏» в той же таблице читается опечаткой, а не другой суммой.
  */
-export function formatAmount(amount: number, currency = 'AMD'): string {
+export function formatAmount(amount: number, currency = 'AMD', locale?: string): string {
+  const sep = separators(locale);
   const decimals = DECIMALS[currency] ?? 2;
   const negative = amount < 0;
   const abs = Math.abs(Math.round(amount));
   const scale = 10 ** decimals;
 
-  let out = group(Math.floor(abs / scale));
-  if (decimals > 0) out += DECIMAL + String(abs % scale).padStart(decimals, '0');
+  let out = group(Math.floor(abs / scale), sep.group);
+  if (decimals > 0) out += sep.decimal + String(abs % scale).padStart(decimals, '0');
   return negative ? '−' + out : out;
 }
 
-function group(n: number): string {
+function group(n: number, separator: string): string {
   const s = String(n);
   let out = '';
   for (let i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 === 0) out += GROUP;
+    if (i > 0 && (s.length - i) % 3 === 0) out += separator;
     out += s[i];
   }
   return out;
+}
+
+/**
+ * Целое число не-денег: счётчики, количества, проценты.
+ *
+ * Разряды разбиваются тем же знаком, что и в деньгах: «1 250 машин» и
+ * «1 250 ֏» на одной странице обязаны выглядеть родственниками.
+ */
+export function formatCount(n: number, locale?: string): string {
+  const negative = n < 0;
+  const out = group(Math.abs(Math.round(n)), separators(locale).group);
+  return negative ? '−' + out : out;
 }
 
 /* В базе деньги лежат в минимальных единицах, а владелец в форме

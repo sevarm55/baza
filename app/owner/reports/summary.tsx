@@ -1,6 +1,6 @@
 import { Figures, Plate } from '@/components/board';
 import { formatMoney } from '@/lib/money';
-import { hy } from '@/lib/i18n/hy';
+import { getDict } from '@/lib/i18n/server';
 
 /**
  * Результат месяца и его разбор.
@@ -18,7 +18,7 @@ import { hy } from '@/lib/i18n/hy';
  * Зарплата и расходы ведут в свои разделы: «почему столько» — вопрос,
  * который следует сразу за «сколько», и отвечают на него там.
  */
-export function ReportSummary({
+export async function ReportSummary({
   currency,
   revenue,
   payroll,
@@ -36,21 +36,22 @@ export function ReportSummary({
   kept: number;
   monthName: string;
 }) {
-  const money = (n: number) => formatMoney(n, currency);
+  const t = await getDict();
+  const money = (n: number) => formatMoney(n, currency, t.locale);
 
   return (
     <section
       className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-      aria-label={hy.owner.profit}
+      aria-label={t.owner.profit}
     >
       <Plate
-        label={hy.owner.profit}
+        label={t.owner.profit}
         value={money(profit)}
         note={
           profit < 0
-            ? `${monthName} · ${hy.owner.inTheRed}`
+            ? `${monthName} · ${t.owner.inTheRed}`
             : revenue > 0
-              ? `${monthName} · ${kept}% ${hy.owner.kept}`
+              ? `${monthName} · ${kept}% ${t.owner.kept}`
               : monthName
         }
         bad={profit < 0}
@@ -58,15 +59,15 @@ export function ReportSummary({
 
       <Figures
         items={[
-          { label: hy.owner.revenue, value: money(revenue) },
+          { label: t.owner.revenue, value: money(revenue) },
           {
-            label: hy.owner.payrollAccrued,
+            label: t.owner.payrollAccrued,
             value: money(payroll),
             sign: '−',
             href: payroll > 0 ? '/owner/payroll' : undefined,
           },
           {
-            label: hy.owner.costs,
+            label: t.owner.costs,
             value: money(costs),
             sign: '−',
             href: costs > 0 ? '/owner/expenses' : undefined,

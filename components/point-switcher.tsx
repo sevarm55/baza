@@ -1,5 +1,6 @@
 import { Building2, Check, ChevronsUpDown } from 'lucide-react';
 import { PointForm } from '@/components/point-form';
+import { getDict } from '@/lib/i18n/server';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,11 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenuButton } from '@/components/ui/sidebar';
-import { hy } from '@/lib/i18n/hy';
 import type { Point } from '@/lib/accounts';
 
 /** Library-owned branch switcher used inside the shadcn sidebar. */
-export function PointSwitcher({
+export async function PointSwitcher({
   points,
   currentId,
   subtitle,
@@ -24,6 +24,7 @@ export function PointSwitcher({
   subtitle: string;
   sidebar?: boolean;
 }) {
+  const t = await getDict();
   const current = points.find((point) => point.id === currentId);
 
   return (
@@ -33,8 +34,8 @@ export function PointSwitcher({
           sidebar ? (
             <SidebarMenuButton
               size="lg"
-              tooltip={current?.name ?? hy.points.title}
-              aria-label={`${current?.name ?? hy.points.title} · ${subtitle}`}
+              tooltip={current?.name ?? t.points.title}
+              aria-label={`${current?.name ?? t.points.title} · ${subtitle}`}
             />
           ) : (
             <button
@@ -49,7 +50,7 @@ export function PointSwitcher({
         </span>
         <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
           <span className="truncate font-semibold">
-            {current?.name ?? hy.points.title}
+            {current?.name ?? t.points.title}
           </span>
           <span className="truncate text-xs text-sidebar-foreground/60">{subtitle}</span>
         </span>
@@ -63,7 +64,7 @@ export function PointSwitcher({
         className="w-72"
       >
         <DropdownMenuGroup>
-          <DropdownMenuLabel>{hy.points.title}</DropdownMenuLabel>
+          <DropdownMenuLabel>{t.points.title}</DropdownMenuLabel>
           {points.map((point) => {
             const here = point.id === currentId;
             return (
@@ -80,8 +81,8 @@ export function PointSwitcher({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{point.name}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {point.role === 'owner' ? hy.roles.owner : hy.roles.staff}
-                      {point.canRead ? '' : ` · ${hy.points.needsPayment}`}
+                      {point.role === 'owner' ? t.roles.owner : t.roles.staff}
+                      {point.canRead ? '' : ` · ${t.points.needsPayment}`}
                     </span>
                   </span>
                   {here && <Check className="size-4 shrink-0" aria-hidden="true" />}
