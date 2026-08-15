@@ -2588,6 +2588,119 @@ async function main() {
   check('кривой процент в адресе не роняет', decodeClientKey('%E0%A4%A') === '%E0%A4%A');
   check('обычный адрес разбирается', decodeClientKey('34%20AA%20123') === '34 AA 123');
 
+  /* ---------- границы суток, месяцев и годов ----------
+   *
+   * Проверяем не «функция что-то вернула», а бизнес-правило: смена в
+   * 23:50 принадлежит своему дню, а в 00:10 — уже следующему; месяц
+   * закрывается первым числом; високосный февраль длиннее. Всё это
+   * решается в поясе МОЙКИ, а не телефона: владелец в поездке видел
+   * смену, начатую в шесть утра. */
+  console.log('\n── границы суток, месяцев и годов');
+
+  const t = await import('../lib/time');
+  const h = await import('../lib/history');
+  const w = await import('../lib/summary-window');
+
+  const YEREVAN = 'Asia/Yerevan';   // UTC+4, перевода стрелок нет
+  const LONDON = 'Europe/London';   // перевод стрелок есть
+  const APIA = 'Pacific/Apia';      // UTC+13, за линией перемены дат
+
+  console.log('\n── граница суток');
+
+  /* 23:50 и 00:10 в Ереване — разные дни, и оба обязаны попасть в свой.
+     В UTC это 19:50 и 20:10 того же дня: пояс тут решает всё. */
+  const late = new Date('2026-08-15T19:50:00Z');  // 23:50 в Ереване
+  const early = new Date('2026-08-15T20:10:00Z'); // 00:10 16-го в Ереване
+
+  const dayOfLate = t.startOfDay(YEREVAN, late);
+  const dayOfEarly = t.startOfDay(YEREVAN, early);
+  check('23:50 и 00:10 — разные дни', dayOfLate.getTime() !== dayOfEarly.getTime());
+  check('23:50 попадает в 15-е', t.ymd(late, YEREVAN) === '2026-08-15', t.ymd(late, YEREVAN));
+  check('00:10 попадает в 16-е', t.ymd(early, YEREVAN) === '2026-08-16', t.ymd(early, YEREVAN));
+  check('сутки начинаются ровно в полночь', t.hhmm(dayOfLate, YEREVAN) === '00:00', t.hhmm(dayOfLate, YEREVAN));
+
+  /* Тот же момент в другом поясе — другой день. Владелец в поездке
+     смотрит на мойку, а не на свой телефон. */
+  check('тот же момент в Лондоне — ещё 15-е', t.ymd(early, LONDON) === '2026-08-15', t.ymd(early, LONDON));
+  check('и в Апиа — уже 16-е', t.ymd(early, APIA) === '2026-08-16', t.ymd(early, APIA));
+
+  console.log('\n── граница месяца');
+  const lastOfMonth = new Date('2026-08-31T19:50:00Z');  // 23:50 31-го
+  const firstOfNext = new Date('2026-08-31T20:10:00Z');  // 00:10 1 сентября
+  check('31-е в 23:50 — ещё август', t.ymd(lastOfMonth, YEREVAN).startsWith('2026-08'));
+  check('01-е в 00:10 — уже сентябрь', t.ymd(firstOfNext, YEREVAN).startsWith('2026-09'));
+
+  const monthStart = t.startOfMonth(YEREVAN, lastOfMonth);
+  check('месяц начинается первым числом', t.ymd(monthStart, YEREVAN) === '2026-08-01', t.ymd(monthStart, YEREVAN));
+  const prevStart = t.startOfPrevMonth(YEREVAN, lastOfMonth);
+  check('прошлый месяц — июль', t.ymd(prevStart, YEREVAN) === '2026-07-01', t.ymd(prevStart, YEREVAN));
+
+  console.log('\n── граница года');
+  const lastOfYear = new Date('2026-12-31T19:50:00Z');
+  const firstOfYear = new Date('2026-12-31T20:10:00Z');
+  check('31 декабря 23:50 — ещё 2026', t.ymd(lastOfYear, YEREVAN) === '2026-12-31', t.ymd(lastOfYear, YEREVAN));
+  check('1 января 00:10 — уже 2027', t.ymd(firstOfYear, YEREVAN) === '2027-01-01', t.ymd(firstOfYear, YEREVAN));
+  check('январь начинается первым', t.ymd(t.startOfMonth(YEREVAN, firstOfYear), YEREVAN) === '2027-01-01');
+  check(
+    'прошлый месяц для января — декабрь прошлого года',
+    t.ymd(t.startOfPrevMonth(YEREVAN, firstOfYear), YEREVAN) === '2026-12-01',
+    t.ymd(t.startOfPrevMonth(YEREVAN, firstOfYear), YEREVAN),
+  );
+
+  console.log('\n── длина месяца');
+  check('август — 31 день', t.daysInMonthOf(YEREVAN, new Date('2026-08-15T12:00:00Z')) === 31);
+  check('февраль 2026 — 28', t.daysInMonthOf(YEREVAN, new Date('2026-02-15T12:00:00Z')) === 28);
+  check('февраль 2024 — 29 (високосный)', t.daysInMonthOf(YEREVAN, new Date('2024-02-15T12:00:00Z')) === 29);
+  check('февраль 2000 — 29 (век делится на 400)', t.daysInMonthOf(YEREVAN, new Date('2000-02-15T12:00:00Z')) === 29);
+  check('февраль 1900 — 28 (век не делится на 400)', t.daysInMonthOf(YEREVAN, new Date('1900-02-15T12:00:00Z')) === 28);
+
+  console.log('\n── перевод стрелок');
+  /* Лондон переводит стрелки в ночь на 29 марта 2026: сутки длиной 23
+     часа. Складывать «плюс 24 часа» нельзя — граница уедет на час. */
+  /* Стрелки переводят в 01:00 ночи НА 29-е, то есть короткие сутки —
+     это само 29-е, от его полуночи до полуночи 30-го. Сравнение 28-го с
+     29-м даёт обычные 24 часа: переход в этот отрезок не попадает. */
+  const beforeDst = new Date('2026-03-29T12:00:00Z');
+  const afterDst = new Date('2026-03-30T12:00:00Z');
+  const d1 = t.startOfDay(LONDON, beforeDst);
+  const d2 = t.startOfDay(LONDON, afterDst);
+  const dstHours = (d2.getTime() - d1.getTime()) / 3_600_000;
+  check('короткие сутки перевода — 23 часа', dstHours === 23, dstHours);
+  check('и обе полуночи — настоящие полуночи', t.hhmm(d1, LONDON) === '00:00' && t.hhmm(d2, LONDON) === '00:00');
+
+  /* Осенью сутки длиннее. */
+  const beforeBack = new Date('2026-10-25T12:00:00Z');
+  const afterBack = new Date('2026-10-26T12:00:00Z');
+  const back = (t.startOfDay(LONDON, afterBack).getTime() - t.startOfDay(LONDON, beforeBack).getTime()) / 3_600_000;
+  check('длинные сутки перевода — 25 часов', back === 25, back);
+
+  console.log('\n── границы периодов сводки');
+  for (const period of ['today', 'month', 'prevmonth'] as const) {
+    const win = w.windowFor(period, YEREVAN);
+    check(`${period}: начало раньше конца`, win.from < win.to, { from: win.from, to: win.to });
+    check(`${period}: база сравнения раньше периода`, win.prevFrom < win.prevTo && win.prevTo <= win.from);
+    check(`${period}: полночь на границе`, t.hhmm(win.from, YEREVAN) === '00:00', t.hhmm(win.from, YEREVAN));
+  }
+
+  const month = w.windowFor('month', YEREVAN);
+  const prev = w.windowFor('prevmonth', YEREVAN);
+  check('прошлый месяц закрыт началом текущего', prev.to.getTime() === month.from.getTime(), {
+    prevTo: prev.to, monthFrom: month.from,
+  });
+
+  console.log('\n── день по строке');
+  const dayWindow = h.dayBounds('2026-08-15', YEREVAN);
+  check('день начинается в полночь', t.hhmm(dayWindow.from, YEREVAN) === '00:00');
+  check('и кончается полуночью следующего', t.hhmm(dayWindow.to, YEREVAN) === '00:00');
+  check('в сутках 24 часа', (dayWindow.to.getTime() - dayWindow.from.getTime()) === 24 * 3_600_000);
+  const dstDay = h.dayBounds('2026-03-29', LONDON);
+  check(
+    'а в день перевода — 23',
+    (dstDay.to.getTime() - dstDay.from.getTime()) === 23 * 3_600_000,
+    (dstDay.to.getTime() - dstDay.from.getTime()) / 3_600_000,
+  );
+
+
   /* ---------- потолок суммы ----------
    *
    * Деньги лежат в `integer`. Всё, что больше двух миллиардов, Postgres
