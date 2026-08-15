@@ -653,8 +653,22 @@ async function main() {
     const r = await web(path);
     check(`${path} без входа уводит`, r.status === 307 || r.status === 302, r.status);
   }
-  const admin = await web('/admin');
-  check('/admin без прав не пускает', admin.status !== 200, admin.status);
+  /* Каждая страница раздела, а не только его корень.
+     Права проверяются в общем каркасе `app/admin/layout.tsx`, и это
+     правильно — забыть проверку в новой странице легко. Но проверка на
+     одну страницу не доказывает ничего про остальные: каркас можно
+     обойти, добавив свой, и заметить это будет нечем. Здесь закрыт
+     каждый адрес, включая карточку чужого бизнеса по прямой ссылке. */
+  for (const path of [
+    '/admin',
+    '/admin/journal',
+    '/admin/payments',
+    '/admin/attention',
+    '/admin/t/00000000-0000-0000-0000-000000000000',
+  ]) {
+    const page = await web(path);
+    check(`${path} без прав не пускает`, page.status !== 200, page.status);
+  }
 
   report();
 }

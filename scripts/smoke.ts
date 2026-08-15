@@ -359,6 +359,49 @@ async function main() {
     (await listActivePasses(tenant.id, small.client.id)).length === 0,
   );
 
+  /* Срок абонемента.
+   *
+   * Проверка стоит в SQL списания, и это правильное место — два мойщика
+   * могут нажать «абонемент» одновременно. Но проверки на неё не было
+   * вовсе, а цена ошибки прямая: просроченный абонемент, который всё ещё
+   * списывается, это бесплатные мойки за счёт владельца. Срок двигаем
+   * в прошлое руками — ждать месяц в тесте не на чем. */
+  const { passes: passesTable } = await import('../lib/db/schema');
+  const dated = await sellPass({
+    tenantId: tenant.id, soldBy: owner.id, clientKey: '16 EX 111',
+    serviceId: complex.id, totalUses: 10, price: 20000, validDays: 30,
+  });
+  check('у абонемента со сроком есть дата окончания', dated.pass.expiresAt !== null);
+  check(
+    'и пока он в сроке — он активен',
+    (await listActivePasses(tenant.id, dated.client.id)).length === 1,
+  );
+
+  await db
+    .update(passesTable)
+    .set({ expiresAt: new Date(Date.now() - 86_400_000) })
+    .where(eq(passesTable.id, dated.pass.id));
+
+  let stale = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id, serviceId: complex.id,
+      clientKey: '16 EX 111', payment: 'pass', passId: dated.pass.id,
+    });
+  } catch {
+    stale = true;
+  }
+  check('просроченным абонементом не расплатиться', stale);
+  check(
+    'и в активных его больше нет',
+    (await listActivePasses(tenant.id, dated.client.id)).length === 0,
+  );
+  const staleRow = await db
+    .select({ used: passesTable.usedUses })
+    .from(passesTable)
+    .where(eq(passesTable.id, dated.pass.id));
+  check('и мойки с него не списались', staleRow[0].used === 0, staleRow[0].used);
+
   /* ---------- досылка из офлайна ---------- */
   // телефон не дождался ответа и отправил ту же запись ещё раз:
   // это не вторая машина, а та же самая
