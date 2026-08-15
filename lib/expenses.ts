@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { expenses } from './db/schema';
+import { isSaneMoney } from './money';
 
 /**
  * Расходы и прибыль.
@@ -30,7 +31,10 @@ export class BadExpenseError extends Error {
 export async function addExpense(input: NewExpense) {
   const category = input.category.trim();
   if (!category) throw new BadExpenseError('EMPTY_CATEGORY');
-  if (!Number.isInteger(input.amount) || input.amount <= 0) {
+  /* Верхняя граница — не придирка: столбец суммы `integer`, и триллион
+     ронял вставку пятисоткой «сервер сломался». Лишний ноль в форме —
+     обычная опечатка, и ответ на неё должен называть причину. */
+  if (!isSaneMoney(input.amount) || input.amount <= 0) {
     throw new BadExpenseError('BAD_AMOUNT');
   }
 
@@ -243,7 +247,7 @@ export async function editExpense(params: {
 }) {
   const category = params.category.trim();
   if (!category) throw new BadExpenseError('EMPTY_CATEGORY');
-  if (!Number.isInteger(params.amount) || params.amount <= 0) {
+  if (!isSaneMoney(params.amount) || params.amount <= 0) {
     throw new BadExpenseError('BAD_AMOUNT');
   }
 
