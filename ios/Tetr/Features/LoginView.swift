@@ -156,12 +156,19 @@ struct LoginView: View {
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
                     .focused($focus, equals: .phone)
+                    /* Имена для VoiceOver и для UI-тестов — одни и те же.
+                       Плейсхолдер озвучивать нечего: «+374 77 123 456»
+                       читается как набор цифр, а не как «телефон». */
+                    .accessibilityIdentifier("login.phone")
+                    .accessibilityLabel("Հեռախոս")
             }
 
             field(title: "PIN կոդ · 4 նիշ") {
                 SecureField("••••", text: $pin)
                     .keyboardType(.numberPad)
                     .focused($focus, equals: .pin)
+                    .accessibilityIdentifier("login.pin")
+                    .accessibilityLabel("PIN կոդ")
                     .onChange(of: pin) { _, value in
                         if value.count > 4 { pin = String(value.prefix(4)) }
                     }
@@ -178,6 +185,7 @@ struct LoginView: View {
             Button("Մուտք գործել") {
                 Task { await submit() }
             }
+            .accessibilityIdentifier("login.submit")
             .buttonStyle(LimeButton(loading: busy))
             .disabled(busy || phone.isEmpty || pin.count < 4)
             .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
@@ -238,8 +246,29 @@ struct LoginView: View {
         error = nil
         defer { busy = false }
 
+        /* Face ID не сработал — это не повод молчать.
+         *
+         * Здесь стоял просто `return`: касание по аватару не давало ни
+         * входа, ни строчки объяснения. Face ID отказывает буднично —
+         * мокрое лицо, солнце в камеру, человек нажал «Отмена», код-пароль
+         * не задан вовсе, — и мойщик оставался перед экраном, где
+         * единственная большая кнопка ничего не делает. Догадаться, что
+         * выход есть внизу, под словами «войти другим номером», нельзя:
+         * ничто на это не указывает.
+         *
+         * Теперь отказ проверки открывает форму с PIN — тем же путём, что
+         * и просроченный сохранённый вход. Пароль от телефона мойщик может
+         * не знать, свой PIN знает всегда.
+         */
         if lock.available {
-            guard await lock.authenticate(reason: "Մուտք գործել որպես \(account.name)") else { return }
+            guard await lock.authenticate(reason: "Մուտք գործել որպես \(account.name)") else {
+                phone = account.phone
+                pin = ""
+                error = "\(lock.kindName)-ը չհաստատվեց։ Մուտքագրեք PIN-ը։"
+                withAnimation(.easeOut(duration: 0.2)) { manual = true }
+                focus = .pin
+                return
+            }
         }
 
         do {

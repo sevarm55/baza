@@ -779,6 +779,7 @@ struct ShiftView: View {
             Button("+ \(session.tenant?.unitOne ?? "")") {
                 recording = true
             }
+            .accessibilityIdentifier("shift.record")
             .buttonStyle(LimeButton())
             .disabled(!onShift)
             .opacity(onShift ? 1 : 0.45)

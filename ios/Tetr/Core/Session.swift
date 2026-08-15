@@ -73,7 +73,38 @@ final class Session: ObservableObject {
     private static let rememberAccountKey = "tetr.login.remember.account"
     private static let rememberedRefreshKey = "remembered-refresh"
 
+    #if DEBUG
+    /* Сброс — ровно один раз за запуск процесса. SwiftUI пересоздаёт
+       объект не только на старте, и без этого флага второй `init`
+       стирал уже выданные токены посреди работы: человек оказывался на
+       экране входа, ничего не нажимая. */
+    private static var didReset = false
+    #endif
+
     init() {
+        #if DEBUG
+        /* Чистый лист для проверки входа.
+         *
+         * Вход живёт в Keychain, а Keychain переживает и перезапуск
+         * приложения, и его удаление с симулятора. Поэтому тест, который
+         * проверяет экран входа, со второго прогона проверял не его:
+         * приложение открывалось сразу на смене, потому что вход остался
+         * от прошлого раза.
+         *
+         * Только в отладочной сборке и только по явной переменной —
+         * в магазинную это не попадает вовсе. Стереть чужой вход
+         * случайно нечем: обычный запуск переменной не несёт.
+         */
+        if ProcessInfo.processInfo.environment["TETR_RESET"] == "1", !Self.didReset {
+            Self.didReset = true
+            Keychain.set(nil, for: "access")
+            Keychain.set(nil, for: "refresh")
+            Keychain.set(nil, for: Self.rememberedRefreshKey)
+            UserDefaults.standard.removeObject(forKey: Self.rememberAccountKey)
+            UserDefaults.standard.removeObject(forKey: Self.rememberEnabledKey)
+        }
+        #endif
+
         rememberLogin = UserDefaults.standard.object(forKey: Self.rememberEnabledKey) as? Bool ?? true
         rememberedAccount = Self.loadRememberedAccount()
         accessToken = Keychain.get("access")
@@ -317,17 +348,51 @@ final class Session: ObservableObject {
         }
     }
 
+    /**
+     * Обновление токена — по одному за раз на всё приложение.
+     *
+     * Сервер ротирует refresh при каждом обмене: отдал новый — старый
+     * мёртв. Пока обновление было обычным вызовом, это ломалось на любом
+     * экране, который делает больше одного запроса сразу.
+     *
+     * Так это выглядело у мойщика. Он набирает номер машины, и на каждое
+     * изменение поля уходит запрос-подсказка «этот клиент уже был». Если
+     * токен протух именно в этот момент, два запроса упираются в 401
+     * одновременно и оба идут обновляться. Первый получает новую пару,
+     * второй предъявляет уже погашенный refresh, получает отказ — и код
+     * ниже честно решает, что сессию отозвали, и выкидывает человека на
+     * экран входа. Посреди записи машины, с набранным номером, который
+     * после этого негде взять.
+     *
+     * Причина не в сервере: ротация refresh — это защита от кражи токена,
+     * и отказывать по второму предъявлению он обязан. Чинится на стороне
+     * приложения: обновление должно быть одно, а его результат — общим.
+     * Кто пришёл вторым, дожидается той же попытки и получает тот же
+     * новый токен.
+     */
+    private var renewal: Task<String, Error>?
+
     private func renew() async throws -> String {
+        // уже обновляемся — ждём тот же результат, а не начинаем второе
+        if let renewal { return try await renewal.value }
+
         guard let refreshToken else { throw APIError(status: 401, code: nil, retryAfter: nil) }
-        let tokens: API.Tokens = try await api.send(
-            "auth/refresh",
-            method: "POST",
-            body: ["refresh": refreshToken],
-            as: API.Tokens.self
-        )
-        accessToken = tokens.access
-        // сервер ротирует refresh при каждом обмене: старый уже мёртв
-        self.refreshToken = tokens.refresh
-        return tokens.access
+
+        let task = Task<String, Error> { @MainActor [weak self] in
+            guard let self else { throw APIError(status: 401, code: nil, retryAfter: nil) }
+            let tokens: API.Tokens = try await self.api.send(
+                "auth/refresh",
+                method: "POST",
+                body: ["refresh": refreshToken],
+                as: API.Tokens.self
+            )
+            self.accessToken = tokens.access
+            self.refreshToken = tokens.refresh
+            return tokens.access
+        }
+        renewal = task
+        defer { renewal = nil }
+
+        return try await task.value
     }
 }

@@ -209,6 +209,11 @@ struct OrderFlowView: View {
                 .autocorrectionDisabled()
                 .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .default)
                 .focused($typing)
+                /* Поле без подписи: на экране его объясняет крупный
+                   плейсхолдер, а VoiceOver читал бы пустоту. Здесь же
+                   имя, по которому его находят UI-тесты. */
+                .accessibilityIdentifier("order.clientKey")
+                .accessibilityLabel(session.tenant?.clientIdLabel ?? "")
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
@@ -512,6 +517,7 @@ struct OrderFlowView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
+            .accessibilityIdentifier("order.save")
             .buttonStyle(LimeButton())
             .disabled(!canRecord || sending)
             .opacity(canRecord && !sending ? 1 : 0.45)
