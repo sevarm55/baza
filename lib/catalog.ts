@@ -6,6 +6,7 @@ import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
 import { revokeMembershipSessions } from './auth';
 import { claimAccount, PhoneTakenError } from './accounts';
+import { MAX_MONEY } from './money';
 
 /**
  * Прайс и люди — то, что владелец правит из кабинета.
@@ -43,7 +44,10 @@ export async function upsertService(params: {
 }) {
   const name = params.name.trim();
   if (!name) throw new ValidationError('NAME_REQUIRED');
-  if (!Number.isFinite(params.price) || params.price < 0) {
+  /* Потолок — из того же места, что и у расходов: столбец цены
+     `integer`, и сумма больше двух миллиардов роняла вставку пятисоткой.
+     Отказ должен называть причину, а не выглядеть поломкой сервера. */
+  if (!Number.isFinite(params.price) || params.price < 0 || params.price > MAX_MONEY) {
     throw new ValidationError('BAD_PRICE');
   }
 
@@ -54,7 +58,7 @@ export async function upsertService(params: {
     } else {
       tierPrices = params.tierPrices.map((n) => {
         const v = Math.round(Number(n));
-        if (!Number.isFinite(v) || v < 0) throw new ValidationError('BAD_PRICE');
+        if (!Number.isFinite(v) || v < 0 || v > MAX_MONEY) throw new ValidationError('BAD_PRICE');
         return v;
       });
       // всё пусто — то же самое, что тарифных цен нет вовсе
@@ -157,21 +161,48 @@ export async function addStaff(params: {
  * прошлые зарплаты пересчитаны не будут. Это не побочный эффект, а
  * условие, без которого нельзя спокойно менять ставки.
  */
+/**
+ * Правка человека: имя, ставка или и то и другое.
+ *
+ * Поля необязательны, и это не удобство, а требование к PATCH: он меняет
+ * названное и не трогает остальное. Раньше оба были обязательны, и
+ * «поднять ставку до 50 %» одним полем возвращало 400 — притом что
+ * маршрут так и назывался, «имя и процент». Форма кабинета и приложение
+ * шлют оба поля всегда, поэтому в жизни это не всплывало; всплыло бы у
+ * первого, кто пойдёт в API помимо них.
+ *
+ * Опасная половина отказа была в другом: пропущенное имя означало бы
+ * пустое имя, а пропущенная ставка — ноль. Человек без ставки работает
+ * бесплатно, и заметно это станет в день зарплаты.
+ */
 export async function saveStaff(params: {
   tenantId: string;
   id: string;
-  name: string;
-  percent: number;
+  name?: string;
+  percent?: number;
 }) {
-  const name = params.name.trim();
-  if (name.length < 2) throw new ValidationError('NAME_REQUIRED');
-  if (!Number.isInteger(params.percent) || params.percent < 0 || params.percent > 100) {
-    throw new ValidationError('BAD_PERCENT');
+  const patch: { name?: string; percent?: number } = {};
+
+  if (params.name !== undefined) {
+    const name = params.name.trim();
+    if (name.length < 2) throw new ValidationError('NAME_REQUIRED');
+    patch.name = name;
   }
+
+  if (params.percent !== undefined) {
+    if (!Number.isInteger(params.percent) || params.percent < 0 || params.percent > 100) {
+      throw new ValidationError('BAD_PERCENT');
+    }
+    patch.percent = params.percent;
+  }
+
+  // Пустая правка — это опечатка в запросе, а не «оставить как было»:
+  // молча ответив «сохранено», мы соврали бы про несохранённое.
+  if (Object.keys(patch).length === 0) throw new ValidationError('NOTHING_TO_SAVE');
 
   const [row] = await db
     .update(users)
-    .set({ name, percent: params.percent })
+    .set(patch)
     .where(and(eq(users.id, params.id), eq(users.tenantId, params.tenantId)))
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
