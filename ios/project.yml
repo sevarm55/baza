@@ -172,7 +172,7 @@ schemes:
       config: Debug
       environmentVariables:
         - variable: TETR_API
-          value: http://localhost:3100/api/v1/
+          value: http://172.20.10.6:3100/api/v1/
           isEnabled: true
     test:
       config: Debug
@@ -182,7 +182,7 @@ schemes:
       # Прогон по бою заводил бы машины живым мойкам.
       environmentVariables:
         - variable: TETR_API
-          value: http://localhost:3100/api/v1/
+          value: http://172.20.10.6:3100/api/v1/
           isEnabled: true
     profile:
       config: Release
