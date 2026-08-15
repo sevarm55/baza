@@ -5,7 +5,7 @@ import { clients } from '@/lib/db/schema';
 import { normalizePhone } from '@/lib/phone';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
-import { compactClientKey } from '@/lib/client-key';
+import { compactClientKey, decodeClientKey } from '@/lib/client-key';
 
 /**
  * Имя и телефон клиента.
@@ -46,7 +46,7 @@ export async function PATCH(
           eq(clients.tenantId, ctx.tenant.id),
           /* По слитной форме: в базе остались ключи, заведённые до
              красивого написания, и по красивому они не находятся. */
-          sql`regexp_replace(upper(${clients.key}), '[[:space:]-]+', '', 'g') = ${compactClientKey(decodeURIComponent(key))}`,
+          sql`regexp_replace(upper(${clients.key}), '[[:space:]-]+', '', 'g') = ${compactClientKey(decodeClientKey(key))}`,
         ),
       )
       .returning();
