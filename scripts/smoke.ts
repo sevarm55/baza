@@ -7,6 +7,8 @@
  */
 process.env.PGLITE_DIR = 'memory://';
 
+import { spawn } from 'node:child_process';
+
 let failed = 0;
 
 function check(name: string, condition: boolean, detail?: unknown) {
@@ -356,6 +358,49 @@ async function main() {
     'и пропадает из активных',
     (await listActivePasses(tenant.id, small.client.id)).length === 0,
   );
+
+  /* Срок абонемента.
+   *
+   * Проверка стоит в SQL списания, и это правильное место — два мойщика
+   * могут нажать «абонемент» одновременно. Но проверки на неё не было
+   * вовсе, а цена ошибки прямая: просроченный абонемент, который всё ещё
+   * списывается, это бесплатные мойки за счёт владельца. Срок двигаем
+   * в прошлое руками — ждать месяц в тесте не на чем. */
+  const { passes: passesTable } = await import('../lib/db/schema');
+  const dated = await sellPass({
+    tenantId: tenant.id, soldBy: owner.id, clientKey: '16 EX 111',
+    serviceId: complex.id, totalUses: 10, price: 20000, validDays: 30,
+  });
+  check('у абонемента со сроком есть дата окончания', dated.pass.expiresAt !== null);
+  check(
+    'и пока он в сроке — он активен',
+    (await listActivePasses(tenant.id, dated.client.id)).length === 1,
+  );
+
+  await db
+    .update(passesTable)
+    .set({ expiresAt: new Date(Date.now() - 86_400_000) })
+    .where(eq(passesTable.id, dated.pass.id));
+
+  let stale = false;
+  try {
+    await createOrder({
+      tenantId: tenant.id, staffId: washer.id, serviceId: complex.id,
+      clientKey: '16 EX 111', payment: 'pass', passId: dated.pass.id,
+    });
+  } catch {
+    stale = true;
+  }
+  check('просроченным абонементом не расплатиться', stale);
+  check(
+    'и в активных его больше нет',
+    (await listActivePasses(tenant.id, dated.client.id)).length === 0,
+  );
+  const staleRow = await db
+    .select({ used: passesTable.usedUses })
+    .from(passesTable)
+    .where(eq(passesTable.id, dated.pass.id));
+  check('и мойки с него не списались', staleRow[0].used === 0, staleRow[0].used);
 
   /* ---------- досылка из офлайна ---------- */
   // телефон не дождался ответа и отправил ту же запись ещё раз:
@@ -1065,6 +1110,47 @@ async function main() {
     { params: Promise.resolve({ id: hiredId }) },
   );
   check('процент больше ста не принимают', badPercent.status === 400, badPercent.status);
+
+  /* PATCH меняет названное и не трогает остальное. Раньше он требовал оба
+     поля сразу: «поднять ставку» одним процентом отвечало 400, а
+     «переименовать» одним именем обнулило бы ставку — то есть оставило бы
+     человека работать бесплатно до первой зарплаты. */
+  const onlyPercent = await staffOne.PATCH(
+    post('/staff', { percent: 55 }, rotated.access),
+    { params: Promise.resolve({ id: hiredId }) },
+  );
+  check('одну ставку менять можно', onlyPercent.status === 200, onlyPercent.status);
+  const afterPercent = (await onlyPercent.json()).staff;
+  check('ставка стала 55', afterPercent.percent === 55, afterPercent.percent);
+  check('имя осталось прежним', afterPercent.name === 'Վարդան', afterPercent.name);
+
+  const onlyName = await staffOne.PATCH(
+    post('/staff', { name: 'Վարդան Մ.' }, rotated.access),
+    { params: Promise.resolve({ id: hiredId }) },
+  );
+  check('одно имя менять можно', onlyName.status === 200, onlyName.status);
+  const afterName = (await onlyName.json()).staff;
+  check('имя поменялось', afterName.name === 'Վարդան Մ.', afterName.name);
+  check('а ставка НЕ обнулилась', afterName.percent === 55, afterName.percent);
+
+  const emptyPatch = await staffOne.PATCH(post('/staff', {}, rotated.access), {
+    params: Promise.resolve({ id: hiredId }),
+  });
+  check('пустая правка — отказ, а не «сохранено»', emptyPatch.status === 400, emptyPatch.status);
+
+  /* `null` в ставке — самый дорогой из кривых запросов: `Number(null)`
+     это ноль, и человек оставался работать бесплатно. Отвечал маршрут при
+     этом «сохранено», так что узнать об этом можно было только в день
+     зарплаты — когда в записях уже лежат снимки с нулём. */
+  for (const junk of [null, '40', true, [], {}] as unknown[]) {
+    const r = await staffOne.PATCH(post('/staff', { percent: junk }, rotated.access), {
+      params: Promise.resolve({ id: hiredId }),
+    });
+    check(`ставка «${JSON.stringify(junk)}» не принимается`, r.status === 400, r.status);
+  }
+  const stillPaid = await staffRoute.GET(get('/staff', rotated.access));
+  const stillRow = (await stillPaid.json()).staff.find((s: any) => s.id === hiredId);
+  check('и ставка осталась прежней', stillRow?.percent === 55, stillRow?.percent);
 
   /* Уволенный теряет доступ СРАЗУ, а не через месяц. Раньше у него
      оставался живой токен на весь его срок — это и проверяем. */
@@ -2517,6 +2603,352 @@ async function main() {
   check('человек пережил удаление своей точки', survivor !== undefined);
   check('и пробный срок остался израсходованным', survivor!.trialUsedAt !== null);
   check('вторая точка у него осталась', (await pointsOf(survivor!.id)).length === 1);
+
+  /* ---------- мусор снаружи не роняет сервер ----------
+   *
+   * 500 — это всегда баг, даже на заведомо кривом запросе. По пятисотке
+   * клиент не может решить, повторять ему или показать ошибку, и обычно
+   * повторяет; а в логах она неотличима от настоящей поломки.
+   *
+   * Обе проверки — по найденному: «9999-99-99» проходило проверку вида
+   * (четыре цифры, две, две) и разваливалось дальше, а номер клиента с
+   * нулевым байтом Postgres не принимает вовсе. */
+  console.log('\n── кривой ввод отвечает кодом, а не пятисоткой');
+
+  const { isDate, isMonth } = await import('../lib/history');
+  check('9999-99-99 — не дата', !isDate('9999-99-99'));
+  check('2026-02-31 — не дата', !isDate('2026-02-31'));
+  check('2026-13-01 — не дата', !isDate('2026-13-01'));
+  check('2026-02-29 — не дата (год не високосный)', !isDate('2026-02-29'));
+  check('2024-02-29 — дата (год високосный)', isDate('2024-02-29'));
+  check('2026-08-15 — дата', isDate('2026-08-15'));
+  check('2026-99 — не месяц', !isMonth('2026-99'));
+  check('2026-00 — не месяц', !isMonth('2026-00'));
+  check('2026-08 — месяц', isMonth('2026-08'));
+
+  const { compactClientKey: ck, decodeClientKey } = await import('../lib/client-key');
+  check('нулевой байт выброшен из номера', ck('34 AA123') === '34AA123', ck('34 AA123'));
+  check('кривой процент в адресе не роняет', decodeClientKey('%E0%A4%A') === '%E0%A4%A');
+  check('обычный адрес разбирается', decodeClientKey('34%20AA%20123') === '34 AA 123');
+
+  /* ---------- границы суток, месяцев и годов ----------
+   *
+   * Проверяем не «функция что-то вернула», а бизнес-правило: смена в
+   * 23:50 принадлежит своему дню, а в 00:10 — уже следующему; месяц
+   * закрывается первым числом; високосный февраль длиннее. Всё это
+   * решается в поясе МОЙКИ, а не телефона: владелец в поездке видел
+   * смену, начатую в шесть утра. */
+  console.log('\n── границы суток, месяцев и годов');
+
+  const t = await import('../lib/time');
+  const h = await import('../lib/history');
+  const w = await import('../lib/summary-window');
+
+  const YEREVAN = 'Asia/Yerevan';   // UTC+4, перевода стрелок нет
+  const LONDON = 'Europe/London';   // перевод стрелок есть
+  const APIA = 'Pacific/Apia';      // UTC+13, за линией перемены дат
+
+  console.log('\n── граница суток');
+
+  /* 23:50 и 00:10 в Ереване — разные дни, и оба обязаны попасть в свой.
+     В UTC это 19:50 и 20:10 того же дня: пояс тут решает всё. */
+  const late = new Date('2026-08-15T19:50:00Z');  // 23:50 в Ереване
+  const early = new Date('2026-08-15T20:10:00Z'); // 00:10 16-го в Ереване
+
+  const dayOfLate = t.startOfDay(YEREVAN, late);
+  const dayOfEarly = t.startOfDay(YEREVAN, early);
+  check('23:50 и 00:10 — разные дни', dayOfLate.getTime() !== dayOfEarly.getTime());
+  check('23:50 попадает в 15-е', t.ymd(late, YEREVAN) === '2026-08-15', t.ymd(late, YEREVAN));
+  check('00:10 попадает в 16-е', t.ymd(early, YEREVAN) === '2026-08-16', t.ymd(early, YEREVAN));
+  check('сутки начинаются ровно в полночь', t.hhmm(dayOfLate, YEREVAN) === '00:00', t.hhmm(dayOfLate, YEREVAN));
+
+  /* Тот же момент в другом поясе — другой день. Владелец в поездке
+     смотрит на мойку, а не на свой телефон. */
+  check('тот же момент в Лондоне — ещё 15-е', t.ymd(early, LONDON) === '2026-08-15', t.ymd(early, LONDON));
+  check('и в Апиа — уже 16-е', t.ymd(early, APIA) === '2026-08-16', t.ymd(early, APIA));
+
+  console.log('\n── граница месяца');
+  const lastOfMonth = new Date('2026-08-31T19:50:00Z');  // 23:50 31-го
+  const firstOfNext = new Date('2026-08-31T20:10:00Z');  // 00:10 1 сентября
+  check('31-е в 23:50 — ещё август', t.ymd(lastOfMonth, YEREVAN).startsWith('2026-08'));
+  check('01-е в 00:10 — уже сентябрь', t.ymd(firstOfNext, YEREVAN).startsWith('2026-09'));
+
+  const monthStart = t.startOfMonth(YEREVAN, lastOfMonth);
+  check('месяц начинается первым числом', t.ymd(monthStart, YEREVAN) === '2026-08-01', t.ymd(monthStart, YEREVAN));
+  const prevStart = t.startOfPrevMonth(YEREVAN, lastOfMonth);
+  check('прошлый месяц — июль', t.ymd(prevStart, YEREVAN) === '2026-07-01', t.ymd(prevStart, YEREVAN));
+
+  console.log('\n── граница года');
+  const lastOfYear = new Date('2026-12-31T19:50:00Z');
+  const firstOfYear = new Date('2026-12-31T20:10:00Z');
+  check('31 декабря 23:50 — ещё 2026', t.ymd(lastOfYear, YEREVAN) === '2026-12-31', t.ymd(lastOfYear, YEREVAN));
+  check('1 января 00:10 — уже 2027', t.ymd(firstOfYear, YEREVAN) === '2027-01-01', t.ymd(firstOfYear, YEREVAN));
+  check('январь начинается первым', t.ymd(t.startOfMonth(YEREVAN, firstOfYear), YEREVAN) === '2027-01-01');
+  check(
+    'прошлый месяц для января — декабрь прошлого года',
+    t.ymd(t.startOfPrevMonth(YEREVAN, firstOfYear), YEREVAN) === '2026-12-01',
+    t.ymd(t.startOfPrevMonth(YEREVAN, firstOfYear), YEREVAN),
+  );
+
+  console.log('\n── длина месяца');
+  check('август — 31 день', t.daysInMonthOf(YEREVAN, new Date('2026-08-15T12:00:00Z')) === 31);
+  check('февраль 2026 — 28', t.daysInMonthOf(YEREVAN, new Date('2026-02-15T12:00:00Z')) === 28);
+  check('февраль 2024 — 29 (високосный)', t.daysInMonthOf(YEREVAN, new Date('2024-02-15T12:00:00Z')) === 29);
+  check('февраль 2000 — 29 (век делится на 400)', t.daysInMonthOf(YEREVAN, new Date('2000-02-15T12:00:00Z')) === 29);
+  check('февраль 1900 — 28 (век не делится на 400)', t.daysInMonthOf(YEREVAN, new Date('1900-02-15T12:00:00Z')) === 28);
+
+  console.log('\n── перевод стрелок');
+  /* Лондон переводит стрелки в ночь на 29 марта 2026: сутки длиной 23
+     часа. Складывать «плюс 24 часа» нельзя — граница уедет на час. */
+  /* Стрелки переводят в 01:00 ночи НА 29-е, то есть короткие сутки —
+     это само 29-е, от его полуночи до полуночи 30-го. Сравнение 28-го с
+     29-м даёт обычные 24 часа: переход в этот отрезок не попадает. */
+  const beforeDst = new Date('2026-03-29T12:00:00Z');
+  const afterDst = new Date('2026-03-30T12:00:00Z');
+  const d1 = t.startOfDay(LONDON, beforeDst);
+  const d2 = t.startOfDay(LONDON, afterDst);
+  const dstHours = (d2.getTime() - d1.getTime()) / 3_600_000;
+  check('короткие сутки перевода — 23 часа', dstHours === 23, dstHours);
+  check('и обе полуночи — настоящие полуночи', t.hhmm(d1, LONDON) === '00:00' && t.hhmm(d2, LONDON) === '00:00');
+
+  /* Осенью сутки длиннее. */
+  const beforeBack = new Date('2026-10-25T12:00:00Z');
+  const afterBack = new Date('2026-10-26T12:00:00Z');
+  const back = (t.startOfDay(LONDON, afterBack).getTime() - t.startOfDay(LONDON, beforeBack).getTime()) / 3_600_000;
+  check('длинные сутки перевода — 25 часов', back === 25, back);
+
+  console.log('\n── границы периодов сводки');
+  for (const period of ['today', 'month', 'prevmonth'] as const) {
+    const win = w.windowFor(period, YEREVAN);
+    check(`${period}: начало раньше конца`, win.from < win.to, { from: win.from, to: win.to });
+    check(`${period}: база сравнения раньше периода`, win.prevFrom < win.prevTo && win.prevTo <= win.from);
+    check(`${period}: полночь на границе`, t.hhmm(win.from, YEREVAN) === '00:00', t.hhmm(win.from, YEREVAN));
+  }
+
+  const month = w.windowFor('month', YEREVAN);
+  const prev = w.windowFor('prevmonth', YEREVAN);
+  check('прошлый месяц закрыт началом текущего', prev.to.getTime() === month.from.getTime(), {
+    prevTo: prev.to, monthFrom: month.from,
+  });
+
+  console.log('\n── день по строке');
+  const dayWindow = h.dayBounds('2026-08-15', YEREVAN);
+  check('день начинается в полночь', t.hhmm(dayWindow.from, YEREVAN) === '00:00');
+  check('и кончается полуночью следующего', t.hhmm(dayWindow.to, YEREVAN) === '00:00');
+  check('в сутках 24 часа', (dayWindow.to.getTime() - dayWindow.from.getTime()) === 24 * 3_600_000);
+  const dstDay = h.dayBounds('2026-03-29', LONDON);
+  check(
+    'а в день перевода — 23',
+    (dstDay.to.getTime() - dstDay.from.getTime()) === 23 * 3_600_000,
+    (dstDay.to.getTime() - dstDay.from.getTime()) / 3_600_000,
+  );
+
+
+  /* ---------- потолок суммы ----------
+   *
+   * Деньги лежат в `integer`. Всё, что больше двух миллиардов, Postgres
+   * не принимает, и до сих пор это выходило наружу пятисоткой
+   * «INTERNAL» — то есть выглядело поломкой сервера. Лишний ноль в форме
+   * это обычная опечатка, и ответ на неё должен называть причину, иначе
+   * человек жмёт «сохранить» ещё раз. */
+  console.log('\n── суммы больше, чем бывает');
+
+  const bigBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Триллион',
+    ownerName: 'Богач',
+    phone: '077 808 080',
+    pin: '1133',
+  });
+
+  const { addExpense: tryExpense, BadExpenseError } = await import('../lib/expenses');
+  const expenseCode = async (amount: number) => {
+    try {
+      await tryExpense({
+        tenantId: bigBiz.tenant.id,
+        userId: bigBiz.owner.id,
+        amount,
+        category: 'Тест',
+      });
+      return 'ok';
+    } catch (e) {
+      return e instanceof BadExpenseError ? e.message : `СЛОМАЛОСЬ: ${(e as Error).message.slice(0, 60)}`;
+    }
+  };
+
+  check('расход в триллион — понятный отказ, а не 500', (await expenseCode(1e12)) === 'BAD_AMOUNT');
+  check('и в два миллиарда тоже', (await expenseCode(2_100_000_000)) === 'BAD_AMOUNT');
+  check('миллион по-прежнему проходит', (await expenseCode(1_000_000)) === 'ok');
+
+  const bigPrice = await rejects(() =>
+    catalog.upsertService({ tenantId: bigBiz.tenant.id, name: 'Дорого', price: 1e12 }),
+  );
+  check('цена услуги в триллион не принимается', bigPrice);
+
+  /* ---------- номер русскими буквами ----------
+   *
+   * «34АА123» кириллицей и «34AA123» латиницей выглядят на экране
+   * одинаково, а для базы это разные клиенты. Мойщик с русской
+   * раскладкой заводил вторую карточку той же машины, и заметить это
+   * можно было только сравнив коды символов: в списке две одинаковые
+   * строки, у каждой своя история визитов и своя сумма. */
+  console.log('\n── номер русскими буквами — та же машина');
+
+  const { compactClientKey } = await import('../lib/client-key');
+  check(
+    'кириллическая А превращается в латинскую',
+    compactClientKey('34АА123') === '34AA123',
+    compactClientKey('34АА123'),
+  );
+  check('строчные тоже', compactClientKey('34 аа 123') === '34AA123', compactClientKey('34 аа 123'));
+  check('латиница не меняется', compactClientKey('34AA123') === '34AA123');
+  check(
+    'телефон остаётся телефоном',
+    compactClientKey('+374 77 12 34 56') === '+37477123456',
+    compactClientKey('+374 77 12 34 56'),
+  );
+  check(
+    'буква без латинского двойника не трогается',
+    compactClientKey('34ЖД123') === '34ЖД123',
+    compactClientKey('34ЖД123'),
+  );
+
+  const cyrBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Кириллица',
+    ownerName: 'Хозяин',
+    phone: '077 707 070',
+    pin: '1144',
+  });
+  const cyrService = (await q.listServices(cyrBiz.tenant.id))[0];
+
+  await createOrder({
+    tenantId: cyrBiz.tenant.id, staffId: cyrBiz.owner.id, serviceId: cyrService.id,
+    clientKey: '34AA123', payment: 'cash',
+  });
+  await createOrder({
+    tenantId: cyrBiz.tenant.id, staffId: cyrBiz.owner.id, serviceId: cyrService.id,
+    clientKey: '34АА123', payment: 'cash',
+  });
+
+  const oneCar = await q.findClient(cyrBiz.tenant.id, '34AA123');
+  check('обе записи легли на одну машину', oneCar?.visits === 2, oneCar?.visits);
+  const cyrLookup = await q.findClient(cyrBiz.tenant.id, '34АА123');
+  check('и находится она любым написанием', cyrLookup?.id === oneCar?.id);
+
+  /* ---------- одно правило округления на все слои ----------
+   *
+   * Доля человека почти всегда дробная: 999 ֏ под 33 % — это 329,67.
+   * Округлять её можно вниз или к ближайшему, но выбрать надо один раз и
+   * всюду: смена, зарплата, выгрузка и SQL-пересчёт обязаны назвать одно
+   * число. Продукт округляет ВНИЗ (`lib/money.ts`), и проверка здесь
+   * стоит на цифре, где два способа расходятся, — иначе она проходит на
+   * круглых демо-ценах и молчит там, где важна.
+   *
+   * Расхождение уже было: `scripts/audit-numbers.ts` — тот самый скрипт,
+   * которым сверяют цифры, когда им не верят, — считал `round`. На живой
+   * мойке со скидками он спорил бы с правильным ответом. */
+  console.log('\n── округление доли: одно правило везде');
+
+  const oddBiz = await createBusiness({
+    niche: 'carwash',
+    businessName: 'Округление',
+    ownerName: 'Проверяющий',
+    phone: '077 909 090',
+    pin: '1122',
+  });
+
+  const [oddWasher] = await db
+    .insert(users)
+    .values({
+      tenantId: oddBiz.tenant.id,
+      phone: '+37477909091',
+      pinHash: await hashPin('3344'),
+      name: 'Դրոբնի',
+      role: 'staff',
+      percent: 33,
+    })
+    .returning();
+
+  const oddService = (await q.listServices(oddBiz.tenant.id))[0];
+  await db.update(services).set({ price: 1000 }).where(eq(services.id, oddService.id));
+
+  // 999 × 33 % = 329,67 → вниз 329, к ближайшему 330
+  await createOrder({
+    tenantId: oddBiz.tenant.id,
+    staffId: oddWasher.id,
+    serviceId: oddService.id,
+    clientKey: '99 OD 999',
+    payment: 'cash',
+    price: 999,
+  });
+
+  const oddShift = await q.getShift(oddBiz.tenant.id, oddWasher.id, q.startOfDay(oddBiz.tenant.timezone));
+  check('смена округляет вниз: 999 × 33 % = 329', oddShift.earned === 329, oddShift.earned);
+
+  const oddDue = (await q.getUnsettledPayroll(oddBiz.tenant.id)).find(
+    (r) => r.staffId === oddWasher.id,
+  );
+  check('зарплата считает то же самое', oddDue?.earned === 329, oddDue?.earned);
+
+  const oddDays = (await q.getUnsettledByDay(oddBiz.tenant.id, oddBiz.tenant.timezone)).filter(
+    (d) => d.staffId === oddWasher.id,
+  );
+  check(
+    'дневной лист тоже',
+    oddDays.reduce((s, d) => s + d.earned, 0) === 329,
+    oddDays.map((d) => d.earned),
+  );
+
+  const oddSql = await db.execute(
+    sql`select coalesce(sum(floor(price * staff_percent / 100.0)), 0)::int as owed
+        from orders where tenant_id = ${oddBiz.tenant.id} and canceled_at is null`,
+  );
+  const oddOwed = Number(((oddSql as any).rows ?? oddSql)[0].owed);
+  check('и пересчёт голым SQL — тем же правилом', oddOwed === 329, oddOwed);
+
+  /* ---------- замок на боевую базу ----------
+   *
+   * Проверяется запуском отдельного процесса, а не вызовом функции:
+   * замок стоит на загрузке модуля базы, и в этом процессе она уже
+   * загружена — своей, в памяти. Второй процесс с чужим DATABASE_URL —
+   * единственный способ увидеть то же, что увидит человек, у которого в
+   * `.env.local` осталась боевая строка. */
+  console.log('\n── замок на чужую базу в режиме разработки');
+
+  const REMOTE = 'postgres://user:pw@db.example.com:5432/app';
+  const LOCAL = 'postgres://tetr:tetr@127.0.0.1:5433/tetr';
+
+  const loadsDb = (env: Record<string, string>) =>
+    new Promise<{ code: number; err: string }>((resolve) => {
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '-e', "import('./lib/db').then(() => {})"],
+        { env: { ...process.env, PGLITE_DIR: 'memory://', ...env }, stdio: 'pipe' },
+      );
+      let err = '';
+      child.stderr.on('data', (c) => (err += String(c)));
+      child.on('close', (code) => resolve({ code: code ?? 0, err }));
+    });
+
+  const stopped = await loadsDb({ NODE_ENV: 'development', DATABASE_URL: REMOTE });
+  check('чужая база в разработке не открывается', stopped.code !== 0, stopped.code);
+  check('и объясняет, чем это грозит', stopped.err.includes('боевая база'), stopped.err.slice(0, 200));
+
+  const own = await loadsDb({ NODE_ENV: 'development', DATABASE_URL: LOCAL });
+  check('своя база открывается как обычно', own.code === 0, own.err.slice(0, 200));
+
+  const allowed = await loadsDb({
+    NODE_ENV: 'development',
+    DATABASE_URL: REMOTE,
+    TETR_ALLOW_REMOTE_DB: '1',
+  });
+  check('осознанный доступ к чужой базе разрешён', allowed.code === 0, allowed.err.slice(0, 200));
+
+  /* Сервер и скрипты замка не касаются: миграции и активация подписки
+     ходят в боевую базу по делу, и NODE_ENV у них не `development`. */
+  const server = await loadsDb({ NODE_ENV: 'production', DATABASE_URL: REMOTE, SESSION_SECRET: 'x'.repeat(32) });
+  check('на сервере замка нет', server.code === 0, server.err.slice(0, 200));
 
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);

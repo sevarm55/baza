@@ -6,6 +6,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { hy } from "@/lib/i18n/hy"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -72,7 +73,9 @@ function SheetContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            {/* Читалка экрана произносит эту подпись вместо крестика.
+            Интерфейс армянский — и слово тоже. */}
+            <span className="sr-only">{hy.common.close}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

@@ -26,7 +26,29 @@ try {
 }
 
 const BASE = process.env.BASE ?? 'http://localhost:3100';
-const READONLY = BASE !== 'http://localhost:3100';
+
+/**
+ * Писать разрешено только по своей машине.
+ *
+ * Раньше условие было буквальным — «адрес в точности localhost:3100», — и
+ * второй сервер на соседнем порту молча превращал прогон в
+ * четыре проверки из семидесяти шести: он считался продом. Порт при этом
+ * меняют постоянно: 3100 занят первым же запущенным `npm run dev`.
+ *
+ * Решает не порт, а хозяин адреса: свой компьютер — пишем, что угодно
+ * другое — только читаем. Ошибка теперь может быть лишь в безопасную
+ * сторону: незнакомый адрес пишущим не станет никогда.
+ */
+const READONLY = !isLocal(BASE);
+
+function isLocal(base: string): boolean {
+  try {
+    const { hostname } = new URL(base);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false;
+  }
+}
 
 let passed = 0;
 const failures: string[] = [];
@@ -513,6 +535,113 @@ async function main() {
     check('после снятия блокировки открывается снова', backAlive.status === 200, backAlive.status);
   }
 
+  /* ─────────────── гонки и обрывы ─────────────── */
+  group('несколько человек и рваная связь');
+
+  /* Проверяем не «запрос прошёл», а то, что после гонки цифры сходятся.
+     Мойка — это два-три телефона во дворе и связь, которая пропадает;
+     ошибки такого рода не ломают запрос, а тихо задваивают выручку. */
+  const raceOwner = await api('/auth/register', {
+    body: {
+      niche: 'carwash', businessName: 'Гонки', ownerName: 'Вл',
+      phone: phone(50), pin: '2468', device: 'race',
+    },
+  });
+  const rt = raceOwner.json?.access as string;
+  const raceSvc = await api('/services', { token: rt, body: { name: 'Мойка', price: 5000 } });
+  const raceSvcId = raceSvc.json?.service?.id ?? raceSvc.json?.id;
+
+  const oneMan = await api('/staff', {
+    token: rt, body: { name: 'Первый', phone: phone(51), pin: '1111', percent: 30 },
+  });
+  const twoMan = await api('/staff', {
+    token: rt, body: { name: 'Второй', phone: phone(52), pin: '2222', percent: 50 },
+  });
+  const tA = (await api('/auth/login', { body: { phone: oneMan.json?.staff?.phone, pin: '1111', device: 'A' } })).json?.access;
+  const tB = (await api('/auth/login', { body: { phone: twoMan.json?.staff?.phone, pin: '2222', device: 'B' } })).json?.access;
+  await api('/shift', { token: tA, body: { open: true } });
+  await api('/shift', { token: tB, body: { open: true } });
+
+  /* Двадцать записей от двоих разом, на одну и ту же машину. Счётчики
+     клиента живут в одной строке, и без атомарного upsert они
+     разъезжаются именно здесь. */
+  const stamp = Date.now();
+  const burst = await Promise.all(
+    Array.from({ length: 20 }, (_, i) =>
+      api('/orders', {
+        token: i % 2 ? tA : tB,
+        body: { clientKey: 'RACE001', serviceId: raceSvcId, payment: 'cash', ref: `race-${stamp}-${i}` },
+      }),
+    ),
+  );
+  check('двадцать одновременных записей приняты', burst.every((r) => r.status < 300), burst.map((r) => r.status));
+
+  const raceClients = await api('/clients', { token: rt });
+  const raced = (raceClients.json?.clients ?? []).find((c: any) => c.key === 'RACE001');
+  check('у машины ровно двадцать визитов', raced?.visits === 20, raced?.visits);
+  check('и сумма 100 000', raced?.total === 100000, raced?.total);
+
+  const raceSum = await api('/summary?period=today', { token: rt });
+  check('выручка сошлась', raceSum.json?.stats?.revenue === 100000, raceSum.json?.stats?.revenue);
+  // десять по 30% и десять по 50%
+  check('зарплата по снимкам ставок', raceSum.json?.stats?.payroll === 40000, raceSum.json?.stats?.payroll);
+
+  /* Тот же ref десять раз разом: так ведёт себя телефон, не дождавшийся
+     ответа. Машина обязана остаться одна. */
+  const dupRef = `dup-${stamp}`;
+  const dups = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      api('/orders', { token: tA, body: { clientKey: 'RACE002', serviceId: raceSvcId, payment: 'cash', ref: dupRef } }),
+    ),
+  );
+  check('десять досылок одного ref без пятисоток', dups.every((r) => r.status < 500), dups.map((r) => r.status));
+  const dupClients = await api('/clients', { token: rt });
+  const dupRow = (dupClients.json?.clients ?? []).find((c: any) => c.key === 'RACE002');
+  check('и запись ровно одна', dupRow?.visits === 1, dupRow?.visits);
+
+  /* Обрыв на середине записи и досылка после возвращения связи. */
+  const lostRef = `lost-${stamp}`;
+  const ctrl = new AbortController();
+  const cut = fetch(`${BASE}/api/v1/orders`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${tA}` },
+    body: JSON.stringify({ clientKey: 'RACE005', serviceId: raceSvcId, payment: 'cash', ref: lostRef }),
+    signal: ctrl.signal,
+  }).catch(() => null);
+  setTimeout(() => ctrl.abort(), 3);
+  await cut;
+  await new Promise((r) => setTimeout(r, 400));
+  const resent = await api('/orders', {
+    token: tA, body: { clientKey: 'RACE005', serviceId: raceSvcId, payment: 'cash', ref: lostRef },
+  });
+  check('досылка после обрыва принята', resent.status < 300, resent.status);
+  const lostClients = await api('/clients', { token: rt });
+  const lostRow = (lostClients.json?.clients ?? []).find((c: any) => c.key === 'RACE005');
+  check('после обрыва машина ровно одна', lostRow?.visits === 1, lostRow?.visits);
+  check('и сумма не удвоилась', lostRow?.total === 5000, lostRow?.total);
+
+  /* Две отмены одной записи разом: счётчики не имеют права уйти в минус. */
+  const toCancel = await api('/orders', {
+    token: tA, body: { clientKey: 'RACE004', serviceId: raceSvcId, payment: 'cash', ref: `cancel-${stamp}` },
+  });
+  const cancelId = toCancel.json?.order?.id ?? toCancel.json?.id;
+  const cancels = await Promise.all([
+    api(`/orders/${cancelId}/cancel`, { token: rt, method: 'POST' }),
+    api(`/orders/${cancelId}/cancel`, { token: rt, method: 'POST' }),
+  ]);
+  check('двойная отмена не ломается', cancels.every((r) => r.status < 500), cancels.map((r) => r.status));
+  const afterCancel = await api('/clients', { token: rt });
+  const cancelled = (afterCancel.json?.clients ?? []).find((c: any) => c.key === 'RACE004');
+  check('счётчики клиента не ушли в минус', !cancelled || (cancelled.visits >= 0 && cancelled.total >= 0), cancelled);
+
+  /* Смена открывается дважды разом — вторая не должна ни падать, ни
+     заводить вторую открытую смену. */
+  const opens = await Promise.all([
+    api('/shift', { token: tB, body: { open: true } }),
+    api('/shift', { token: tB, body: { open: true } }),
+  ]);
+  check('двойное открытие смены переживается', opens.every((r) => r.status < 500), opens.map((r) => r.status));
+
   /* ─────────────── страницы кабинета ─────────────── */
   group('страницы');
   for (const path of ['/', '/login', '/start', '/start/carwash', '/privacy', '/support']) {
@@ -524,8 +653,22 @@ async function main() {
     const r = await web(path);
     check(`${path} без входа уводит`, r.status === 307 || r.status === 302, r.status);
   }
-  const admin = await web('/admin');
-  check('/admin без прав не пускает', admin.status !== 200, admin.status);
+  /* Каждая страница раздела, а не только его корень.
+     Права проверяются в общем каркасе `app/admin/layout.tsx`, и это
+     правильно — забыть проверку в новой странице легко. Но проверка на
+     одну страницу не доказывает ничего про остальные: каркас можно
+     обойти, добавив свой, и заметить это будет нечем. Здесь закрыт
+     каждый адрес, включая карточку чужого бизнеса по прямой ссылке. */
+  for (const path of [
+    '/admin',
+    '/admin/journal',
+    '/admin/payments',
+    '/admin/attention',
+    '/admin/t/00000000-0000-0000-0000-000000000000',
+  ]) {
+    const page = await web(path);
+    check(`${path} без прав не пускает`, page.status !== 200, page.status);
+  }
 
   report();
 }

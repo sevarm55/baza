@@ -77,6 +77,12 @@ export class DuplicateError extends Error {}
 export async function createOrder(input: CreateOrderInput) {
   const key = normalizeClientKey(input.clientKey);
   if (!key) throw new NotFoundError('EMPTY_CLIENT_KEY');
+  /* Номер машины — семь знаков, телефон — двенадцать. Всё, что длиннее
+     тридцати двух, приходит не от человека: так выглядит вставленный
+     мимо поля текст или сорвавшийся сканер. Пустить это в базу значит
+     получить в списке клиентов строку на весь экран и такую же в
+     выгрузке — а чинить её потом нечем, ключ клиента не правится. */
+  if (key.length > 32) throw new NotFoundError('CLIENT_KEY_TOO_LONG');
   if (input.payment === 'pass' && !input.passId) throw new NotFoundError('PASS_REQUIRED');
 
   const made = await db.transaction(async (tx) => {

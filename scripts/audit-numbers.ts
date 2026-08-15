@@ -52,9 +52,18 @@ async function main() {
 
     /* Доля работника считается по снимку процента В МОМЕНТ записи, а не
        по текущему. Иначе смена процента задним числом переписала бы уже
-       выплаченные зарплаты. */
+       выплаченные зарплаты.
+
+       Округление — вниз, `floor`, как в `lib/money.ts` и во всех запросах
+       продукта. Здесь стояло `round`, и это делало скрипт бесполезным
+       ровно там, ради чего он написан: 999 ֏ под 33 % дают 329 в продукте
+       и 330 здесь. На круглых ценах демо-базы расхождения не видно, а на
+       живой мойке скидки и нечётные проценты — обычное дело, и «второе
+       мнение» начинало спорить с правильным ответом. Проверка обязана
+       считать по тому же правилу, иначе она проверяет не продукт, а
+       разницу двух способов округления. */
     const payrollToday = await rows(sql`
-      select coalesce(sum(round(price * staff_percent / 100.0)), 0)::int as payroll
+      select coalesce(sum(floor(price * staff_percent / 100.0)), 0)::int as payroll
       from orders
       where tenant_id = ${t.id}
         and canceled_at is null
@@ -76,7 +85,7 @@ async function main() {
       const since = await rows(sql`
         select count(*)::int as cars,
                coalesce(sum(price), 0)::int as revenue,
-               coalesce(sum(round(price * staff_percent / 100.0)), 0)::int as owed,
+               coalesce(sum(floor(price * staff_percent / 100.0)), 0)::int as owed,
                min(staff_percent)::int as min_pct,
                max(staff_percent)::int as max_pct
         from orders
@@ -103,7 +112,7 @@ async function main() {
           select staff_percent::int as pct,
                  count(*)::int as cars,
                  sum(price)::int as revenue,
-                 sum(round(price * staff_percent / 100.0))::int as owed
+                 sum(floor(price * staff_percent / 100.0))::int as owed
           from orders
           where tenant_id = ${t.id} and staff_id = ${s.id} and canceled_at is null
             ${s.last_paid ? sql`and created_at > ${s.last_paid}` : sql``}

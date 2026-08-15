@@ -22,11 +22,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const input = await body<{ name?: string; percent?: number }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
+    /* Присланное меняем, остальное не трогаем. Отсутствие поля и пустое
+       поле — разные вещи: первое значит «не про это», второе — «сотри»,
+       и превращать первое во второе нельзя ни для имени, ни для ставки.
+     *
+     * `null` в ставке — отдельная история и самая дорогая. `Number(null)`
+     * это ноль, поэтому запрос `{"percent": null}` отвечал «сохранено» и
+     * ставил человеку ноль процентов: он продолжал мыть машины, а
+     * зарплата переставала начисляться совсем. Заметно это становится в
+     * день расчёта, когда пересчитывать уже нечего — снимки в записях
+     * легли с нулём. Поэтому ставкой считается только число. */
+    if (input.percent !== undefined && typeof input.percent !== 'number') {
+      return fail('BAD_REQUEST', 400, { reason: 'BAD_PERCENT' });
+    }
+    if (input.name !== undefined && typeof input.name !== 'string') {
+      return fail('BAD_REQUEST', 400, { reason: 'NAME_REQUIRED' });
+    }
+
     const user = await saveStaff({
       tenantId: ctx.tenant.id,
       id,
-      name: str(input.name),
-      percent: Number(input.percent),
+      name: input.name === undefined ? undefined : str(input.name),
+      percent: input.percent,
     });
 
     return ok({ staff: { id: user.id, name: user.name, percent: user.percent } });

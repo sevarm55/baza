@@ -30,13 +30,34 @@ export function localDate(timezone: string, at = new Date()): string {
 }
 
 /** Похоже ли на YYYY-MM-DD. */
+/**
+ * Настоящая ли это дата `YYYY-MM-DD`.
+ *
+ * Одного вида мало: «9999-99-99» под шаблон подходит, а девяносто
+ * девятого месяца не бывает. Дальше из такой строки получался Invalid
+ * Date, запрос уходил в базу с `null` вместо границ и возвращал 500
+ * «сервер сломался» — вместо честного «такой даты нет». Разница не
+ * косметическая: по пятисотке клиент не знает, повторять ему запрос или
+ * нет, и обычно повторяет.
+ *
+ * Проверяем сборкой обратно: если месяц или число вышли за край, `Date`
+ * их перенесёт (31 февраля станет 3 марта), и строки перестанут
+ * совпадать.
+ */
 export function isDate(v: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y, m, d] = v.split('-').map(Number);
+  const back = new Date(Date.UTC(y, m - 1, d, 12));
+  return (
+    back.getUTCFullYear() === y && back.getUTCMonth() === m - 1 && back.getUTCDate() === d
+  );
 }
 
-/** Похоже ли на YYYY-MM. */
+/** Похоже ли на YYYY-MM — и существует ли такой месяц. */
 export function isMonth(v: string): boolean {
-  return /^\d{4}-\d{2}$/.test(v);
+  if (!/^\d{4}-\d{2}$/.test(v)) return false;
+  const m = Number(v.slice(5));
+  return m >= 1 && m <= 12;
 }
 
 /**

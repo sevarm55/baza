@@ -133,3 +133,62 @@ targets:
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         SWIFT_EMIT_LOC_STRINGS: YES
+
+  # Проход по экранам касаниями. Смоук и e2e проверяют сервер и данные;
+  # здесь проверяется то, чего они не видят: что до кнопки можно
+  # дотянуться и что поле принимает ввод. Поломки такого рода выглядят
+  # как «на сервере всё правильно, а работать невозможно».
+  TetrUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: TetrUITests
+    dependencies:
+      - target: Tetr
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sevarm.tetr.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Tetr
+
+# Схема описана здесь, а не оставлена Xcode на автосоздание, ровно ради
+# одной строки — адреса сервера. Кнопка Run обязана вести на свой
+# компьютер: отладочная сборка, ушедшая в прод, заводит машины живым
+# мойкам, и заметно это станет через месяц, при сверке зарплат.
+#
+# Само умолчание живёт в коде (`API.swift`, `development`), здесь оно
+# продублировано затем, чтобы человек нашёл его глазами: Product → Scheme →
+# Edit Scheme → Run → Arguments. Там же его меняют, когда сервер нужен
+# другой:
+#
+#   http://192.168.1.5:3100/api/v1/   телефон в одной сети с компьютером
+#   prod                              осознанно по бою
+schemes:
+  Tetr:
+    build:
+      targets:
+        Tetr: all
+    run:
+      config: Debug
+      environmentVariables:
+        - variable: TETR_API
+          value: http://localhost:3100/api/v1/
+          isEnabled: true
+    test:
+      config: Debug
+      targets:
+        - TetrUITests
+      # Тесты идут по своему серверу, как и обычная отладочная сборка.
+      # Прогон по бою заводил бы машины живым мойкам.
+      environmentVariables:
+        - variable: TETR_API
+          value: http://localhost:3100/api/v1/
+          isEnabled: true
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    # Отправка в магазин собирается из Release, а там адрес один и
+    # переменными не подменяется.
+    archive:
+      config: Release

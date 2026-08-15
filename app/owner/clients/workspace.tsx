@@ -5,6 +5,7 @@ import { ChevronRight, Search } from 'lucide-react';
 import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { Segmented } from '@/components/segmented';
+import { compactClientKey } from '@/lib/client-key';
 import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { formatPhone } from '@/lib/phone';
@@ -64,20 +65,29 @@ export function ClientsWorkspace({
     lost: rows.filter((c) => c.days > lostAfter).length,
   };
 
-  /* Пробелы и регистр не в счёт: номер диктуют вслух и записывают как
-     придётся — «93LM227» и «93 lm 227» это одна машина.
+  /* Пробелы, дефисы и регистр не в счёт: номер диктуют вслух и
+     записывают как придётся — «93LM227», «93 lm 227» и «93-LM-227» это
+     одна машина.
+
+     Приводим тем же `compactClientKey`, которым запись ложится в базу, а
+     не своей строчкой рядом. Своя тут и стояла, и отличалась дважды:
+     дефис не убирала, а русские буквы не переводила в латинские. Номер
+     «22 OO 145», набранный в поиске с русскими О, не находился вовсе —
+     карточка была в списке, на экране выглядела ровно так же, как
+     запрос, и не открывалась. Правило одно, поэтому и функция одна:
+     вторая копия расходится с первой молча.
 
      Ищем и по имени с телефоном: раз владелец их вписал, он будет искать
      человека так, как его помнит, а не по номеру машины. */
   const found = useMemo(() => {
-    const q = query.replace(/\s/g, '').toUpperCase();
+    const q = compactClientKey(query);
     const base = rows.filter((r) => {
       if (group === 'fresh' && r.visits !== 1) return false;
       if (group === 'loyal' && r.visits < 2) return false;
       if (group === 'lost' && r.days <= lostAfter) return false;
       if (!q) return true;
       return [r.key, r.name ?? '', r.phone ?? ''].some((v) =>
-        v.replace(/\s/g, '').toUpperCase().includes(q),
+        compactClientKey(v).includes(q),
       );
     });
 

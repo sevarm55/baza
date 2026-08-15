@@ -1,5 +1,6 @@
 import { ensureDb } from '@/lib/db/ready';
 import { getClientHistory } from '@/lib/queries';
+import { decodeClientKey } from '@/lib/client-key';
 import { authorize, denied } from '@/lib/api/guard';
 import { fail, failFromError, ok } from '@/lib/api/respond';
 
@@ -23,7 +24,7 @@ export async function GET(
     if (denied(ctx)) return ctx;
 
     const { key } = await params;
-    const found = await getClientHistory(ctx.tenant.id, decodeURIComponent(key));
+    const found = await getClientHistory(ctx.tenant.id, decodeClientKey(key));
     if (!found) return fail('NOT_FOUND', 404);
 
     const { client, orders } = found;
