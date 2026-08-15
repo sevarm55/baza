@@ -18,7 +18,8 @@
     "smoke": "tsx scripts/smoke.ts",
     "db:up": "docker compose -f infra/dev-db.yml up -d --wait",
     "db:down": "docker compose -f infra/dev-db.yml stop",
-    "e2e": "tsx scripts/e2e.ts"
+    "e2e": "tsx scripts/e2e.ts",
+    "seed:load": "tsx scripts/seed-load.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
