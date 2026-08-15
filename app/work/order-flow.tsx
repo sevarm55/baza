@@ -114,7 +114,6 @@ export function OrderFlow({
   unitOne,
   addLabel,
   recent,
-  washing = [],
   timezone,
   shiftOpen,
 }: {
@@ -131,8 +130,6 @@ export function OrderFlow({
   unitOne: string;
   addLabel: string;
   recent: Recent[];
-  /** машины в работе: приняты и начаты, но ещё не записаны */
-  washing?: { id: string; clientKey: string; serviceName: string | null; at: string }[];
   /* Часовой пояс мойки приходит пропом, а не берётся из браузера. Иначе
      время записи меняется прямо на глазах: сервер собирает HTML в своей
      зоне, гидратация пересчитывает его в зоне телефона, и «00:17»
@@ -339,35 +336,8 @@ export function OrderFlow({
 
   /* ------------------------------ журнал ------------------------------ */
   const journal = (
-    <Panel title={hy.work.recent} count={recent.length + queue.length + washing.length}>
+    <Panel title={hy.work.recent} count={recent.length + queue.length}>
       <div className="board-journal">
-        {/* Машина в работе стоит здесь, а не отдельным блоком наверху.
-
-            Наверху висит то, что ещё нужно взять; как только мойщик
-            начал мыть, вопрос «взять или нет» снят, и машина обязана
-            оказаться в общем списке — иначе она пропадает с экрана
-            совсем и человек решает, что нажатие не сработало.
-
-            Денег в строке нет, и это не упущение: их ещё не взяли.
-            Строка получит сумму, когда машину запишут, — и станет
-            обычной строкой журнала. */}
-        {washing.map((w) => (
-          <Row key={w.id}>
-            <span className="min-w-0 flex-1">
-              <span className="num block truncate text-[14.5px] font-semibold">{w.clientKey}</span>
-              <span
-                className="block truncate text-[12.5px]"
-                style={{ color: 'var(--good-on-board)' }}
-              >
-                {[w.serviceName, hy.jobs.washing].filter(Boolean).join(' · ')}
-              </span>
-            </span>
-            <span className="num shrink-0 text-[12px]" style={{ color: 'var(--board-muted)' }}>
-              {hhmm(w.at, timezone)}
-            </span>
-          </Row>
-        ))}
-
         {queue.map((q) => (
           <Row key={q.ref}>
             <span className="min-w-0 flex-1">
@@ -387,7 +357,7 @@ export function OrderFlow({
           </Row>
         ))}
 
-        {recent.length === 0 && queue.length === 0 && washing.length === 0 ? (
+        {recent.length === 0 && queue.length === 0 ? (
           /* Пусто до смены и пусто на смене — разные ответы. Первый
              говорит, что делать; второй — что всё в порядке и первая
              машина просто ещё не приехала. */

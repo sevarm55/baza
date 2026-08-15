@@ -630,34 +630,6 @@ enum API {
         let alerts: [Alert]
     }
 
-    /// Машина, которую владелец принял и передал мойщику.
-    ///
-    /// Отдельно от записи: у наряда нет ни цены, ни оплаты — он живёт
-    /// между «машина заехала» и «машина вымыта», а деньги появляются
-    /// только в записи, которая его и закрывает.
-    struct Job: Decodable, Identifiable {
-        let id: String
-        let clientKey: String
-        let staffId: String
-        let staffName: String?
-        let serviceName: String?
-        let note: String?
-        /// assigned → accepted → started
-        let status: String
-        let createdAt: Date
-        let acceptedAt: Date?
-        let startedAt: Date?
-
-        /// Сколько машина ждёт — минутами, для подписи под номером.
-        var waitedMinutes: Int {
-            max(0, Int(Date().timeIntervalSince(createdAt) / 60))
-        }
-    }
-
-    struct Jobs: Decodable {
-        let jobs: [Job]
-    }
-
     struct StaffMember: Decodable, Identifiable {
         let id: String
         let name: String

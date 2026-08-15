@@ -4,7 +4,6 @@ import { db } from './db';
 import {
   audit,
   clients,
-  jobs,
   orderItems,
   orders,
   passes,
@@ -238,40 +237,6 @@ export async function createOrder(input: CreateOrderInput) {
       })),
     );
 
-    /* Запись закрывает наряд.
-     *
-     * Наряд — это обещание: машину приняли и отдали мойщику. Выполненным
-     * оно становится ровно тогда, когда появились деньги, и ни секундой
-     * раньше: «готово» без записи означало бы вымытую машину, которой нет
-     * в выручке.
-     *
-     * До сих пор этого не происходило вовсе. Функция закрытия в
-     * `lib/jobs.ts` была написана, но её никто не вызывал, и наряд висел
-     * во дворе после того, как машину уже записали и деньги посчитали, —
-     * пока владелец не снимал его крестиком руками.
-     *
-     * Ищем по мойщику и номеру, а не по идентификатору наряда. Мойщик
-     * записывает машину обычным путём — тем же, которым записывает все
-     * остальные, — и не обязан заходить в неё через кнопку в наряде;
-     * требовать этого значило бы завести второй способ записи, про
-     * который надо знать. Двух открытых нарядов на один номер у одного
-     * человека быть не может: машина во дворе одна.
-     *
-     * Внутри той же транзакции: если запись откатится, наряд обязан
-     * остаться открытым.
-     */
-    await tx
-      .update(jobs)
-      .set({ status: 'done', doneAt: now, orderId: order.id })
-      .where(
-        and(
-          eq(jobs.tenantId, input.tenantId),
-          eq(jobs.staffId, staff.id),
-          eq(jobs.clientKey, key),
-          inArray(jobs.status, ['assigned', 'accepted', 'started']),
-        ),
-      );
-
     await tx.insert(audit).values({
       tenantId: input.tenantId,
       userId: staff.id,
@@ -311,40 +276,6 @@ export async function createOrder(input: CreateOrderInput) {
       },
       'orders',
     );
-  }
-
-  /* Наряд закрывается записью, а не отдельной кнопкой «готово».
-     Машина считается вымытой ровно тогда, когда появились деньги: иначе
-     «готово» и «записано» разъедутся, и владелец увидит в очереди
-     машину, которая час как в выручке.
-
-     Ищем по номеру и исполнителю, а не по идентификатору наряда: запись
-     приходит и из веба, и с телефона, и из офлайн-очереди, и тащить
-     через все три пути лишнее поле — значит забыть его в одном из них.
-     Закрываем самый старый: если одну и ту же машину принимали дважды,
-     первой закрывается та, что дольше ждала. */
-  if (!made.duplicate && made.client && made.order.staffId) {
-    const staffId = made.order.staffId;
-    const [oldest] = await db
-      .select({ id: jobs.id })
-      .from(jobs)
-      .where(
-        and(
-          eq(jobs.tenantId, input.tenantId),
-          eq(jobs.clientKey, made.client.key),
-          eq(jobs.staffId, staffId),
-          inArray(jobs.status, ['assigned', 'accepted', 'started']),
-        ),
-      )
-      .orderBy(jobs.createdAt)
-      .limit(1);
-
-    if (oldest) {
-      await db
-        .update(jobs)
-        .set({ status: 'done', doneAt: new Date(), orderId: made.order.id })
-        .where(eq(jobs.id, oldest.id));
-    }
   }
 
   return made;

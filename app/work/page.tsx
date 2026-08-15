@@ -20,8 +20,6 @@ import { currentAccess } from '@/lib/subscription';
 import { EndShift, StartShift } from './shift-controls';
 import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
-import { JobQueue } from '@/components/job-queue';
-import { listMyJobs } from '@/lib/jobs';
 
 export default async function WorkPage() {
   const session = await requireSession();
@@ -35,13 +33,12 @@ export default async function WorkPage() {
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift, open, closed, points, myJobs] = await Promise.all([
+  const [services, shift, open, closed, points] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     closedShiftToday(tenant.id, me.id, startOfDay(tenant.timezone)),
     me.accountId ? listPoints(me.accountId) : Promise.resolve([]),
-    listMyJobs(tenant.id, me.id),
   ]);
 
   /* Владелец приходит сюда из кабинета, поэтому у него остаётся боковая
@@ -123,28 +120,6 @@ export default async function WorkPage() {
 
       <div className="mx-auto grid w-full max-w-[46rem] gap-[var(--seam)]">
         <div className="grid content-start gap-[var(--seam)]">
-          {/* Переданные машины — выше денег, вопреки правилу «порядок по
-              частоте». Частота тут ни при чём: когда владелец отдал
-              машину, это единственная причина, по которой мойщик взял
-              телефон. Когда назначенных нет, блока нет вовсе, и экран
-              возвращается к прежнему порядку. */}
-          {/* Смены здесь не требуем нарочно, в отличие от записи. Взять
-              машину — не про деньги, а про «я её увидел»: мойщику
-              назначают её ровно тогда, когда он ещё идёт к посту и смену
-              не открыл. Спрятанная в этот момент кнопка выглядела бы
-              поломкой ровно там, где фича должна работать. */}
-          <JobQueue
-            canWrite={access.canWrite}
-            jobs={myJobs.map((j) => ({
-              id: j.id,
-              clientKey: j.clientKey,
-              serviceName: j.serviceName,
-              note: j.note,
-              status: j.status as 'assigned' | 'accepted' | 'started',
-              waited: hy.jobs.waited(j.waitedMinutes),
-            }))}
-          />
-
           {/* Свои деньги — тем же прибором, что выручка в кабинете, а не
               собственной градиентной карточкой. Мойщик и владелец
               смотрят на одно и то же число разными глазами, и незачем
@@ -243,16 +218,6 @@ export default async function WorkPage() {
               payment: o.payment,
               at: o.createdAt.toISOString(),
             }))}
-            /* Начатые машины идут в тот же журнал: наверху остаётся
-               только то, что ещё нужно взять. */
-            washing={myJobs
-              .filter((j) => j.status === 'started')
-              .map((j) => ({
-                id: j.id,
-                clientKey: j.clientKey,
-                serviceName: j.serviceName,
-                at: (j.startedAt ?? j.createdAt).toISOString(),
-              }))}
           />
 
           {/* Закрыть смену спрашивает и показывает итог дня: после

@@ -40,12 +40,6 @@ struct OwnerView: View {
     @State private var showClients = false
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
-    /// Очередь мойки: принятые машины, которые ещё не записаны.
-    @State private var jobs: [API.Job] = []
-    @State private var staff: [API.StaffMember] = []
-    @State private var services: [API.Service] = []
-    /// Кому отдаём машину: выбран долгим нажатием на чип смены.
-    @State private var assignTo: API.StaffMember?
     /// Идёт запрос. На это время период фиксируется, чтобы второй быстрый
     /// выбор не вернул на экран ответ от предыдущего периода.
     @State private var loading = false
@@ -104,20 +98,6 @@ struct OwnerView: View {
         }
         .sheet(isPresented: $showClients) {
             ClientsView().environmentObject(session)
-        }
-        /* Мойщик уже выбран в меню, поэтому в листе его выбирать не надо:
-           остаётся номер, услуга и заметка. */
-        .sheet(item: $assignTo) { person in
-            AssignJobSheet(
-                staff: staff,
-                services: services,
-                unitOne: session.tenant?.unitOne ?? "",
-                clientIdLabel: session.tenant?.clientIdLabel ?? "",
-                preselected: person.id,
-                assign: { key, staffId, serviceId, note in
-                    await assignJob(key, staffId, serviceId, note)
-                }
-            )
         }
         .alert(
             "Չեղարկե՞լ այս գրանցումը",
@@ -387,54 +367,10 @@ struct OwnerView: View {
                 .background(Tone.slate.base, in: .rect(cornerRadius: 9))
             }
             .buttonStyle(.press)
-            /* Приём машины живёт здесь, а не отдельной кнопкой на экране.
-
-               Чип — это и есть люди, которым машины назначают, поэтому
-               долгое нажатие на него открывает приём с уже выбранным
-               мойщиком: одно движение вместо «найти кнопку → открыть лист
-               → выбрать человека».
-
-               Отдельного места на сводке действие не занимает нарочно:
-               принимают машину не настолько часто, чтобы держать ради
-               этого кнопку на главном экране. Меню при этом стандартное,
-               с превью и подсказкой длинным нажатием — тот же жест, что
-               в почте и в сообщениях. */
-            .contextMenu {
-                ForEach(assignable) { person in
-                    Button {
-                        assignTo = person
-                    } label: {
-                        Label(
-                            assignable.count > 1
-                                ? "\(person.name) · \(session.tenant?.unitOne ?? "")"
-                                : "Ընդունել \(session.tenant?.unitOne ?? "")",
-                            systemImage: "car.fill"
-                        )
-                    }
-                }
-            }
             .accessibilityLabel(
                 present.map { "\($0.name) հերթափոխին \(since($0.openedAt))" }.joined(separator: ", ")
             )
         }
-    }
-
-    /**
-     * Кому можно отдать машину.
-     *
-     * Сначала те, кто на смене: машину отдают тому, кто стоит на посту, а
-     * не тому, кто числится в штате. Если смену никто не открыл — весь
-     * список, иначе меню окажется пустым ровно в тот момент, когда машина
-     * уже заехала.
-     */
-    private var assignable: [API.StaffMember] {
-        /* Себя владелец в этом списке не видит: машину он отдаёт
-           работнику, а «назначить самому себе» — это не передача, а
-           обычная запись, для которой есть своя кнопка. */
-        let others = staff.filter { !$0.isMe }
-        let present = Set((summary?.onShift ?? []).map(\.name))
-        let onShift = others.filter { present.contains($0.name) }
-        return onShift.isEmpty ? others : onShift
     }
 
     // ══════════════════════════ содержание периода ══════════════════════════
@@ -454,10 +390,6 @@ struct OwnerView: View {
                За месяц он остаётся: там тридцать точек, и форма месяца —
                настоящий ответ, которого больше нигде нет. */
             todaySnapshot(s)
-            /* Очередь только на сегодняшнем экране: машины во дворе — это
-               «сейчас», и под прошлым месяцем такой прибор врал бы самим
-               своим присутствием. */
-            queueBoard
             /* Порядок тот же, что в кабинете: что сейчас → кто работает →
                чем платили → что именно было. Два экрана одного продукта
                обязаны отвечать в одной последовательности, иначе владелец
@@ -616,11 +548,6 @@ struct OwnerView: View {
         return out.sorted { a, b in
             a.present == b.present ? a.earned > b.earned : a.present
         }
-    }
-
-    private var queueBoard: some View {
-        JobsBoard(jobs: jobs, cancel: { job in await cancelJob(job) })
-            .padding(.top, 10)
     }
 
     /**
@@ -1226,68 +1153,6 @@ struct OwnerView: View {
         await reload(staged: true)
     }
 
-    // ══════════════════════════ очередь ══════════════════════════
-
-    private func loadQueue() async {
-        async let queue: API.Jobs? = try? session.authed { token in
-            try await APIClient.shared.send("jobs", token: token, as: API.Jobs.self)
-        }
-        async let people: API.Staff? = try? session.authed { token in
-            try await APIClient.shared.send("staff", token: token, as: API.Staff.self)
-        }
-        async let offers: API.Services? = try? session.authed { token in
-            try await APIClient.shared.send("services", token: token, as: API.Services.self)
-        }
-
-        if let q = await queue { jobs = q.jobs }
-        if let p = await people { staff = p.staff }
-        if let o = await offers { services = o.services }
-    }
-
-    /**
-     Принять машину. Возвращает `true`, если сервер её принял.
-
-     Не глотаем ошибку. Сервер бывает старше приложения — на нём просто
-     нет ещё этого адреса, и запрос отвечает «нет такой страницы».
-     Проглоченная ошибка выглядит как «нажал, и ничего не произошло»:
-     человек жмёт второй раз, третий, потом решает, что сломано всё
-     приложение. Пусть лист честно скажет, что не вышло.
-     */
-    private func assignJob(_ key: String, _ staffId: String, _ serviceId: String?, _ note: String?) async -> String? {
-        var payload: [String: Any] = ["clientKey": key, "staffId": staffId]
-        if let serviceId { payload["serviceId"] = serviceId }
-        if let note { payload["note"] = note }
-
-        do {
-            _ = try await session.authed { token in
-                try await APIClient.shared.raw("jobs", method: "POST", body: payload, token: token)
-            }
-        } catch {
-            /* Причина названа своим именем. «Проверьте связь» на ответ
-               «нет такой страницы» — это ложь: связь в порядке, просто
-               сервер старше приложения и про наряды ещё не знает.
-               Человек, которому соврали про причину, идёт чинить не то. */
-            if let api = error as? APIError {
-                if api.status == 404 { return "Սերվերը դեռ չի թարմացվել այս գործառույթի համար" }
-                if api.isOffline { return "Կապ չկա։ Ստուգեք ինտերնետը և կրկնեք" }
-                return "Չհաջողվեց հանձնարարել (\(api.status))"
-            }
-            return "Չհաջողվեց հանձնարարել"
-        }
-
-        await loadQueue()
-        return nil
-    }
-
-    private func cancelJob(_ job: API.Job) async {
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "jobs", method: "PATCH", body: ["id": job.id, "move": "cancel"], token: token
-            )
-        }
-        await loadQueue()
-    }
-
     private func reload(staged: Bool = false) async {
         loadID += 1
         let id = loadID
@@ -1306,12 +1171,6 @@ struct OwnerView: View {
             }
             if let fresh { alerts = fresh.alerts }
         }
-
-        /* Очередь, люди и прайс — тем же молчаливым фоном. Они «сейчас» и
-           к выбранному периоду отношения не имеют: машина, принятая час
-           назад, стоит во дворе независимо от того, смотрит владелец
-           сегодня или прошлый месяц. */
-        Task { await loadQueue() }
 
         do {
             let fresh = try await session.authed { token in

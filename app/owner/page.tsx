@@ -6,11 +6,8 @@ import {
   getPeriodStats,
   getRevenueSeries,
   getTenant,
-  listServices,
-  listStaff,
   startOfDay,
 } from '@/lib/queries';
-import { listOpenJobs } from '@/lib/jobs';
 import { windowFor } from '@/lib/summary-window';
 import { hhmm, ymd } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
@@ -24,12 +21,11 @@ import { personColor } from '@/lib/person-color';
 import { getPeriod } from './periods';
 import { PeriodTabs } from './period-tabs';
 import { TodaySummary } from './today/summary';
-import { NowPanel } from './today/now';
 import { TodayCrew } from './today/crew';
 import { PaymentMix } from './today/payments';
 import { TodayOperations } from './today/operations';
 import { FlowChart } from './today/chart';
-import type { CrewMember, FlowEvent, FlowPoint, MixSlice, Op, OpenCar } from './today/model';
+import type { CrewMember, FlowEvent, FlowPoint, MixSlice, Op } from './today/model';
 
 /**
  * Сводка дня — главный экран владельца.
@@ -117,15 +113,10 @@ export default async function TodayPage({
     getPeriodCosts(tenant.id, prevFrom, prevTo, w.spread),
   ]);
 
-  /* Очередь, люди и прайс — «сейчас», без оглядки на выбранный период:
-     машина, которую приняли час назад, стоит во дворе независимо от
-     того, смотрит владелец сегодняшний день или прошлый месяц. */
-  const [present, openJobs, staffList, serviceList] = await Promise.all([
-    whoIsOnShift(tenant.id, startOfDay(tenant.timezone)),
-    listOpenJobs(tenant.id),
-    listStaff(tenant.id),
-    listServices(tenant.id),
-  ]);
+  /* Кто на смене — «сейчас», без оглядки на выбранный период: человек
+     стоит на посту независимо от того, смотрит владелец сегодняшний день
+     или прошлый месяц. */
+  const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
   const presentIds = new Set(present.map((x) => x.userId));
 
   const money = (n: number) => formatMoney(n, tenant.currency);
@@ -162,26 +153,6 @@ export default async function TodayPage({
         earned: s.earned,
       })),
   ].sort((a, b) => Number(b.present) - Number(a.present) || b.earned - a.earned);
-
-  /* Двор целиком: и ждущие, и те, кого уже моют. Раньше они жили в
-     разных местах экрана — очередь панелью, начатые первыми строками
-     ленты, — и ответить «сколько машин стоит у меня прямо сейчас» можно
-     было только сложив два списка. */
-  const cars: OpenCar[] = openJobs.map((j) => ({
-    id: j.id,
-    clientKey: j.clientKey,
-    staffName: j.staffName,
-    staffColor: personColor(j.staffName),
-    serviceName: j.serviceName,
-    state:
-      j.status === 'started'
-        ? hy.jobs.washing
-        : j.status === 'accepted'
-          ? hy.jobs.accepted
-          : hy.jobs.waiting,
-    waited: hy.jobs.waited(j.waitedMinutes),
-    washing: j.status === 'started',
-  }));
 
   /* Записи приезжают в браузер уже посчитанными: доля исполнителя —
      `staffShare` из снимка процента в самой записи, остаток бизнеса —
@@ -283,6 +254,15 @@ export default async function TodayPage({
         <b className="num">{isToday ? present.length : crew.length}</b>{' '}
         {tenant.staffRole.toLocaleLowerCase('hy')}
         {isToday && ` ${hy.owner.onShift.toLocaleLowerCase('hy')}`}
+        {/* Время открытия смены — единственное, что оставалось своего у
+            прибора «Հիմա»: состояние людей и так стоит точками в списке
+            ниже, а число на смене — здесь же, двумя словами левее. */}
+        {isToday && present[0] && (
+          <>
+            <i />
+            <span className="num">{hy.today.since(hhmm(present[0].openedAt, tenant.timezone))}</span>
+          </>
+        )}
       </p>
 
       {/* Раскладка рабочей части.
@@ -295,8 +275,8 @@ export default async function TodayPage({
 
           Теперь ряды собраны по высоте, а не по смыслу колонок:
 
-            график (8)   ·  сейчас (4)     — оба около четырёхсот точек
-            кто (6)      ·  чем платят (6) — оба около двухсот
+            график (8)   ·  кто (4)        — оба около четырёхсот точек
+            чем платят (12)                — три полосы во всю ширину
             сегодняшняя работа (12)
 
           Места приборов заданы явными `col-start`, поэтому порядок в
@@ -304,28 +284,14 @@ export default async function TodayPage({
           приборы идут сверху вниз в том порядке, в каком владелец
           задаёт вопросы, — «что сейчас», потом «как шёл день». */}
       <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
-        <NowPanel
-          className="lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:self-start"
-          cars={cars}
-          staff={staffList.map((s) => ({ id: s.id, name: s.name }))}
-          services={serviceList.map((s) => ({ id: s.id, name: s.name }))}
-          unitOne={tenant.unitOne}
-          staffRole={tenant.staffRole}
-          clientIdLabel={tenant.clientIdLabel}
-          onShift={present.length}
-          since={present[0] ? hhmm(present[0].openedAt, tenant.timezone) : null}
-          lastRecord={isToday && feed[0] ? hhmm(feed[0].createdAt, tenant.timezone) : null}
-          recordsToday={isToday ? stats.count : 0}
-        />
-
         {/* График занимает две трети ширины: он единственное на экране,
             что показывает не итог, а ход периода, и мелким он бесполезен.
             Сравнение с прошлым отрезком ушло к нему в заголовок — это
             подпись к линии, а не самостоятельное показание.
 
-            Высоту он берёт по ряду: если во дворе много машин и сосед
-            справа вырос, поле графика дорастает вместе с ним, а не
-            оставляет под собой пустоту. */}
+            Справа от него — список работающих. Прибор «Հիմա» стоял
+            здесь же и отвечал то же самое дважды: состояние людей — а
+            оно и есть точки в этом списке. */}
         <Panel
           title={byHour ? hy.today.flowDay : hy.today.flowPeriod}
           className="lg:col-span-8 lg:col-start-1 lg:row-start-1"
@@ -370,19 +336,23 @@ export default async function TodayPage({
           )}
         </Panel>
 
-        {/* Второй ряд: кто работал и чем платили. Оба списка короткие и
-            примерно одного роста, поэтому стоят пополам — и ни один не
-            оставляет под собой пустоты. */}
+        {/* Кто работает — справа от графика, на месте прежнего «Հիմա».
+            Так и надо было с самого начала: вопрос «кто сейчас на мойке»
+            и список людей с точками состояния — это один прибор, а не
+            два соседних. */}
         <TodayCrew
-          className="lg:col-span-6 lg:col-start-1 lg:row-start-2 lg:self-start"
+          className="lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:self-start"
           crew={crew}
           currency={tenant.currency}
           unitOne={tenant.unitOne}
           title={isToday ? hy.today.working : hy.settings.staff}
         />
 
+        {/* Чем платили — во всю ширину вторым рядом. Соседа у него не
+            осталось, а половина ряда с дырой справа читается как
+            «здесь что-то не загрузилось». */}
         <PaymentMix
-          className="lg:col-span-6 lg:col-start-7 lg:row-start-2 lg:self-start"
+          className="lg:col-span-12 lg:col-start-1 lg:row-start-2 lg:self-start"
           slices={mix}
           currency={tenant.currency}
         />

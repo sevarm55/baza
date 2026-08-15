@@ -46,19 +46,6 @@ export type CrewMember = {
   earned: number;
 };
 
-/** Машина, которая сейчас во дворе: ждёт или моется. */
-export type OpenCar = {
-  id: string;
-  clientKey: string;
-  staffName: string | null;
-  staffColor: string;
-  serviceName: string | null;
-  /** «Սպասում է» / «Ընդունված է» / «Լվացվում է» */
-  state: string;
-  /** «12 րոպե առաջ» */
-  waited: string;
-  washing: boolean;
-};
 
 /** Доля одного способа оплаты в дневном приходе. */
 export type MixSlice = {

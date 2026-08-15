@@ -3,14 +3,15 @@ import SwiftUI
 /**
  * Смена мойщика — то же табло, что у владельца.
  *
- * Показание по оси экрана, волна под ним, сетка плиток, журнал строками.
- * Экран открывают сорок раз за смену мокрыми руками, поэтому три вещи, ради
- * которых его открывают, не уезжают за край никогда: переключатель смены
- * закреплён сверху, кнопка записи — снизу, заработок стоит между ними.
+ * Показание по оси экрана, сетка плиток, журнал строками. Экран открывают
+ * сорок раз за смену мокрыми руками, поэтому три вещи, ради которых его
+ * открывают, не уезжают за край никогда: переключатель смены закреплён
+ * сверху, кнопка записи — снизу, заработок стоит между ними.
  *
- * Волна здесь считается на месте, из записей смены: сервер отдаёт список
- * заказов, а не ряд по часам. Это дешевле, чем ещё один запрос, и всегда
- * согласовано с журналом внизу — они построены на одних и тех же данных.
+ * Графика хода смены по часам здесь нет намеренно. На своей смене человек
+ * и так знает, как шёл день; линия отвечала на вопрос, которого у него не
+ * возникает, и занимала место между заработком и плитками. Разбор по часам
+ * живёт там, где его действительно спрашивают, — в кабинете владельца.
  */
 struct ShiftView: View {
     @EnvironmentObject private var session: Session
@@ -31,8 +32,6 @@ struct ShiftView: View {
     /// только что записанная машина исчезает с экрана, хотя на сервере она
     /// есть. Ровно так это и выглядело.
     @State private var loadID = 0
-    /// Машины, переданные этому мойщику владельцем.
-    @State private var jobs: [API.Job] = []
     /// Запись, которую собираются отменить. Пусто — вопроса нет.
     @State private var revoking: API.ShiftOrder?
 
@@ -45,23 +44,14 @@ struct ShiftView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
-                /* Переданные машины — самым верхом, выше заработка.
-                   Когда владелец отдал машину, это единственная причина,
-                   по которой мойщик взял телефон; когда назначенных нет,
-                   блока нет вовсе и экран прежний. */
-                JobsSection(jobs: jobs) { job, move in
-                    await moveJob(job, move)
-                }
-
                 reading
-                wave
 
                 if !queue.waiting(at: session.tenant?.id).isEmpty { pending }
                 ForEach(queue.rejected(at: session.tenant?.id)) { item in stuck(item) }
 
                 grid
 
-                if let shift, !shift.orders.isEmpty || !washing.isEmpty {
+                if let shift, !shift.orders.isEmpty {
                     journal(shift.orders)
                 } else if !loading {
                     empty
@@ -330,82 +320,6 @@ struct ShiftView: View {
         return minutes < 60 ? "\(minutes) ր" : "\(minutes / 60) ժ \(minutes % 60) ր"
     }
 
-    // ══════════════════════════ волна ══════════════════════════
-
-    /**
-     * Ход смены одной линией.
-     *
-     * Считается из записей на месте: сервер отдаёт список заказов, ряда по
-     * часам у него для смены нет. Часы берутся от первой записи до
-     * последней, а не от полуночи — иначе линия начиналась бы восемью
-     * пустыми часами и вся смена сжималась бы в правую треть.
-     */
-    @ViewBuilder
-    private var wave: some View {
-        let buckets = hourly
-        if buckets.count > 1 {
-            let peak = max(1, buckets.map(\.value).max() ?? 1)
-            let peakIndex = buckets.firstIndex(where: { $0.value == peak }) ?? 0
-
-            VStack(spacing: 6) {
-                GeometryReader { geo in
-                    let pts = points(buckets.map { Double($0.value) / Double(peak) }, in: geo.size)
-                    ZStack(alignment: .topLeading) {
-                        Wave(points: pts)
-                            .stroke(
-                                Brand.onBoard.opacity(0.55),
-                                style: .init(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
-                            )
-                        if pts.indices.contains(peakIndex) {
-                            Circle()
-                                .fill(Brand.lime)
-                                .frame(width: 8, height: 8)
-                                .position(pts[peakIndex])
-                        }
-                    }
-                }
-                .frame(height: 48)
-
-                Text("\(hourLabel(buckets[peakIndex].hour)) · \(money(peak, currency))")
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-            }
-            .padding(.top, 4)
-            .padding(.bottom, 6)
-        }
-    }
-
-    /// Выручка по часам смены, от первой записи до последней.
-    private var hourly: [(hour: Int, value: Int)] {
-        guard let orders = shift?.orders, !orders.isEmpty else { return [] }
-        var cal = Calendar(identifier: .gregorian)
-        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
-            cal.timeZone = zone
-        }
-        var sum: [Int: Int] = [:]
-        for o in orders {
-            let h = cal.component(.hour, from: o.createdAt)
-            sum[h, default: 0] += o.price
-        }
-        guard let lo = sum.keys.min(), let hi = sum.keys.max(), hi > lo else { return [] }
-        return (lo...hi).map { ($0, sum[$0] ?? 0) }
-    }
-
-    private func hourLabel(_ hour: Int) -> String { String(format: "%02d:00", hour) }
-
-    /// Точки волны. Единственное значение не рисуется вовсе — линия по одной
-    /// точке это не линия.
-    private func points(_ values: [Double], in size: CGSize) -> [CGPoint] {
-        guard values.count > 1 else { return [] }
-        let step = size.width / CGFloat(values.count - 1)
-        let top: CGFloat = 6
-        let usable = size.height - top * 2
-        return values.enumerated().map { i, v in
-            CGPoint(x: CGFloat(i) * step, y: top + usable * (1 - CGFloat(v)))
-        }
-    }
-
     // ══════════════════════════ сетка плиток ══════════════════════════
 
     /**
@@ -584,8 +498,6 @@ struct ShiftView: View {
 
     // ══════════════════════════ журнал ══════════════════════════
 
-    private var washing: [API.Job] { jobs.filter { $0.status == "started" } }
-
     private func journal(_ orders: [API.ShiftOrder]) -> some View {
         VStack(spacing: 0) {
             HStack {
@@ -593,7 +505,7 @@ struct ShiftView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Spacer()
-                Text("\(orders.count + washing.count)")
+                Text("\(orders.count)")
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
@@ -601,38 +513,6 @@ struct ShiftView: View {
             .padding(.horizontal, 6)
             .padding(.top, 14)
             .padding(.bottom, 6)
-
-            /* Машина в работе стоит здесь, а не отдельным блоком наверху:
-               наверху то, что ещё нужно взять, а начатая машина этот
-               вопрос уже прошла. Денег в строке нет — их ещё не взяли;
-               строка получит сумму, когда машину запишут. */
-            ForEach(washing) { job in
-                HStack(spacing: 10) {
-                    Text(at(job.startedAt ?? job.createdAt))
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(width: 42, alignment: .leading)
-
-                    Text(job.clientKey)
-                        .font(.system(size: 14, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-
-                    Text("Լվացվում է")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.goodOnBoard)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 11)
-                .accessibilityElement(children: .combine)
-
-                Divider().overlay(Brand.boardInk.opacity(0.07))
-            }
 
             /* Номер машины крупно, услуга и оплата под ним.
                Из сорока записей за смену «Комплекс» встречается двадцать
@@ -757,11 +637,7 @@ struct ShiftView: View {
 
     // ══════════════════════════ кнопка ══════════════════════════
 
-    /* Без подложки под кнопкой. Материал там был лишним: кнопка
-       непрозрачная, закрывать ей нечего, а на тёмной теме он читался
-       отдельной серой плитой от кнопки до самого низа.
-
-       Вне смены записывать нельзя, и кнопка это показывает собой, а не
+    /* Вне смены записывать нельзя, и кнопка это показывает собой, а не
        окошком с отказом. Причина не в дисциплине: машина, записанная вне
        смены, не попадает в сдачу наличных при закрытии — деньги за неё
        работник уносит, ничего не нарушив, а владелец недосчитывается и не
@@ -784,7 +660,38 @@ struct ShiftView: View {
             .opacity(onShift ? 1 : 0.45)
         }
         .padding(.horizontal, 12)
+        .padding(.top, 18)
         .padding(.bottom, 8)
+        /**
+         * Подложка цветом самого полотна, а не материалом.
+         *
+         * Без подложки полоса была прозрачной, и журнал проезжал сквозь
+         * неё: строка «Կանխիկ · 13:27» ложилась ровно на подпись под
+         * кнопкой, и две разные мысли читались одной. `safeAreaInset`
+         * отводит под полосу место в конце прокрутки, но не мешает
+         * содержимому проходить под ней по дороге.
+         *
+         * Материал здесь однажды стоял и был убран правильно: он серый, и
+         * на тёмной теме читался отдельной плитой от кнопки до самого низа.
+         * `Brand.board` — тот же цвет, что у полотна, поэтому плиты не
+         * возникает вовсе: видно только, что список кончился.
+         *
+         * Сверху короткий градиент: список должен уходить под кнопку, а не
+         * обрываться под ней ножом.
+         */
+        .background {
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Brand.board.opacity(0), Brand.board],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 20)
+
+                Brand.board
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: onShift)
     }
 
@@ -800,48 +707,11 @@ struct ShiftView: View {
         return f.string(from: date)
     }
 
-    /**
-     Двинуть наряд: взял или начал.
-
-     Список обновляем ответом сервера, а не правкой на месте: состояние
-     наряда принадлежит серверу, и мойщик, у которого на экране «взял», а
-     в базе нет, — это ровно тот случай, когда владелец звонит и
-     спрашивает, почему машина стоит.
-     */
-    private func moveJob(_ job: API.Job, _ move: String) async {
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "jobs",
-                method: "PATCH",
-                body: ["id": job.id, "move": move],
-                token: token
-            )
-        }
-        await loadJobs()
-    }
-
-    /**
-     * Только свои машины, а не весь двор.
-     *
-     * Это экран собственной смены, и «мои машины» здесь значит буквально
-     * мои. Без `scope=mine` сервер отвечает по роли, и владельцу
-     * приезжал весь двор: в его смене висели машины, назначенные Валоду
-     * и Гаго, — те, которые он сам им и раздал.
-     */
-    private func loadJobs() async {
-        let fresh = try? await session.authed { token in
-            try await APIClient.shared.send("jobs?scope=mine", token: token, as: API.Jobs.self)
-        }
-        if let fresh { jobs = fresh.jobs }
-    }
-
     private func reload() async {
         loadID += 1
         let id = loadID
         loading = true
         defer { loading = false }
-
-        await loadJobs()
 
         // сначала досылаем накопленное: иначе смена покажет вчерашние цифры,
         // хотя записи уже сделаны
