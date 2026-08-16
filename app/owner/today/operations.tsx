@@ -136,8 +136,8 @@ export function TodayOperations({
         <Empty title={t.owner.clientsNotFound} />
       ) : (
         <>
-          {/* ─────────── телефон: карточки ─────────── */}
-          <div className="grid gap-2 lg:hidden">
+          {/* ─────────── телефон: строки ─────────── */}
+          <div className="grid lg:hidden">
             {shown.map((o) => (
               <article key={o.id} className="op-card">
                 <span className="op-card-key num">{o.clientKey ?? '—'}</span>

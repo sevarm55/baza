@@ -1963,9 +1963,14 @@ input[type='radio'] {
     opacity: 0.85;
   }
 
+  /* Боковое поле не меньше безопасной зоны: в повороте на телефоне с
+     чёлкой сорок семь точек слева занимает сама чёлка, и строка,
+     свёрстанная по шву, уезжала бы под неё. */
   .canvas {
     min-width: 0;
     padding: var(--seam);
+    padding-inline-start: max(var(--seam), env(safe-area-inset-left));
+    padding-inline-end: max(var(--seam), env(safe-area-inset-right));
     padding-bottom: 6rem;
   }
 
@@ -3107,15 +3112,24 @@ input[type='radio'] {
      Колонка целиком нажимается и целиком подсвечивается: целиться в
      столбик шириной в палец на телефоне незачем, а подпись под ним —
      часть той же цели. */
+  /* Месяцы прижаты к началу, а не растянуты по ширине прибора.
+
+     Столбцы делили ширину поровну, и на молодом бизнесе, где месяцев
+     всего два, каждый разъезжался на треть экрана: две лиловые плиты
+     вместо графика. Предел ширины столбца оставляет их столбцами при
+     любом числе месяцев, а `flex-start` не даёт двум оставшимся
+     разъехаться по краям прибора. */
   .trend {
     display: flex;
     align-items: stretch;
+    justify-content: flex-start;
     gap: 0.25rem;
   }
   .trend-col {
     display: flex;
     flex: 1 1 0;
     min-width: 0;
+    max-width: 132px;
     flex-direction: column;
     gap: 0.4rem;
     padding: 0.4rem 0.15rem 0.35rem;
@@ -3691,6 +3705,24 @@ input[type='radio'] {
       transform: translateY(100%);
     }
   }
+  /* Причал встаёт НАД панелью разделов, а не под ней.
+
+     Обе полосы прижаты к нижнему краю, и без этого «выплатить» уезжало
+     ровно под вкладку «Ещё»: кнопка на экране есть, нажать её нельзя.
+     Высота панели здесь числом, а не переменной, потому что переменная
+     означала бы, что её кто-то может поменять в одном месте и забыть в
+     другом; полоса вкладок — деталь фиксированного размера. */
+  @media (max-width: 767px) {
+    .pay-dock {
+      z-index: 41;
+      bottom: calc(3.625rem + env(safe-area-inset-bottom));
+      padding-bottom: 0.7rem;
+    }
+    .pay-toast {
+      bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    }
+  }
+
   @media (min-width: 880px) {
     .pay-dock {
       display: none;
@@ -4317,6 +4349,17 @@ input[type='radio'] {
      двести тридцать точек из трёхсот сорока, и номер машины слева
      обрезался до половины. Потолок в девять с половиной рублей
      заставляет длинную строку перенестись, а номер оставляет целым. */
+  /* Строка, а не карточка с заливкой.
+
+     Заливка тут была лишней дважды: прибор вокруг ленты уже залит теми
+     же пятью процентами чернил, и сорок машин внутри него превращались
+     в сорок коробок в коробке — рамка в рамке, из-за которой лента
+     читается набором предметов, а не списком. Разделяет записи
+     волосяная линия, ровно как в списке людей и в журнале приложения.
+
+     Раскладка на областях сетки осталась прежней: она и решала главную
+     задачу — показать восемь колонок таблицы в четырёхстах точках,
+     ничего не обрезав и не уводя экран вбок. */
   .op-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 9.5rem) auto;
@@ -4327,9 +4370,10 @@ input[type='radio'] {
     align-items: center;
     column-gap: 0.6rem;
     row-gap: 0.2rem;
-    padding: 0.7rem 0.75rem;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    padding: 0.7rem 0;
+  }
+  .op-card + .op-card {
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
   }
   .op-card-key {
     grid-area: key;
@@ -4382,18 +4426,519 @@ input[type='radio'] {
 
   /* Итог под карточками — тот же, что под столбцами таблицы: телефон и
      широкий экран показывают одну ленту и обязаны отвечать одинаково. */
+  /* Итог отделён от записей линией потемнее и без заливки: это не ещё
+     одна запись, а сумма столбца, и вести себя как строка списка он не
+     должен. Тот же приём, что у итоговой строки таблицы на компьютере. */
   .op-total {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
     margin-top: 0.15rem;
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radius-sm);
+    padding: 0.7rem 0 0.1rem;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 18%, transparent);
     font-size: 13px;
     font-weight: 600;
     color: var(--on-board);
-    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ═════════════════ телефон: продукт, а не сжатый кабинет ═════════════════
+
+   Кабинет на компьютере собран из приборов, стоящих рядом: боковая
+   колонка слева, полотно во всю остальную ширину, десять приборов в
+   сетке. На телефоне такой схемы не существует — там она превращается в
+   ту же сетку, выстроенную в столбик, и человек проматывает экран, ища,
+   где кончился один прибор и начался следующий.
+
+   Здесь схема другая, и взята она из приложения: разделы внизу под
+   большим пальцем, шапка называет место и умеет вернуть назад, а
+   страница начинается с того числа, ради которого её открыли.
+
+   Оформление при этом остаётся вебовским. Из приложения перенесены
+   расположение, порядок и приоритет, а не его вид: ни системной синевы,
+   ни капсул, ни серых сгруппированных списков — те же тона полотна,
+   те же углы и та же типографика, что на широком экране.
+
+   Граница — 768: с неё начинается боковая колонка, и две схемы никогда
+   не показываются одновременно. */
+
+/* Поле страницы на телефоне.
+
+   Шов равен полю (DESIGN.md), поэтому меняется одно значение, а не
+   отступы по местам. Шестнадцать точек — мера, при которой строка не
+   упирается в край экрана и не отдаёт ему седьмую часть ширины; на
+   узких телефонах она сама съезжает к четырнадцати. */
+@media (max-width: 767px) {
+  :root {
+    --seam: clamp(14px, 4.1vw, 16px);
+  }
+}
+
+@layer components {
+  /* ───────────────── шапка экрана ─────────────────
+
+     На каждом экране своя, и говорит она ровно три вещи: где я, что
+     здесь можно сделать и как вернуться. Корневой раздел называет
+     бизнес, внутренний — раздел и стрелку назад.
+
+     Липкая и в тонах полотна: на телефоне это единственное, что стоит
+     над содержимым, и полоса чужого тона сверху читалась бы чужим
+     приложением. Верхнее поле безопасной зоны — ради установленного на
+     домашний экран: там под шапкой лежит строка состояния. */
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 3.25rem;
+    padding-inline-start: max(calc(var(--seam) - 4px), env(safe-area-inset-left));
+    padding-inline-end: max(calc(var(--seam) - 4px), env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+    background: color-mix(in srgb, var(--board) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  @media (min-width: 768px) {
+    .appbar {
+      display: none;
+    }
+  }
+
+  /* Стрелка назад — цель для пальца, а не значок.
+
+     Сорок четыре точки в обе стороны при значке в восемнадцать: в неё
+     попадают, не глядя, на ходу и мокрой рукой. Отрицательное поле
+     слева возвращает сам значок на линию текста под ним, чтобы шапка не
+     выглядела сдвинутой вправо. */
+  .appbar-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-inline-start: -0.5rem;
+    border-radius: var(--radius-chip);
+    color: var(--on-board);
+    transition: background var(--t-press) var(--ease);
+  }
+  .appbar-back:active {
+    background: color-mix(in srgb, var(--board-ink) 9%, transparent);
+  }
+
+  /* Имя места. Не заголовок страницы: он стоит ниже, крупно и со своей
+     датой. Здесь достаточно строки, по которой видно, куда попал. */
+  .appbar-title {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--on-board);
+  }
+  .appbar-sub {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--board-muted);
+  }
+  .appbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex: none;
+  }
+
+  /* Заголовок страницы во внутреннем разделе.
+
+     На компьютере он держит верх полотна: боковая колонка называет
+     раздел подсветкой, но подсветка это не заголовок, и без него
+     страница начинается сразу с цифры.
+
+     На телефоне раздел назван шапкой над ним, и тот же заголовок
+     строкой ниже — это одно слово дважды подряд. Крупное «Ծախսեր» под
+     маленьким «Ծախսեր» не сообщает ничего и стоит первого экрана;
+     пояснение под ним при этом остаётся, потому что оно говорит другое.
+
+     Только внутренние разделы: у четырёх корневых экранов шапка
+     называет бизнес, а не место, и заголовок там единственный. */
+  @media (max-width: 767px) {
+    .appbar-inner ~ .canvas .page-title {
+      display: none;
+    }
+  }
+
+  /* ───────────────── разделы внизу ─────────────────
+
+     Четыре, а не девять. Вкладок должно быть столько, сколько экранов
+     открывают каждый день; прейскурант правят раз в месяц, и ему здесь
+     не место — он в «Ավելին» вместе с клиентами, людьми и настройками.
+
+     Панель прижата к низу, потому что там большой палец. Не капсула и
+     не стекло: заливка полотна, волосяная линия сверху и та же чернильная
+     подсветка выбранного, что у вкладок периода. */
+  .tabbar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 2px;
+    padding: 5px 6px;
+    padding-inline-start: max(6px, env(safe-area-inset-left));
+    padding-inline-end: max(6px, env(safe-area-inset-right));
+    padding-bottom: calc(5px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--board) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 9%, transparent);
+  }
+  @media (min-width: 768px) {
+    .tabbar {
+      display: none;
+    }
+  }
+
+  .tabbar-item {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 3rem;
+    padding: 4px 2px;
+    border-radius: var(--radius-chip);
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.1;
+    text-align: center;
+    color: var(--board-muted);
+    transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  }
+  .tabbar-item > span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* «Вы находитесь здесь» — сиреневая подложка и грейповые чернила.
+     Лайм не берём: в продукте он значит «нажми меня», а нажимать уже
+     нечего. Тон тот же, что под выбранной вкладкой в приложении. */
+  .tabbar-item[data-on] {
+    background: var(--accent-bg);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .tabbar-item:active {
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .tabbar-item[data-on]:active {
+    background: var(--accent-bg);
+  }
+  /* Ожидание перехода: раздел уже подсвечен, страница ещё едет. */
+  .tabbar-item[data-pending] {
+    opacity: 0.55;
+  }
+
+  /* Узкий телефон.
+
+     «Աշխատավարձ» это десять знаков на семьдесят точек колонки, и на
+     старых четырёхдюймовых экранах оно упирается в многоточие. Полпункта
+     кегля возвращают слово целиком; резать сильнее нельзя — подпись под
+     значком и так на пределе читаемости, а обрезанная она хотя бы
+     честно показывает, что не поместилась. */
+  @media (max-width: 360px) {
+    .tabbar-item {
+      font-size: 10px;
+      letter-spacing: -0.01em;
+    }
+  }
+
+  /* Место под панелью. Без него последняя строка списка навсегда
+     остаётся под ней, и человек не знает, что она там есть. */
+  @media (max-width: 767px) {
+    .canvas {
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* ───────────────── быстрые действия ─────────────────
+
+     Три вещи, которые владелец делает с телефона чаще всего: записать
+     машину, записать расход, открыть смену. На компьютере их ищут в
+     разделах, и это нормально — там разделы всегда на экране; на
+     телефоне раздел стоит за двумя нажатиями, и самое частое действие
+     обязано стоять за одним.
+
+     Ряд, а не сетка карточек: это действия, а не показания, и весить
+     столько же, сколько плита с итогом, они не должны. */
+  .qa {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 8px;
+  }
+  .qa-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.875rem;
+    padding-inline: 0.55rem;
+    border-radius: var(--radius-btn);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.15;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+    color: var(--on-board);
+    transition: background var(--t-micro) var(--ease), transform var(--t-press) var(--ease);
+  }
+  .qa-item > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qa-item:active {
+    transform: translateY(1px);
+    background: color-mix(in srgb, var(--board-ink) 11%, transparent);
+  }
+  /* Главное действие — лаймом, тем же, что у кнопки записи на смене.
+     Второе такое же на экране запрещено: два одинаково громких
+     призыва означают, что ни один не главный. */
+  .qa-item[data-primary] {
+    background: var(--accent-fill);
+    color: var(--accent-on);
+  }
+  .qa-item[data-primary]:active {
+    background: color-mix(in srgb, var(--accent-fill) 84%, var(--accent-on));
+  }
+
+  /* ───────────────── карта разделов ─────────────────
+
+     Экран «Ավելին»: всё, что не поместилось в четыре вкладки. Не девять
+     одинаковых строк и не девять одинаковых карточек — размер задаёт
+     приоритет. Четыре рабочие сущности плитками по две в ряд,
+     обслуживание продукта строками под ними.
+
+     Плитка светится тем же радиальным пятном, что приборы табло: это
+     язык продукта, и раздел, нарисованный плоским прямоугольником,
+     читался бы деталью из другого приложения. */
+  .more-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .more-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 6.75rem;
+    padding: 0.85rem 0.9rem;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    transition: background var(--t-micro) var(--ease), transform var(--t-press) var(--ease);
+  }
+  :root:not([data-theme='dark']) .more-tile {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board-ink) 7%, transparent);
+  }
+  .more-tile:active {
+    transform: translateY(1px);
+    background: color-mix(in srgb, var(--board-ink) 9%, transparent);
+  }
+  .more-tile-name {
+    margin-top: auto;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--on-board);
+  }
+  .more-tile-note {
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--board-muted);
+  }
+
+  /* Строка обслуживания: настройки, профиль, филиалы, выгрузка. Тише
+     плиток и без подложки — это не сущности бизнеса, а то, что трогают
+     раз в год. Волосяные линии между ними рисует `.rows`. */
+  .more-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    min-height: 3.25rem;
+    text-align: start;
+  }
+  .more-row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .more-row-note {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--board-muted);
+  }
+
+  /* ───────────────── свёрнутый прибор ─────────────────
+
+     График хода дня на телефоне закрыт, а не убран. В приложении его на
+     сегодняшнем экране нет вовсе: за день пять машин, и «как шло» видно
+     по журналу построчно, а треть экрана он занимает всегда. Но убрать
+     прибор совсем значит потерять ответ на вопрос, который иногда
+     задают, — поэтому он свёрнут в одну строку и открывается нажатием. */
+  .fold {
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+  }
+  .fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.25rem;
+    padding: 0.6rem var(--pad-panel, 1rem);
+    list-style: none;
+    cursor: pointer;
+    color: var(--on-board);
+  }
+  /* Имя прибора и его ответ — двумя строками, а не одной.
+
+     В строку они не помещаются: «−502 ֏ неделю назад в это же время» на
+     телефоне длиннее самого названия, и вместе они переносились так, что
+     заголовок разрывался посередине слова. Ответ стоит под именем и
+     тише его: он объясняет, что внутри, а не спорит за место. */
+  .fold-name {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .fold-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .fold > summary::-webkit-details-marker {
+    display: none;
+  }
+  .fold > summary::after {
+    content: '';
+    flex: none;
+    margin-inline-start: auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-inline-end: 1.5px solid var(--board-muted);
+    border-block-end: 1.5px solid var(--board-muted);
+    rotate: 45deg;
+    translate: 0 -2px;
+    transition: rotate var(--t-micro) var(--ease);
+  }
+  .fold[open] > summary::after {
+    rotate: -135deg;
+    translate: 0 2px;
+  }
+  .fold-body {
+    padding: 0 var(--pad-panel, 1rem) var(--pad-panel, 1rem);
+  }
+
+  /* ───────────────── цель для пальца ─────────────────
+
+     Поле в тридцать шесть точек нарисовано под мышь и на компьютере
+     верно: там курсор попадает в пиксель. На телефоне промах по такому
+     полю стоит второго нажатия, а вводят в него мокрыми руками, поэтому
+     под 768 все поля вырастают до сорока четырёх — той же высоты, что у
+     кнопки рядом с ними. */
+  @media (max-width: 767px) {
+    .field {
+      min-height: 2.75rem;
+      padding-block: 0.6rem;
+      /* Шестнадцать, а не четырнадцать: Safari увеличивает страницу,
+         как только палец встаёт в поле с более мелким текстом, и вернуть
+         масштаб обратно нечем. */
+      font-size: 16px;
+    }
+    .field-sm {
+      min-height: 2.75rem;
+      font-size: 16px;
+    }
+    .seg-item {
+      padding-block: 0.5rem;
+    }
+    /* Значок-кнопка в строке: та же цель, что у стрелки назад. */
+    .btn-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+  }
+
+  /* ───────────────── окно приезжает снизу ─────────────────
+
+     На компьютере окно правки стоит по центру: там оно небольшое, а
+     вокруг видно страницу, которую правят. На телефоне то же окно
+     занимает почти весь экран, и центр перестаёт что-либо значить —
+     зато значит край, от которого оно пришло: снизу, из-под пальца,
+     туда же и уходит.
+
+     Ширина при этом полная, а не «четыреста сорок, если влезет»: окно с
+     полями по бокам на узком экране отдаёт краям место, которого не
+     хватает самим полям. */
+  @media (max-width: 639px) {
+    .sheet {
+      inset: auto 0 0 0;
+      margin: 0;
+      width: 100%;
+      /* У браузера своё правило `max-width: calc(100% - 6px - 2em)` для
+         модального окна, и без отмены оно оставляло справа тридцать
+         восемь точек пустоты: окно приезжало снизу, но не во всю ширину,
+         а прижатым к левому краю. */
+      max-width: none;
+      max-height: min(90dvh, calc(100dvh - 2.5rem));
+      border-radius: var(--radius-card) var(--radius-card) 0 0;
+      border-bottom: 0;
+      transform: translateY(14px);
+    }
+    .sheet[open] {
+      transform: none;
+    }
+    @starting-style {
+      .sheet[open] {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+    }
+    /* Подвал окна и подвал панели стоят на нижнем краю телефона: под
+       ними домашняя черта, и кнопка обязана быть выше неё. */
+    .sheet-foot,
+    .drawer .sheet-foot {
+      padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+    }
+    .drawer .sheet-body {
+      padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    }
   }
 }

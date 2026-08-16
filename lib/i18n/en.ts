@@ -80,7 +80,7 @@ export const en: Dict = {
   meta: {
     landingTitle: 'Tetrin | Your car wash, under control',
     landingDescription:
-      'Cars, staff, payroll and what is actually left — in one simple system.',
+      'Cars, staff, payroll and what is actually left, all in one simple system.',
     privacyTitle: 'Privacy policy · Tetrin',
     privacyDescription: 'What Tetrin stores and why',
     supportTitle: 'Support · Tetrin',
@@ -296,7 +296,7 @@ export const en: Dict = {
     stepUpSub: (phone: string) => `Sign-in from an unfamiliar device. We sent a code to ${phone}`,
 
     resetTitle: 'Reset your PIN',
-    resetSub: 'Enter your number — we will send a confirmation code',
+    resetSub: 'Enter your number and we will send a confirmation code',
     resetSend: 'Send the code',
     resetSave: 'Save the new PIN',
     resetDone: 'PIN changed',
@@ -322,12 +322,12 @@ export const en: Dict = {
     verifyNow: 'Confirm',
     verified: 'Number confirmed',
     entryTitle: 'Sign in to Tetrin',
-    entrySub: 'Enter your number — we will send a code',
+    entrySub: 'Enter your number and we will send a code',
     entrySend: 'Continue',
     entryPinDoor: 'Sign in with a PIN',
     entrySmsDoor: 'Sign in with an SMS code',
     nameTitle: 'What is your car wash called?',
-    nameSub: 'Last step — then straight to work',
+    nameSub: 'Last step, then straight to work',
     nameCreate: 'Create and start',
     setPin: 'Set a PIN',
     setPinNote: 'A second door for when SMS does not arrive. Optional.',
@@ -375,7 +375,7 @@ export const en: Dict = {
     expiredTitle: 'The term has ended',
     expiredWorker: 'New records are closed. Talk to the owner.',
     expiredOwner:
-      'Your data is where it was — revenue, payroll, the client base — and you can download it. To start logging again, renew the subscription.',
+      'Your data is where it was: revenue, payroll, the client base. You can download all of it. To start logging again, renew the subscription.',
     renew: 'Get in touch to renew',
     blockedTitle: 'Access is closed',
     blockedText:
@@ -405,7 +405,7 @@ export const en: Dict = {
     price: (sum: string) => `${sum} per month for each.`,
     freshTitle: 'Location created',
     freshText:
-      'It starts after payment. Your other locations work as before — open any of them.',
+      'It starts after payment. Your other locations work as before, open any of them.',
   },
 
   work: {
@@ -413,7 +413,7 @@ export const en: Dict = {
     shiftRevenue: 'Shift revenue',
 
     worksTotal: 'Work total',
-    yourShare: (percent: number) => `your share — ${percent}%`,
+    yourShare: (percent: number) => `your share ${percent}%`,
 
     onShift: "I'm on shift",
     shiftNotStarted: 'Shift not started yet',
@@ -421,6 +421,8 @@ export const en: Dict = {
     since: (time: string) => `since ${time}`,
     lasted: (hours: number, minutes: number) =>
       hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`,
+    /* Промежуток «от и до», а не связка: тире здесь на своём месте.
+       Связки из словаря убраны, разделитель фактов — точка «·». */
     range: (from: string, to: string) => `${from} — ${to}`,
 
     startShift: 'Start shift',
@@ -472,7 +474,7 @@ export const en: Dict = {
     unpaid: 'Unpaid',
     paid: 'Paid',
     paidOn: (day: string, time: string) => `Paid ${day}, ${time}`,
-    alreadyPaid: (sum: string) => `already — ${sum}`,
+    alreadyPaid: (sum: string) => `already ${sum}`,
 
     pay: 'Pay',
     paySum: (sum: string) => `Pay ${sum}`,
@@ -482,7 +484,7 @@ export const en: Dict = {
     confirmTitle: 'Confirm the payout',
     confirmNote: 'Once confirmed, these calculations are marked as paid.',
     confirm: 'Confirm',
-    done: (sum: string) => `Payout recorded — ${sum}`,
+    done: (sum: string) => `Payout recorded · ${sum}`,
     failed: "Couldn't do it. Try again.",
 
     dayToPay: 'due',
@@ -554,7 +556,7 @@ export const en: Dict = {
     of: 'of',
     until: 'until',
     note:
-      'The money arrives at the moment of sale. Each use creates no revenue — so the same money is not counted twice. But the washer did wash the car, and he gets his percentage.',
+      'The money arrives at the moment of sale. Each use creates no revenue, so the same money is not counted twice. But the washer did wash the car, and he gets his percentage.',
     empty: 'No passes yet',
   },
 
@@ -595,7 +597,7 @@ export const en: Dict = {
     oneOffs: 'One-off expenses',
     empty: 'No expenses yet',
     emptyNote:
-      "Add rent, electricity, chemicals and the rest — that's how you see the real profit of the business.",
+      "Add rent, electricity, chemicals and the rest. That's how you see the real profit of the business.",
     remove: 'Remove',
     removeTitle: 'Remove the expense?',
     removeMonthlyNote: 'From today it stops accruing. Past days keep what they had.',
@@ -646,7 +648,7 @@ export const en: Dict = {
     clientsNotFound: 'No such plate',
     clientsEmpty: 'Clients appear on their own',
     clientsEmptyNote:
-      'After the first wash the car lands in the base — with visits, money spent and history.',
+      'After the first wash the car lands in the base with visits, money spent and history.',
     clientHabits: 'Habits',
     clientFirstVisit: 'First visit',
     clientOftenTakes: 'Usually takes',
@@ -655,8 +657,9 @@ export const en: Dict = {
     sortRecent: 'Last visit',
     sortOften: 'Most frequent',
     sortRichest: 'Spent the most',
-    lastVisitPrefix: 'last —',
+    lastVisitPrefix: 'last:',
     clientHistory: 'Visit history',
+    clientPerOne: 'Per client',
     clientAvg: 'average',
     clientLoyal: 'regular',
     clientOne: 'client',
@@ -666,7 +669,7 @@ export const en: Dict = {
     clientPhone: 'Phone',
     clientCall: 'Call',
     clientWrite: 'Message',
-    clientLostHint: 'Long gone — call or offer a discount',
+    clientLostHint: 'Long gone, call or offer a discount',
     clientNoPhone: 'No phone on file',
     payoutHistory: 'Payout history',
     cancelOrder: 'Cancel',
@@ -741,6 +744,36 @@ export const en: Dict = {
     system: 'SYSTEM',
   },
 
+  phone: {
+    tabShift: 'Shift',
+    tabSummary: 'Summary',
+    tabPayroll: 'Payroll',
+    tabMore: 'More',
+    tabsAria: 'Main sections',
+
+    moreTitle: 'More',
+    moreLead: 'The map of your business',
+
+    clientsLead: 'Visits and car history',
+    servicesLead: 'Services, prices, terms',
+    expensesLead: 'Rent, supplies, one-off spending',
+    reportsLead: 'Month against month',
+    passesLead: 'Passes and the balance left',
+    team: 'Team',
+    teamLead: 'staff and percentages',
+    points: 'Locations',
+    profile: 'Profile',
+    profileLead: 'Profile and access',
+    settingsLead: 'Business data and settings',
+
+    quick: 'Quick',
+    addExpense: 'Expense',
+    openShift: 'Shift',
+    exportLead: 'the last 30 days',
+
+    flow: 'How the day went',
+  },
+
   settings: {
     services: 'Services and prices',
     tabServices: 'Services',
@@ -752,7 +785,7 @@ export const en: Dict = {
     servicesEmptyNote:
       'Add what you sell, with a price. The washer picks from the list when logging, and the price goes into the record.',
     exportNote:
-      'The file holds every record from the last 30 days — car, service, price, payment method, washer and their share. Opens in Excel.',
+      'The file holds every record from the last 30 days: car, service, price, payment method, washer and their share. Opens in Excel.',
     staff: 'Staff',
     business: 'Business',
     addService: 'Add a service',
@@ -760,12 +793,12 @@ export const en: Dict = {
     staffLead: 'Who works and what they bring in',
     staffEmpty: 'No staff yet',
     staffEmptyNote:
-      'Add a washer — he signs in from his own phone, logs cars, and payroll adds itself up.',
+      'Add a washer. He signs in from his own phone, logs cars, and payroll adds itself up.',
     access: 'Access',
     role: 'Role',
     pinHidden: 'Not shown',
     staffNote:
-      'Staff sign in with their own phone and a PIN. Read them the PIN — no password to remember.',
+      'Staff sign in with their own phone and a PIN. Read them the PIN, no password to remember.',
     price: 'Price',
     percent: 'Percentage',
     name: 'Name',
@@ -786,7 +819,7 @@ export const en: Dict = {
 
     deleteTitle: 'Delete the business',
     deleteWhat:
-      'Everything goes — records, clients, services and all staff. Staff access closes immediately.',
+      'Everything goes: records, clients, services and all staff. Staff access closes immediately.',
     deleteNoWayBack: 'It cannot be restored.',
     deletePin: 'Confirm with your PIN',
     deleteKeep: 'Download the data and delete',

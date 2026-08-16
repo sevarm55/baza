@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconClose } from '@/components/icons';
-import { Logo } from '@/components/logo';
+import { Wordmark } from '@/components/wordmark';
 import { AuthSurface } from '@/components/auth-surface';
 import { useT } from '@/lib/i18n/client';
 import type { RememberedWebAccount } from '@/lib/auth';
@@ -101,7 +101,15 @@ export function AuthDialog({
       <div ref={panel} className={s.panel} tabIndex={-1}>
         <div className={s.form}>
           <div className={s.top}>
-            <Logo size={26} />
+            {/* Марка набранная, а не картинка со словом рядом.
+
+                Окно входа — первое, что видит человек, пришедший с
+                витрины, и знак в нём обязан совпасть с тем, который он
+                только что читал в шапке. Квадратная иконка приложения
+                рядом со словом «TETRIN» повторяла его же и делала первую
+                строку окна вдвое тяжелее, чем ей нужно быть: дальше
+                там телефон и код, а не знакомство. */}
+            <Wordmark className="text-[17px]" />
             <button
               type="button"
               className={s.close}

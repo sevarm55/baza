@@ -6,7 +6,6 @@ import { passesEnabled } from '@/lib/features';
 import { personColor } from '@/lib/person-color';
 import { daysInMonthOf } from '@/lib/time';
 import { PageHead } from '@/components/page-head';
-import { Segmented } from '@/components/segmented';
 import { getDict } from '@/lib/i18n/server';
 import { unitCount } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
@@ -74,7 +73,26 @@ export default async function ReportsPage({
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
-  const months = await getMonthlyReport(tenant.id, tenant.timezone, MONTHS);
+  const requested = await getMonthlyReport(tenant.id, tenant.timezone, MONTHS);
+
+  /* Месяцы до первой работы отрезаются.
+   *
+   * Бизнесу может быть два месяца, а окно отчёта — шесть, и четыре из
+   * них рисовались нулями: четыре пустых столбца в графике и четыре
+   * строки «не работали» в таблице. Это не нули бизнеса, это месяцы,
+   * когда бизнеса ещё не было, и показывать их — то же самое, что
+   * начинать историю мойки с года, когда её не построили.
+   *
+   * Пустой месяц ПОСРЕДИ ряда остаётся на месте: он значит «стояли», и
+   * это ответ, за которым в отчёт и приходят. Отрезается только хвост с
+   * дальнего конца, и только до первого месяца, в котором хоть что-то
+   * было, — машина, приход или расход. Один месяц остаётся всегда,
+   * иначе на новой мойке отчёт оказался бы пустым экраном.
+   */
+  const idle = (m: ReportMonth) => m.count === 0 && m.revenue === 0 && m.costs === 0;
+  let oldest = requested.length - 1;
+  while (oldest > 0 && idle(requested[oldest])) oldest--;
+  const months = requested.slice(0, oldest + 1);
 
   const asked = Number((await searchParams).m ?? 0);
   const index = Number.isFinite(asked) && asked >= 0 && asked < months.length ? asked : 0;
@@ -184,17 +202,19 @@ export default async function ReportsPage({
 
   return (
     <>
-      <PageHead title={t.reports.title} meta={t.reports.note}>
-        {/* Месяцы тем же жёлобом, что период на сводке: один орган
-            управления на всех экранах, где выбирают срок. */}
-        <Segmented
-          id="report-months"
-          current={String(index)}
-          scroll
-          label={t.owner.periodLabel}
-          items={months.map((m, i) => ({ key: String(i), label: monthName(m), href: href(i) }))}
-        />
-      </PageHead>
+      {/* Полоса месяцев отсюда убрана.
+
+          Способов выбрать месяц на этой странице было три: жёлоб в
+          шапке, столбики графика и строки таблицы. Два последних —
+          лучше по устройству: у них рядом с названием месяца стоит его
+          число, то есть выбирают, посмотрев, а не наугад. Жёлоб же
+          называл шесть месяцев подряд и не говорил о них ничего, зато
+          занимал целую строку над ответом.
+
+          Открытый месяц по-прежнему подсвечен — и в графике, и в
+          таблице, — а адрес его остался прежним: ссылку на разбор
+          можно послать себе же. */}
+      <PageHead title={t.reports.title} meta={t.reports.note} />
 
       <ReportSummary
         currency={tenant.currency}

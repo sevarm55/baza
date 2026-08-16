@@ -185,6 +185,144 @@
         }
       }
     },
+    "auth.otpCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդը SMS-ից"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код из SMS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code from SMS"
+          }
+        }
+      }
+    },
+    "auth.otpExpired": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդի ժամկետն անցել է։ Խնդրեք նորը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок кода истёк. Запросите новый."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code expired. Ask for a new one."
+          }
+        }
+      }
+    },
+    "auth.otpInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդը սխալ է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код неверный"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That code is wrong"
+          }
+        }
+      }
+    },
+    "auth.otpResend": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ուղարկել կրկին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить снова"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send again"
+          }
+        }
+      }
+    },
+    "auth.otpTooMany": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Չափազանց շատ փորձեր։ Խնդրեք նոր կոդ։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком много попыток. Запросите новый код."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many attempts. Ask for a new code."
+          }
+        }
+      }
+    },
+    "auth.otpVerify": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հաստատել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтвердить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm"
+          }
+        }
+      }
+    },
     "auth.phone": {
       "extractionState": "manual",
       "localizations": {
@@ -461,6 +599,29 @@
         }
       }
     },
+    "auth.smsFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Չհաջողվեց ուղարկել SMS։ Փորձեք քիչ անց։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отправить SMS. Попробуйте позже."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not send the SMS. Try again shortly."
+          }
+        }
+      }
+    },
     "auth.staffNote": {
       "extractionState": "manual",
       "localizations": {
@@ -480,6 +641,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "The business owner gives you your sign-in details"
+          }
+        }
+      }
+    },
+    "auth.stepUpSub": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход с незнакомого устройства. Мы отправили код на %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in from an unfamiliar device. We sent a code to %@"
+          }
+        }
+      }
+    },
+    "auth.stepUpTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verification"
           }
         }
       }
@@ -1905,7 +2112,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Файл сохранится в телефоне — для Excel."
+            "value": "Файл сохранится в телефоне, для Excel."
           }
         },
         "en": {
@@ -3586,7 +3793,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "С каждой машины — процент мойщика. Процент запоминается в момент записи, поэтому изменение цен прошлое не меняет."
+            "value": "С каждой машины идёт процент мойщика. Процент запоминается в момент записи, поэтому изменение цен прошлое не меняет."
           }
         },
         "en": {
@@ -3632,7 +3839,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Из выручки вычитаются зарплата и расходы: аренда, химия, электричество. Остальное — ваша прибыль."
+            "value": "Из выручки вычитаются зарплата и расходы: аренда, химия, электричество. Остальное ваша прибыль."
           }
         },
         "en": {
@@ -3672,19 +3879,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ներբեռնեք ամեն ինչ Excel-ով ցանկացած պահի։ Կապը կտրվե՞ց — գրանցումները սպասում են հեռախոսում և ուղարկվում իրենք։"
+            "value": "Ներբեռնեք ամեն ինչ Excel-ով ցանկացած պահի։ Կապը կտրվե՞ց, գրանցումները սպասում են հեռախոսում և ուղարկվում իրենք։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скачайте всё в Excel в любой момент. Пропала связь — записи ждут в телефоне и уходят сами."
+            "value": "Скачайте всё в Excel в любой момент. Пропала связь, записи ждут в телефоне и уходят сами."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download everything to Excel at any moment. Lost connection — records wait on the phone and send themselves."
+            "value": "Download everything to Excel at any moment. Lost connection, records wait on the phone and send themselves."
           }
         }
       }
@@ -3701,7 +3908,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Данные — ваши"
+            "value": "Данные ваши"
           }
         },
         "en": {
@@ -4017,19 +4224,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Վաղուց չի եղել — զանգեք կամ առաջարկեք զեղչ"
+            "value": "Վաղուց չի եղել, զանգեք կամ առաջարկեք զեղչ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Давно не был — позвоните или предложите скидку"
+            "value": "Давно не был, позвоните или предложите скидку"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Long gone — call or offer a discount"
+            "value": "Long gone, call or offer a discount"
           }
         }
       }
@@ -4805,13 +5012,13 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "уже — %@"
+            "value": "уже %@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "already — %@"
+            "value": "already %@"
           }
         }
       }
@@ -4943,13 +5150,13 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выплата отмечена — %@"
+            "value": "Выплата отмечена · %@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Payout recorded — %@"
+            "value": "Payout recorded · %@"
           }
         }
       }
@@ -5499,13 +5706,13 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новый филиал добавляется на сайте — tetrin.pro"
+            "value": "Новый филиал добавляется на сайте tetrin.pro"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A new location is added on the website — tetrin.pro"
+            "value": "A new location is added on tetrin.pro"
           }
         }
       }
@@ -7487,13 +7694,13 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "твоя доля — %lld%%"
+            "value": "твоя доля %lld%%"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "your share — %lld%%"
+            "value": "your share %lld%%"
           }
         }
       }
@@ -9127,213 +9334,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Work total"
-          }
-        }
-      }
-    },
-    "auth.stepUpTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ստուգում"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверка"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verification"
-          }
-        }
-      }
-    },
-    "auth.stepUpSub": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вход с незнакомого устройства. Мы отправили код на %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign-in from an unfamiliar device. We sent a code to %@"
-          }
-        }
-      }
-    },
-    "auth.otpCode": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդը SMS-ից"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Код из SMS"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Code from SMS"
-          }
-        }
-      }
-    },
-    "auth.otpVerify": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հաստատել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подтвердить"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm"
-          }
-        }
-      }
-    },
-    "auth.otpResend": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուղարկել կրկին"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить снова"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send again"
-          }
-        }
-      }
-    },
-    "auth.otpInvalid": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդը սխալ է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Код неверный"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That code is wrong"
-          }
-        }
-      }
-    },
-    "auth.otpExpired": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդի ժամկետն անցել է։ Խնդրեք նորը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Срок кода истёк. Запросите новый."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The code expired. Ask for a new one."
-          }
-        }
-      }
-    },
-    "auth.otpTooMany": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Չափազանց շատ փորձեր։ Խնդրեք նոր կոդ։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Слишком много попыток. Запросите новый код."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Too many attempts. Ask for a new code."
-          }
-        }
-      }
-    },
-    "auth.smsFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Չհաջողվեց ուղարկել SMS։ Փորձեք քիչ անց։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось отправить SMS. Попробуйте позже."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not send the SMS. Try again shortly."
           }
         }
       }

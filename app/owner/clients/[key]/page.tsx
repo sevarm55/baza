@@ -67,7 +67,14 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
       <PageHead
         title={client.key}
         meta={
-          <Link href="/owner/clients" style={{ color: 'var(--board-muted)' }}>
+          /* Только на компьютере: на телефоне ровно та же стрелка стоит
+             в шапке экрана, и вторая под ней спрашивала бы, чем они
+             отличаются. */
+          <Link
+            href="/owner/clients"
+            className="hidden md:inline"
+            style={{ color: 'var(--board-muted)' }}
+          >
             ← {t.owner.tabClients}
           </Link>
         }

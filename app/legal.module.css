@@ -9,7 +9,9 @@
 .page {
   max-width: 44rem;
   margin-inline: auto;
-  padding: 28px 20px 64px;
+  /* Боковое поле не меньше безопасной зоны: страница идёт до краёв
+     экрана, и в повороте текст иначе уходит под чёлку. */
+  padding: 28px max(20px, env(safe-area-inset-right)) 64px max(20px, env(safe-area-inset-left));
 }
 
 .back {

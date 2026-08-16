@@ -48,14 +48,18 @@ import type { Dict } from '@/lib/i18n';
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  /* `new` приводит сюда с уже открытой формой: так расход заводят со
+     сводки, одним нажатием вместо двух. */
+  searchParams: Promise<{ m?: string; new?: string }>;
 }) {
   const t = await getDict();
   const session = await requireOwner();
   const tenant = await getTenant(session.tid);
   if (!tenant) redirect('/session-ended');
 
-  const { m } = await searchParams;
+  const params = await searchParams;
+  const m = params.m;
+  const openNew = params.new === '1';
   const month: MonthKey = m === 'prev' ? 'prev' : 'current';
   const prev = month === 'prev';
 
@@ -150,6 +154,7 @@ export default async function ExpensesPage({
               currencySymbol={currencySymbol(tenant.currency)}
               hints={expenseHints(t.locale)}
               today={todayKey}
+              openNew={openNew}
             />
           )}
         </div>

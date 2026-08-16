@@ -70,7 +70,11 @@ export function ServiceList({
   }
 
   return (
-    <Panel title={t.settings.services} count={rows.length}>
+    /* Без заголовка: прибор на странице один, и называет его сама
+       страница. «Услуги и цены» под заголовком «Услуги» — это одно и то
+       же слово, написанное дважды подряд, а счётчик стоит строкой выше
+       в перечислении фактов. */
+    <Panel>
       <div className="board-journal lg:hidden">
         {rows.map((s) => (
           <button
