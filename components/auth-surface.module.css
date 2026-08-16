@@ -298,38 +298,6 @@
   color: var(--muted);
 }
 
-/* ───────── язык ─────────
-   Три буквы внизу. Не флаги: флаг — это страна, а не язык, и
-   армянский за пределами Армении от этого армянским быть не
-   перестаёт. */
-
-.langs {
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  padding-top: 2px;
-}
-
-.lang {
-  padding: 3px 8px;
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--faint);
-  transition:
-    color 0.14s ease,
-    background 0.14s ease;
-}
-.lang:hover {
-  color: var(--ink);
-}
-.lang[data-on] {
-  color: var(--ink);
-  background: var(--sunken);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .step,
   .success {

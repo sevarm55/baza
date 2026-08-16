@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/money';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
 import { ACTIVE_NICHES } from '@/lib/niches';
 import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
+import { LanguagePicker } from '@/components/language-picker';
 import { CampaignReveal } from './campaign-motion';
 import s from './landing.module.css';
 import { getDict } from '@/lib/i18n/server';
@@ -69,6 +70,10 @@ export default async function Home({
           </div>
 
           <div className={s.navActions}>
+            {/* Язык выбирают до входа, а не внутри окна: окно живёт в
+                верхнем слое браузера, и любой выпадающий список в нём
+                оказывается под ним. */}
+            <LanguagePicker compact />
             <AuthTrigger mode="signIn" className={s.signIn}>
               {t.auth.signInTitle}
             </AuthTrigger>

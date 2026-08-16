@@ -10,7 +10,6 @@ import { SwitchMark } from '@/components/switch-mark';
 import { personColor } from '@/lib/person-color';
 import { PIN_LENGTH } from '@/lib/phone';
 import { CODE_LENGTH } from '@/lib/otp-shared';
-import { LanguagePicker } from '@/components/language-picker';
 import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
 import type { RememberedWebAccount } from '@/lib/auth';
@@ -90,11 +89,6 @@ export function AuthSurface({
         onBack={() => setForgot(false)}
       />
 
-      {/* Тот же переключатель, что в настройках кабинета: язык у
-          продукта один, и окно входа не место для второго. */}
-      <div className={s.langs}>
-        <LanguagePicker />
-      </div>
     </div>
   );
 }
