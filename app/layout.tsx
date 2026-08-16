@@ -33,6 +33,26 @@ const sans = localFont({
 });
 
 /**
+ * Марка — и только марка.
+ *
+ * Unbounded Black: широкий геометрический гротеск, из которого слово
+ * «TETRIN» в разрядку читается знаком, а не подписью. Отдельным
+ * начертанием, а не общим шрифтом продукта, потому что армянских глифов
+ * в нём нет вовсе (см. ad-creative: он всегда работает в паре с
+ * Mardoto), а интерфейс у нас армянский. Отсюда правило: этой
+ * переменной набирается ровно одно слово на весь продукт — само имя.
+ *
+ * Латиница и всё: имя марки не переводится ни на одном языке, кириллица
+ * и армянский ему не нужны, а лишний файл — это лишние килобайты на
+ * первой загрузке экрана мойщика.
+ */
+const wordmark = localFont({
+  src: './fonts/Unbounded-Latin-Black.woff2',
+  variable: '--font-wordmark',
+  display: 'swap',
+});
+
+/**
  * Заголовок вкладки и описание — на языке страницы.
  *
  * Название продукта не переводится ни на одном языке: Tetrin — марка.
@@ -84,7 +104,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${sans.variable} h-full antialiased`}
+      className={`${sans.variable} ${wordmark.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

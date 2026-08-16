@@ -8,11 +8,9 @@ import { useT } from '@/lib/i18n/client';
 import {
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -76,7 +74,11 @@ export function SideNav({ passes }: { passes: boolean }) {
           }
           isActive={selected}
           tooltip={section.label}
-          className="h-10 rounded-lg px-4 data-active:bg-good-bg data-active:text-good-ink data-active:hover:bg-good-bg data-active:hover:text-good-ink"
+          /* Размеры взяты с боковой колонки витрины, до точки: строка в
+             36, поле 10, скругление мелкой детали, подпись 13 средним.
+             Значок приглушён и загорается только у выбранного — так по
+             колонке видно, где вы, ещё до чтения слова. */
+          className="h-9 gap-2.5 rounded-[var(--radius-chip)] px-2.5 text-[13px] font-medium [&>svg]:size-[15px] [&>svg]:opacity-75 data-active:bg-good-bg data-active:font-semibold data-active:text-good-ink data-active:hover:bg-good-bg data-active:hover:text-good-ink data-active:[&>svg]:opacity-100"
         >
           {section.icon}
           <span>{section.label}</span>
@@ -85,46 +87,24 @@ export function SideNav({ passes }: { passes: boolean }) {
     );
   }
 
+  /* Один список, без заголовков групп и без разделителей.
+
+     Группы были: «финансы», «управление», «система». На девяти разделах
+     они добавляли к колонке три подписи капсом и три черты — семь лишних
+     строк, из которых ни одна никуда не ведёт. Колонка при этом отвечает
+     на один вопрос: куда пойти. Порядок разделов остался прежним, он и
+     несёт группировку — деньги идут подряд, сущности бизнеса следом,
+     обслуживание последним.
+
+     Ровно так собрана колонка на витрине, и человек, который её видел,
+     обязан узнать эту. */
   return (
-    <>
-      <SidebarGroup className="py-2">
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-1">{overview.map(renderSection)}</SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-
-      <SidebarSeparator className="mx-4" />
-
-      <SidebarGroup className="py-2">
-        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
-          {t.nav.finance}
-        </SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-1">{finance.map(renderSection)}</SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-
-      <SidebarSeparator className="mx-4" />
-
-      <SidebarGroup className="py-2">
-        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
-          {t.nav.management}
-        </SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-1">{management.map(renderSection)}</SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-
-      <SidebarSeparator className="mx-4" />
-
-      <SidebarGroup className="py-2">
-        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
-          {t.nav.system}
-        </SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-1">{system.map(renderSection)}</SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </>
+    <SidebarGroup className="py-1">
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-0.5">
+          {[...overview, ...finance, ...management, ...system].map(renderSection)}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }

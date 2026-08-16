@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Figures, Panel, Plate } from '@/components/board';
 import { NumericText } from '@/components/numeric-text';
+import { Wordmark } from '@/components/wordmark';
 import { formatMoney } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
 import { useT } from '@/lib/i18n/client';
@@ -304,7 +305,7 @@ export function LandingWorkspace({
         <div className={s.frame}>
           <aside className={s.rail}>
             <div className={s.railHead}>
-              <span className={s.railWord}>TETRIN</span>
+              <Wordmark className={s.railWord} />
               <span className={s.railDemo}>{d.demoBadge}</span>
             </div>
 

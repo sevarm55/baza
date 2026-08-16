@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getPeriodStats, getTenant, listStaff, startOfDay, startOfMonth } from '@/lib/queries';
@@ -12,7 +11,7 @@ import { AddStaff } from './add-staff';
 import { StaffRoster } from './roster';
 import type { StaffPerson } from './model';
 import { getDict } from '@/lib/i18n/server';
-import { unitCount, unitWord } from '@/lib/i18n/terms';
+import { unitWord } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
 
 /**
@@ -101,16 +100,15 @@ export default async function StaffPage() {
   return (
     <>
       <PageHead title={t.settings.staff} meta={t.settings.staffLead}>
-        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-          {/* Повод — строкой, тем же приёмом, что «пора платить» на
-              зарплатах: это подсказка, а не показание. */}
-          {board.totals.outstanding > 0 && (
-            <Link className="signal" href="/owner/payroll">
-              {t.owner.toPay} {money(board.totals.outstanding)}
-            </Link>
-          )}
-          <AddStaff staffRole={tenant.staffRole} />
-        </div>
+        {/* Долг ушёл отсюда в полосу слагаемых.
+
+            Он висел здесь янтарной строкой вплотную к заголовку раздела,
+            то есть выглядел предупреждением — а это обычное показание:
+            сколько людям начислено и ещё не отдано. Хуже того, то же
+            число стояло второй раз в строке человека, которому оно
+            причитается, и там оно как раз на месте: там видно, КОМУ.
+            Наверху оставался крик без адресата. */}
+        <AddStaff staffRole={tenant.staffRole} />
       </PageHead>
 
       {/* Начислено за месяц — единственное число этой страницы, ради
@@ -126,11 +124,21 @@ export default async function StaffPage() {
           note={t.owner.periodMonth.toLocaleLowerCase(t.locale)}
         />
 
+        {/* Счёта людей здесь больше нет: он стоит у заголовка списка
+            строкой ниже, и написанный дважды на одном экране он занимал
+            звено, которого не хватило долгу. */}
         <Figures
           items={[
-            { label: t.settings.staff, value: String(staff.length) },
             { label: t.owner.onShift, value: String(present.length) },
             { label: unitWord(cars, tenant.unitOne, t.locale), value: String(cars) },
+            {
+              label: t.owner.toPay,
+              value: money(board.totals.outstanding),
+              /* За долгом стоит свой раздел: сводка называет сумму, а
+                 кому и за какой день из неё причитается — вопрос
+                 зарплат, и превращать этот экран в их копию незачем. */
+              href: board.totals.outstanding > 0 ? '/owner/payroll' : undefined,
+            },
           ]}
         />
       </section>

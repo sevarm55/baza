@@ -3,14 +3,11 @@
 import { useState } from 'react';
 import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
-import { Segmented } from '@/components/segmented';
 import { formatMoney } from '@/lib/money';
 import { AddExpense } from './add-expense';
 import { ExpenseSheet } from './expense-sheet';
 import type { ExpenseDay, ExpenseItem } from './model';
 import { useT } from '@/lib/i18n/client';
-
-type Kind = 'all' | 'monthly' | 'oneOff';
 
 /**
  * Расходы списком: постоянные отдельно, разовые по дням.
@@ -56,7 +53,6 @@ export function ExpenseList({
   readOnly: boolean;
 }) {
   const t = useT();
-  const [kind, setKind] = useState<Kind>('all');
   const [open, setOpen] = useState<string | null>(null);
 
   const money = (n: number) => formatMoney(n, currency, t.locale);
@@ -84,31 +80,30 @@ export function ExpenseList({
     );
   }
 
-  /* Переключатель появляется, только когда есть что переключать: на
-     месяце из одних разовых он ничего не меняет, и это приходится
-     прочитать, чтобы понять. */
-  const both = monthly.length > 0 && oneOffCount > 0;
-  const showMonthly = kind !== 'oneOff' && monthly.length > 0;
-  const showOneOff = kind !== 'monthly' && oneOffCount > 0;
+  /* Переключателя вида здесь больше нет, и это не упрощение ради
+     упрощения.
+
+     Он стоял над двумя панелями, которые обе видны на экране, и прятал
+     одну из них. Фильтр, который ничего не находит, а только убирает с
+     глаз то, что и так помещается, приходится прочитать и попробовать,
+     чтобы понять, что он не нужен. На странице, где над ним уже стояли
+     месяцы, получалось два ряда вкладок подряд — и первый вопрос к
+     экрану был не «куда ушли деньги», а «чем эти вкладки отличаются».
+
+     Постоянные и разовые теперь просто стоят рядом: слева то, что
+     уходит каждый месяц само, справа то, что потратили руками. Разница
+     между ними — это разные колонки, а не разные состояния фильтра. */
+  const showMonthly = monthly.length > 0;
+  const showOneOff = oneOffCount > 0;
 
   return (
-    <div className="grid gap-[var(--seam)]">
-      {both && (
-        <Segmented
-          id="expense-kind"
-          current={kind}
-          onSelect={(key) => setKind(key as Kind)}
-          label={t.expenses.kind}
-          items={[
-            { key: 'all', label: t.today.all, count: all.length },
-            { key: 'monthly', label: t.expenses.monthly, count: monthly.length },
-            { key: 'oneOff', label: t.expenses.oneOff, count: oneOffCount },
-          ]}
-        />
-      )}
-
+    <div className="grid items-start gap-[var(--seam)] lg:grid-cols-12">
       {showMonthly && (
-        <Panel title={t.expenses.monthlyOnes} count={monthly.length}>
+        <Panel
+          title={t.expenses.monthlyOnes}
+          count={monthly.length}
+          className={showOneOff ? 'lg:col-span-5' : 'lg:col-span-12'}
+        >
           <div className="rows">
             {monthly.map((e) => (
               <Line
@@ -128,7 +123,11 @@ export function ExpenseList({
       )}
 
       {showOneOff && (
-        <Panel title={t.expenses.oneOffs} count={oneOffCount}>
+        <Panel
+          title={t.expenses.oneOffs}
+          count={oneOffCount}
+          className={showMonthly ? 'lg:col-span-7' : 'lg:col-span-12'}
+        >
           {days.map((day) => (
             <section key={day.key} className="expense-day">
               {/* Итог дня — только когда трат в нём несколько: под одной

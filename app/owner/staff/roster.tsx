@@ -136,7 +136,10 @@ export function StaffRoster({
                       aria-hidden={p.present ? undefined : true}
                     />
                     <span className="truncate text-[15px] font-semibold">{p.name}</span>
-                    {p.present && <span className="tag-good">{t.owner.onShift}</span>}
+                    {/* Метки «на смене» здесь больше нет: слева от имени
+                        уже горит зелёная точка, и она означает ровно это.
+                        Точка и слово рядом — один ответ, записанный
+                        дважды, и вместе они весят больше самого имени. */}
                     {p.owner && <span className="tag">{p.roleLabel}</span>}
                   </span>
                 </td>

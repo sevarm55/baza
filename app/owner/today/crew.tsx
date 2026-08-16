@@ -61,17 +61,32 @@ export async function TodayCrew({
                 aria-label={s.present ? t.owner.onShiftNow : undefined}
                 aria-hidden={s.present ? undefined : true}
               />
-              <span
-                className="min-w-0 flex-1 truncate text-[15px] font-semibold"
-                style={{ color: s.present ? 'var(--on-board)' : 'var(--board-muted)' }}
-                title={s.name}
-              >
-                {s.name}
-              </span>
-              {/* Счёт машин приглушён: он объясняет сумму справа, а не
-                  спорит с ней за внимание. */}
-              <span className="num shrink-0 text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                {unitCount(s.count, unitOne, t.locale)}
+              {/* Имя и под ним ход его смены: с какого часа стоит и
+                  сколько машин успел.
+
+                  Это и есть «ход смены» из показа. Отдельной лентой
+                  событий он в кабинете быть не может: записи о машинах
+                  уже перечислены сегодняшней работой ниже — со временем,
+                  номером, услугой и ценой, то есть подробнее любой
+                  ленты, — и второй хронологический список повторял бы её
+                  беднее. Своего в ленте оставалось ровно одно: когда
+                  человек вышел. Этому месту оно и принадлежит — рядом с
+                  тем, о ком оно. */}
+              <span className="min-w-0 flex-1">
+                <span
+                  className="block truncate text-[15px] font-semibold"
+                  style={{ color: s.present ? 'var(--on-board)' : 'var(--board-muted)' }}
+                  title={s.name}
+                >
+                  {s.name}
+                </span>
+                <span
+                  className="num block truncate text-[12.5px]"
+                  style={{ color: 'var(--board-muted)' }}
+                >
+                  {s.since && `${t.today.since(s.since)} · `}
+                  {unitCount(s.count, unitOne, t.locale)}
+                </span>
               </span>
               <span
                 className="num shrink-0 text-right text-[15px] font-semibold tabular-nums"

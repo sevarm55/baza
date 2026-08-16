@@ -20,6 +20,7 @@ import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
+import { NowMark } from '@/components/now-mark';
 import { personColor } from '@/lib/person-color';
 import { getPeriod } from './periods';
 import { PeriodTabs } from './period-tabs';
@@ -145,6 +146,11 @@ export default async function TodayPage({
         name: x.name,
         color: personColor(x.name),
         present: true,
+        /* Время открытия смены едет у КАЖДОГО, а не одно на список.
+           Раньше оно стояло в операционной строке наверху и бралось у
+           первого вышедшего: при двоих на смене экран называл один час
+           и молчал про второй, а выглядело это как время смены вообще. */
+        since: hhmm(x.openedAt, tenant.timezone),
         count: worked?.count ?? 0,
         earned: worked?.earned ?? 0,
       };
@@ -156,6 +162,7 @@ export default async function TodayPage({
         name: s.name ?? '—',
         color: personColor(s.name),
         present: false,
+        since: null,
         count: s.count,
         earned: s.earned,
       })),
@@ -227,7 +234,28 @@ export default async function TodayPage({
       {/* Дата обязательна — сутки считаются по времени бизнеса и в
           полночь начинаются заново; без неё владелец, открывший кабинет
           в половине первого, видит ноль и решает, что данные пропали. */}
-      <PageHead title={t.owner.tabToday} meta={dayLabel}>
+      <PageHead
+        title={t.owner.tabToday}
+        meta={
+          <>
+            {dayLabel}
+            {/* Час бизнеса рядом с его датой. Только у сегодняшнего дня:
+                у закрытого месяца «сейчас» ничего не значит — там ничего
+                уже не происходит, и живая точка над ним обещала бы
+                движение, которого нет. */}
+            {isToday && (
+              <>
+                {' · '}
+                <NowMark
+                  initial={hhmm(new Date(), tenant.timezone)}
+                  timezone={tenant.timezone}
+                  label={t.today.nowMark}
+                />
+              </>
+            )}
+          </>
+        }
+      >
         <PeriodTabs current={period} />
       </PageHead>
 
@@ -260,35 +288,36 @@ export default async function TodayPage({
         <i />
         {staffCount(isToday ? present.length : crew.length, tenant.staffRole, t.locale)}
         {isToday && ` ${t.owner.onShift.toLocaleLowerCase(t.locale)}`}
-        {/* Время открытия смены — единственное, что оставалось своего у
-            прибора «Հիմա»: состояние людей и так стоит точками в списке
-            ниже, а число на смене — здесь же, двумя словами левее. */}
-        {isToday && present[0] && (
-          <>
-            <i />
-            <span className="num">{t.today.since(hhmm(present[0].openedAt, tenant.timezone))}</span>
-          </>
-        )}
+        {/* Часа открытия смены здесь больше нет. Он брался у первого
+            вышедшего и стоял без имени, то есть читался как время смены
+            вообще; при двоих на площадке это была неправда про одного из
+            них. Теперь час стоит в строке своего человека, в списке
+            ниже. */}
       </p>
 
       {/* Раскладка рабочей части.
 
-          Была колонка из трёх приборов справа от графика — и вместе они
-          выходили вдвое выше него. Под графиком, во всю его ширину и в
-          треть экрана высотой, оставалась дыра; дыра под главным
-          прибором читается как «здесь что-то не загрузилось», и это
-          первое, за что цепляется глаз на широком мониторе.
+          Две колонки, и правая собрана в одну стопку.
 
-          Теперь ряды собраны по высоте, а не по смыслу колонок:
+          Было иначе: график в восемь колонок, справа от него один список
+          работающих в четыре, а «чем платили» — отдельной полосой во всю
+          ширину под ними. Список вдвое ниже графика, и справа от графика
+          открывалось двести шестьдесят точек пустоты. Пустота рядом с
+          главным прибором читается как «здесь что-то не загрузилось» —
+          это первое, за что цепляется глаз на широком мониторе.
 
-            график (8)   ·  кто (4)        — оба около четырёхсот точек
-            чем платят (12)                — три полосы во всю ширину
+          Теперь так:
+
+            график (8)   ·  кто работает + чем платили (4)
             сегодняшняя работа (12)
 
-          Места приборов заданы явными `col-start`, поэтому порядок в
-          разметке от раскладки не зависит: на телефоне колонки нет, и
-          приборы идут сверху вниз в том порядке, в каком владелец
-          задаёт вопросы, — «что сейчас», потом «как шёл день». */}
+          Правая колонка — один узел сетки со своей стопкой внутри, а не
+          два прибора с рассчитанными вручную рядами. Поэтому обе колонки
+          растут одинаково, и между ними не остаётся щели ни при каком
+          числе людей на смене и ни при каком наборе способов оплаты.
+
+          На телефоне колонок нет вовсе, и приборы идут сверху вниз в том
+          порядке, в каком владелец задаёт вопросы. */}
       <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
         {/* График занимает две трети ширины: он единственное на экране,
             что показывает не итог, а ход периода, и мелким он бесполезен.
@@ -300,7 +329,7 @@ export default async function TodayPage({
             оно и есть точки в этом списке. */}
         <Panel
           title={byHour ? t.today.flowDay : t.today.flowPeriod}
-          className="lg:col-span-8 lg:col-start-1 lg:row-start-1"
+          className="lg:col-span-8"
           actions={
             <span
               className="num text-[12.5px] font-semibold"
@@ -342,26 +371,22 @@ export default async function TodayPage({
           )}
         </Panel>
 
-        {/* Кто работает — справа от графика, на месте прежнего «Հիմա».
-            Так и надо было с самого начала: вопрос «кто сейчас на мойке»
-            и список людей с точками состояния — это один прибор, а не
-            два соседних. */}
-        <TodayCrew
-          className="lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:self-start"
-          crew={crew}
-          currency={tenant.currency}
-          unitOne={tenant.unitOne}
-          title={isToday ? t.today.working : t.settings.staff}
-        />
+        {/* Правая колонка: кто работает и чем платили, стопкой.
 
-        {/* Чем платили — во всю ширину вторым рядом. Соседа у него не
-            осталось, а половина ряда с дырой справа читается как
-            «здесь что-то не загрузилось». */}
-        <PaymentMix
-          className="lg:col-span-12 lg:col-start-1 lg:row-start-2 lg:self-start"
-          slices={mix}
-          currency={tenant.currency}
-        />
+            Оба прибора отвечают на вопросы «сейчас», и оба вдвое ниже
+            графика поодиночке. Вместе они ровно его высоты, а один узел
+            сетки вместо двух избавляет от расчёта рядов руками: колонка
+            растёт содержимым, а не числом, вписанным в класс. */}
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-4">
+          <TodayCrew
+            crew={crew}
+            currency={tenant.currency}
+            unitOne={tenant.unitOne}
+            title={isToday ? t.today.working : t.settings.staff}
+          />
+
+          <PaymentMix slices={mix} currency={tenant.currency} />
+        </div>
 
         <TodayOperations
           ops={ops}

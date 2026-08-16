@@ -9,6 +9,7 @@ import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
 import { LanguagePicker } from '@/components/language-picker';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Logo } from '@/components/logo';
+import { Wordmark } from '@/components/wordmark';
 import { getDict } from '@/lib/i18n/server';
 import { LandingWorkspace } from './landing-workspace';
 import { NavShadow } from './landing-motion';
@@ -81,8 +82,7 @@ export default async function Home({
       <NavShadow className={s.navWrap}>
         <nav className={s.nav} aria-label={l.nav.navAria}>
           <Link className={s.brand} href="/" aria-label={l.nav.homeAria}>
-            <Logo size={26} withName={false} />
-            <span className={s.brandName}>{t.app.name.toUpperCase()}</span>
+            <Wordmark className={s.brandName} />
           </Link>
 
           <div className={s.navCenter}>

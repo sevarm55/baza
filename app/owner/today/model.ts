@@ -42,6 +42,8 @@ export type CrewMember = {
   color: string;
   /** стоит на смене прямо сейчас */
   present: boolean;
+  /** «09:00» — когда он открыл смену; у отработавшего пусто */
+  since: string | null;
   count: number;
   earned: number;
 };

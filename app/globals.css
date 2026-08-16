@@ -253,6 +253,11 @@
   --color-surface2: var(--surface2);
   --color-line: var(--line);
   --color-hairline: var(--hairline);
+  /* Подсветка наведения — такой же цвет продукта, как линия или
+     поверхность, и Tailwind должен уметь его выдать классом. Без этой
+     строки `hover:bg-hover` не существует, и кнопки разъезжались по
+     чужим значениям. */
+  --color-hover: var(--hover);
 
   --color-ink: var(--ink);
   --color-muted: var(--muted);
@@ -314,7 +319,13 @@
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--accent);
-  --color-sidebar: var(--board);
+  /* Колонка на тон глубже полотна, а не вровень с ним.
+
+     Была `--board`, то есть ровно тот же белый: край продукта угадывался
+     только по волоску границы, и разделы висели в воздухе. Колонка — не
+     часть страницы, а рамка вокруг неё, и сказать это должен тон. Те же
+     четыре процента чернил, что держат боковую колонку на витрине. */
+  --color-sidebar: color-mix(in srgb, var(--board-ink) 4%, var(--board));
   --color-sidebar-foreground: var(--on-board);
   --color-sidebar-primary: var(--accent2);
   --color-sidebar-primary-foreground: var(--accent2-on);
@@ -366,7 +377,11 @@
    и растягивать его вслед за экраном незачем. На большом мониторе
    растёт рабочая область, а не список разделов. */
 :root {
-  --rail: 244px;
+  /* Колонка у́же на треть. Разделов в ней семь-девять, и все подписи
+     короткие: лишняя ширина уходила в пустоту справа от слов, а
+     забирали её у полотна, где живут числа. Ровно та же ширина, что у
+     колонки на витрине. */
+  --rail: 212px;
   /* Шов вырос на два пункта. Приборы стали плоскими — без свечения и
      теней их разделяет только воздух, и прежнего зазора на это не
      хватало: два соседних прибора читались одним. */
@@ -387,7 +402,7 @@
 
 @media (min-width: 1536px) {
   :root {
-    --rail: 268px;
+    --rail: 228px;
   }
 }
 
@@ -840,6 +855,7 @@ input[type='radio'] {
     --color-surface: var(--board-surface);
     --color-surface2: var(--board-surface2);
     --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --color-hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
     --color-ink: var(--on-board);
     --color-muted: var(--board-muted);
     --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
@@ -1820,6 +1836,7 @@ input[type='radio'] {
     --color-surface2: var(--board-surface2);
     --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
     --color-hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --color-hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
     --color-ink: var(--on-board);
     --color-muted: var(--board-muted);
     --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
@@ -2739,6 +2756,7 @@ input[type='radio'] {
     --color-surface: var(--board-surface);
     --color-surface2: var(--board-surface2);
     --color-line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --color-hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
     --color-ink: var(--on-board);
     --color-muted: var(--board-muted);
     --color-faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
@@ -2880,14 +2898,24 @@ input[type='radio'] {
   .seg-item:hover {
     color: var(--on-board);
   }
-  /* Выбранный — чернила полотна на светлой плашке. Лайм здесь значил бы
-     «нажми меня», а нажимать уже нечего: вы здесь. */
+  /* Выбранный — чернила полотна на СВЕТЛОЙ плашке.
+
+     Было наоборот: плашка чернилами, подпись цветом полотна, то есть
+     чёрная таблетка с белой надписью. На экране, где чёрным набрано
+     единственное число дня — плита с итогом, — вторая чёрная плашка в
+     шапке отбирала у неё вес: два самых тёмных пятна на светлом
+     полотне, и глаз выбирал между ними. Переключатель периода не
+     соревнуется с ответом, ради которого страницу открыли.
+
+     Теперь плашка светлая и приподнята волосяной тенью, а подпись на
+     ней — обычные чернила. Тот же приём, что в приложении: выбранное
+     не темнее, а ближе. */
   .seg-item[data-on] {
-    color: var(--board);
+    color: var(--on-board);
     font-weight: 600;
   }
   .seg-item[data-on]:hover {
-    color: var(--board);
+    color: var(--on-board);
   }
   .seg-body {
     position: relative;
@@ -3764,6 +3792,74 @@ input[type='radio'] {
     border-radius: 999px;
     background: color-mix(in srgb, var(--board-ink) 25%, transparent);
     translate: 0 -0.25em;
+  }
+
+  /* ───────── марка ─────────
+
+     Одно слово на весь продукт, набранное отдельной гарнитурой. Класс, а
+     не разметка на месте: марка стоит в трёх местах — колонка кабинета,
+     шапка витрины, колонка показа, — и разъехаться они не должны. */
+  .wordmark {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: var(--font-wordmark), var(--font-sans), system-ui, sans-serif;
+    font-weight: 900;
+    /* Разрядка меньше, чем была у Mardoto: Unbounded сам по себе широкий,
+       и прежние .18em растаскивали имя на всю колонку. */
+    letter-spacing: 0.1em;
+    color: var(--ink);
+  }
+
+  /* Плашка на последних двух буквах.
+
+     Поле по бокам считается в долях кегля, а не в пикселях: знак стоит и
+     в 12, и в 17 — в пикселях на мелком он превращался бы в толстую
+     подушку вокруг двух букв. Правая разрядка снимается: последняя буква
+     упирается в край плашки, и без этого справа оставался бы пустой
+     столбик шириной в межбуквенный просвет. */
+  .wordmark-in {
+    margin-inline-start: 0.14em;
+    padding-inline: 0.22em 0.12em;
+    border-radius: 0.22em;
+    background: var(--ink);
+    color: var(--board);
+  }
+
+  /* ───────── признак живого экрана ─────────
+
+     Точка и время рядом с датой раздела. Не капсула с надписью «LIVE» во
+     весь рост: признак того, что числа свежие, обязан быть тише самих
+     чисел. Точка дышит — очень медленно, две с половиной секунды на
+     вдох, — и это единственное движение на неподвижной странице. */
+  .now-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--board-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .now-mark i {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--good-on-board);
+    animation: now-breathe 2.4s var(--ease) infinite;
+  }
+  @keyframes now-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .now-mark i {
+      animation: none;
+    }
   }
 
   /* ───────── сейчас ─────────

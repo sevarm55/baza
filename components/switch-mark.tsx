@@ -30,7 +30,13 @@ import { motion, useReducedMotion } from 'motion/react';
 export function SwitchMark({
   id,
   radius = 7,
-  fill = 'var(--on-board)',
+  /* Светлая, а не чернильная.
+   *
+   * Чёрная таблетка в шапке отбирала вес у плиты с итогом — второго
+   * такого же тёмного пятна на светлом полотне быть не должно, иначе
+   * глаз выбирает, что читать первым. Поверхность полотна плюс
+   * волосяная тень: выбранное не темнее соседей, а ближе к смотрящему. */
+  fill = 'var(--board-surface)',
 }: {
   id: string;
   radius?: number;
@@ -43,7 +49,12 @@ export function SwitchMark({
       layoutId={id}
       aria-hidden
       className="absolute inset-0"
-      style={{ background: fill, borderRadius: radius, zIndex: 0 }}
+      style={{
+        background: fill,
+        borderRadius: radius,
+        zIndex: 0,
+        boxShadow: '0 1px 2px color-mix(in srgb, var(--board-ink) 12%, transparent)',
+      }}
       transition={
         still
           ? { duration: 0 }
