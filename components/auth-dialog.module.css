@@ -1,13 +1,19 @@
 /* ─────────────────────────────────────────────────────────────
    Окно входа и регистрации.
 
-   Широкое и почти квадратное, а не столбец на всю высоту. Узкое
-   высокое окно заставляло читать сверху вниз то, что читается
-   сразу: сначала логотип, потом заголовок, потом два поля, потом
-   ссылку внизу — четыре остановки там, где нужна одна.
+   Одна колонка и ничего лишнего. Прежнее окно было широким, с
+   фотографией в половину ширины: снимок объяснял, чей это продукт, —
+   но объяснять это человеку, который уже нажал «Войти», поздно. Он
+   пришёл ввести два поля, а получал разворот журнала, внутри которого
+   поля надо было ещё найти.
 
-   Здесь слева стоит, чей это продукт, справа — форма. Глаз берёт
-   обе половины разом, а не по очереди.
+   Ширина 400: столько занимает строка телефона и ряд из шести клеток
+   кода, и ни точкой больше. Всё остальное — воздух вокруг них.
+
+   Цвета взяты жёстко, а не из окружения. Окно всплывает поверх чего
+   угодно — над тёмной витриной, над кабинетом, над светлой страницей, —
+   и наследованные токены там разные. Один раз это уже стоило нам
+   заголовка, набранного тёмным по тёмному.
    ───────────────────────────────────────────────────────────── */
 
 .dialog {
@@ -25,184 +31,128 @@
 }
 
 .dialog::backdrop {
-  background: rgb(12 9 20 / 0%);
+  background: rgb(10 8 16 / 0%);
   backdrop-filter: blur(0px);
-  transition: background 0.24s cubic-bezier(0.2, 0, 0, 1),
+  transition:
+    background 0.24s cubic-bezier(0.2, 0, 0, 1),
     backdrop-filter 0.24s cubic-bezier(0.2, 0, 0, 1);
 }
 .dialog[data-open='true']::backdrop {
-  background: rgb(12 9 20 / 46%);
-  backdrop-filter: blur(6px);
+  background: rgb(10 8 16 / 58%);
+  backdrop-filter: blur(8px);
 }
 
 .panel {
-  display: grid;
-  grid-template-columns: 1fr;
-  width: min(760px, calc(100vw - 1.5rem));
+  position: relative;
+  width: min(400px, calc(100vw - 1.5rem));
   max-height: calc(100dvh - 2rem);
   overflow: hidden;
 
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  box-shadow: 0 28px 64px -20px rgb(12 9 20 / 42%), 0 3px 10px -3px rgb(12 9 20 / 14%);
+  /* Свои цвета, а не окружения: см. комментарий вверху файла. */
+  --auth-ink: #17131f;
+  --auth-muted: #5d5673;
+  --auth-faint: #8c85a1;
+  --auth-surface: #ffffff;
+  --auth-sunken: #f1f0f4;
+  --auth-line: #e4e2ea;
 
-  transform: translateY(8px) scale(0.985);
+  /* Общие токены продукта внутри окна переводим на палитру окна.
+
+     Иначе всё, что нарисовано не нашими классами, — знак с названием,
+     кнопка, чужой компонент, — красится чернилами ТОЙ страницы, над
+     которой окно всплыло. Именно так название «TETRIN» в шапке окна
+     оказалось тёмным по тёмному: витрина у себя держит светлые
+     чернила, окно тёмное, и `text-ink` честно взял то, что нашёл. */
+  --ink: var(--auth-ink);
+  --muted: var(--auth-muted);
+  --faint: var(--auth-faint);
+  --color-ink: var(--auth-ink);
+  --color-muted: var(--auth-muted);
+  --color-faint: var(--auth-faint);
+  --surface: var(--auth-surface);
+  --surface2: var(--auth-sunken);
+  --line: var(--auth-line);
+  --field-fill: var(--auth-sunken);
+
+  background: var(--auth-surface);
+  color: var(--auth-ink);
+  border-radius: 20px;
+  box-shadow:
+    0 32px 70px -24px rgb(10 8 16 / 45%),
+    0 2px 8px -2px rgb(10 8 16 / 12%);
+
+  transform: translateY(10px) scale(0.98);
   opacity: 0;
   outline: none;
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+  transition:
+    transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease;
 }
 .dialog[data-open='true'] .panel {
   transform: none;
   opacity: 1;
 }
 
-/* Левая половина — полотно продукта: тёмное, с лаймовым знаком. Это
-   единственное место на светлой странице, где показывают язык
-   приложения целиком. */
-.aside {
-  display: none;
-  flex-direction: column;
-  gap: 14px;
-  padding: 30px;
-  color: #f7f5fb;
+:global([data-theme='dark']) .panel {
+  --auth-ink: #f6f4fa;
+  --auth-muted: #a9a2bd;
+  --auth-faint: #7d7694;
+  --auth-surface: #1c1826;
+  --auth-sunken: #272134;
+  --auth-line: #362f47;
 
-  /* Тетрадь, из которой поднимаются цифры. Она объясняет имя — «տետր»
-     это и есть тетрадь — и не сужает продукт до автомоек: то же самое
-     верно для барбера и клиники.
-
-     Затемнение снизу поверх снимка, а не в самом файле: текст лежит по
-     нижнему краю, и без него он попадал бы на светлые страницы. */
-  background:
-    linear-gradient(180deg, rgb(10 10 12 / 10%) 0%, rgb(10 10 12 / 55%) 62%, rgb(10 10 12 / 92%) 100%),
-    url('/auth.jpg') center / cover no-repeat,
-    #0a0a0c;
-}
-.pitch {
-  margin-top: auto;
-  font-size: 19px;
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.asideNote {
-  font-size: 13px;
-  color: rgb(247 245 251 / 55%);
+  box-shadow:
+    0 32px 70px -24px rgb(0 0 0 / 70%),
+    0 0 0 1px rgb(255 255 255 / 6%);
 }
 
 .form {
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 22px;
+  padding: 22px 22px 20px;
+}
+
+/* Шапка окна: знак слева, крестик справа, на одной строке. Заголовок
+   ниже, внутри формы, — он меняется от шага к шагу и принадлежит ей. */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
 .close {
-  position: absolute;
-  inset-block-start: 12px;
-  inset-inline-end: 12px;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-btn);
-  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  margin: -4px -4px -4px 0;
+  border-radius: 9px;
+  color: var(--auth-faint);
   background: transparent;
-  transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  transition:
+    background 0.14s ease,
+    color 0.14s ease;
 }
 .close:hover {
-  background: var(--hover);
-  color: var(--ink);
+  background: color-mix(in srgb, var(--auth-ink) 6%, transparent);
+  color: var(--auth-ink);
 }
 
-/* Две двери одной ручкой. Не капсулы: форма в продукте острая. */
-.tabs {
-  display: grid;
-  grid-auto-flow: column;
-  gap: 4px;
-  padding: 4px;
-  margin-inline-end: 42px;
-  margin-bottom: 20px;
-  background: var(--surface2);
-  border-radius: var(--radius-sm);
-}
-.tab {
-  position: relative;
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-chip);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--muted);
-  transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
-}
-.tab:hover {
-  color: var(--ink);
-}
-/* Заливку выбранной вкладки рисует плашка SwitchMark — она переезжает
-   между «войти» и «зарегистрироваться», а не гаснет и не загорается. */
-.tab[data-on] {
-  color: var(--ink);
-}
-/* Только подпись, и обязательно по классу.
-   Было `.tab > span` — под это правило попадала и плашка SwitchMark:
-   модульный селектор перебивал у неё `position: absolute` из Tailwind,
-   плашка становилась строчной, схлопывалась в нулевую ширину и не
-   рисовалась вовсе. Выбранная вкладка отличалась только жирностью
-   подписи, а переезжать между вкладками было нечему. */
-.tabLabel {
-  position: relative;
-  z-index: 1;
-}
-
-/* Плашка выбранной вкладки. Заливка у неё — `--surface`, а дорожка под
-   ней `--surface2`: на светлой теме это белое по почти белому, разница
-   в один шаг серого. Тень и волосяная обводка дают плашке край, и она
-   читается как приподнятая, а не как пятно. */
-.tab > span:not(.tabLabel) {
-  box-shadow:
-    0 1px 2px rgb(12 9 20 / 12%),
-    0 0 0 1px rgb(12 9 20 / 6%);
-}
-
-/* Обе двери одной высоты.
-
-   Форма входа — два поля, регистрация — четыре: окно скакало на две
-   сотни точек, когда человек переключал вкладку, и вместе с ним прыгали
-   сами вкладки, по которым он только что попал. Переключатель обязан
-   стоять на месте — иначе второй промах по нему заложен в разметку.
-
-   Высота задана по большей из форм, меньшая встаёт по центру. Число
-   здесь одно на обе, и это не подгонка «на глаз»: регистрация — четыре
-   поля с подписями, кнопка и строка под ней, больше в это окно и не
-   планируется. Ошибка формы её растянет: `min-height` держит низ, но не
-   запирает его. */
 .body {
-  display: grid;
-  align-content: center;
-  /* Было 30rem — по прежней регистрации из четырёх строк полей. Теперь
-     название бизнеса и имя стоят парой в одной строке, а сами поля ниже
-     на полсантиметра каждое: высоту пересчитываем по новой форме, иначе
-     сэкономленное место просто станет пустотой над телефоном. */
-  min-height: 23rem;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Поля прокрутки уводим наружу, чтобы кольцо фокуса не обрезалось. */
   margin-inline: -22px;
   padding-inline: 22px;
 }
 
 /* ───────── Телефон ─────────
-   Листом снизу, а не плитой посреди экрана.
-
-   На широком окне карточка по центру уместна: она читается как объект
-   поверх страницы. На телефоне та же карточка занимает почти всю ширину,
-   и висящие поля белого прямоугольника с зазором по краям выглядят не
-   объектом, а недоехавшей страницей. Лист снизу — то, чем окно на
-   телефоне и является: он приходит от края, к которому ближе палец, и
-   скруглён только сверху, потому что снизу у него края нет.
-
-   Отступ снизу учитывает панель жестов: без него кнопка «Войти»
-   оказывается под полосой домой на iPhone. */
-@media (max-width: 719px) {
+   Листом снизу, а не плитой посреди экрана: на узком экране карточка
+   с зазором по краям читается недоехавшей страницей, а лист приходит
+   от края, к которому ближе палец. Отступ снизу учитывает полосу
+   жестов — без него кнопка оказывается под ней. */
+@media (max-width: 560px) {
   .dialog {
     margin: auto auto 0;
     width: 100%;
@@ -211,71 +161,32 @@
 
   .panel {
     width: 100%;
-    max-height: calc(100dvh - 3rem);
-    border-inline: 0;
-    border-block-end: 0;
-    border-radius: var(--radius-card) var(--radius-card) 0 0;
-    /* Приезд снизу вверх, без масштаба: лист во всю ширину, и
-       уменьшение читалось бы как рывок страницы, а не как появление. */
-    transform: translateY(18px);
+    max-height: calc(100dvh - 2.5rem);
+    border-radius: 20px 20px 0 0;
+    transform: translateY(20px);
   }
 
-  /* Полоска у верхнего края — знак, что это лист, а не страница,
-     которая почему-то началась с середины экрана. */
+  /* Полоска у верхнего края — знак, что это лист. */
   .panel::before {
     content: '';
     position: absolute;
     z-index: 2;
-    top: 9px;
+    top: 8px;
     inset-inline-start: 50%;
-    width: 38px;
+    width: 36px;
     height: 4px;
     translate: -50% 0;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--ink) 13%, transparent);
+    background: color-mix(in srgb, var(--auth-ink) 14%, transparent);
   }
 
   .form {
-    padding: 24px 18px calc(20px + env(safe-area-inset-bottom));
+    padding: 26px 18px calc(18px + env(safe-area-inset-bottom));
   }
 
-  /* На листе высоты не равняем.
-
-     Лист приходит от нижнего края и растёт вверх: кнопка остаётся под
-     пальцем в обоих случаях, и разная высота форм читается как разный
-     объём работы, а не как скачок. Общая же высота оставляла посреди
-     листа полторы сотни точек белизны — на узком экране это не воздух,
-     а дыра. Равнять имеет смысл карточку по центру экрана, где прыгает
-     сам переключатель; здесь он стоит у края листа. */
   .body {
-    min-height: 0;
     margin-inline: -18px;
     padding-inline: 18px;
-  }
-
-  .close {
-    inset-block-start: 10px;
-    inset-inline-end: 10px;
-  }
-
-  .tabs {
-    margin-bottom: 16px;
-  }
-}
-
-@media (min-width: 720px) {
-  .panel {
-    grid-template-columns: 5fr 6fr;
-  }
-  .aside {
-    display: flex;
-  }
-  .form {
-    padding: 30px;
-  }
-  .body {
-    margin-inline: -30px;
-    padding-inline: 30px;
   }
 }
 

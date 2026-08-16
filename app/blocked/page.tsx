@@ -152,8 +152,8 @@ export default async function BlockedPage() {
                   name="pin"
                   type="password"
                   inputMode="numeric"
-                  pattern="[0-9]{4}"
-                  maxLength={4}
+                  pattern="[0-9]{4,6}"
+                  maxLength={6}
                   autoComplete="off"
                   aria-label={hy.settings.deletePin}
                   placeholder={hy.settings.deletePin}

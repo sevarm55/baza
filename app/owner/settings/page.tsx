@@ -215,8 +215,8 @@ function DangerZone({ deleteError }: { deleteError: string | null }) {
             name="pin"
             type="password"
             inputMode="numeric"
-            pattern="[0-9]{4}"
-            maxLength={4}
+            pattern="[0-9]{4,6}"
+            maxLength={6}
             autoComplete="off"
             required
           />

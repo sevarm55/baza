@@ -44,6 +44,35 @@ export function IconClose(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Показать код. Глаз ровно того же рисунка, что и остальные знаки. */
+export function IconEye(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Glyph {...props}>
+      <path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8Z" />
+      <circle cx="8" cy="8" r="1.75" />
+    </Glyph>
+  );
+}
+
+/** Скрыть код. */
+export function IconEyeOff(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Glyph {...props}>
+      <path d="M6.2 4.2A6.9 6.9 0 0 1 8 4c4.1 0 6.5 4 6.5 4a12 12 0 0 1-2 2.4M3.6 5.6A12 12 0 0 0 1.5 8s2.4 4 6.5 4c.8 0 1.5-.14 2.2-.38" />
+      <path d="m2.5 2.5 11 11" />
+    </Glyph>
+  );
+}
+
+/** Назад. Стрелка одного рисунка со всеми — контур, а не треугольник. */
+export function IconBack(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Glyph {...props}>
+      <path d="M9.5 3.5 5 8l4.5 4.5" />
+    </Glyph>
+  );
+}
+
 /** Наличные: купюра. */
 export function IconCash(props: SVGProps<SVGSVGElement>) {
   return (

@@ -3,50 +3,53 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconClose } from '@/components/icons';
 import { Logo } from '@/components/logo';
-import { SwitchMark } from '@/components/switch-mark';
+import { AuthSurface } from '@/components/auth-surface';
+import { authDict, type AuthLocale } from '@/lib/i18n/auth';
 import { hy } from '@/lib/i18n/hy';
-import { LoginForm } from '@/app/login/login-form';
-import { RegisterForm } from '@/app/start/[niche]/register-form';
 import type { RememberedWebAccount } from '@/lib/auth';
 import s from './auth-dialog.module.css';
 
 export type AuthMode = 'signIn' | 'register';
 
 /**
- * Вход и регистрация — окном на месте, без перехода на страницу.
+ * Вход и регистрация — окном, и только окном.
  *
- * Раньше и то и другое было отдельным адресом, а окно поверх страницы
- * рисовал перехват маршрута. Работало, но стоило дорого: клик по «Мутq»
- * менял адрес, лендинг под окном перерисовывался, а на медленной связи
- * между нажатием и появлением формы успевал мигнуть переход. Человеку в
- * этот момент нужна форма, а не навигация.
+ * Отдельных страниц больше нет: `/login` и `/start/…` уводят сюда же.
+ * Клик по «Войти» не меняет адрес — витрина под окном не
+ * перерисовывается, и между нажатием и появлением формы ничего не
+ * мигает.
  *
- * Теперь это обычное окно рядом с кнопкой. Адрес не трогается вовсе.
- * Страницы `/login` и `/start/...` остались: на них уводит прокси
- * неавторизованных, по ним приходят из закладок и из письма — но внутри
- * сайта туда больше никто не ходит.
+ * Одна колонка, четыреста точек в ширину. Прежнее окно было широким, с
+ * фотографией в половину: снимок объяснял, чей это продукт, — но
+ * объяснять это человеку, который уже нажал «Войти», поздно. На
+ * телефоне окно становится листом снизу: оно им и является — приходит
+ * от края, к которому ближе палец.
  *
- * Композиция широкая, а не столбиком. Узкое высокое окно заставляло
- * читать сверху вниз то, что читается сразу: слева — чей это продукт и
- * что человек получит, справа — два поля. На телефоне колонки
- * складываются в одну, и левая часть ужимается до логотипа со строкой.
+ * Что здесь именно про окно, а не про форму: затемнение с размытием,
+ * ловушка фокуса, Escape, возврат фокуса на кнопку после закрытия.
+ * Первые два даёт нативный `<dialog>` — свой каркас поверх него был бы
+ * заведомо хуже во всём, что касается доступности.
  */
 export function AuthDialog({
   mode,
   niche,
   remembered,
+  locale,
+  trialDays,
   onClose,
 }: {
   mode: AuthMode | null;
   /** ниша для регистрации — с лендинга она известна заранее */
   niche: string;
   remembered?: RememberedWebAccount | null;
+  locale: AuthLocale;
+  trialDays: number;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<AuthMode>(mode ?? 'signIn');
+  const dict = authDict(locale);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -80,6 +83,7 @@ export function AuthDialog({
       ref={ref}
       className={s.dialog}
       data-open={open ? 'true' : undefined}
+      aria-label={mode === 'register' ? dict.register.title : dict.login.title}
       onCancel={(e) => {
         e.preventDefault();
         dismiss();
@@ -91,48 +95,27 @@ export function AuthDialog({
       }}
     >
       <div ref={panel} className={s.panel} tabIndex={-1}>
-        {/* Левая половина — чей это продукт. На телефоне от неё остаётся
-            логотип и строка: место там дороже объяснений. */}
-        <aside className={s.aside}>
-          <Logo size={30} />
-          <p className={s.pitch}>{hy.app.tagline}</p>
-          <p className={s.asideNote}>{hy.auth.note}</p>
-        </aside>
-
         <div className={s.form}>
-          <button type="button" className={s.close} onClick={dismiss} aria-label={hy.common.cancel}>
-            <IconClose />
-          </button>
-
-          {/* Две двери одной ручкой: человек, ошибшийся кнопкой на
-              лендинге, не должен закрывать окно и искать другую. */}
-          <div className={s.tabs} role="tablist">
-            {(['signIn', 'register'] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                className={s.tab}
-                data-on={tab === k ? '' : undefined}
-                onClick={() => setTab(k)}
-              >
-                {tab === k && (
-                  <SwitchMark id="auth-tabs" radius={8} fill="var(--surface)" />
-                )}
-                <span className={s.tabLabel}>
-                  {k === 'signIn' ? hy.auth.signInTitle : hy.onboarding.createAccount}
-                </span>
-              </button>
-            ))}
+          <div className={s.top}>
+            <Logo size={26} />
+            <button
+              type="button"
+              className={s.close}
+              onClick={dismiss}
+              aria-label={hy.common.close}
+            >
+              <IconClose width={16} height={16} />
+            </button>
           </div>
 
           <div className={s.body}>
-            {tab === 'signIn' ? (
-              <LoginForm remembered={remembered} />
-            ) : (
-              <RegisterForm nicheKey={niche} defaultName="" />
-            )}
+            <AuthSurface
+              mode={mode ?? 'signIn'}
+              niche={niche}
+              remembered={remembered}
+              locale={locale}
+              trialDays={trialDays}
+            />
           </div>
         </div>
       </div>

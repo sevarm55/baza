@@ -53,6 +53,18 @@ export const accounts = pgTable(
     phone: text('phone').notNull(),
     pinHash: text('pin_hash').notNull(),
     /**
+     * Когда доказали, что номер принадлежит человеку.
+     *
+     * Null — не доказывали. Так стоят все, кто зарегистрировался до
+     * появления кода из SMS: выкинуть их нельзя, они работают каждый
+     * день. Разница между null и датой не в том, пускать ли внутрь, а в
+     * том, чем можно восстановить доступ и когда просить подтверждение
+     * повторно. Восстановление PIN по SMS доступно только тем, чей номер
+     * подтверждён: иначе оно само стало бы способом угнать чужой
+     * непроверенный аккаунт.
+     */
+    phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
+    /**
      * Поколение сессий. Растёт при смене PIN и при «выйти везде»: все
      * выданные раньше токены сразу перестают действовать, не дожидаясь
      * своего срока. Без этого сменить PIN после кражи телефона бесполезно.
@@ -491,6 +503,8 @@ export const sessions = pgTable(
     kind: text('kind').notNull().default('web'), // web | app
     /** как показать устройство в списке: «iPhone Ашота» */
     device: text('device'),
+    /** отпечаток устройства — им же помечен ряд в known_devices */
+    deviceHash: text('device_hash'),
     /** только для приложения; хеш, а не сам токен */
     refreshHash: text('refresh_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -526,6 +540,124 @@ export const loginAttempts = pgTable(
   (t) => [
     index('login_attempts_phone_idx').on(t.phone, t.at),
     index('login_attempts_ip_idx').on(t.ip, t.at),
+  ],
+);
+
+/**
+ * Одноразовый код из SMS — и то, ради чего его прислали.
+ *
+ * Одна таблица на все четыре повода (регистрация, восстановление кода,
+ * подтверждение с незнакомого устройства, смена номера), потому что
+ * жизненный цикл у них ровно один: выдали → ждём → сверили → сожгли.
+ * Четыре таблицы означали бы четыре места, где можно забыть срок
+ * годности или счётчик попыток.
+ *
+ * Самого кода здесь нет. Лежит HMAC от него: база — не то место, где
+ * должен храниться пароль на ближайшие десять минут, даже недолгий.
+ * Перебирать шесть цифр по хешу тоже нельзя бесконечно — на это стоят
+ * `attempts` и `expiresAt`.
+ *
+ * `payload` — заявка, которую код подтверждает. Для регистрации это
+ * название мойки, имя владельца, ниша и УЖЕ ПОСЧИТАННЫЙ хеш PIN: до
+ * подтверждения номера в accounts не появляется ничего, поэтому
+ * `/register` перестаёт быть фабрикой мусорных аккаунтов. Открытого PIN
+ * в payload нет никогда.
+ */
+export const authChallenges = pgTable(
+  'auth_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** register | reset | step_up | phone_change */
+    purpose: text('purpose').notNull(),
+    /** нормализованный E.164 — тот номер, на который ушла SMS */
+    phone: text('phone').notNull(),
+    /** HMAC-SHA256 от шести цифр; сам код не хранится нигде */
+    codeHash: text('code_hash').notNull(),
+    /** заявка, ожидающая подтверждения; открытых секретов внутри нет */
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+    /** сколько раз пробовали ввести код */
+    attempts: integer('attempts').notNull().default(0),
+    /** сколько раз просили выслать повторно */
+    resends: integer('resends').notNull().default(0),
+    ip: text('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** раньше этого момента повторная отправка не работает */
+    nextResendAt: timestamp('next_resend_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** сгоревший код: сверять его второй раз нельзя */
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('auth_challenges_phone_idx').on(t.phone, t.purpose, t.createdAt),
+    index('auth_challenges_expires_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * Устройства, с которых человек уже входил успешно.
+ *
+ * Нужны ровно для одного решения: спрашивать ли код из SMS при обычном
+ * входе. Знакомое устройство — не спрашивать, в этом весь смысл: SMS на
+ * каждый вход это не безопасность, а налог.
+ *
+ * Отпечаток — хеш, а не сам заголовок браузера: список устройств не
+ * должен превращаться в архив того, чем человек пользуется.
+ *
+ * У человека, а не у участия: владелец двух моек ходит с одного
+ * телефона, и вторая точка не обязана переспрашивать.
+ */
+export const knownDevices = pgTable(
+  'known_devices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** SHA256 от сигналов устройства с серверной солью */
+    fingerprint: text('fingerprint').notNull(),
+    /** как показать в списке: «Safari · macOS», «iPhone Ашота» */
+    label: text('label'),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('known_devices_account_fp_uniq').on(t.accountId, t.fingerprint)],
+);
+
+/**
+ * Журнал безопасности.
+ *
+ * Отдельно от `audit`: тот отвечает владельцу на вопрос «кто удалил
+ * запись» и живёт внутри бизнеса. Этот отвечает нам на вопрос «что
+ * происходит с входами» и живёт над бизнесами — у события может не быть
+ * ни tenant, ни user вовсе, потому что вход не удался.
+ *
+ * Ни PIN, ни код из SMS, ни токен сюда не попадают и попасть не могут:
+ * пишущая функция принимает только перечисленные поля, а `data` проходит
+ * через отбор ключей. Номер телефона хранится нормализованным — по нему
+ * и считается «сто попыток на один номер за минуту».
+ */
+export const securityEvents = pgTable(
+  'security_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** auth.login.success, auth.otp.failed, worker.deleted, … */
+    event: text('event').notNull(),
+    /** info | warn | alert — чтобы мониторинг фильтровал, не зная имён */
+    level: text('level').notNull().default('info'),
+    phone: text('phone'),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    ip: text('ip'),
+    /** усечённый User-Agent: длинную строку хранить незачем */
+    agent: text('agent'),
+    data: jsonb('data').$type<Record<string, unknown>>(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('security_events_at_idx').on(t.at),
+    index('security_events_event_idx').on(t.event, t.at),
+    index('security_events_phone_idx').on(t.phone, t.at),
   ],
 );
 
@@ -796,3 +928,5 @@ export type Client = typeof clients.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Pass = typeof passes.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+export type AuthChallenge = typeof authChallenges.$inferSelect;
+export type KnownDevice = typeof knownDevices.$inferSelect;

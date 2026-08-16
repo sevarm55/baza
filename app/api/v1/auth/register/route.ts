@@ -1,25 +1,24 @@
 import { ensureDb } from '@/lib/db/ready';
-import { createBusiness, PhoneTakenError } from '@/lib/tenant';
-import { isNicheAvailable, type NicheKey } from '@/lib/niches';
-import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
-import { clientIp, noteLogin } from '@/lib/login-guard';
-import { issueForDevice } from '@/lib/api/tokens';
+import { clientIp } from '@/lib/login-guard';
+import { beginRegistration } from '@/lib/auth-flow';
+import { localeFromRequest } from '@/lib/i18n/request';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
 /**
- * Регистрация бизнеса из приложения.
+ * Первый шаг регистрации из приложения: проверка и код на телефон.
  *
- * Раньше её не было, и это было ошибкой: человек, скачавший приложение из
- * App Store, упирался в экран входа без возможности создать аккаунт. Такое
- * приложение отклоняют на ревью — и справедливо, это тупик. А владелец
- * мойки в Армении вполне может не иметь компьютера вовсе.
+ * ЧТО ИЗМЕНИЛОСЬ. Раньше этот маршрут создавал бизнес сразу и отдавал
+ * токены. Теперь он не создаёт ничего: в базе появляется только заявка
+ * на десять минут, а бизнес заводит второй шаг — после кода из SMS.
  *
- * Ниша проверяется здесь, а не только в интерфейсе: эндпоинт открыт
+ * Разница не в удобстве. Без подтверждения номер можно занять чужой:
+ * заводишь аккаунт на номер владельца мойки раньше него, и он уже не
+ * зарегистрируется никогда, а восстановление доступа приведёт к тебе.
+ * Заодно исчезает фабрика мусорных бизнесов — сто запросов сюда больше
+ * не создают ста тенантов.
+ *
+ * Ниша проверяется на сервере, а не только в интерфейсе: маршрут открыт
  * наружу, и выключенную нишу нельзя дать завести прямым запросом.
- *
- * Логика создания — та же createBusiness, что у веба. Именно она копирует
- * термины ниши в поля тенанта и засевает прайс; двух копий такого быть
- * не должно.
  */
 export async function POST(request: Request) {
   try {
@@ -31,55 +30,57 @@ export async function POST(request: Request) {
       ownerName?: string;
       phone?: string;
       pin?: string;
-      device?: string;
+      country?: string;
+      locale?: string;
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
-    const niche = str(input.niche);
-    const businessName = str(input.businessName);
-    const ownerName = str(input.ownerName);
-    const phone = normalizePhone(str(input.phone));
-    const pin = str(input.pin);
+    const started = await beginRegistration(
+      {
+        niche: str(input.niche),
+        businessName: str(input.businessName),
+        ownerName: str(input.ownerName),
+        phone: str(input.phone),
+        pin: str(input.pin),
+        countryCode: str(input.country) || undefined,
+        locale: localeFromRequest(request, str(input.locale) || null),
+      },
+      { ip: clientIp(request.headers), agent: request.headers.get('user-agent') },
+    );
 
-    if (!isNicheAvailable(niche)) return fail('BAD_REQUEST', 400, { reason: 'NICHE' });
-    if (businessName.length < 2 || ownerName.length < 2) {
-      return fail('BAD_REQUEST', 400, { reason: 'NAME' });
+    if (!started.ok) {
+      switch (started.problem) {
+        case 'PHONE_TAKEN':
+          return fail('PHONE_TAKEN', 409);
+        case 'PIN_LENGTH':
+        case 'PIN_TRIVIAL':
+          return fail('PIN_WEAK', 400, { reason: started.problem });
+        case 'PHONE':
+          return fail('BAD_REQUEST', 400, { reason: 'PHONE' });
+        case 'NAME':
+          return fail('BAD_REQUEST', 400, { reason: 'NAME' });
+        case 'NICHE':
+          return fail('BAD_REQUEST', 400, { reason: 'NICHE' });
+        case 'THROTTLED':
+          return fail('TOO_MANY_TRIES', 429, { retryAfter: started.retryAfter });
+        case 'SMS_FAILED':
+          return fail('SMS_FAILED', 503);
+      }
     }
-    if (!isValidPhone(phone)) return fail('BAD_REQUEST', 400, { reason: 'PHONE' });
-    if (!isValidPin(pin)) return fail('BAD_REQUEST', 400, { reason: 'PIN' });
-
-    const { tenant, owner } = await createBusiness({
-      niche: niche as NicheKey,
-      businessName,
-      ownerName,
-      phone,
-      pin,
-    });
-
-    /* Регистрация — это и вход тоже: заставлять человека сразу после
-       создания бизнеса вводить те же телефон и PIN снова незачем.
-       Отмечаем удачный вход, чтобы счётчик попыток не считал новичка
-       подозрительным. */
-    await noteLogin(phone, clientIp(request.headers), true);
-
-    const issued = await issueForDevice({
-      tenantId: tenant.id,
-      userId: owner.id,
-      role: 'owner',
-      device: str(input.device) || null,
-    });
 
     return ok(
       {
-        access: issued.access,
-        refresh: issued.refresh,
-        expiresIn: issued.expiresIn,
-        user: { id: owner.id, name: owner.name, role: 'owner', percent: owner.percent },
+        challengeId: started.challengeId,
+        phone: started.phoneMasked,
+        resendAt: started.resendAt.toISOString(),
+        expiresAt: started.expiresAt.toISOString(),
       },
-      201,
+      /* 202: заявка принята, аккаунта ещё нет. Прежний ответ был 201
+         «создано» — сборка, которая ждёт именно 201, честно узнает, что
+         ничего не создано. */
+      202,
     );
   } catch (e) {
-    if (e instanceof PhoneTakenError) return fail('PHONE_TAKEN', 409);
     return failFromError(e);
   }
 }

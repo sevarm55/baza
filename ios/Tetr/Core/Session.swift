@@ -127,19 +127,105 @@ final class Session: ObservableObject {
     }
 
     func signIn(phone: String, pin: String) async throws {
-        let device = UIDevice.current.name
         let result: API.LoginResult = try await api.send(
             "auth/login",
             method: "POST",
-            body: ["phone": phone, "pin": pin, "device": device],
+            body: [
+                "phone": phone,
+                "pin": pin,
+                "device": UIDevice.current.name,
+                /* Отпечаток установки. По нему сервер узнаёт своё
+                   устройство и не спрашивает код из SMS на каждом входе:
+                   заголовок браузера у приложения один и тот же у всех,
+                   а этот идентификатор — только у этой установки. */
+                "installId": Self.installId,
+                /* Язык, на котором придёт код из SMS. Берём тот, на
+                   котором человек видит приложение: получить армянское
+                   «никому не сообщайте» на русском интерфейсе — то же
+                   самое, что получить его на суахили. */
+                "locale": Self.locale,
+            ],
             as: API.LoginResult.self
         )
+        try await accept(result)
+    }
+
+    /**
+     * Досдать код из SMS при входе с незнакомого устройства.
+     *
+     * Сюда экран попадает после `STEP_UP_REQUIRED`: PIN подошёл, но
+     * устройство сервер видит впервые. Телефон и код повторно не
+     * спрашиваются — заявка на сервере уже привязана к тому человеку,
+     * чей код подошёл.
+     *
+     * Успех означает и вход, и запоминание устройства: со второго раза
+     * кода на нём не спросят.
+     */
+    func completeStepUp(challengeId: String, code: String) async throws {
+        let result: API.LoginResult = try await api.send(
+            "auth/step-up",
+            method: "POST",
+            body: [
+                "challengeId": challengeId,
+                "code": code,
+                "device": UIDevice.current.name,
+            ],
+            as: API.LoginResult.self
+        )
+        try await accept(result)
+    }
+
+    /// Выслать код повторно. Паузу между отправками держит сервер.
+    func resendCode(challengeId: String) async throws {
+        _ = try await api.send(
+            "auth/otp/resend",
+            method: "POST",
+            body: ["challengeId": challengeId],
+            as: API.Empty.self
+        )
+    }
+
+    private func accept(_ result: API.LoginResult) async throws {
         accessToken = result.access
         refreshToken = result.refresh
 
         try await loadBootstrap()
         rememberCurrentAccount()
         state = .signedIn
+    }
+
+    /**
+     * Идентификатор установки.
+     *
+     * Живёт в Keychain, а не в UserDefaults, по той же причине, что и
+     * токены: UserDefaults — файл в песочнице, который уезжает в
+     * резервную копию и переживает удаление приложения. Здесь это важно
+     * не ради секретности, а ради смысла: переустановил приложение —
+     * значит устройство для сервера новое, и код из SMS спросят
+     * заново. Ровно этого мы и хотим.
+     *
+     * `identifierForVendor` не годится: он общий для всех приложений
+     * одного издателя и меняется при удалении последнего из них — то
+     * есть ведёт себя ровно наоборот.
+     */
+    /**
+     * Язык интерфейса — двухбуквенный код для сервера.
+     *
+     * `preferredLanguages` отдаёт `hy-AM`, `ru-RU`, `en-GB`; серверу
+     * нужна только первая часть. Всё, чего он не знает, превращается там
+     * в армянский — список поддерживаемых языков живёт на сервере, а не
+     * здесь, и приложению незачем его дублировать.
+     */
+    static var locale: String {
+        let tag = Locale.preferredLanguages.first ?? "hy"
+        return String(tag.prefix(while: { $0 != "-" && $0 != "_" }))
+    }
+
+    static var installId: String {
+        if let existing = Keychain.get("install-id") { return existing }
+        let made = UUID().uuidString
+        Keychain.set(made, for: "install-id")
+        return made
     }
 
     /// Вход по сохранённому профилю. Перед этим экран входа подтверждает

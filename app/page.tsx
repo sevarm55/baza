@@ -8,7 +8,8 @@ import { formatMoney } from '@/lib/money';
 import { hy } from '@/lib/i18n/hy';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
 import { ACTIVE_NICHES } from '@/lib/niches';
-import { AuthTrigger } from '@/components/auth-buttons';
+import { currentAuthLocale } from '@/lib/i18n/server';
+import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
 import { CampaignReveal } from './campaign-motion';
 import s from './landing.module.css';
 
@@ -26,15 +27,34 @@ export const metadata: Metadata = {
 
 const photo = (name: string) => `/landing/v2/${name}`;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth?: string }>;
+}) {
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
   const remembered = await getRememberedAccount();
+  const locale = await currentAuthLocale();
+
+  /* Окно открывается адресом, а не только кнопкой: сюда уводят
+     `/login`, `/start/…`, прокси и ссылки из писем. Отдельных страниц
+     входа больше нет — см. components/auth-buttons.tsx. */
+  const { auth } = await searchParams;
+  const opened = auth === 'signIn' || auth === 'register' ? auth : null;
 
   const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
 
   return (
     <div className={`${s.page} ${display.variable}`}>
+      <AuthPortal
+        initial={opened}
+        niche={niche}
+        remembered={remembered}
+        locale={locale}
+        trialDays={TRIAL_DAYS}
+      />
+
       <a className={s.skipLink} href="#main">
         Անցնել հիմնական բովանդակությանը
       </a>
@@ -52,10 +72,10 @@ export default async function Home() {
           </div>
 
           <div className={s.navActions}>
-            <AuthTrigger mode="signIn" niche={niche} remembered={remembered} className={s.signIn}>
+            <AuthTrigger mode="signIn" className={s.signIn}>
               {hy.auth.signInTitle}
             </AuthTrigger>
-            <AuthTrigger mode="register" niche={niche} className={s.navCta}>
+            <AuthTrigger mode="register" className={s.navCta}>
               Սկսել <span aria-hidden="true">↗</span>
             </AuthTrigger>
           </div>
@@ -82,7 +102,7 @@ export default async function Home() {
             </h1>
 
             <div className={s.heroCtaCutout}>
-              <AuthTrigger mode="register" niche={niche} className={s.heroCta}>
+              <AuthTrigger mode="register" className={s.heroCta}>
                 Սկսել <span aria-hidden="true">↗</span>
               </AuthTrigger>
               <small>{TRIAL_DAYS} օր անվճար</small>
@@ -232,7 +252,7 @@ export default async function Home() {
               <span>մեկ մասնաճյուղի համար</span>
             </div>
             <div className={s.trial}>{TRIAL_DAYS} օր անվճար</div>
-            <AuthTrigger mode="register" niche={niche} className={s.priceCta}>
+            <AuthTrigger mode="register" className={s.priceCta}>
               ՍԿՍԵԼ <span aria-hidden="true">↗</span>
             </AuthTrigger>
           </div>

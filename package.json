@@ -20,7 +20,8 @@
     "db:down": "docker compose -f infra/dev-db.yml stop",
     "e2e": "tsx scripts/e2e.ts",
     "seed:load": "tsx scripts/seed-load.ts",
-    "seed:carwash": "tsx scripts/seed-carwash.ts"
+    "seed:carwash": "tsx scripts/seed-carwash.ts",
+    "security": "tsx scripts/security.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

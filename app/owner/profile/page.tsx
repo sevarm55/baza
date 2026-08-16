@@ -3,13 +3,17 @@ import { rememberedLoginEnabled, requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
-import { formatPhone } from '@/lib/phone';
+import { formatPhone, maskPhone } from '@/lib/phone';
 import { personColor } from '@/lib/person-color';
 import { hy } from '@/lib/i18n/hy';
 import { Panel, Tile } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
+import { currentAuthLocale } from '@/lib/i18n/server';
+import { authDict } from '@/lib/i18n/auth';
+import { accountOf } from '@/lib/accounts';
 import { ChangePinForm } from './change-pin-form';
+import { VerifyPhonePanel } from './verify-phone-panel';
 import { RememberLoginToggle } from './remember-login-toggle';
 
 /**
@@ -29,12 +33,19 @@ export default async function ProfilePage() {
   const session = await requireSession();
   await ensureDb();
 
-  const [tenant, me, rememberLogin] = await Promise.all([
+  const [tenant, me, rememberLogin, locale] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
     rememberedLoginEnabled(),
+    currentAuthLocale(),
   ]);
   if (!tenant || !me) redirect('/session-ended');
+
+  /* Подтверждён ли номер — свойство человека, а не его работы на точке.
+     Панель показывается только тем, у кого он не подтверждён: остальным
+     она была бы напоминанием о деле, которое уже сделано. */
+  const account = await accountOf(me);
+  const dict = authDict(locale);
 
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
@@ -69,8 +80,14 @@ export default async function ProfilePage() {
             </div>
           </Panel>
 
+          {!account.phoneVerifiedAt && (
+            <Panel title={dict.security.verifyPhone}>
+              <VerifyPhonePanel locale={locale} phone={maskPhone(account.phone)} />
+            </Panel>
+          )}
+
           <Panel title={hy.auth.changePin}>
-            <ChangePinForm />
+            <ChangePinForm locale={locale} />
           </Panel>
         </div>
 

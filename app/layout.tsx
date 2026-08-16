@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+import { THEME_SCRIPT } from '@/lib/theme-script';
 import { ServiceWorker } from '@/components/service-worker';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -76,12 +77,11 @@ export default function RootLayout({
             Системную тему больше не спрашиваем: светлая — это и есть вид
             продукта, и он должен быть одинаковым у всех, кому его
             показывают. Тёмная включается только вручную и запоминается. */}
-        <script
-          dangerouslySetInnerHTML={{
-            // тёмная по умолчанию: продукт выглядит так же, как приложение
-            __html: `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})();`,
-          }}
-        />
+        {/* Ключа здесь нет намеренно: React не восстанавливает атрибут
+            `nonce` при гидратации, деревья расходятся, и страница
+            остаётся картинкой без единой работающей кнопки. Скрипт
+            разрешён хешем — см. lib/theme-script.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <TooltipProvider>

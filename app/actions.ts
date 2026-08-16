@@ -23,27 +23,30 @@ import * as catalog from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
-import { createBusiness, PhoneTakenError } from '@/lib/tenant';
+import { createBusiness } from '@/lib/tenant';
 import { changePin, ProfileError } from '@/lib/profile';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
 import {
   endSession,
+  getSession,
   rememberedLoginEnabled,
   requireOwner,
   requireSession,
   resumeRememberedSession,
   setRememberedLoginEnabled,
-  startSession,
   switchSession,
-  verifyPin,
 } from '@/lib/auth';
-import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone, listPoints, markPointUsed, pointForLogin } from '@/lib/accounts';
+import { listPoints, markPointUsed } from '@/lib/accounts';
 import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
+import { logSecurityInBackground } from '@/lib/security-log';
+import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
+import { beginPhoneProof, completePhoneProof } from '@/lib/auth-flow';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { hy } from '@/lib/i18n/hy';
+import { authDict } from '@/lib/i18n/auth';
+import { currentAuthLocale } from '@/lib/i18n/server';
 
 /**
  * Успех помечен явным `ok`, а не отсутствием ошибки.
@@ -59,99 +62,34 @@ export type FormState = { error?: string; ok?: true } | null;
  * Server Action — это открытый POST-эндпоинт, а не «внутренняя функция».
  * ------------------------------------------------------------------ */
 
-export async function registerBusiness(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  await ensureDb();
+/* Вход и регистрация переехали в `app/auth-actions.ts`.
 
-  const niche = String(formData.get('niche') ?? '');
-  const businessName = String(formData.get('businessName') ?? '').trim();
-  const ownerName = String(formData.get('ownerName') ?? '').trim();
-  const phone = String(formData.get('phone') ?? '');
-  const pin = String(formData.get('pin') ?? '');
+   Причина не в порядке файлов. Регистрация перестала быть одним
+   действием: между «заполнил форму» и «есть аккаунт» встало
+   подтверждение номера, а у входа появилась ветка с кодом при
+   незнакомом устройстве. Это разговор с состоянием, и жить он должен
+   там, где ничего, кроме него, нет.
 
-  // действие открыто наружу, поэтому нишу проверяем здесь, а не только в UI
-  if (!isNicheAvailable(niche)) return { error: hy.errors.generic };
-  if (businessName.length < 2 || ownerName.length < 2) return { error: hy.errors.required };
-  if (!isValidPhone(phone)) return { error: hy.errors.badPhone };
-  if (!isValidPin(pin)) return { error: hy.errors.badPin };
-
-  try {
-    const { tenant, owner } = await createBusiness({
-      niche: niche as NicheKey,
-      businessName,
-      ownerName,
-      phone,
-      pin,
-    });
-    await startSession({ uid: owner.id, tid: tenant.id, role: 'owner' });
-  } catch (e) {
-    if (e instanceof PhoneTakenError) return { error: hy.auth.phoneTaken };
-    throw e;
-  }
-
-  redirect('/owner');
-}
-
-export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
-  await ensureDb();
-
-  const phone = normalizePhone(String(formData.get('phone') ?? ''));
-  const pin = String(formData.get('pin') ?? '');
-  const ip = clientIp(await headers());
-
-  /* Счётчик спрашивается ДО сверки: смысл в том, чтобы при переборе не
-     выполнялся ни дорогой scrypt, ни сама проверка. */
-  const guard = await checkLogin(phone, ip);
-  if (!guard.allowed) {
-    return { error: hy.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
-  }
-
-  /* Код принадлежит человеку, а не его работе на точке. */
-  const account = await accountByPhone(phone);
-
-  /* Участие ищем только ради людей, которых завёл ещё старый код и не
-     успел привязать. Своей копией кода они и сверяются. */
-  const [legacy] = account
-    ? []
-    : await db.select().from(users).where(and(eq(users.phone, phone), eq(users.active, true)));
-
-  // одна и та же ошибка на неверный телефон и на неверный PIN —
-  // иначе форма превращается в способ узнать, кто зарегистрирован
-  const secret = account?.pinHash ?? legacy?.pinHash;
-  const ok = secret ? await verifyPin(pin, secret) : false;
-  await noteLogin(phone, ip, ok);
-  if (!ok) return { error: hy.auth.wrongCredentials };
-
-  /* Куда вести — решает pointForLogin, а не порядок строк: телефон
-     больше не уникален, и «первая попавшаяся» означала бы случайную
-     мойку. */
-  const point = account ? await pointForLogin(account.id) : undefined;
-  const membership = point
-    ? { id: point.membershipId, tid: point.id, role: point.role }
-    : legacy
-      ? {
-          id: legacy.id,
-          tid: legacy.tenantId,
-          role: legacy.role === 'owner' ? ('owner' as const) : ('staff' as const),
-        }
-      : null;
-
-  if (!membership) return { error: hy.auth.wrongCredentials };
-
-  await startSession(
-    { uid: membership.id, tid: membership.tid, role: membership.role },
-    { kind: 'web' },
-  );
-  await markPointUsed(membership.id);
-
-  redirect(membership.role === 'owner' ? '/owner' : '/work');
-}
+   Здесь остаётся то, что делают УЖЕ вошедшие. */
 
 export async function signOut() {
+  const session = await getSession();
   await endSession({ remember: await rememberedLoginEnabled() });
-  redirect('/login');
+
+  if (session) {
+    logSecurityInBackground({
+      event: 'auth.logout',
+      tenantId: session.tid,
+      userId: session.uid,
+      ip: clientIp(await headers()),
+    });
+  }
+
+  /* На витрину, а не на `/login`: страницы входа больше нет, и её
+     адрес просто открыл бы окно поверх витрины — лишний перезаход
+     ради того же экрана. Вышедший человек попадает туда, откуда
+     заходил, и окно открывает сам, когда захочет. */
+  redirect('/');
 }
 
 /** Вход по сохранённому профилю: токен остаётся только в HttpOnly-cookie. */
@@ -286,6 +224,17 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
     return { error: hy.errors.required };
   }
 
+  /* Появление человека с доступом к деньгам бизнеса — событие
+     безопасности, а не только запись в справочнике. Телефон нового
+     сотрудника в журнал не пишем: он принадлежит ему, а не расследованию
+     чужих входов. */
+  logSecurityInBackground({
+    event: 'worker.created',
+    tenantId: session.tid,
+    userId: session.uid,
+    data: { percent },
+  });
+
   revalidatePath('/owner/staff');
   return { ok: true };
 }
@@ -299,6 +248,13 @@ export async function deactivateStaff(staffId: string): Promise<void> {
     tenantId: session.tid,
     id: staffId,
     actorId: session.uid,
+  });
+
+  logSecurityInBackground({
+    event: 'worker.deleted',
+    tenantId: session.tid,
+    userId: session.uid,
+    data: { staffId },
   });
 
   revalidatePath('/owner/staff');
@@ -376,6 +332,16 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     return { error: hy.errors.badPercent };
   }
 
+  /* Процент — это деньги человека. Молча изменённый процент замечают
+     через месяц, при расчёте, и доказать что-либо к тому моменту уже
+     нечем. */
+  logSecurityInBackground({
+    event: 'salary.changed',
+    tenantId: session.tid,
+    userId: session.uid,
+    data: { staffId: id, percent },
+  });
+
   revalidatePath('/owner/staff');
   return { ok: true };
 }
@@ -414,17 +380,101 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
   const current = String(formData.get('current') ?? '');
   const next = String(formData.get('next') ?? '');
 
+  /* Тот же счётчик попыток, что на входе. Без него форма смены кода —
+     тихий способ подобрать текущий PIN изнутри уже открытой сессии: без
+     блокировки, без следа в истории входов и с неограниченным числом
+     попыток. */
+  const ip = clientIp(await headers());
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+
+  const guard = await checkLogin(me.phone, ip);
+  if (!guard.allowed) {
+    return { error: hy.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
+  }
+
   try {
     await changePin(session.uid, current, next);
   } catch (e) {
     if (e instanceof ProfileError) {
-      return { error: e.message === "BAD_PIN" ? hy.errors.badPin : hy.auth.wrongPin };
+      if (e.message === 'WRONG_PIN') await noteLogin(me.phone, ip, false);
+      return { error: e.message === 'BAD_PIN' ? hy.errors.badPin : hy.auth.wrongPin };
     }
     return { error: hy.errors.generic };
   }
 
+  await noteLogin(me.phone, ip, true);
+  logSecurityInBackground({
+    event: 'auth.pin.changed',
+    phone: me.phone,
+    tenantId: session.tid,
+    userId: session.uid,
+    ip,
+  });
+
   // сессия только что отозвана — идти внутрь больше некуда
-  redirect('/login');
+  redirect('/?auth=signIn');
+}
+
+/* ------------------- подтверждение своего номера ------------------- */
+
+export type VerifyPhoneState =
+  | null
+  | { step: 'idle'; error?: string }
+  | { step: 'code'; challengeId: string; error?: string }
+  | { step: 'done' };
+
+/**
+ * Доказать, что номер аккаунта — свой.
+ *
+ * Только для себя и только по своему номеру: он берётся из аккаунта, а
+ * не из формы. Присланный номер здесь означал бы, что подтвердить можно
+ * что угодно, — и восстановление PIN, которое на это подтверждение
+ * опирается, потеряло бы смысл целиком.
+ */
+export async function verifyOwnPhoneAction(
+  prev: VerifyPhoneState,
+  formData: FormData,
+): Promise<VerifyPhoneState> {
+  const session = await requireSession();
+  await ensureDb();
+
+  const me = await getUser(session.tid, session.uid);
+  if (!me?.accountId) redirect('/session-ended');
+
+  const ip = clientIp(await headers());
+  const locale = await currentAuthLocale();
+  const dict = authDict(locale);
+  const challengeId = String(formData.get('challengeId') ?? '').trim();
+
+  if (challengeId) {
+    const done = await completePhoneProof({
+      challengeId,
+      code: String(formData.get('code') ?? '').trim(),
+      accountId: me.accountId,
+      ip,
+    });
+
+    if (!done) return { step: 'code', challengeId, error: dict.errors.otpInvalid };
+
+    revalidatePath('/owner/profile');
+    return { step: 'done' };
+  }
+
+  const started = await beginPhoneProof({ accountId: me.accountId, phone: me.phone, ip, locale });
+
+  if (!started.ok) {
+    return {
+      step: 'idle',
+      error:
+        started.reason === 'THROTTLED'
+          ? dict.errors.tooManyAttempts(Math.ceil(started.retryAfter / 60))
+          : dict.errors.smsFailed,
+    };
+  }
+
+  void prev;
+  return { step: 'code', challengeId: started.challengeId };
 }
 
 export async function saveBusiness(formData: FormData): Promise<void> {
@@ -811,12 +861,16 @@ export async function removeExpenseAction(
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: hy.errors.generic };
 
-  const removed = await removeExpense(
-    session.tid,
-    String(formData.get('id') ?? ''),
-    startOfDay(tenant.timezone),
-  );
+  const id = String(formData.get('id') ?? '');
+  const removed = await removeExpense(session.tid, id, startOfDay(tenant.timezone));
   if (!removed) return { error: hy.errors.generic };
+
+  logSecurityInBackground({
+    event: 'expense.deleted',
+    tenantId: session.tid,
+    userId: session.uid,
+    data: { expenseId: id },
+  });
 
   revalidateExpenses();
   return { ok: true };

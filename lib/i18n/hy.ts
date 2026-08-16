@@ -106,7 +106,7 @@ export const hy = {
   errors: {
     required: 'Լրացրեք բոլոր դաշտերը',
     badPhone: 'Սխալ հեռախոսահամար',
-    badPin: 'PIN-ը պետք է լինի 4 նիշ',
+    badPin: 'PIN-ը պետք է լինի 6 նիշ',
     badPercent: 'Տոկոսը պետք է լինի 0-ից 100',
     generic: 'Ինչ-որ բան սխալ գնաց',
   },
@@ -127,7 +127,7 @@ export const hy = {
     wrongCredentials: 'Սխալ հեռախոս կամ PIN',
     phoneTaken: 'Այս համարն արդեն գրանցված է',
 
-    pinHint: '4 նիշ',
+    pinHint: '6 նիշ',
     // после нескольких неудач вход закрывается на растущее время
     tooManyTries: (minutes: number) =>
       `Չափազանց շատ փորձեր։ Կրկնեք ${minutes} րոպեից։`,

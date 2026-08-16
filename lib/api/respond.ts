@@ -21,6 +21,18 @@ export type ApiError =
   | 'NOT_FOUND'
   | 'WRONG_CREDENTIALS'
   | 'TOO_MANY_TRIES'
+  /* Подтверждение номера. Коды отдельные, а не один «неверно»:
+     приложению нужно различать «код не тот» (пусть вводит ещё раз),
+     «код протух» (пусть просит новый) и «попытки кончились» (пусть
+     начинает сначала) — это три разных экрана. */
+  | 'OTP_INVALID'
+  | 'OTP_EXPIRED'
+  | 'OTP_TOO_MANY'
+  /* Вход требует кода из SMS: незнакомое устройство или серия неудач. */
+  | 'STEP_UP_REQUIRED'
+  | 'SMS_FAILED'
+  /** код из шести цифр, и не 000000 */
+  | 'PIN_WEAK'
   | 'SUBSCRIPTION_EXPIRED'
   | 'SUBSCRIPTION_BLOCKED'
   | 'EMPTY_CLIENT_KEY'

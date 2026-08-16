@@ -1,0 +1,338 @@
+/* ─────────────────────────────────────────────────────────────
+   Поверхность авторизации.
+
+   Компактная колонка: заголовок, поля, кнопка. Ничего, что не нужно
+   человеку, который пришёл ввести телефон и код.
+
+   ЦВЕТА ЗДЕСЬ СВОИ. Поверхность всплывает поверх чего угодно — тёмной
+   витрины, светлого кабинета, чужого фона, — и наследованные токены
+   там разные. Один раз это уже стоило заголовка, набранного тёмным по
+   тёмному: `--ink` в одном месте означал белый, в другом почти чёрный.
+   Значения приходят от окна (`--auth-*`) и имеют запасной вариант на
+   случай, если поверхность стоит вне окна.
+   ───────────────────────────────────────────────────────────── */
+
+.surface {
+  display: grid;
+  gap: 18px;
+
+  --ink: var(--auth-ink, #17131f);
+  --muted: var(--auth-muted, #5d5673);
+  --faint: var(--auth-faint, #8c85a1);
+  --sunken: var(--auth-sunken, #f1f0f4);
+  --edge: var(--auth-line, #e4e2ea);
+  --up: var(--auth-surface, #ffffff);
+
+  color: var(--ink);
+}
+
+/* ───────── переключатель ─────────
+   Компактный, во всю ширину, без тяжёлых вкладок. */
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  background: var(--sunken);
+  border-radius: 11px;
+}
+
+.tab {
+  position: relative;
+  padding: 0.45rem 0.75rem;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.14s ease;
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab[data-on] {
+  color: var(--ink);
+}
+.tabLabel {
+  position: relative;
+  z-index: 1;
+}
+/* Плашка выбранной вкладки: заливка окна плюс волосяной край, чтобы
+   она читалась приподнятой, а не пятном. */
+.tab > span:not(.tabLabel) {
+  background: var(--up) !important;
+  box-shadow:
+    0 1px 2px rgb(10 8 16 / 14%),
+    0 0 0 1px rgb(10 8 16 / 5%);
+}
+
+/* ───────── шапка шага ───────── */
+
+.head {
+  display: grid;
+  gap: 4px;
+}
+
+.title {
+  font-size: 20px;
+  line-height: 1.22;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.subtitle {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* ───────── тело ───────── */
+
+.body {
+  display: grid;
+  gap: 14px;
+}
+
+.step {
+  display: grid;
+  gap: 14px;
+  animation: rise 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.pair {
+  display: grid;
+  gap: 14px;
+}
+@media (min-width: 420px) {
+  .pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Обычное текстовое поле формы — та же посадка, что у телефона и
+   клеток кода: одна высота, один радиус, одна заливка. */
+.text {
+  width: 100%;
+  height: var(--auth-field-h, 46px);
+  padding-inline: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--sunken);
+  color: var(--ink);
+  /* 16 — порог, ниже которого Safari на iPhone зумит страницу. */
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease;
+}
+.text::placeholder {
+  color: var(--faint);
+}
+.text:focus {
+  background: var(--up);
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--faint);
+}
+
+.error {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #e0483c;
+}
+
+/* ───────── кнопки ───────── */
+
+.actions {
+  display: grid;
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 8px;
+  vertical-align: -2px;
+  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.quiet {
+  justify-self: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.14s ease;
+}
+.quiet:hover {
+  color: var(--ink);
+}
+.quiet:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-self: start;
+  margin-bottom: -4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.14s ease;
+}
+.back:hover {
+  color: var(--ink);
+}
+
+/* ───────── успех ─────────
+   Галка и строка. Не зелёная страница: экран, который целиком сообщает
+   об успехе, отнимает секунду на чтение того, что и так понятно. */
+
+.success {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px 0 6px;
+  text-align: center;
+  animation: rise 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #10855f;
+  background: color-mix(in srgb, #10855f 14%, transparent);
+}
+
+.successText {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ───────── сохранённый профиль ───────── */
+
+.avatarBlock {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding-block: 6px;
+  text-align: center;
+}
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  outline: none;
+  transition: transform 0.2s ease;
+}
+.avatar:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+.avatar:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.avatar:disabled {
+  opacity: 0.6;
+}
+.avatarRing {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 22%);
+}
+
+.who {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--ink);
+}
+.where {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ───────── язык ─────────
+   Три буквы внизу. Не флаги: флаг — это страна, а не язык, и
+   армянский за пределами Армении от этого армянским быть не
+   перестаёт. */
+
+.langs {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.lang {
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  transition:
+    color 0.14s ease,
+    background 0.14s ease;
+}
+.lang:hover {
+  color: var(--ink);
+}
+.lang[data-on] {
+  color: var(--ink);
+  background: var(--sunken);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .success {
+    animation: none;
+  }
+}
