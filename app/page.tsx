@@ -1,74 +1,50 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import localFont from 'next/font/local';
 import { redirect } from 'next/navigation';
 import { getRememberedAccount, getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
-import { ACTIVE_NICHES } from '@/lib/niches';
+import { ACTIVE_NICHES, getNiche } from '@/lib/niches';
+import { appStoreUrl } from '@/lib/features';
 import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
 import { LanguagePicker } from '@/components/language-picker';
-import { CampaignReveal } from './campaign-motion';
+import { Logo } from '@/components/logo';
+import { getDict } from '@/lib/i18n/server';
+import { LandingWorkspace } from './landing-workspace';
+import { NavShadow } from './landing-motion';
 import s from './landing.module.css';
-import { getDict, getI18n } from '@/lib/i18n/server';
 
 /**
- * Плакатный шрифт витрины — свой на каждую письменность.
+ * Витрина.
  *
- * Noto Sans Armenian Extra-Condensed Black рисует армянский, и только
- * его: латиницы с кириллицей в этом начертании нет вовсе, а подставлять
- * вместо них обычный текстовый шрифт — значит показывать русскому и
- * английскому посетителю совсем другую страницу, без плаката.
+ * Раньше здесь был плакат: пять полноэкранных снимков мойки и заголовки
+ * капсом в двести пунктов. Он рассказывал, что Tetrin существует, но не
+ * показывал ни одного экрана продукта — а покупают здесь именно экран.
  *
- * Для них Unbounded Black. Он широкий там, где армянский узкий, поэтому
- * кегль на этих языках считается с множителем `--ds` — иначе те же
- * слова просто не помещаются в кадр (см. landing.module.css).
+ * Теперь страница и есть продукт. Вступление занимает верхнюю треть
+ * первого экрана, дальше начинается рабочая панель, и всё остальное —
+ * один рабочий день внутри неё: машину записали, день сложился, зарплата
+ * посчиталась, расход вписали, в конце осталось одно число. Приборы в
+ * панели настоящие — те же компоненты, что рисуют сводку в кабинете, и
+ * разойтись с продуктом они не могут.
  *
- * Кириллица и латиница лежат раздельно, как их отдаёт Google Fonts: два
- * файла по 12 и 21 КБ вместо одного на 200. Браузер подбирает шрифт
- * посимвольно и сам берёт из стека тот, где нужная буква есть, — общий
- * `unicode-range` для этого не нужен.
+ * Что осталось прежним и меняться не должно: вход и регистрация живут
+ * ТОЛЬКО в окне (`components/auth-buttons.tsx`), язык выбирают в шапке
+ * до входа, `/?auth=signIn` открывает окно прямо с адреса, а вошедшего
+ * страница вообще не показывает — он уходит в свой кабинет.
  */
-const armenian = localFont({
-  src: './fonts/NotoSansArmenian-XCondBlack.woff2',
-  variable: '--font-campaign-display',
-  display: 'swap',
-});
-
-const unboundedLatin = localFont({
-  src: './fonts/Unbounded-Latin-Black.woff2',
-  variable: '--font-poster-latin',
-  display: 'swap',
-});
-
-const unboundedCyrillic = localFont({
-  src: './fonts/Unbounded-Cyrillic-Black.woff2',
-  variable: '--font-poster-cyrillic',
-  display: 'swap',
-});
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getDict();
   return { title: t.meta.landingTitle, description: t.meta.landingDescription };
 }
 
-const photo = (name: string) => `/landing/v2/${name}`;
-
-/* Пример зарплатной ведомости на витрине: числа выдуманные и одинаковые
-   на всех языках, меняются только имена рядом с ними. */
-const CREW = [
-  { cars: 18, pay: '27 000' },
-  { cars: 14, pay: '21 000' },
-  { cars: 21, pay: '31 500' },
-];
-
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ auth?: string }>;
 }) {
-  const { locale, t } = await getI18n();
+  const t = await getDict();
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
   const remembered = await getRememberedAccount();
@@ -79,38 +55,44 @@ export default async function Home({
   const { auth } = await searchParams;
   const opened = auth === 'signIn' || auth === 'register' ? auth : null;
 
-  const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
+  /* Ниша показа берётся из конфига, а не вписана в витрину руками.
 
-  /* Армянский остаётся в своём начертании, остальные два переходят на
-     Unbounded вместе с пересчётом кегля. */
-  const poster =
-    locale === 'hy'
-      ? armenian.variable
-      : `${unboundedLatin.variable} ${unboundedCyrillic.variable} ${s.posterLatin}`;
+     Слова бизнеса — «մեքենա», «Լվացող», «Պետհամարանիշ» — приезжают
+     оттуда же, откуда их получает настоящий бизнес при регистрации, и
+     переводятся тем же `lib/i18n/terms.ts`. Включат вторую нишу —
+     витрина заговорит её словами, а не останется навсегда про мойки
+     (см. lib/niches.ts). */
+  const niche = ACTIVE_NICHES[0] ?? getNiche('carwash');
+  const l = t.landing;
+
+  /* Ссылки на приложение может ещё не быть: iOS ждёт ревью, и адрес
+     появляется вместе с публикацией. Выдумывать его нельзя. */
+  const appStore = appStoreUrl();
 
   return (
-    <div className={`${s.page} ${poster}`}>
+    <div className={s.page}>
       <AuthPortal
         initial={opened}
-        niche={niche}
+        niche={niche.key}
         remembered={remembered}
         trialDays={TRIAL_DAYS}
       />
 
       <a className={s.skipLink} href="#main">
-        {t.landing.skip}
+        {l.nav.skip}
       </a>
 
-      <header className={s.navWrap}>
-        <nav className={s.nav} aria-label={t.landing.navAria}>
-          <Link className={s.wordmark} href="/" aria-label={t.landing.homeAria}>
-            <span className={s.mark} aria-hidden="true"><i /><i /></span>
-            <span>TETRIN</span>
+      <NavShadow className={s.navWrap}>
+        <nav className={s.nav} aria-label={l.nav.navAria}>
+          <Link className={s.brand} href="/" aria-label={l.nav.homeAria}>
+            <Logo size={26} withName={false} />
+            <span className={s.brandName}>{t.app.name.toUpperCase()}</span>
           </Link>
 
           <div className={s.navCenter}>
-            <a href="#how">{t.landing.navHow}</a>
-            <a href="#price">{t.landing.navPrice}</a>
+            <a href="#product">{l.nav.product}</a>
+            <a href="#how">{l.nav.how}</a>
+            <a href="#price">{l.nav.price}</a>
           </div>
 
           <div className={s.navActions}>
@@ -118,209 +100,184 @@ export default async function Home({
                 верхнем слое браузера, и любой выпадающий список в нём
                 оказывается под ним. */}
             <LanguagePicker compact />
-            <AuthTrigger mode="signIn" className={s.signIn}>
+            <AuthTrigger mode="signIn" className={s.ghost}>
               {t.auth.signInTitle}
             </AuthTrigger>
-            <AuthTrigger mode="register" className={s.navCta}>
-              {t.landing.start} <span aria-hidden="true">↗</span>
+            <AuthTrigger mode="register" className={s.cta}>
+              {l.nav.start} <span aria-hidden="true">↗</span>
             </AuthTrigger>
           </div>
         </nav>
-      </header>
+      </NavShadow>
 
       <main id="main">
-        <section className={s.hero}>
-          <div className={s.heroFrame}>
-            <div className={s.heroPhoto}>
-              <Image
-                className={s.photoImage}
-                src={photo('carwash-01.png')}
-                alt={t.landing.heroAlt}
-                fill
-                preload
-                sizes="(max-width: 760px) 100vw, 82vw"
-              />
+        {/* Вступление. Верхняя треть первого экрана и не больше: главный
+            герой страницы — панель под ним, и заголовок не должен с ней
+            соревноваться. */}
+        <section className={s.hero} id="product">
+          <p className={s.eyebrow}>{l.hero.eyebrow}</p>
+          <h1 className={s.heroTitle}>{l.hero.title}</h1>
+          <p className={s.heroLead}>{l.hero.lead}</p>
+
+          <div className={s.heroActions}>
+            <AuthTrigger mode="register" className={s.cta}>
+              {l.hero.cta} <span aria-hidden="true">↗</span>
+            </AuthTrigger>
+            <a className={s.ghost} href="#how">
+              {l.hero.secondary} <span aria-hidden="true">↓</span>
+            </a>
+            <span className={s.heroNote}>{l.hero.note(TRIAL_DAYS)}</span>
+          </div>
+
+          <p className={s.heroCaption}>{l.hero.caption}</p>
+        </section>
+
+        {/* Рабочий день. Дальше вся страница — одна панель, которая
+            перестраивается по мере чтения. */}
+        <section className={s.stage} id="how" aria-label={l.nav.how}>
+          <LandingWorkspace unitOne={niche.unitOne} staffRole={niche.staffRole} />
+        </section>
+
+        {/* Цена. Один продукт — одна цена: трёх выдуманных тарифов здесь
+            нет, потому что их нет и в продукте. */}
+        <section className={s.price} id="price">
+          <div className={s.pricePanel}>
+            <div>
+              <div className={s.priceMain}>
+                <span className={s.priceLead}>{l.price.title}</span>
+                <span className={s.priceValue}>{formatMoney(PRICE, 'AMD', t.locale)}</span>
+              </div>
+              <div className={s.priceMeta}>
+                <span>{l.price.per}</span>
+                <i aria-hidden />
+                <span>{l.price.point}</span>
+                <i aria-hidden />
+                <span>{l.price.trial(TRIAL_DAYS)}</span>
+              </div>
             </div>
 
-            <h1 className={s.heroTitle}>
-              <span>{t.landing.heroLine1}</span>
-              <span>{t.landing.heroLine2}</span>
-            </h1>
-
-            <div className={s.heroCtaCutout}>
-              <AuthTrigger mode="register" className={s.heroCta}>
-                {t.landing.start} <span aria-hidden="true">↗</span>
+            <div className={s.priceActions}>
+              <AuthTrigger mode="register" className={s.cta}>
+                {l.hero.cta} <span aria-hidden="true">↗</span>
               </AuthTrigger>
-              <small>{t.landing.trial(TRIAL_DAYS)}</small>
+              <span className={s.heroNote}>{l.price.note}</span>
             </div>
-
-            <aside className={s.todayRail} aria-label={t.landing.railAria}>
-              <div className={s.railLabel}>TODAY / 10:17</div>
-              <div className={s.railMetric}><strong>37</strong><span>{t.landing.carsWord(37)}</span></div>
-              <div className={s.railMetric}><strong>245 000 ֏</strong><span>{t.landing.revenueWord}</span></div>
-              <div className={`${s.railMetric} ${s.railNet}`}><strong>151 500 ֏</strong><span>{t.landing.netWord}</span></div>
-            </aside>
           </div>
         </section>
 
-        <section className={s.tapsScene} id="how">
-          <CampaignReveal className={s.tapsPanel}>
-            {/* Подпись, заголовок и шаги — одной плитой, как рельс с
-                числами на первом экране. Иначе они лежат прямо на поле
-                панели, и её край проходит по трём разным линиям. */}
-            <div className={s.tapsSide}>
-              <div className={s.sceneLabel}>{t.landing.tapsLabel}</div>
-              <div className={s.tapsHeading}>
-                <span aria-hidden="true">3</span>
-                <h2>{t.landing.tapsWord}</h2>
+        {/* Приложение.
+
+            Витрина показала рабочую панель на компьютере; здесь сказано,
+            что та же панель лежит в кармане. Огромного телефона в
+            перспективе нет намеренно: показываем не устройство, а
+            кусок самого экрана, теми же числами, что и вся страница. */}
+        <section className={s.mobile} aria-labelledby="app-title">
+          <div className={s.mobilePanel}>
+            <div className={s.mobileCopy}>
+              <h2 className={s.mobileTitle} id="app-title">
+                {l.app.title}
+              </h2>
+              <p className={s.mobileLead}>{l.app.lead}</p>
+
+              <div className={s.stores}>
+                {appStore ? (
+                  <a
+                    className={s.store}
+                    href={appStore}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={l.app.appStore}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/app-store-badge.svg" alt="" width={132} height={44} aria-hidden />
+                  </a>
+                ) : (
+                  /* Знак без ссылки, потому что вести пока некуда. Он не
+                     кнопка и не притворяется ею: ни курсора-руки, ни
+                     подсветки — рядом стоит слово «скоро». */
+                  <span className={`${s.store} ${s.storeSoon}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/app-store-badge.svg" alt={l.app.appStore} width={132} height={44} />
+                    <em>{l.app.soon}</em>
+                  </span>
+                )}
+
+                <span className={s.storeNote}>{l.app.android}</span>
               </div>
-
-              <ol className={s.touchRail}>
-                <li><b>01</b><span>{t.landing.tapPlate}</span></li>
-                <li><b>02</b><span>{t.landing.tapService}</span></li>
-                <li><b>03</b><span>{t.landing.tapPayment}</span></li>
-              </ol>
             </div>
 
-            <div className={s.tapsPhoto}>
-              <Image
-                className={s.photoImage}
-                src={photo('carwash-02.png')}
-                alt={t.landing.tapsAlt}
-                fill
-                sizes="(max-width: 760px) 100vw, 48vw"
-              />
-            </div>
+            {/* Кусок экрана приложения. Не снимок, а тот же интерфейс:
+                на снимке числа застыли бы на дне съёмки и разошлись с
+                теми, что стоят выше на этой же странице.
 
-            <div className={s.tapFinish}>
-              <span>{t.landing.tapsDone}</span>
-              <b aria-hidden="true">✓</b>
-            </div>
-          </CampaignReveal>
-        </section>
-
-        <section className={s.operationScene}>
-          <CampaignReveal className={s.operationPanel}>
-            <div className={s.operationPhoto}>
-              <Image
-                className={s.photoImage}
-                src={photo('carwash-03.png')}
-                alt={t.landing.todayAlt}
-                fill
-                sizes="100vw"
-              />
-            </div>
-            <div className={s.operationLabel}>{t.landing.todayLabel}</div>
-            <h2 className={s.operationTitle}>
-              <span>{t.landing.todayLine1}</span>
-              <span>{t.landing.todayLine2}</span>
-            </h2>
-            <div className={s.operationCount}>
-              <strong>37</strong>
-              <span>{t.landing.carsWord(37)}</span>
-            </div>
-          </CampaignReveal>
-        </section>
-
-        <section className={s.moneyScene}>
-          <CampaignReveal className={s.moneyPoster}>
-            <div className={s.moneyTopline}>
-              <span>{t.landing.moneyLabel}</span>
-              <span>AMD</span>
-            </div>
-
-            <div className={s.moneyRevenue}>
-              <span>{t.landing.moneyRevenue}</span>
-              <strong><span dir="ltr">245 000</span><b>֏</b></strong>
-            </div>
-
-            <div className={s.moneyDeductions}>
-              <div><strong>− 62 000</strong><span>{t.landing.moneyWages}</span></div>
-              <div><strong>− 31 500</strong><span>{t.landing.moneyCosts}</span></div>
-            </div>
-
-            <div className={s.moneyNet}>
-              <span>{t.landing.moneyLeft}</span>
-              <strong>151 500 ֏</strong>
-            </div>
-          </CampaignReveal>
-        </section>
-
-        <section className={s.workersScene}>
-          <CampaignReveal className={s.workersPanel}>
-            <div className={s.workerPhoto}>
-              <Image
-                className={s.photoImage}
-                src={photo('carwash-04.png')}
-                alt={t.landing.teamAlt}
-                fill
-                sizes="(max-width: 760px) 100vw, 43vw"
-              />
-            </div>
-
-            <div className={s.workerCopy}>
-              <div className={s.sceneLabel}>{t.landing.teamLabel}</div>
-              <h2>{t.landing.teamLine1}<br />{t.landing.teamLine2}</h2>
-              <p>{t.landing.teamNote}</p>
-
-              <div className={s.salaryLines} aria-label={t.landing.teamAria}>
-                {CREW.map((line, i) => (
-                  <div key={line.pay}>
-                    <span>{t.landing.teamNames[i]}</span>
-                    <small>{line.cars} {t.landing.carsWord(line.cars)}</small>
-                    <strong>{line.pay} ֏</strong>
-                  </div>
+                Для читалки он спрятан: все эти числа уже прочитаны в
+                рабочей панели выше, и второй раз они только мешают. */}
+            <div className={s.phone} aria-hidden>
+              <div className={s.phoneSeg}>
+                {l.demo.periods.map((label, i) => (
+                  <span key={label} data-on={i === 0 ? '' : undefined}>
+                    {label}
+                  </span>
                 ))}
               </div>
-            </div>
-          </CampaignReveal>
-        </section>
 
-        <section className={s.closingScene}>
-          <CampaignReveal className={s.closingPanel}>
-            <div className={s.closingPhoto}>
-              <Image
-                className={s.photoImage}
-                src={photo('carwash-05.png')}
-                alt={t.landing.closingAlt}
-                fill
-                sizes="100vw"
-              />
-            </div>
-            <div className={s.closingLabel}>{t.landing.closingLabel}</div>
-            <h2>{t.landing.closingLine1}<br />{t.landing.closingLine2}</h2>
-            <p>{t.landing.closingNote}</p>
-          </CampaignReveal>
-        </section>
+              <div className={s.phoneHero}>
+                <span>{t.owner.revenue}</span>
+                <strong>{formatMoney(248_000, 'AMD', t.locale)}</strong>
+                <small>
+                  {l.demo.avgCheck} {formatMoney(6_703, 'AMD', t.locale)}
+                </small>
+              </div>
 
-        <section className={s.priceScene} id="price">
-          <div className={s.pricePoster}>
-            <div className={s.priceIntro}>{t.landing.priceIntro}</div>
-            <div className={s.priceValue}>{formatMoney(PRICE, 'AMD')}</div>
-            <div className={s.priceMeta}>
-              <span>{t.landing.pricePeriod}</span>
-              <span>{t.landing.pricePerPoint}</span>
+              <div className={s.phoneCard}>
+                <div className={s.phoneCardHead}>
+                  <span>{t.owner.profit}</span>
+                  <b>{formatMoney(151_500, 'AMD', t.locale)}</b>
+                </div>
+                <div className={s.phoneLine}>
+                  <span>{t.owner.revenue}</span>
+                  <b>{formatMoney(248_000, 'AMD', t.locale)}</b>
+                </div>
+                <div className={s.phoneLine}>
+                  <span>{t.owner.payrollAccrued}</span>
+                  <b>− {formatMoney(62_000, 'AMD', t.locale)}</b>
+                </div>
+                <div className={s.phoneLine}>
+                  <span>{t.expenses.title}</span>
+                  <b>− {formatMoney(34_500, 'AMD', t.locale)}</b>
+                </div>
+              </div>
             </div>
-            <div className={s.trial}>{t.landing.trial(TRIAL_DAYS)}</div>
-            <AuthTrigger mode="register" className={s.priceCta}>
-              {t.landing.startLoud} <span aria-hidden="true">↗</span>
-            </AuthTrigger>
           </div>
-
-          <footer className={s.footer}>
-            <Link className={s.wordmark} href="/">
-              <span className={s.mark} aria-hidden="true"><i /><i /></span>
-              <span>TETRIN</span>
-            </Link>
-            <span>{t.landing.footerTag}</span>
-            <nav aria-label={t.landing.footerNavAria}>
-              <Link href="/privacy">{t.legal.privacy}</Link>
-              <Link href="/support">{t.legal.support}</Link>
-            </nav>
-          </footer>
         </section>
+
+        {/* Итог. Панели здесь уже нет — её работа закончилась, и остаётся
+            только то, ради чего всё это считалось. */}
+        <section className={s.closing}>
+          <Logo size={34} withName={false} />
+          <h2 className={s.closingTitle}>
+            {l.closing.title}
+            <span>{l.closing.titleAccent}</span>
+          </h2>
+
+          <div className={s.closingActions}>
+            <AuthTrigger mode="register" className={s.cta}>
+              {l.hero.cta} <span aria-hidden="true">↗</span>
+            </AuthTrigger>
+            <span className={s.heroNote}>{l.closing.note(TRIAL_DAYS)}</span>
+          </div>
+        </section>
+
+        <footer className={s.footer}>
+          <span>
+            {t.app.name} · {l.footer}
+          </span>
+          <nav aria-label={l.nav.footerAria}>
+            <Link href="/privacy">{t.legal.privacy}</Link>
+            <Link href="/support">{t.legal.support}</Link>
+          </nav>
+        </footer>
       </main>
     </div>
   );
 }
-
