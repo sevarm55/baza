@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users } from './db/schema';
 import { hashPin, hasPin, verifyPin } from './pin';
-import { isValidPin } from './phone';
+import { pinProblem } from './phone';
 import { revokeAccountSessions } from './auth';
 import { accountOf } from './accounts';
 
@@ -20,7 +20,7 @@ import { accountOf } from './accounts';
  */
 
 export class ProfileError extends Error {
-  constructor(code: 'BAD_PIN' | 'WRONG_PIN' | 'BAD_NAME') {
+  constructor(code: 'BAD_PIN' | 'TRIVIAL_PIN' | 'WRONG_PIN' | 'BAD_NAME') {
     super(code);
   }
 }
@@ -37,7 +37,12 @@ export class ProfileError extends Error {
  * чём не бывало.
  */
 export async function changePin(userId: string, current: string, next: string) {
-  if (!isValidPin(next)) throw new ProfileError('BAD_PIN');
+  /* «Мало цифр» и «слишком очевидный» — разные беды. Общий ответ на них
+     заставляет человека гадать, что именно не так с кодом, который он
+     только что придумал. */
+  const bad = pinProblem(next);
+  if (bad === 'length') throw new ProfileError('BAD_PIN');
+  if (bad === 'trivial') throw new ProfileError('TRIVIAL_PIN');
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new ProfileError('WRONG_PIN');
@@ -51,7 +56,8 @@ export async function changePin(userId: string, current: string, next: string) {
      был бы неотвечаемым: они бы навсегда остались без второй двери.
      Дыры здесь нет — человек уже вошёл, а вход и есть доказательство,
      что это он. */
-  if (hasPin(account.pinHash) && !(await verifyPin(current, account.pinHash))) {
+  const had = hasPin(account.pinHash);
+  if (had && !(await verifyPin(current, account.pinHash))) {
     throw new ProfileError('WRONG_PIN');
   }
 
@@ -65,10 +71,14 @@ export async function changePin(userId: string, current: string, next: string) {
     await tx.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
   });
 
-  /* Выходим везде и на всех точках: смысл смены кода в том, что тот, у
-     кого старый уже есть, перестаёт работать. Оставь мы вторую мойку
-     открытой — смена кода стала бы наполовину бесполезной. */
-  await revokeAccountSessions(account.id);
+  /* Выходим везде — но только при СМЕНЕ.
+
+     Смысл выхода в том, что тот, у кого старый код уже есть, перестаёт
+     работать. Когда кода не было вовсе, отбирать нечего: человек просто
+     завёл себе вторую дверь. Выкидывать его за это из собственного
+     кабинета — наказание за предусмотрительность, и выглядит оно как
+     падение страницы, а не как забота о безопасности. */
+  if (had) await revokeAccountSessions(account.id);
 
   return user;
 }

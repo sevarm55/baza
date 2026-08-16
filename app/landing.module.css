@@ -9,11 +9,33 @@
   --lime: #caff54;
   --mint: #bce8cf;
   --display: var(--font-campaign-display), var(--font-sans), sans-serif;
+
+  /* Множитель кегля плаката. Армянское начертание сверхузкое, и все
+     размеры ниже посчитаны под него. Латиница с кириллицей идут широким
+     Unbounded — там те же слова занимают куда больше места, и кегль
+     уменьшается разом, а не тринадцатью правками по месту. */
+  --ds: 1;
   --edge: clamp(12px, 2.2vw, 34px);
   color: var(--ink);
   background: var(--milk);
   overflow-x: clip;
 }
+
+.posterLatin {
+  --display: var(--font-poster-cyrillic), var(--font-poster-latin), var(--font-sans), sans-serif;
+  --ds: .62;
+}
+
+/* Многострочные заголовки набраны почти без интерлиньяжа — так плакат и
+   задуман. Но межстрочное расстояние меньше единицы держится на том,
+   насколько высоки прописные в конкретном начертании: у Unbounded они
+   выше, чем у армянского Noto, и на тех же .69–.78 вторая строка
+   наезжает на первую. Здесь — те же цифры, поднятые ровно настолько,
+   чтобы строки перестали задевать друг друга и не разъехались. */
+.posterLatin .heroTitle { line-height: .92; }
+.posterLatin .operationTitle { line-height: .9; }
+.posterLatin .workerCopy h2 { line-height: .84; }
+.posterLatin .closingPanel h2 { line-height: .83; }
 
 .page *,
 .page *::before,
@@ -237,7 +259,7 @@
   margin: 0;
   color: #f2f3ed;
   font-family: var(--display);
-  font-size: clamp(4.6rem, 8.7vw, 9.6rem);
+  font-size: calc(clamp(4.6rem, 8.7vw, 9.6rem) * var(--ds));
   font-weight: 900;
   line-height: .78;
   letter-spacing: -.07em;
@@ -275,7 +297,7 @@
 .railMetric strong {
   display: block;
   font-family: var(--display);
-  font-size: clamp(2.2rem, 3.3vw, 4.4rem);
+  font-size: calc(clamp(2.2rem, 3.3vw, 4.4rem) * var(--ds));
   line-height: .85;
   letter-spacing: -.055em;
   font-variant-numeric: tabular-nums;
@@ -493,7 +515,7 @@
   bottom: clamp(32px, 6vw, 86px);
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(5.4rem, 10.8vw, 11.6rem);
+  font-size: calc(clamp(5.4rem, 10.8vw, 11.6rem) * var(--ds));
   line-height: .76;
   letter-spacing: -.075em;
   text-shadow: 0 8px 40px rgba(0,0,0,.28);
@@ -519,7 +541,7 @@
 
 .operationCount strong {
   font-family: var(--display);
-  font-size: clamp(5rem, 8vw, 8rem);
+  font-size: calc(clamp(5rem, 8vw, 8rem) * var(--ds));
   line-height: .68;
   letter-spacing: -.08em;
 }
@@ -569,7 +591,7 @@
   align-items: flex-end;
   gap: .1em;
   font-family: var(--display);
-  font-size: clamp(7rem, 15vw, 16rem);
+  font-size: calc(clamp(7rem, 15vw, 16rem) * var(--ds));
   line-height: .68;
   letter-spacing: -.08em;
   font-variant-numeric: tabular-nums;
@@ -626,7 +648,7 @@
 }
 
 .moneyNet span { margin: 0 0 8px; color: #475527; }
-.moneyNet strong { justify-self: end; font-family: var(--display); font-size: clamp(8rem, 17vw, 18rem); line-height: .62; letter-spacing: -.085em; font-variant-numeric: tabular-nums; }
+.moneyNet strong { justify-self: end; font-family: var(--display); font-size: calc(clamp(8rem, 17vw, 18rem) * var(--ds)); line-height: .62; letter-spacing: -.085em; font-variant-numeric: tabular-nums; }
 
 .workersScene { background: var(--charcoal); }
 
@@ -660,7 +682,7 @@
 .workerCopy h2 {
   margin: auto 0 22px;
   font-family: var(--display);
-  font-size: clamp(6.4rem, 12.5vw, 13rem);
+  font-size: calc(clamp(6.4rem, 12.5vw, 13rem) * var(--ds));
   line-height: .7;
   letter-spacing: -.08em;
 }
@@ -688,7 +710,7 @@
 
 .salaryLines span { font-size: .82rem; font-weight: 800; }
 .salaryLines small { color: var(--soft-ink); font-size: .68rem; }
-.salaryLines strong { justify-self: end; font-family: var(--display); font-size: clamp(2.2rem, 3.5vw, 4.2rem); line-height: .78; letter-spacing: -.055em; }
+.salaryLines strong { justify-self: end; font-family: var(--display); font-size: calc(clamp(2.2rem, 3.5vw, 4.2rem) * var(--ds)); line-height: .78; letter-spacing: -.055em; }
 
 .closingScene { background: var(--charcoal); }
 
@@ -716,7 +738,7 @@
   bottom: clamp(74px, 10vw, 145px);
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(7rem, 13.5vw, 14rem);
+  font-size: calc(clamp(7rem, 13.5vw, 14rem) * var(--ds));
   line-height: .69;
   letter-spacing: -.08em;
 }
@@ -747,10 +769,10 @@
 }
 
 .priceIntro { align-self: start; font: 800 .72rem/1 ui-monospace, monospace; letter-spacing: .14em; }
-.priceValue { grid-column: 1 / -1; align-self: end; font-family: var(--display); font-size: clamp(9rem, 23vw, 24rem); line-height: .62; letter-spacing: -.08em; white-space: nowrap; }
+.priceValue { grid-column: 1 / -1; align-self: end; font-family: var(--display); font-size: calc(clamp(9rem, 23vw, 24rem) * var(--ds)); line-height: .62; letter-spacing: -.08em; white-space: nowrap; }
 .priceMeta { display: flex; gap: 32px; color: #465326; font-size: .78rem; }
 .priceMeta span { max-width: 130px; }
-.trial { justify-self: end; font-family: var(--display); font-size: clamp(2.3rem, 4vw, 4.4rem); letter-spacing: -.05em; }
+.trial { justify-self: end; font-family: var(--display); font-size: calc(clamp(2.3rem, 4vw, 4.4rem) * var(--ds)); letter-spacing: -.05em; }
 
 .priceCta {
   grid-column: 1 / -1;
@@ -763,7 +785,7 @@
   background: var(--charcoal);
   border-radius: 28px 9px 28px 9px;
   font-family: var(--display);
-  font-size: clamp(2.3rem, 4.5vw, 5rem);
+  font-size: calc(clamp(2.3rem, 4.5vw, 5rem) * var(--ds));
   letter-spacing: -.04em;
   transition: transform 220ms ease, border-radius 220ms ease;
 }
@@ -791,8 +813,8 @@
   .heroCtaCutout { right: 252px; }
   .tapsPanel { grid-template-columns: minmax(0,.8fr) minmax(360px,1.2fr); }
   .tapFinish { width: 270px; }
-  .moneyRevenue strong { font-size: clamp(7rem, 14vw, 10rem); }
-  .moneyNet strong { font-size: clamp(7rem, 16vw, 11rem); }
+  .moneyRevenue strong { font-size: calc(clamp(7rem, 14vw, 10rem) * var(--ds)); }
+  .moneyNet strong { font-size: calc(clamp(7rem, 16vw, 11rem) * var(--ds)); }
   .workersPanel { grid-template-columns: minmax(300px,.8fr) 1.2fr; }
 }
 
@@ -833,10 +855,10 @@
   .railLabel { grid-column: 1 / -1; padding: 10px 14px; font-size: .6rem; }
   .railMetric { min-height: 0; padding: 10px 10px 12px; border-top: 1px solid rgba(255,255,255,.13); border-left: 1px solid rgba(255,255,255,.13); }
   .railMetric:nth-child(2) { border-left: 0; }
-  .railMetric strong { font-size: clamp(.9rem, 4.9vw, 1.5rem); white-space: nowrap; }
+  .railMetric strong { font-size: calc(clamp(.9rem, 4.9vw, 1.5rem) * var(--ds)); white-space: nowrap; }
   .railMetric span { margin-top: 3px; font-size: .58rem; }
 
-  .heroTitle { left: 18px; right: 18px; bottom: 168px; font-size: clamp(2.8rem, 14.4vw, 5.5rem); }
+  .heroTitle { left: 18px; right: 18px; bottom: 168px; font-size: calc(clamp(2.8rem, 14.4vw, 5.5rem) * var(--ds)); }
   .heroCtaCutout { right: auto; left: 16px; bottom: 100px; gap: 10px; padding-left: 12px; }
   .heroCtaCutout small { display: none; }
   .heroCta { min-height: 46px; gap: 22px; }
@@ -944,9 +966,9 @@
   .operationPanel { height: var(--scene); min-height: 0; border-radius: 26px 42px 26px 42px; }
   .operationPhoto .photoImage { object-position: 63% center; }
   .operationPhoto::before { background: linear-gradient(0deg, rgba(5,8,5,.78), transparent 58%), linear-gradient(90deg, rgba(5,8,5,.5), transparent 72%); }
-  .operationTitle { left: 18px; right: 18px; bottom: 32px; font-size: clamp(2.6rem, 12.8vw, 6.4rem); }
+  .operationTitle { left: 18px; right: 18px; bottom: 32px; font-size: calc(clamp(2.6rem, 12.8vw, 6.4rem) * var(--ds)); }
   .operationCount { top: 62px; right: 16px; bottom: auto; width: clamp(96px, 28vw, 126px); padding: 14px; }
-  .operationCount strong { font-size: clamp(2.4rem, 11vw, 4.5rem); }
+  .operationCount strong { font-size: calc(clamp(2.4rem, 11vw, 4.5rem) * var(--ds)); }
   .operationCount span { margin-top: 8px; font-size: .62rem; }
 
   /* Постер денег складывается в столбец, и доли высоты держат его в
@@ -955,14 +977,14 @@
   .moneyTopline { flex: 0 0 auto; padding: 13px 16px; }
   .moneyRevenue { flex: 1.1; min-height: 0; justify-content: center; padding: 12px 16px; }
   .moneyRevenue > span, .moneyNet > span { margin-bottom: 10px; font-size: .7rem; }
-  .moneyRevenue strong { font-size: clamp(3rem, 19vw, 7.2rem); }
+  .moneyRevenue strong { font-size: calc(clamp(3rem, 19vw, 7.2rem) * var(--ds)); }
   .moneyDeductions { flex: 0 0 auto; grid-template-columns: 1fr 1fr; grid-template-rows: auto; border-top: 1px solid rgba(255,255,255,.13); border-left: 0; }
   .moneyDeductions > div { min-height: 0; padding: 12px 14px; }
   .moneyDeductions > div + div { border-top: 0; border-left: 1px solid rgba(255,255,255,.13); }
   .moneyDeductions strong { font-size: clamp(1.1rem, 6.4vw, 1.7rem); white-space: nowrap; }
   .moneyDeductions span { margin-top: 6px; font-size: .64rem; }
   .moneyNet { flex: 1.3; min-height: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 0; padding: 12px 16px 20px; border-radius: 28px 28px 0 0; }
-  .moneyNet strong { align-self: flex-end; font-size: clamp(2.9rem, 18vw, 7rem); }
+  .moneyNet strong { align-self: flex-end; font-size: calc(clamp(2.9rem, 18vw, 7rem) * var(--ds)); }
 
   .workersPanel { height: var(--scene); min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   .workerPhoto { flex: 0 0 42%; height: auto; border-radius: 32px 32px 12px 12px; }
@@ -971,15 +993,15 @@
   /* Заголовок отжат вниз: подпись сцены остаётся наверху, а имена с
      суммами стоят у нижнего края — иначе под ними висела бы треть
      пустой карточки. */
-  .workerCopy h2 { margin: auto 0 10px; font-size: clamp(2.6rem, 14vw, 7.4rem); }
+  .workerCopy h2 { margin: auto 0 10px; font-size: calc(clamp(2.6rem, 14vw, 7.4rem) * var(--ds)); }
   .workerCopy p { margin-bottom: 14px; font-size: .84rem; }
   .salaryLines > div { grid-template-columns: .6fr .7fr 1fr; gap: 8px; padding: 9px 0; }
-  .salaryLines strong { font-size: clamp(1.1rem, 6vw, 2.2rem); white-space: nowrap; }
+  .salaryLines strong { font-size: calc(clamp(1.1rem, 6vw, 2.2rem) * var(--ds)); white-space: nowrap; }
 
   .closingPanel { height: var(--scene); min-height: 0; border-radius: 32px; }
   .closingPhoto .photoImage { object-position: 63% center; }
   .closingPhoto::before { background: linear-gradient(0deg, rgba(8,11,8,.75), transparent 66%), linear-gradient(90deg, rgba(8,11,8,.42), transparent 72%); }
-  .closingPanel h2 { left: 18px; right: 18px; bottom: 74px; font-size: clamp(3rem, 16vw, 7.8rem); }
+  .closingPanel h2 { left: 18px; right: 18px; bottom: 74px; font-size: calc(clamp(3rem, 16vw, 7.8rem) * var(--ds)); }
   .closingPanel p { left: 20px; right: 20px; bottom: 26px; max-width: none; line-height: 1.45; }
 
   /* Последняя сцена делит экран с подвалом: цена сверху, подвал под
@@ -997,11 +1019,11 @@
   .priceMeta,
   .trial { align-self: flex-start; }
   .priceCta { align-self: stretch; }
-  .priceValue { font-size: clamp(3rem, 19vw, 7.2rem); white-space: nowrap; }
+  .priceValue { font-size: calc(clamp(3rem, 19vw, 7.2rem) * var(--ds)); white-space: nowrap; }
   .priceMeta { flex-direction: column; gap: 2px; }
   .priceMeta span { max-width: none; }
-  .trial { justify-self: start; font-size: clamp(1.3rem, 6.6vw, 2.8rem); }
-  .priceCta { min-height: 64px; padding-inline: 18px; border-radius: 23px 8px 23px 8px; font-size: clamp(1.2rem, 6.2vw, 2.6rem); }
+  .trial { justify-self: start; font-size: calc(clamp(1.3rem, 6.6vw, 2.8rem) * var(--ds)); }
+  .priceCta { min-height: 64px; padding-inline: 18px; border-radius: 23px 8px 23px 8px; font-size: calc(clamp(1.2rem, 6.2vw, 2.6rem) * var(--ds)); }
   .footer { grid-template-columns: 1fr; gap: 12px; padding-top: 16px; }
   .footer nav { flex-direction: row; gap: 18px; }
 }

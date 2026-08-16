@@ -145,10 +145,22 @@ export async function endSession({ remember = false }: { remember?: boolean } = 
   if (claims?.sid) await revokeSession(claims.sid);
 }
 
-/** По умолчанию запоминаем, как в iOS. Настройка принадлежит браузеру. */
+/**
+ * Запоминать ли профиль после выхода. По умолчанию — НЕТ.
+ *
+ * Сохранённый профиль возвращает в кабинет одним нажатием на аватар,
+ * без телефона и кода. Удобно ровно в одном случае: компьютер личный.
+ * А в мойке он общий — тот же ноутбук в подсобке, за которым сидят
+ * посменно, и «выйти» там означает выйти, а не оставить дверь
+ * прикрытой.
+ *
+ * Поэтому включает это человек сам, осознанно, в своём профиле. Раньше
+ * умолчание было обратным, и удобство доставалось всем, а риск — тем,
+ * у кого компьютер общий: как раз тем, кто про эту настройку не знает.
+ */
 export async function rememberedLoginEnabled(): Promise<boolean> {
   const jar = await cookies();
-  return jar.get(REMEMBER_ENABLED_COOKIE)?.value !== '0';
+  return jar.get(REMEMBER_ENABLED_COOKIE)?.value === '1';
 }
 
 export async function setRememberedLoginEnabled(enabled: boolean): Promise<void> {

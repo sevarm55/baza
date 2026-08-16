@@ -106,50 +106,63 @@ export const en: Dict = {
   },
 
   landing: {
-    eyebrow: 'For car washes',
-    headline: 'Every car — logged.',
-    headlineAccent: 'Every dram — accounted for.',
-    lead: 'The washer logs it himself, because that is where he sees his own pay.',
-    ctaPrimary: (days: number) => `Try ${days} ${pl(days, 'day', 'days')} free`,
-    ctaNote: 'No card. Three minutes.',
+    skip: 'Skip to main content',
+    navAria: 'Main navigation',
+    homeAria: 'Tetrin home page',
+    navHow: 'How it works',
+    navPrice: 'Price',
+    start: 'Start',
+    startLoud: 'START',
+    trial: (days: number) => `${days} days free`,
 
-    steps: [
-      {
-        title: 'Three taps — and the car is logged',
-        body: 'Plate, service, payment.',
-        caption: "Washer's screen",
-        alt: "A washer's wet hand on the door of a washed car",
-      },
-      {
-        title: 'Who washed how many',
-        body: 'Every record carries a name.',
-        caption: 'The day as it goes',
-        alt: 'Two washers at two different cars',
-      },
-      {
-        title: 'Payroll adds itself up',
-        body: 'No calculator, no arguments.',
-        caption: 'Payroll',
-        alt: 'Cash passed from hand to hand',
-      },
-      {
-        title: 'You keep',
-        body: 'Revenue minus payroll and expenses. Every day.',
-        caption: "Owner's screen",
-        alt: 'Water beads on the white body of a washed car',
-      },
-    ],
+    heroAlt: 'A wet graphite car and a worker in a dark car wash bay',
+    heroLine1: 'EVERY CAR',
+    heroLine2: 'LOGGED.',
 
-    heroAlt: 'A washed car in a bright car-wash bay',
-    priceAlt: 'A clean car leaving the wash',
+    railAria: "Today's key numbers",
+    carsWord: (n: number) => (n === 1 ? 'car' : 'cars'),
+    revenueWord: 'revenue',
+    netWord: 'net',
 
-    galleryEyebrow: 'At a glance',
+    tapsLabel: '01 / LOGGING',
+    tapsWord: 'TAPS',
+    tapPlate: 'Plate',
+    tapService: 'Service',
+    tapPayment: 'Payment',
+    tapsAlt: 'A pressure jet hitting a car and a phone in the worker’s hand',
+    tapsDone: 'Logged',
 
-    priceTitle: 'Price',
-    pricePeriod: 'per month, per location',
-    priceNote: (days: number) =>
-      `First ${days} ${pl(days, 'day', 'days')} free. No card needed.`,
-    footer: 'Tetrin — bookkeeping for service businesses',
+    todayLabel: '02 / TODAY',
+    todayLine1: 'ALL OF IT',
+    todayLine2: 'IN SIGHT.',
+    todayAlt: 'Two workers washing cars in a dark car wash bay',
+
+    moneyLabel: '03 / THE DAY IN NUMBERS',
+    moneyRevenue: 'Revenue',
+    moneyWages: 'wages',
+    moneyCosts: 'costs',
+    moneyLeft: 'You keep:',
+
+    teamLabel: '04 / TEAM',
+    teamLine1: 'ZERO',
+    teamLine2: 'MATH.',
+    teamNote: 'Wages add themselves up.',
+    teamAria: 'Calculated wages for the crew',
+    teamAlt: 'A car wash worker beside a wet car, looking at a phone',
+    teamNames: ['Arman', 'Gor', 'Hayk'],
+
+    closingLabel: '05 / A CLEAR RESULT',
+    closingLine1: 'THE DAY',
+    closingLine2: 'IS CLEAR.',
+    closingNote: 'Cars, money and crew in one place.',
+    closingAlt: 'A clean graphite car leaving the wash into the light',
+
+    priceIntro: 'ONE SIMPLE PRICE',
+    pricePeriod: 'per month',
+    pricePerPoint: 'for one branch',
+
+    footerTag: 'Bookkeeping for car washes',
+    footerNavAria: 'Legal and support',
   },
 
   errors: {

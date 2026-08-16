@@ -11,11 +11,40 @@ import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
 import { LanguagePicker } from '@/components/language-picker';
 import { CampaignReveal } from './campaign-motion';
 import s from './landing.module.css';
-import { getDict } from '@/lib/i18n/server';
+import { getDict, getI18n } from '@/lib/i18n/server';
 
-const display = localFont({
+/**
+ * Плакатный шрифт витрины — свой на каждую письменность.
+ *
+ * Noto Sans Armenian Extra-Condensed Black рисует армянский, и только
+ * его: латиницы с кириллицей в этом начертании нет вовсе, а подставлять
+ * вместо них обычный текстовый шрифт — значит показывать русскому и
+ * английскому посетителю совсем другую страницу, без плаката.
+ *
+ * Для них Unbounded Black. Он широкий там, где армянский узкий, поэтому
+ * кегль на этих языках считается с множителем `--ds` — иначе те же
+ * слова просто не помещаются в кадр (см. landing.module.css).
+ *
+ * Кириллица и латиница лежат раздельно, как их отдаёт Google Fonts: два
+ * файла по 12 и 21 КБ вместо одного на 200. Браузер подбирает шрифт
+ * посимвольно и сам берёт из стека тот, где нужная буква есть, — общий
+ * `unicode-range` для этого не нужен.
+ */
+const armenian = localFont({
   src: './fonts/NotoSansArmenian-XCondBlack.woff2',
   variable: '--font-campaign-display',
+  display: 'swap',
+});
+
+const unboundedLatin = localFont({
+  src: './fonts/Unbounded-Latin-Black.woff2',
+  variable: '--font-poster-latin',
+  display: 'swap',
+});
+
+const unboundedCyrillic = localFont({
+  src: './fonts/Unbounded-Cyrillic-Black.woff2',
+  variable: '--font-poster-cyrillic',
   display: 'swap',
 });
 
@@ -26,12 +55,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const photo = (name: string) => `/landing/v2/${name}`;
 
+/* Пример зарплатной ведомости на витрине: числа выдуманные и одинаковые
+   на всех языках, меняются только имена рядом с ними. */
+const CREW = [
+  { cars: 18, pay: '27 000' },
+  { cars: 14, pay: '21 000' },
+  { cars: 21, pay: '31 500' },
+];
+
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ auth?: string }>;
 }) {
-  const t = await getDict();
+  const { locale, t } = await getI18n();
   const session = await getSession();
   if (session) redirect(session.role === 'owner' ? '/owner' : '/work');
   const remembered = await getRememberedAccount();
@@ -44,8 +81,15 @@ export default async function Home({
 
   const niche = ACTIVE_NICHES[0]?.key ?? 'carwash';
 
+  /* Армянский остаётся в своём начертании, остальные два переходят на
+     Unbounded вместе с пересчётом кегля. */
+  const poster =
+    locale === 'hy'
+      ? armenian.variable
+      : `${unboundedLatin.variable} ${unboundedCyrillic.variable} ${s.posterLatin}`;
+
   return (
-    <div className={`${s.page} ${display.variable}`}>
+    <div className={`${s.page} ${poster}`}>
       <AuthPortal
         initial={opened}
         niche={niche}
@@ -54,19 +98,19 @@ export default async function Home({
       />
 
       <a className={s.skipLink} href="#main">
-        Անցնել հիմնական բովանդակությանը
+        {t.landing.skip}
       </a>
 
       <header className={s.navWrap}>
-        <nav className={s.nav} aria-label="Հիմնական նավիգացիա">
-          <Link className={s.wordmark} href="/" aria-label="Tetrin գլխավոր էջ">
+        <nav className={s.nav} aria-label={t.landing.navAria}>
+          <Link className={s.wordmark} href="/" aria-label={t.landing.homeAria}>
             <span className={s.mark} aria-hidden="true"><i /><i /></span>
             <span>TETRIN</span>
           </Link>
 
           <div className={s.navCenter}>
-            <a href="#how">Ինչպես է աշխատում</a>
-            <a href="#price">Գին</a>
+            <a href="#how">{t.landing.navHow}</a>
+            <a href="#price">{t.landing.navPrice}</a>
           </div>
 
           <div className={s.navActions}>
@@ -78,7 +122,7 @@ export default async function Home({
               {t.auth.signInTitle}
             </AuthTrigger>
             <AuthTrigger mode="register" className={s.navCta}>
-              Սկսել <span aria-hidden="true">↗</span>
+              {t.landing.start} <span aria-hidden="true">↗</span>
             </AuthTrigger>
           </div>
         </nav>
@@ -91,7 +135,7 @@ export default async function Home({
               <Image
                 className={s.photoImage}
                 src={photo('carwash-01.png')}
-                alt="Թաց գրաֆիտագույն մեքենա և աշխատող ավտոլվացման մութ բոքսում"
+                alt={t.landing.heroAlt}
                 fill
                 preload
                 sizes="(max-width: 760px) 100vw, 82vw"
@@ -99,22 +143,22 @@ export default async function Home({
             </div>
 
             <h1 className={s.heroTitle}>
-              <span>ԱՄԵՆ ՄԵՔԵՆԱՆ՝</span>
-              <span>ԳՐԱՆՑՎԱԾ։</span>
+              <span>{t.landing.heroLine1}</span>
+              <span>{t.landing.heroLine2}</span>
             </h1>
 
             <div className={s.heroCtaCutout}>
               <AuthTrigger mode="register" className={s.heroCta}>
-                Սկսել <span aria-hidden="true">↗</span>
+                {t.landing.start} <span aria-hidden="true">↗</span>
               </AuthTrigger>
-              <small>{TRIAL_DAYS} օր անվճար</small>
+              <small>{t.landing.trial(TRIAL_DAYS)}</small>
             </div>
 
-            <aside className={s.todayRail} aria-label="Այսօրվա հիմնական թվերը">
+            <aside className={s.todayRail} aria-label={t.landing.railAria}>
               <div className={s.railLabel}>TODAY / 10:17</div>
-              <div className={s.railMetric}><strong>37</strong><span>մեքենա</span></div>
-              <div className={s.railMetric}><strong>245 000 ֏</strong><span>հասույթ</span></div>
-              <div className={`${s.railMetric} ${s.railNet}`}><strong>151 500 ֏</strong><span>մաքուր</span></div>
+              <div className={s.railMetric}><strong>37</strong><span>{t.landing.carsWord(37)}</span></div>
+              <div className={s.railMetric}><strong>245 000 ֏</strong><span>{t.landing.revenueWord}</span></div>
+              <div className={`${s.railMetric} ${s.railNet}`}><strong>151 500 ֏</strong><span>{t.landing.netWord}</span></div>
             </aside>
           </div>
         </section>
@@ -125,16 +169,16 @@ export default async function Home({
                 числами на первом экране. Иначе они лежат прямо на поле
                 панели, и её край проходит по трём разным линиям. */}
             <div className={s.tapsSide}>
-              <div className={s.sceneLabel}>01 / ԳՐԱՆՑՈՒՄ</div>
+              <div className={s.sceneLabel}>{t.landing.tapsLabel}</div>
               <div className={s.tapsHeading}>
                 <span aria-hidden="true">3</span>
-                <h2>ՀՊՈՒՄ</h2>
+                <h2>{t.landing.tapsWord}</h2>
               </div>
 
               <ol className={s.touchRail}>
-                <li><b>01</b><span>Համարանիշ</span></li>
-                <li><b>02</b><span>Ծառայություն</span></li>
-                <li><b>03</b><span>Վճարում</span></li>
+                <li><b>01</b><span>{t.landing.tapPlate}</span></li>
+                <li><b>02</b><span>{t.landing.tapService}</span></li>
+                <li><b>03</b><span>{t.landing.tapPayment}</span></li>
               </ol>
             </div>
 
@@ -142,14 +186,14 @@ export default async function Home({
               <Image
                 className={s.photoImage}
                 src={photo('carwash-02.png')}
-                alt="Ճնշման ջրի շիթը մեքենայի վրա և աշխատողի ձեռքում հեռախոս"
+                alt={t.landing.tapsAlt}
                 fill
                 sizes="(max-width: 760px) 100vw, 48vw"
               />
             </div>
 
             <div className={s.tapFinish}>
-              <span>Գրանցված է</span>
+              <span>{t.landing.tapsDone}</span>
               <b aria-hidden="true">✓</b>
             </div>
           </CampaignReveal>
@@ -161,19 +205,19 @@ export default async function Home({
               <Image
                 className={s.photoImage}
                 src={photo('carwash-03.png')}
-                alt="Երկու աշխատող մութ ավտոլվացման բոքսում լվանում են մեքենաները"
+                alt={t.landing.todayAlt}
                 fill
                 sizes="100vw"
               />
             </div>
-            <div className={s.operationLabel}>02 / ԱՅՍՕՐ</div>
+            <div className={s.operationLabel}>{t.landing.todayLabel}</div>
             <h2 className={s.operationTitle}>
-              <span>ԱՄԵՆ ԻՆՉ</span>
-              <span>ՏԵՍԱՆԵԼԻ Է։</span>
+              <span>{t.landing.todayLine1}</span>
+              <span>{t.landing.todayLine2}</span>
             </h2>
             <div className={s.operationCount}>
               <strong>37</strong>
-              <span>մեքենա</span>
+              <span>{t.landing.carsWord(37)}</span>
             </div>
           </CampaignReveal>
         </section>
@@ -181,22 +225,22 @@ export default async function Home({
         <section className={s.moneyScene}>
           <CampaignReveal className={s.moneyPoster}>
             <div className={s.moneyTopline}>
-              <span>03 / ՕՐԸ ԹՎԵՐՈՎ</span>
+              <span>{t.landing.moneyLabel}</span>
               <span>AMD</span>
             </div>
 
             <div className={s.moneyRevenue}>
-              <span>Հասույթ</span>
+              <span>{t.landing.moneyRevenue}</span>
               <strong><span dir="ltr">245 000</span><b>֏</b></strong>
             </div>
 
             <div className={s.moneyDeductions}>
-              <div><strong>− 62 000</strong><span>աշխատավարձ</span></div>
-              <div><strong>− 31 500</strong><span>ծախսեր</span></div>
+              <div><strong>− 62 000</strong><span>{t.landing.moneyWages}</span></div>
+              <div><strong>− 31 500</strong><span>{t.landing.moneyCosts}</span></div>
             </div>
 
             <div className={s.moneyNet}>
-              <span>Ձեզ մնում է։</span>
+              <span>{t.landing.moneyLeft}</span>
               <strong>151 500 ֏</strong>
             </div>
           </CampaignReveal>
@@ -208,21 +252,25 @@ export default async function Home({
               <Image
                 className={s.photoImage}
                 src={photo('carwash-04.png')}
-                alt="Ավտոլվացման աշխատողը թաց մեքենայի կողքին նայում է հեռախոսին"
+                alt={t.landing.teamAlt}
                 fill
                 sizes="(max-width: 760px) 100vw, 43vw"
               />
             </div>
 
             <div className={s.workerCopy}>
-              <div className={s.sceneLabel}>04 / ԹԻՄ</div>
-              <h2>ՈՉ ՄԻ<br />ՀԱՇՎԻՉ։</h2>
-              <p>Աշխատավարձը հաշվվում է ինքն իրեն։</p>
+              <div className={s.sceneLabel}>{t.landing.teamLabel}</div>
+              <h2>{t.landing.teamLine1}<br />{t.landing.teamLine2}</h2>
+              <p>{t.landing.teamNote}</p>
 
-              <div className={s.salaryLines} aria-label="Աշխատողների հաշվարկված աշխատավարձերը">
-                <div><span>Արման</span><small>18 մեքենա</small><strong>27 000 ֏</strong></div>
-                <div><span>Գոռ</span><small>14 մեքենա</small><strong>21 000 ֏</strong></div>
-                <div><span>Հայկ</span><small>21 մեքենա</small><strong>31 500 ֏</strong></div>
+              <div className={s.salaryLines} aria-label={t.landing.teamAria}>
+                {CREW.map((line, i) => (
+                  <div key={line.pay}>
+                    <span>{t.landing.teamNames[i]}</span>
+                    <small>{line.cars} {t.landing.carsWord(line.cars)}</small>
+                    <strong>{line.pay} ֏</strong>
+                  </div>
+                ))}
               </div>
             </div>
           </CampaignReveal>
@@ -234,28 +282,28 @@ export default async function Home({
               <Image
                 className={s.photoImage}
                 src={photo('carwash-05.png')}
-                alt="Մաքուր գրաֆիտագույն մեքենան դուրս է գալիս ավտոլվացումից դեպի լույս"
+                alt={t.landing.closingAlt}
                 fill
                 sizes="100vw"
               />
             </div>
-            <div className={s.closingLabel}>05 / ՊԱՐԶ ԱՐԴՅՈՒՆՔ</div>
-            <h2>ՕՐԸ<br />ՊԱՐԶ Է։</h2>
-            <p>Մեքենաները, գումարն ու թիմը՝ մեկ տեղում։</p>
+            <div className={s.closingLabel}>{t.landing.closingLabel}</div>
+            <h2>{t.landing.closingLine1}<br />{t.landing.closingLine2}</h2>
+            <p>{t.landing.closingNote}</p>
           </CampaignReveal>
         </section>
 
         <section className={s.priceScene} id="price">
           <div className={s.pricePoster}>
-            <div className={s.priceIntro}>ՊԱՐԶ ԳԻՆ</div>
+            <div className={s.priceIntro}>{t.landing.priceIntro}</div>
             <div className={s.priceValue}>{formatMoney(PRICE, 'AMD')}</div>
             <div className={s.priceMeta}>
-              <span>ամսական</span>
-              <span>մեկ մասնաճյուղի համար</span>
+              <span>{t.landing.pricePeriod}</span>
+              <span>{t.landing.pricePerPoint}</span>
             </div>
-            <div className={s.trial}>{TRIAL_DAYS} օր անվճար</div>
+            <div className={s.trial}>{t.landing.trial(TRIAL_DAYS)}</div>
             <AuthTrigger mode="register" className={s.priceCta}>
-              ՍԿՍԵԼ <span aria-hidden="true">↗</span>
+              {t.landing.startLoud} <span aria-hidden="true">↗</span>
             </AuthTrigger>
           </div>
 
@@ -264,8 +312,8 @@ export default async function Home({
               <span className={s.mark} aria-hidden="true"><i /><i /></span>
               <span>TETRIN</span>
             </Link>
-            <span>Հաշվառում ավտոլվացումների համար</span>
-            <nav aria-label="Իրավական և աջակցություն">
+            <span>{t.landing.footerTag}</span>
+            <nav aria-label={t.landing.footerNavAria}>
               <Link href="/privacy">{t.legal.privacy}</Link>
               <Link href="/support">{t.legal.support}</Link>
             </nav>

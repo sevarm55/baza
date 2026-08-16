@@ -105,7 +105,10 @@ final class Session: ObservableObject {
         }
         #endif
 
-        rememberLogin = UserDefaults.standard.object(forKey: Self.rememberEnabledKey) as? Bool ?? true
+        /* По умолчанию НЕ запоминаем: телефон на мойке нередко общий, а
+           сохранённый вход возвращает в кабинет одним касанием. Включает
+           это человек сам, в своём профиле. */
+        rememberLogin = UserDefaults.standard.object(forKey: Self.rememberEnabledKey) as? Bool ?? false
         rememberedAccount = Self.loadRememberedAccount()
         accessToken = Keychain.get("access")
         refreshToken = Keychain.get("refresh")

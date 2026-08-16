@@ -41,7 +41,8 @@ import {
   switchSession,
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { listPoints, markPointUsed } from '@/lib/accounts';
+import { accountOf, listPoints, markPointUsed } from '@/lib/accounts';
+import { hasPin } from '@/lib/pin';
 import { isValidPhone, normalizePhone, pinProblem } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { logSecurityInBackground } from '@/lib/security-log';
@@ -389,12 +390,20 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
     return { error: t.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
   }
 
+  /* Была ли у человека вторая дверь до этой минуты. От этого зависит,
+     выкидывать ли его: смена кода гасит сессии, а первая установка —
+     нет, отбирать там нечего. */
+  const account = await accountOf(me);
+  const had = hasPin(account.pinHash);
+
   try {
     await changePin(session.uid, current, next);
   } catch (e) {
     if (e instanceof ProfileError) {
       if (e.message === 'WRONG_PIN') await noteLogin(me.phone, ip, false);
-      return { error: e.message === 'BAD_PIN' ? t.errors.badPin : t.auth.wrongPin };
+      if (e.message === 'BAD_PIN') return { error: t.errors.badPin };
+      if (e.message === 'TRIVIAL_PIN') return { error: t.auth.pinTrivial };
+      return { error: t.auth.wrongPin };
     }
     return { error: t.errors.generic };
   }
@@ -408,8 +417,13 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
     ip,
   });
 
-  // сессия только что отозвана — идти внутрь больше некуда
-  redirect('/?auth=signIn');
+  /* Сменил — сессии погашены, включая эту, идти внутрь больше некуда.
+     Задал впервые — остаётся на месте, как после любой другой правки в
+     профиле. */
+  if (had) redirect('/?auth=signIn');
+
+  revalidatePath('/owner/profile');
+  return { ok: true };
 }
 
 /* ------------------- подтверждение своего номера ------------------- */
