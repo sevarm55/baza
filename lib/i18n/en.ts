@@ -658,6 +658,7 @@ export const en: Dict = {
     sortRichest: 'Spent the most',
     lastVisitPrefix: 'last —',
     clientHistory: 'Visit history',
+    clientPerOne: 'Per client',
     clientAvg: 'average',
     clientLoyal: 'regular',
     clientOne: 'client',

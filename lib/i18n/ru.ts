@@ -675,6 +675,7 @@ export const ru: Dict = {
     sortRichest: 'Больше всех заплатили',
     lastVisitPrefix: 'последний —',
     clientHistory: 'История визитов',
+    clientPerOne: 'С одного клиента',
     clientAvg: 'в среднем',
     clientLoyal: 'постоянный',
     clientOne: 'клиент',

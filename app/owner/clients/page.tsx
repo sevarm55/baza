@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listClients } from '@/lib/queries';
@@ -71,27 +70,35 @@ export default async function ClientsPage({
     avg: c.visits > 0 ? Math.round(c.total / c.visits) : 0,
   }));
 
-  const loyal = rows.filter((c) => c.visits > 1).length;
-  const lost = rows.filter((c) => c.days > LOST_AFTER_DAYS).length;
   const lifetime = rows.reduce((sum, c) => sum + c.total, 0);
+  const visits = rows.reduce((sum, c) => sum + c.visits, 0);
+  /* Средний чек базы — за ПРИЕЗД, а не за клиента: клиент, который был
+     десять раз, оставляет десять чеков, и делить его сумму на единицу
+     значило бы объявить его чек в десять раз больше настоящего. */
+  const perVisit = visits > 0 ? Math.round(lifetime / visits) : 0;
   const avg = rows.length > 0 ? Math.round(lifetime / rows.length) : 0;
 
   return (
     <>
-      <PageHead title={t.owner.tabClients} meta={t.owner.clientsLead}>
-        {/* Повод — строкой у заголовка, тем же приёмом, что «пора
-            платить» на зарплатах: это подсказка, а не показание, и
-            занимать ею первый экран незачем. */}
-        {lost > 0 && (
-          <Link className="signal" href="/owner/clients?group=lost">
-            {t.alerts.lostTitle(lost)}
-          </Link>
-        )}
-      </PageHead>
+      {/* Повод «давно не были» ушёл отсюда, и по той же причине, что долг
+          с сотрудников: он висел у заголовка строкой тревожного цвета, а
+          прямо под ним стоит вкладка с тем же словом и тем же числом —
+          и она вдобавок показывает, КТО именно давно не был. Строка
+          наверху только называла беду и никуда не вела глазами. */}
+      <PageHead title={t.owner.tabClients} meta={t.owner.clientsLead} />
 
-      {/* Полоса показаний, а не четыре карточки: числа здесь справочные,
-          и единственное, ради чего базу открывают деньгами, — сколько
-          она принесла за всё время. Оно и стоит плитой. */}
+      {/* Полоса отвечает про ДЕНЬГИ, а не про состав базы.
+
+          Раньше в ней стояли «в базе», «постоянные» и «давно не были» —
+          ровно те же три числа, что стоят на вкладках строкой ниже. Там
+          они вдобавок нажимаются и показывают список, здесь только
+          назывались; из четырёх сегментов базы полоса при этом знала
+          три, то есть ещё и врала про полноту.
+
+          Теперь плита говорит, сколько база принесла за всё время, а
+          полоса — из чего эта сумма набежала: сколько было приездов, по
+          какому чеку и сколько выходит с одного клиента. Ни одно из
+          этих чисел ниже не повторяется. */}
       <section
         className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
         aria-label={t.owner.clientsLifetime}
@@ -99,26 +106,14 @@ export default async function ClientsPage({
         <Plate
           label={t.owner.clientsLifetime}
           value={money(lifetime)}
-          note={
-            rows.length > 0
-              ? `${rows.length} ${t.owner.clientOne} · ${t.owner.clientAvg} ${money(avg)}`
-              : undefined
-          }
+          note={rows.length > 0 ? `${rows.length} ${t.owner.clientOne}` : undefined}
         />
 
         <Figures
           items={[
-            { label: t.owner.clientsTotal, value: String(rows.length) },
-            {
-              label: t.owner.clientsLoyal,
-              value: String(loyal),
-              href: loyal > 0 ? '/owner/clients?group=loyal' : undefined,
-            },
-            {
-              label: t.owner.clientsLost,
-              value: String(lost),
-              href: lost > 0 ? '/owner/clients?group=lost' : undefined,
-            },
+            { label: t.owner.visits, value: String(visits) },
+            { label: t.owner.avgCheck, value: money(perVisit) },
+            { label: t.owner.clientPerOne, value: money(avg) },
           ]}
         />
       </section>
