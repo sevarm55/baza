@@ -1,0 +1,748 @@
+/* ─────────────────────────────────────────────────────────────
+   Витрина на телефоне.
+
+   Отдельная композиция, а не набор поправок к настольной. Правило у
+   неё одно: на экране в триста семьдесят пять точек продукт обязан
+   занимать эти триста семьдесят пять точек.
+
+   Отсюда всё остальное. Кусок продукта идёт от края до края экрана и
+   своей карточки не имеет — карточка вокруг панели, внутри которой
+   лежит панель, съедает по восемнадцать точек на каждом уровне
+   вложенности. Поле ввода лежит прямо на полотне кабинета, а не внутри
+   ещё одной подложки. Иерархию держат фон, линия, набор и воздух;
+   коробок ровно две на всю страницу — полотно кабинета и тёмная плита
+   итога.
+
+   Цветов, скруглений и форм полей здесь своих нет: всё приезжает из
+   `globals.css` теми же переменными, которыми нарисован кабинет.
+   Человек, который зарегистрируется, обязан узнать экран.
+   ───────────────────────────────────────────────────────────── */
+
+.story {
+  /* Шов телефона. Между сценами он большой намеренно: пауза между
+     мыслью и следующей мыслью — единственное, чем на телефоне можно
+     отделить один шаг дня от другого, не рисуя рамок. */
+  --m-gap: clamp(4.5rem, 18vw, 6.5rem);
+  /* Поле внутри полотна. Совпадает с полем страницы, поэтому текст
+     рассказа и содержимое продукта стоят на одной вертикали. */
+  --m-pad: var(--pad);
+
+  display: grid;
+  gap: var(--m-gap);
+}
+
+/* ─────────────────────── шаг рассказа ─────────────────────── */
+
+.scene {
+  display: grid;
+  gap: clamp(1.5rem, 6vw, 2rem);
+}
+
+.copy {
+  display: grid;
+  gap: 0;
+}
+
+/* Указатель шага вместо полосы вкладок: «01 / 05 ԳՐԱՆՑՈՒՄ». */
+.step {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.step b {
+  color: var(--accent);
+}
+.step em {
+  margin-inline-start: 0.25rem;
+  font-style: normal;
+}
+
+/* Полоса пройденного. Волосяная и без заливки-градиента: это подпись к
+   номеру шага, а не показание. */
+.track {
+  position: relative;
+  display: block;
+  height: 2px;
+  margin-top: 0.7rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  overflow: hidden;
+}
+.track::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--at, 20%);
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 320ms var(--ease);
+}
+
+.title {
+  margin-top: clamp(0.9rem, 3.6vw, 1.1rem);
+  font-size: clamp(1.65rem, 7vw, 2.05rem);
+  line-height: 1.14;
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+.body {
+  margin-top: 0.7rem;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ─────────────────────── полотно кабинета ───────────────────────
+
+   Кусок продукта во всю ширину экрана. Внешней рамки у него нет: это
+   не картинка панели в карточке, это сама панель, доехавшая до краёв
+   телефона. */
+
+.story .band {
+  /* `.board` из globals.css объявляет рост в целый экран — кабинет
+     занимает его весь, и это верно для кабинета. Здесь полотно ровно
+     такое, сколько в нём содержимого. */
+  min-height: 0;
+  margin-inline: calc(var(--m-pad) * -1);
+  padding: clamp(1.15rem, 5vw, 1.5rem) var(--m-pad) clamp(1.25rem, 5.5vw, 1.65rem);
+  border-block: 1px solid var(--line);
+  /* Ни одна строка не должна выезжать за экран: полотно идёт от края
+     до края, и горизонтальной прокрутке взяться неоткуда. */
+  overflow-x: clip;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: clamp(1rem, 4.4vw, 1.35rem);
+}
+.headTitle {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--on-board);
+}
+
+/* «Сейчас» — точка и время. Признак живого экрана обязан быть тише
+   самого экрана. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--board-muted);
+  font-variant-numeric: tabular-nums;
+}
+.live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--good-on-board);
+  animation: mLive 2.4s var(--ease) infinite;
+}
+@keyframes mLive {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Блок внутри полотна: график, список. Не карточка, а заголовок и
+   воздух над ним. */
+.block {
+  margin-top: clamp(1.5rem, 6vw, 1.9rem);
+}
+.blockTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--on-board);
+}
+.blockTitle span {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--board-muted);
+}
+
+/* Строка под списком: «Все» со стрелкой. Не кнопка — на витрине ей
+   некуда вести, и притворяться нажимаемой она не должна. */
+.more {
+  margin-top: 0.85rem;
+  padding-inline: 0.1rem;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--board-muted);
+}
+
+/* Подпись строкой: две-три цифры подряд, разделённые точкой. Не
+   плитки — плитка вокруг числа сделала бы его равным показанию дня. */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  margin-top: clamp(1.15rem, 5vw, 1.45rem);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--board-muted);
+}
+.quick b {
+  font-weight: 700;
+  color: var(--on-board);
+  font-variant-numeric: tabular-nums;
+}
+/* Разделитель принадлежит следующему факту и переносится вместе с ним:
+   отдельной клеткой он оставался бы висеть в конце строки. */
+.quick span + span::before {
+  content: '·';
+  margin-inline-end: 0.5rem;
+  color: color-mix(in srgb, var(--board-muted) 70%, transparent);
+}
+
+.hint {
+  margin: -0.6rem 0 1.1rem;
+  font-size: 13px;
+  color: var(--board-muted);
+}
+
+/* ─────────────────────── форма ───────────────────────
+
+   Своей подложки у формы нет. Поле лежит прямо на полотне, а читается
+   полем за счёт заливки: `--field-fill` в кабинете назначен для поля
+   НА приборе, а прибора здесь нет, и без этой строки поле на белом
+   полотне стало бы белым на белом. */
+
+.form {
+  display: grid;
+  gap: clamp(0.85rem, 3.6vw, 1rem);
+  --field-fill: color-mix(in srgb, var(--board-ink) 6%, transparent);
+}
+
+.formHead {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-board);
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+.field > label,
+.field > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--board-muted);
+}
+/* Поле под палец, а не под мышь. В кабинете оно ровно 36 в высоту —
+   там его набирают с клавиатуры и видят рядом ещё десять строк; здесь
+   в него попадают пальцем, и меньше 48 попадание становится игрой. */
+.form :global(.field) {
+  min-height: 3rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 16px;
+  border-radius: var(--radius-btn);
+}
+
+/* Выбор сегментами во всю ширину: доли равны, и попасть в любую можно
+   не глядя. */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-btn);
+  background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+}
+.segItem {
+  min-height: 2.5rem;
+  padding-inline: 0.35rem;
+  border-radius: var(--radius-chip);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--board-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+}
+.segItem[data-on] {
+  /* Тон поверхности прибора, а не полотна: полотно здесь и есть фон, и
+     выбранный сегмент, залитый им же, в тёмной теме исчезает. Это тот
+     же токен, которым выбранный период залит в кабинете. */
+  background: var(--board-surface);
+  color: var(--on-board);
+  font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--board-ink) 12%, transparent);
+}
+
+.submit {
+  min-height: 3.25rem;
+  margin-top: 0.15rem;
+  border-radius: var(--radius-btn);
+  background: var(--accent-fill);
+  color: var(--accent-on);
+  font-size: 15px;
+  font-weight: 700;
+  transition: background var(--t-micro) var(--ease);
+}
+.submit:disabled {
+  opacity: 0.5;
+}
+
+/* Подтверждение записи. Строка, а не всплывающее окно: запись прошла,
+   и сказать об этом должно то же место, где её набирали. */
+.done {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--good-on-board);
+  animation: mDone 320ms var(--ease) both;
+}
+.done b {
+  font-variant-numeric: tabular-nums;
+}
+@keyframes mDone {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ─────────────────────── строки ───────────────────────
+
+   Таблицы на телефоне нет: четыре столбца в триста семьдесят пять
+   точек превращаются в четыре узкие колонки, из которых читается одна.
+   Строка отвечает сверху вниз — что записали и за сколько, а под этим
+   когда, кто и что делали. */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.15rem 0.75rem;
+  padding: 0.7rem 0.1rem;
+}
+.rowFlat {
+  align-items: center;
+}
+.rowKey {
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-board);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowMoney {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-board);
+}
+.rowNote {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 12.5px;
+  color: var(--board-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rowNote i {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+/* Свежая запись въезжает сверху — это и есть объяснение продукта:
+   записали, и она появилась. */
+.rowFresh {
+  animation: mRow 420ms var(--ease) both;
+}
+@keyframes mRow {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* Итог под списком. Не строка списка: линия потемнее, подпись
+   приглушена — читают здесь число. */
+.sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+  padding: 0.8rem 0.1rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--board-ink) 18%, transparent);
+  font-size: 13.5px;
+  color: var(--board-muted);
+}
+.sum b {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--on-board);
+}
+
+/* ─────────────────────── показание дня ───────────────────────
+
+   Число на полотне без плиты вокруг. Тёмная плита здесь отобрала бы
+   силу у итога в конце рассказа: на телефоне их видно по одному, и
+   вторая такая же читается повтором, а не выводом. */
+
+.reading {
+  display: grid;
+  gap: 0.3rem;
+}
+.readingLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--board-muted);
+}
+.readingValue {
+  font-size: clamp(2.25rem, 10vw, 2.75rem);
+  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-board);
+}
+.readingNote {
+  margin-top: 0.15rem;
+  font-size: 12.5px;
+  color: var(--board-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Слагаемые — тот же прибор, что в кабинете, только кегль под телефон:
+   в полосе стоит выручка, и это самое длинное число страницы. */
+.metrics {
+  margin-top: clamp(1.15rem, 5vw, 1.45rem);
+}
+.metrics :global(.figures) {
+  padding: 0.85rem 0.15rem;
+}
+.metrics :global(.figure) {
+  padding-inline: 0.4rem;
+}
+.metrics :global(.figure-value) {
+  font-size: 16px;
+}
+.metrics :global(.figure-label) {
+  font-size: 11.5px;
+}
+
+/* ─────────────────────── переход ───────────────────────
+
+   Было столько, вписали расход — стало столько. Два настоящих
+   состояния смены, а не барабан от нуля. */
+
+.moved {
+  display: grid;
+  justify-items: start;
+  gap: 0.1rem;
+  margin-top: clamp(1.35rem, 5.5vw, 1.7rem);
+  padding-top: clamp(1.15rem, 5vw, 1.4rem);
+  border-top: 1px solid color-mix(in srgb, var(--board-ink) 12%, transparent);
+  animation: mDone 380ms var(--ease) both;
+}
+.movedFrom {
+  font-size: 15px;
+  color: var(--board-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--board-muted) 55%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.movedArrow {
+  font-size: 13px;
+  line-height: 1.1;
+  color: var(--board-muted);
+}
+.movedTo {
+  font-size: clamp(1.9rem, 8.4vw, 2.35rem);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-board);
+}
+.movedNote {
+  margin-top: 0.25rem;
+  font-size: 12.5px;
+  color: var(--board-muted);
+}
+
+/* ─────────────────────── итог ───────────────────────
+
+   Тёмная плита во всю ширину полотна — телефонный ответ настольной
+   карточке итога. Единственное место рассказа, где число стоит на
+   своей заливке, и второй раз на странице этот приём не звучит. */
+
+.periods {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin-bottom: clamp(1.15rem, 5vw, 1.4rem);
+  padding: 2px;
+  border-radius: var(--radius-btn);
+  background: color-mix(in srgb, var(--board-ink) 6%, transparent);
+}
+.periodItem {
+  min-height: 2.5rem;
+  border-radius: var(--radius-chip);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--board-muted);
+  transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+}
+.periodItem[data-on] {
+  background: var(--board-surface);
+  color: var(--on-board);
+  font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--board-ink) 12%, transparent);
+}
+
+.result {
+  display: grid;
+  gap: 0.25rem;
+  padding: clamp(1.15rem, 5vw, 1.5rem);
+  border-radius: var(--radius-card);
+  background: var(--on-board);
+  color: var(--board);
+}
+.resultLabel {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--board) 64%, transparent);
+}
+.resultValue {
+  font-size: clamp(2.35rem, 10.4vw, 2.9rem);
+  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.038em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.resultNote {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--board) 62%, transparent);
+}
+
+.resultLines {
+  display: grid;
+  margin-top: clamp(1.15rem, 5vw, 1.4rem);
+}
+.resultLines p {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  font-size: 13.5px;
+  color: color-mix(in srgb, var(--board) 66%, transparent);
+}
+.resultLines p + p {
+  border-top: 1px solid color-mix(in srgb, var(--board) 14%, transparent);
+}
+.resultLines b {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--board);
+}
+
+.spark {
+  width: 100%;
+  height: 44px;
+  margin-top: 0.9rem;
+  overflow: visible;
+  color: color-mix(in srgb, var(--board) 42%, transparent);
+}
+
+/* Тёмная тема: белая плита среди угольных приборов слепит — тот же
+   разбор, что у `.plate` в кабинете, и то же решение. Плита поднимается
+   на ступень светлее полотна, а число берёт лайм. Второй раз решать это
+   по-своему нельзя: два одинаковых прибора продукта не могут выглядеть
+   по-разному на витрине и внутри. */
+:global(:root[data-theme='dark']) .result {
+  background: var(--board-surface2);
+  color: var(--on-board);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-fill) 16%, transparent);
+}
+:global(:root[data-theme='dark']) .resultValue {
+  color: var(--accent-fill);
+}
+:global(:root[data-theme='dark']) .resultLabel,
+:global(:root[data-theme='dark']) .resultNote,
+:global(:root[data-theme='dark']) .resultLines p {
+  color: var(--board-muted);
+}
+:global(:root[data-theme='dark']) .resultLines p + p {
+  border-top-color: color-mix(in srgb, var(--board-ink) 12%, transparent);
+}
+:global(:root[data-theme='dark']) .resultLines b {
+  color: var(--on-board);
+}
+:global(:root[data-theme='dark']) .spark {
+  color: color-mix(in srgb, var(--accent-fill) 55%, transparent);
+}
+
+/* ─────────────────────── люди ─────────────────────── */
+
+.person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.2rem 0.65rem;
+  padding: 0.75rem 0.1rem;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+/* Горит — человек на смене, кольцо — уже нет. Одного цвета мало. */
+.dotOff {
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  background: transparent !important;
+}
+.personMain {
+  min-width: 0;
+}
+.personName {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-board);
+}
+.personMeta {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 12.5px;
+  color: var(--board-muted);
+  font-variant-numeric: tabular-nums;
+}
+.personMoney {
+  text-align: end;
+}
+.personEarned {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-board);
+}
+.personRate {
+  display: block;
+  margin-top: 0.05rem;
+  font-size: 11.5px;
+  color: var(--board-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Метка для наблюдателя пересечений. Пиксель, а не ноль: у узла без
+   площади наблюдатель срабатывает один раз при заведении и больше
+   никогда. */
+.mark {
+  display: block;
+  height: 1px;
+}
+
+/* ─────────────────────── липкая кнопка ───────────────────────
+
+   Появляется после того, как продукт показали, и уходит, как только
+   на экране появляется цена со своей кнопкой: две одинаковые кнопки в
+   одном кадре превращают обе в шум. */
+
+.sticky {
+  position: fixed;
+  z-index: 35;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  padding: 0.6rem var(--pad) max(0.6rem, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--page-bg, var(--surface2)) 86%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+  transform: translateY(115%);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 300ms var(--ease), opacity 220ms var(--ease), visibility 0s linear 300ms;
+}
+.sticky[data-on] {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.sticky > * {
+  flex: 1;
+  justify-content: center;
+  min-height: 3.25rem;
+  font-size: 15px;
+}
+
+@media (min-width: 768px) {
+  .sticky {
+    display: none;
+  }
+}
+
+/* На широком телефоне и в альбомной ориентации строка не должна
+   расходиться во всю ширину: колонка в шестьсот точек читается уже не
+   как страница телефона, а как растянутый абзац. */
+@media (min-width: 520px) {
+  .copy,
+  .story .band > * {
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live i,
+  .rowFresh,
+  .done,
+  .moved {
+    animation: none;
+  }
+  .track::after,
+  .sticky {
+    transition: none;
+  }
+}

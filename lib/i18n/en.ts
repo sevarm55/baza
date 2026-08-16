@@ -127,7 +127,6 @@ export const en: Dict = {
       cta: 'Start free',
       secondary: 'See how it works',
       note: (days: number) => `${days} days free · no card`,
-      caption: 'Below is the Tetrin workspace with one shift of real numbers.',
     },
 
     demo: {
@@ -192,7 +191,7 @@ export const en: Dict = {
     beats: [
       {
         label: 'Capture',
-        title: 'Every car is on the record.',
+        title: 'Whoever does the work keeps the record.',
         body: 'Plate, service, payment. The washer logs it himself, because that is where he sees his own cut.',
       },
       {

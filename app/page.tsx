@@ -12,6 +12,7 @@ import { Logo } from '@/components/logo';
 import { Wordmark } from '@/components/wordmark';
 import { getDict } from '@/lib/i18n/server';
 import { LandingWorkspace } from './landing-workspace';
+import { LandingMobile, MobileCta } from './landing-mobile';
 import { NavShadow } from './landing-motion';
 import s from './landing.module.css';
 
@@ -85,8 +86,10 @@ export default async function Home({
             <Wordmark className={s.brandName} />
           </Link>
 
+          {/* Ссылки на «продукт» здесь больше нет: вступления, к которому
+              она вела, тоже нет, а вести на продукт со страницы, которая
+              вся и есть продукт, некуда. */}
           <div className={s.navCenter}>
-            <a href="#product">{l.nav.product}</a>
             <a href="#how">{l.nav.how}</a>
             <a href="#price">{l.nav.price}</a>
           </div>
@@ -112,31 +115,28 @@ export default async function Home({
       </NavShadow>
 
       <main id="main">
-        {/* Вступление. Верхняя треть первого экрана и не больше: главный
-            герой страницы — панель под ним, и заголовок не должен с ней
-            соревноваться. */}
-        <section className={s.hero} id="product">
-          <p className={s.eyebrow}>{l.hero.eyebrow}</p>
-          <h1 className={s.heroTitle}>{l.hero.title}</h1>
-          <p className={s.heroLead}>{l.hero.lead}</p>
+        {/* Рабочий день. Дальше вся страница — один рабочий день, и
+            рассказан он двумя разными способами.
 
-          <div className={s.heroActions}>
-            <AuthTrigger mode="register" className={s.cta}>
-              {l.hero.cta} <span aria-hidden="true">↗</span>
-            </AuthTrigger>
-            <a className={s.ghost} href="#how">
-              {l.hero.secondary} <span aria-hidden="true">↓</span>
-            </a>
-            <span className={s.heroNote}>{l.hero.note(TRIAL_DAYS)}</span>
-          </div>
+            На компьютере это неподвижная панель, которая перестраивается
+            по мере чтения текста слева. На телефоне липкая панель забрала
+            бы половину экрана, которой нельзя пользоваться, а полоса из
+            пяти вкладок — всю его ширину ради переключателя; там у дня
+            прямой порядок: мысль, потом кусок продукта, о котором она
+            сказана, потом следующая мысль.
 
-          <p className={s.heroCaption}>{l.hero.caption}</p>
-        </section>
-
-        {/* Рабочий день. Дальше вся страница — одна панель, которая
-            перестраивается по мере чтения. */}
+            Это две композиции, а не одна с поправками. Общее у них
+            главное: данные смены, арифметика (`landing-shift.ts`),
+            приборы продукта и график — расходиться в числах они не
+            могут. Разная только геометрия, и это ровно то, чего от
+            телефона и компьютера ждут. */}
         <section className={s.stage} id="how" aria-label={l.nav.how}>
-          <LandingWorkspace unitOne={niche.unitOne} staffRole={niche.staffRole} />
+          <div className={s.stageWide}>
+            <LandingWorkspace unitOne={niche.unitOne} staffRole={niche.staffRole} />
+          </div>
+          <div className={s.stageNarrow}>
+            <LandingMobile unitOne={niche.unitOne} staffRole={niche.staffRole} />
+          </div>
         </section>
 
         {/* Цена. Один продукт — одна цена: трёх выдуманных тарифов здесь
@@ -161,7 +161,7 @@ export default async function Home({
               <AuthTrigger mode="register" className={s.cta}>
                 {l.hero.cta} <span aria-hidden="true">↗</span>
               </AuthTrigger>
-              <span className={s.heroNote}>{l.price.note}</span>
+              <span className={s.note}>{l.price.note}</span>
             </div>
           </div>
         </section>
@@ -257,7 +257,7 @@ export default async function Home({
             <AuthTrigger mode="register" className={s.cta}>
               {l.hero.cta} <span aria-hidden="true">↗</span>
             </AuthTrigger>
-            <span className={s.heroNote}>{l.closing.note(TRIAL_DAYS)}</span>
+            <span className={s.note}>{l.closing.note(TRIAL_DAYS)}</span>
           </div>
         </section>
 
@@ -271,6 +271,16 @@ export default async function Home({
           </nav>
         </footer>
       </main>
+
+      {/* Кнопка внизу телефонного экрана. Появляется после первой сцены —
+          продукт уже показали, и теперь есть о чём просить, — и уходит,
+          как только на экране цена со своей кнопкой. Двух одинаковых
+          кнопок в одном кадре на витрине быть не должно. */}
+      <MobileCta>
+        <AuthTrigger mode="register" className={s.cta}>
+          {l.hero.cta} <span aria-hidden="true">↗</span>
+        </AuthTrigger>
+      </MobileCta>
     </div>
   );
 }

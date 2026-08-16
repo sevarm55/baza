@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Banknote,
   CarFront,
@@ -17,6 +17,9 @@ import { formatMoney } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
 import { useT } from '@/lib/i18n/client';
 import { fromOneUnit, staffCount, unitCount } from '@/lib/i18n/terms';
+import { Chart } from './landing-chart';
+import { Pitch } from './landing-pitch';
+import { shiftTime, useShift } from './landing-shift';
 import {
   DEMO,
   DEMO_PERIODS,
@@ -91,15 +94,26 @@ export function LandingWorkspace({
   const money = (n: number) => formatMoney(n, CURRENCY, t.locale);
 
   const [step, setStep] = useState(0);
-  /** Машина, которую записывают на глазах: 35 AA 777. */
-  const [registered, setRegistered] = useState(false);
-  /** Машины, которые вписал сам посетитель. */
-  const [extra, setExtra] = useState<DemoOrder[]>([]);
-  /** Вода за август — расход, который вписывают на глазах. */
-  const [waterLogged, setWaterLogged] = useState(false);
-  /** Расходы, которые вписал сам посетитель. */
-  const [extraCosts, setExtraCosts] = useState<{ category: number; amount: number }[]>([]);
   const [period, setPeriod] = useState<DemoPeriod>('today');
+
+  /* Сама смена — общая с телефонной композицией (`landing-shift.ts`).
+     Здесь остаётся только то, чем эта композиция от неё отличается:
+     выбранная сцена и период отчёта. */
+  const {
+    registered,
+    setRegistered,
+    waterLogged,
+    setWaterLogged,
+    extra,
+    addUnit,
+    addCost,
+    crew,
+    spend,
+    today,
+    orders,
+    feed,
+    hours,
+  } = useShift();
 
   /* Широкий экран — единственное, что различает две композиции.
      Читается через `matchMedia`, а не через ширину при первом рендере:
@@ -145,88 +159,13 @@ export function LandingWorkspace({
     if (step !== 0 || registered) return;
     const id = setTimeout(() => setRegistered(true), 800);
     return () => clearTimeout(id);
-  }, [step, registered]);
+  }, [step, registered, setRegistered]);
 
   useEffect(() => {
     if (step !== 3 || waterLogged) return;
     const id = setTimeout(() => setWaterLogged(true), 800);
     return () => clearTimeout(id);
-  }, [step, waterLogged]);
-
-  /* ─────────────────────── арифметика дня ───────────────────────
-
-     Ни одно число ниже не записано готовым. Всё складывается из смены:
-     люди приносят выручку, из неё по ставке начисляется доля, расходы
-     вычитаются. Так его и сложит глазами тот, кто решит проверить. */
-
-  /** Записи, которых в базовой смене ещё не было, — по порядку времени. */
-  const added = useMemo<DemoOrder[]>(
-    () => [...(registered ? [DEMO.fresh] : []), ...extra],
-    [extra, registered],
-  );
-
-  const crew = useMemo(
-    () =>
-      DEMO.crew.map((person, i) => {
-        const mine = added.filter((o) => o.staff === i);
-        const revenue = person.revenue + mine.reduce((n, o) => n + o.price, 0);
-        return {
-          ...person,
-          revenue,
-          count: person.count + mine.length,
-          /* Заработок не хранится, а считается: рядом на экране стоят и
-             выручка, и ставка, и сумма — они обязаны сходиться. */
-          earned: Math.round((revenue * DEMO_RATE) / 100),
-        };
-      }),
-    [added],
-  );
-
-  const spend = useMemo(
-    () => [
-      ...DEMO.spend,
-      ...(waterLogged ? [DEMO.freshCost] : []),
-      ...extraCosts,
-    ],
-    [waterLogged, extraCosts],
-  );
-
-  const today = useMemo(() => {
-    const count = crew.reduce((n, c) => n + c.count, 0);
-    const revenue = crew.reduce((n, c) => n + c.revenue, 0);
-    const payroll = crew.reduce((n, c) => n + c.earned, 0);
-    const costs = spend.reduce((n, c) => n + c.amount, 0);
-    return { count, revenue, payroll, costs, net: revenue - payroll - costs };
-  }, [crew, spend]);
-
-  /** Список последних машин: свежая сверху. */
-  const orders = useMemo<DemoOrder[]>(() => [...added].reverse().concat(DEMO.orders), [added]);
-
-  /** Лента смены. Записанное на глазах приходит в неё же. */
-  const feed = useMemo<DemoEvent[]>(
-    () => [
-      ...[...added].reverse().map((o) => ({
-        time: o.time,
-        staff: o.staff,
-        kind: 'added' as const,
-        plate: o.plate,
-      })),
-      ...DEMO.feed,
-    ],
-    [added],
-  );
-
-  /** Часы дня. Записанное попадает в свой час, иначе график соврёт. */
-  const hours = useMemo<DemoPoint[]>(() => {
-    const list = DEMO.hours.map((p) => ({ ...p }));
-    for (const o of added) {
-      const hour = o.plate === DEMO.fresh.plate && o.time === DEMO.fresh.time ? '14' : null;
-      const cell = list.find((p) => p.label === hour) ?? list[list.length - 1];
-      cell.revenue += o.price;
-      cell.count += 1;
-    }
-    return list;
-  }, [added]);
+  }, [step, waterLogged, setWaterLogged]);
 
   /** Что показывает отчёт: сегодняшний день считается, остальные закрыты. */
   const report =
@@ -235,16 +174,6 @@ export function LandingWorkspace({
       : DEMO.periods[period];
 
   const scene = SCENES[step];
-
-  /* ─────────────────────── действия форм ─────────────────────── */
-
-  function addUnit(order: DemoOrder) {
-    setExtra((was) => [...was, order]);
-  }
-
-  function addCost(cost: { category: number; amount: number }) {
-    setExtraCosts((was) => [...was, cost]);
-  }
 
   /** Перейти к сцене. С колонки — прокруткой, с телефона — сразу. */
   function goto(next: number) {
@@ -291,12 +220,23 @@ export function LandingWorkspace({
             data-on={step === i ? '' : undefined}
             className={s.beat}
           >
-            <div className={s.beatLabel}>
-              <b>{String(i + 1).padStart(2, '0')}</b>
-              {beat.label}
+            {/* Текст сцены гаснет, когда сцена не та; обещание под первой
+                из них — нет. Приглушённая наполовину лаймовая кнопка
+                читается сломанной, а не второстепенной, поэтому тускнеет
+                обёртка текста, а не вся сцена. */}
+            <div className={s.beatCopy}>
+              <div className={s.beatLabel}>
+                <b>{String(i + 1).padStart(2, '0')}</b>
+                {beat.label}
+              </div>
+              <h2 className={s.beatTitle}>{beat.title}</h2>
+              <p className={s.beatBody}>{beat.body}</p>
             </div>
-            <h2 className={s.beatTitle}>{beat.title}</h2>
-            <p className={s.beatBody}>{beat.body}</p>
+
+            {/* Обещание страницы стоит под первой сценой, а не над ней:
+                справа в этот момент на глазах записывается машина, и
+                сказать «вот что это такое» есть чем. */}
+            {i === 0 && <Pitch />}
           </section>
         ))}
       </div>
@@ -552,14 +492,6 @@ function Capture({
       </div>
     </div>
   );
-}
-
-/** «14:32» → «14:35» → «14:38». Смена, а не часы того, кто смотрит. */
-function shiftTime(index: number): string {
-  const base = 14 * 60 + 32 + (index + 1) * 3;
-  const h = Math.floor(base / 60) % 24;
-  const m = base % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 /* ══════════════════════════ сцена 2: день ══════════════════════════ */
@@ -994,107 +926,6 @@ function Line({
         </span>
       </span>
       <span className={s.lineMoney}>{money(order.price)}</span>
-    </div>
-  );
-}
-
-/**
- * Ход периода: столбики — сколько за отрезок, линия — сколько накопилось.
- *
- * Разбор тот же, что у графика в кабинете, и по той же причине: столбики
- * блоками тянутся по ширине без искажений, а линию рисует SVG, где
- * толщину штриха держит `vector-effect`. Всё, чего здесь нет по
- * сравнению с кабинетом, — наведение: витрину листают, а не изучают.
- */
-function Chart({ points, labels }: { points: DemoPoint[]; labels: { line: string; bar: string } }) {
-  const max = Math.max(...points.map((p) => p.revenue), 1);
-  const peak = points.findIndex((p) => p.revenue === max);
-
-  const running: number[] = [];
-  points.reduce((sum, p) => {
-    const next = sum + p.revenue;
-    running.push(next);
-    return next;
-  }, 0);
-  const total = running[running.length - 1] || 1;
-
-  const W = 1000;
-  const H = 100;
-  const x = (i: number) => (points.length > 1 ? (i * W) / (points.length - 1) : W / 2);
-  const y = (v: number) => H - (v / total) * (H - 6) - 3;
-
-  /* Кривая, а не ломаная: накопление — величина непрерывная, и излом на
-     каждом часе читался бы как рваные данные при ровных числах. */
-  const line = running
-    .map((v, i) => {
-      if (i === 0) return `M${x(0)},${y(v)}`;
-      const mid = (x(i - 1) + x(i)) / 2;
-      return `C${mid},${y(running[i - 1])} ${mid},${y(v)} ${x(i)},${y(v)}`;
-    })
-    .join(' ');
-  const area = `${line} L${x(points.length - 1)},${H} L${x(0)},${H} Z`;
-
-  /* Ключ пересобирает узлы при смене периода: без него линия не
-     перерисовалась бы, а осталась бы от прошлого набора. */
-  const shape = `${points.length}-${total}`;
-
-  return (
-    <div className={s.chart}>
-      <div className={s.chartLegend}>
-        <span>
-          <i data-line aria-hidden />
-          {labels.line}
-        </span>
-        <span>
-          <i aria-hidden />
-          {labels.bar}
-        </span>
-      </div>
-
-      <div className={s.chartPlot}>
-        <div className={s.chartBars}>
-          {points.map((p, i) => (
-            <span
-              key={`${p.label}-${i}`}
-              className={s.chartBar}
-              data-peak={i === peak ? '' : undefined}
-              style={
-                { height: `${Math.max(3, (p.revenue / max) * 72)}%`, '--i': i } as CSSProperties
-              }
-            />
-          ))}
-        </div>
-
-        <svg className={s.chartLine} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
-          <defs>
-            <linearGradient id="landingFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent-strong)" stopOpacity="0.16" />
-              <stop offset="100%" stopColor="var(--accent-strong)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path key={`a-${shape}`} className="day-area" d={area} fill="url(#landingFill)" />
-          <path
-            key={`l-${shape}`}
-            className="day-line"
-            d={line}
-            pathLength={1}
-            fill="none"
-            stroke="var(--accent-strong)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-      </div>
-
-      <div className={s.chartAxis}>
-        {points.map((p, i) =>
-          i === 0 || i === points.length - 1 || i === Math.floor(points.length / 2) ? (
-            <span key={p.label}>{p.label}</span>
-          ) : null,
-        )}
-      </div>
     </div>
   );
 }
