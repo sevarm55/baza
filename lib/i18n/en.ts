@@ -155,7 +155,7 @@ export const en: Dict = {
   errors: {
     required: 'Fill in every field',
     badPhone: 'Invalid phone number',
-    badPin: 'PIN must be 4 digits',
+    badPin: 'PIN must be 6 digits',
     badPercent: 'Percentage must be between 0 and 100',
     generic: 'Something went wrong',
   },
@@ -239,6 +239,9 @@ export const en: Dict = {
     nameTitle: 'What is your car wash called?',
     nameSub: 'Last step — then straight to work',
     nameCreate: 'Create and start',
+    setPin: 'Set a PIN',
+    setPinNote: 'A second door for when SMS does not arrive. Optional.',
+    setPinDone: 'PIN set',
   },
 
   onboarding: {

@@ -266,6 +266,9 @@ export const hy = {
     nameTitle: 'Ինչպե՞ս է կոչվում ձեր ավտոլվացումը',
     nameSub: 'Վերջին քայլը. հետո միանգամից աշխատանքի',
     nameCreate: 'Ստեղծել և սկսել',
+    setPin: 'Սահմանել PIN',
+    setPinNote: 'Երկրորդ դուռ՝ երբ SMS-ը չի հասնում։ Պարտադիր չէ։',
+    setPinDone: 'PIN-ը սահմանված է',
   },
 
   onboarding: {

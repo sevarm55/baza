@@ -9,6 +9,7 @@ import { Panel, Tile } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
 import { accountOf } from '@/lib/accounts';
+import { hasPin } from '@/lib/pin';
 import { ChangePinForm } from './change-pin-form';
 import { VerifyPhonePanel } from './verify-phone-panel';
 import { RememberLoginToggle } from './remember-login-toggle';
@@ -88,8 +89,8 @@ export default async function ProfilePage() {
             </Panel>
           )}
 
-          <Panel title={t.auth.changePin}>
-            <ChangePinForm />
+          <Panel title={hasPin(account.pinHash) ? t.auth.changePin : t.auth.setPin}>
+            <ChangePinForm hasPin={hasPin(account.pinHash)} />
           </Panel>
         </div>
 

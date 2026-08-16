@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users } from './db/schema';
-import { hashPin, verifyPin } from './pin';
+import { hashPin, hasPin, verifyPin } from './pin';
 import { isValidPin } from './phone';
 import { revokeAccountSessions } from './auth';
 import { accountOf } from './accounts';
@@ -45,7 +45,15 @@ export async function changePin(userId: string, current: string, next: string) {
   /* Код принадлежит человеку, а не его работе на точке. У кого две
      мойки, тот входит одним кодом в обе — и меняет его один раз. */
   const account = await accountOf(user);
-  if (!(await verifyPin(current, account.pinHash))) throw new ProfileError('WRONG_PIN');
+
+  /* Текущий код спрашивается, только если он есть. У тех, кто завёл
+     мойку по коду из SMS, его нет вовсе, и вопрос «введите текущий»
+     был бы неотвечаемым: они бы навсегда остались без второй двери.
+     Дыры здесь нет — человек уже вошёл, а вход и есть доказательство,
+     что это он. */
+  if (hasPin(account.pinHash) && !(await verifyPin(current, account.pinHash))) {
+    throw new ProfileError('WRONG_PIN');
+  }
 
   const pinHash = await hashPin(next);
   /* Одной транзакцией: оборвись она между двумя записями, у человека

@@ -57,6 +57,27 @@ const SALT_BYTES = 16;
    работать. Падение хеширования выглядит как «неверный PIN у всех». */
 const MAXMEM = 128 * 1024 * 1024;
 
+/**
+ * У человека нет кода вовсе.
+ *
+ * Так живут те, кто завёл мойку по коду из SMS: PIN им не нужен, входят
+ * они кодом. Колонка `pin_hash` при этом объявлена NOT NULL, и менять
+ * схему ради нового пути значило бы трогать её у всех, включая тех, у
+ * кого код есть и работает.
+ *
+ * Метка, а не случайный хеш. Случайный вёл себя бы точно так же при
+ * сверке — не подошёл бы никогда, — но по нему нельзя отличить «кода
+ * нет» от «код есть, просто вы его не знаете». А отличать надо: в
+ * профиле у одного стоит «сменить PIN» и вопрос про текущий, у другого
+ * «задать PIN» и никакого вопроса, потому что спрашивать нечего.
+ */
+export const NO_PIN = 'none';
+
+/** Есть ли у человека код. */
+export function hasPin(stored: string): boolean {
+  return stored !== NO_PIN && stored.length > 0;
+}
+
 export async function hashPin(pin: string): Promise<string> {
   const salt = randomBytes(SALT_BYTES);
   const key = await scrypt(pin, salt, KEYLEN, { N, r: R, p: P, maxmem: MAXMEM });
@@ -95,6 +116,9 @@ function parse(stored: string): Parsed | null {
 }
 
 export async function verifyPin(pin: string, stored: string): Promise<boolean> {
+  // кода нет — значит не подходит ничего
+  if (!hasPin(stored)) return false;
+
   const parsed = parse(stored);
   if (!parsed || parsed.key.length === 0) return false;
 

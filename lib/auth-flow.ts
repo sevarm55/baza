@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { and, eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, authChallenges, users } from './db/schema';
-import { hashPin, needsRehash, verifyPin } from './pin';
+import { hashPin, needsRehash, NO_PIN, verifyPin } from './pin';
 import { isValidPhone, isValidPin, maskPhone, normalizePhone, pinProblem } from './phone';
 import { checkLogin, noteLogin } from './login-guard';
 import { accountByPhone, markPhoneVerified, pointForLogin, type Point } from './accounts';
@@ -1053,11 +1053,11 @@ export type SignUpResult =
  * заводится сразу с подтверждённым номером: он только что доказал его
  * кодом, второй раз спрашивать нечего.
  *
- * Хеш кода при этом всё равно кладётся — случайный, который никто
- * никогда не введёт. Колонка `pin_hash` объявлена NOT NULL, и обходить
- * это ради нового пути значило бы менять схему под всех, включая тех,
- * у кого PIN есть и работает. Захочет владелец завести себе PIN как
- * вторую дверь — сменит его обычной сменой кода.
+ * В `pin_hash` ложится метка «кода нет» (см. lib/pin.ts). Не случайный
+ * хеш: он вёл бы себя так же при сверке, но по нему нельзя отличить
+ * «кода нет» от «код есть, просто вы его не знаете». А отличать надо —
+ * в профиле у такого владельца стоит «задать PIN», а не «сменить», и
+ * текущий код у него не спрашивают, потому что спрашивать нечего.
  */
 export async function completeSignUp(input: {
   ticket: string;
@@ -1092,7 +1092,7 @@ export async function completeSignUp(input: {
       businessName,
       ownerName,
       phone: claims.phone,
-      pinHash: await hashPin(`sms-only:${Math.random()}:${Date.now()}`),
+      pinHash: NO_PIN,
       phoneVerified: true,
     });
 

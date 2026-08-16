@@ -17,13 +17,17 @@ import { useT } from '@/lib/i18n/client';
  * одном виде и вводят в другом ровно до первой ошибки. Одинаковое поле
  * в обоих местах — самая дешёвая правильная подсказка.
  */
-export function ChangePinForm() {
+export function ChangePinForm({ hasPin = true }: { hasPin?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(changePinAction, null);
   const t = useT();
 
   return (
     <form action={action} className="grid gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={hasPin ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'}>
+        {/* Текущий код спрашивается, только если он есть. У тех, кто
+            завёл мойку по коду из SMS, его нет вовсе, и пустое поле
+            «введите текущий» было бы тупиком. */}
+        {hasPin && (
         <div className="grid gap-2">
           <CodeInput
             name="current"
@@ -41,6 +45,7 @@ export function ChangePinForm() {
             invalid={Boolean(state?.error)}
           />
         </div>
+        )}
 
         <div className="grid gap-2">
           <CodeInput
@@ -58,12 +63,12 @@ export function ChangePinForm() {
         </div>
       </div>
 
-      <p className="note">{t.auth.pinChangedNote}</p>
+      <p className="note">{hasPin ? t.auth.pinChangedNote : t.auth.setPinNote}</p>
 
       {state?.error && <p className="alert">{state.error}</p>}
 
       <button className="btn btn-ghost" disabled={pending}>
-        {pending ? t.common.loading : t.auth.changePin}
+        {pending ? t.common.loading : hasPin ? t.auth.changePin : t.auth.setPin}
       </button>
     </form>
   );

@@ -42,7 +42,7 @@ import {
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { listPoints, markPointUsed } from '@/lib/accounts';
-import { isValidPhone, isValidPin, normalizePhone } from '@/lib/phone';
+import { isValidPhone, normalizePhone, pinProblem } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { logSecurityInBackground } from '@/lib/security-log';
 import { beginPhoneProof, completePhoneProof } from '@/lib/auth-flow';
@@ -211,7 +211,12 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
 
   if (name.length < 2) return { error: t.errors.required };
   if (!isValidPhone(phone)) return { error: t.errors.badPhone };
-  if (!isValidPin(pin)) return { error: t.errors.badPin };
+  /* «Мало цифр» и «слишком очевидный» — разные беды, и общий ответ на
+     них заставляет владельца гадать. Он в этот момент стоит рядом с
+     новым мойщиком и придумывает ему код вслух. */
+  const badPin = pinProblem(pin);
+  if (badPin === 'length') return { error: t.errors.badPin };
+  if (badPin === 'trivial') return { error: t.auth.pinTrivial };
   if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
     return { error: t.errors.badPercent };
   }

@@ -167,7 +167,7 @@ export const ru: Dict = {
   errors: {
     required: 'Заполните все поля',
     badPhone: 'Неверный номер телефона',
-    badPin: 'PIN должен быть из 4 цифр',
+    badPin: 'PIN должен быть из 6 цифр',
     badPercent: 'Процент должен быть от 0 до 100',
     generic: 'Что-то пошло не так',
   },
@@ -251,6 +251,9 @@ export const ru: Dict = {
     nameTitle: 'Как называется ваша автомойка?',
     nameSub: 'Последний шаг — и сразу к работе',
     nameCreate: 'Создать и начать',
+    setPin: 'Задать PIN',
+    setPinNote: 'Вторая дверь — на случай, когда SMS не идёт. Необязательно.',
+    setPinDone: 'PIN задан',
   },
 
   onboarding: {
