@@ -68,8 +68,20 @@ export default async function SettingsPage({
     <>
       <PageHead title={t.owner.tabSettings} meta={t.settings.lead} />
 
-      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-        <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
+      {/* Одна колонка, и удаление в самом низу.
+
+          Было две: слева бизнес и выгрузка, справа «удалить бизнес» — то
+          есть самое разрушительное действие продукта стояло ПЕРВЫМ в
+          правой колонке, вровень с полем названия и одного с ним веса.
+          Рядом с ним при этом зияли пятьсот точек пустоты: больше в той
+          колонке ничего не было.
+
+          Настройки — это форма, а форму читают одним столбцом сверху
+          вниз, и разрушительное в ней идёт последним, после всего, что
+          человек пришёл сделать. Ширина столбца ограничена: поле ввода
+          в метр шириной не становится удобнее, оно становится длиннее. */}
+      <div className="grid max-w-[46rem] gap-[var(--seam)]">
+        <div className="grid content-start gap-[var(--seam)]">
           <Panel title={t.settings.business}>
             {/* Подпись отдельной строкой и связана с полем по `id`, а не
                 обёрткой: внутри своя форма, а форму в `<label>`
@@ -102,9 +114,7 @@ export default async function SettingsPage({
           </Panel>
         </div>
 
-        <div className="lg:col-span-5">
-          <DangerZone deleteError={deleteError} />
-        </div>
+        <DangerZone deleteError={deleteError} />
       </div>
     </>
   );

@@ -151,14 +151,19 @@ export function PayrollWorkspace({
           items={[
             {
               key: 'due',
+              /* Суммы на вкладке больше нет. Она стояла здесь третьим
+                 экземпляром одного числа: плита наверху, первое звено
+                 полосы рядом с ней — и вот эта подпись. Вкладка не
+                 показание, она выбор между «кому должен» и «что уже
+                 отдал», и число в ней ничего не добавляло.
+
+                 Галка осталась: это не повтор суммы, а состояние —
+                 «долга нет вовсе», и по ней видно, что вкладку можно не
+                 открывать. */
               label: (
-                <span className="num flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5">
                   {t.payroll.tabDue}
-                  {outstanding > 0 ? (
-                    <b className="font-semibold">{money(outstanding)}</b>
-                  ) : (
-                    <Check className="size-3.5" aria-hidden />
-                  )}
+                  {outstanding === 0 && <Check className="size-3.5" aria-hidden />}
                 </span>
               ),
             },
@@ -191,15 +196,20 @@ export function PayrollWorkspace({
           ) : (
             <>
               {/* Сегодня стоит первым всегда — даже когда мыть ещё не
-                  начинали. Пустой сегодняшний день это ответ, а не
-                  отсутствие ответа. */}
+                  начинали: пустой сегодняшний день это ответ, а не
+                  отсутствие ответа.
+
+                  Но ответ на одну строку, и прибор в полный рост ему не
+                  нужен. Целая панель с заголовком и текстом по центру
+                  занимала сто тридцать точек над днями, в которых
+                  деньги есть, и отодвигала работу вниз ради сообщения
+                  «пока ничего». Теперь это строка: слева день, справа
+                  что в нём. */}
               {!days.some((d) => d.today) && (
-                <Panel>
-                  <h2 className="text-[16px] leading-tight font-semibold">{todayTitle}</h2>
-                  <p className="py-5 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                    {t.payroll.dayEmpty}
-                  </p>
-                </Panel>
+                <p className="quick justify-between px-1.5">
+                  <b>{todayTitle}</b>
+                  <span>{t.payroll.dayEmpty}</span>
+                </p>
               )}
 
               {open.map((group) => (
