@@ -30,12 +30,33 @@ export function SideNav({ passes }: { passes: boolean }) {
       ?.href ?? '';
 
   const { active, pending, select } = usePendingTab(current);
+
+  /* Четыре группы вместо трёх, и распределение задано списком адресов,
+     а не «всё остальное».
+
+     Раньше последняя группа собиралась вычитанием: что не обзор и не
+     деньги — то управление. Из-за этого настройки стояли в одном
+     столбце с людьми и клиентами, хотя они не рабочая сущность, а
+     обслуживание продукта; и любой новый раздел молча падал туда же.
+
+     Теперь принадлежность объявлена, а не выведена: раздел, забытый в
+     этом списке, окажется в «управлении» осознанно — там же, где живут
+     остальные сущности бизнеса. */
+  const FINANCE = ['/owner/payroll', '/owner/expenses', '/owner/reports'];
+  const SYSTEM = ['/owner/settings'];
+
   const overview = sections.filter((section) => section.href === '/owner');
-  const finance = sections.filter((section) =>
-    ['/owner/payroll', '/owner/expenses'].includes(section.href),
+  const finance = FINANCE.map((href) => sections.find((s) => s.href === href)).filter(
+    (s) => s !== undefined,
+  );
+  const system = SYSTEM.map((href) => sections.find((s) => s.href === href)).filter(
+    (s) => s !== undefined,
   );
   const management = sections.filter(
-    (section) => !overview.includes(section) && !finance.includes(section),
+    (section) =>
+      section.href !== '/owner' &&
+      !FINANCE.includes(section.href) &&
+      !SYSTEM.includes(section.href),
   );
 
   function renderSection(section: (typeof sections)[number]) {
@@ -92,6 +113,17 @@ export function SideNav({ passes }: { passes: boolean }) {
         </SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu className="gap-1">{management.map(renderSection)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarSeparator className="mx-4" />
+
+      <SidebarGroup className="py-2">
+        <SidebarGroupLabel className="text-[10px] font-semibold tracking-[.12em]">
+          {t.nav.system}
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-1">{system.map(renderSection)}</SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
     </>

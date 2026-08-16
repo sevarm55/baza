@@ -169,6 +169,7 @@ export function Reading({
  * карточки, без рамки и без тени.
  */
 export function Panel({
+  id,
   title,
   count,
   actions,
@@ -176,6 +177,8 @@ export function Panel({
   className = '',
   bare,
 }: {
+  /** якорь: на прибор можно послать ссылку (`/owner/settings#data`) */
+  id?: string;
   title?: string;
   count?: number;
   /** управление в правом углу заголовка */
@@ -193,6 +196,7 @@ export function Panel({
      подробность, а не имя. */
   return (
     <section
+      id={id}
       className={`flex min-w-0 flex-col ${bare ? '' : 'panel-pad rounded-[var(--radius-card)]'} ${className}`}
       style={bare ? undefined : { background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
     >

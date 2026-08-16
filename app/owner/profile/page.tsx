@@ -5,12 +5,16 @@ import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
 import { formatPhone, maskPhone } from '@/lib/phone';
 import { personColor } from '@/lib/person-color';
-import { Panel, Tile } from '@/components/board';
+import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
+import { ValueRow } from '@/components/value-row';
 import { accountOf } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
-import { ChangePinForm } from './change-pin-form';
+import { NameForm } from './name-form';
+import { PinCard } from './pin-card';
+import { SubscriptionSummary } from './subscription-summary';
+import { ThemePicker } from './theme-picker';
 import { VerifyPhonePanel } from './verify-phone-panel';
 import { RememberLoginToggle } from './remember-login-toggle';
 import { getDict } from '@/lib/i18n/server';
@@ -18,17 +22,25 @@ import { LanguagePicker } from '@/components/language-picker';
 import { localizeTenant } from '@/lib/i18n/terms';
 
 /**
- * Профиль — то же, что на телефоне.
+ * Мой профиль — личный кабинет внутри рабочего.
  *
- * Появился по той же причине, что и в приложении: настройки делали две
- * несовместимые работы. Цены и сотрудники — это то, куда ходят работать;
- * свой PIN, своё имя и срок подписки — то, что трогают раз в год. Десять
- * пунктов вперемешку читаются плохо.
+ * Страница была стопкой одинаковых серых приборов без имён: карточка
+ * человека, раскрытая форма смены PIN, плитка подписки, «это
+ * устройство» с языком внутри. Ни один из них не назывался, и разобрать,
+ * где данные о себе, где ключ от входа, а где настройка своего экрана,
+ * можно было только прочитав их все.
  *
- * И потому, что смены PIN в вебе не было вовсе: механизм есть с самого
- * начала (`lib/profile`), а дотянуться до него из браузера было нельзя.
- * PIN диктуют работнику вслух, работника однажды увольняют — и закрыть
- * доступ владельцу было нечем, кроме телефона.
+ * Теперь четыре названных раздела, и каждый отвечает на свой вопрос:
+ *
+ *   личные данные — кто я и как со мной связаться;
+ *   безопасность  — чем закрыт мой вход;
+ *   интерфейс     — как выглядит мой экран;
+ *   аккаунт       — как отсюда выйти.
+ *
+ * Слева то, что принадлежит человеку и правится редко, но всерьёз;
+ * справа — то, что меняют на бегу, и сводка по сроку оплаты. Мера
+ * страницы у́же общей меры кабинета: здесь нет ни таблиц, ни списков, а
+ * поле ввода шириной в метр читается как ошибка вёрстки.
  */
 export default async function ProfilePage() {
   const t = await getDict();
@@ -54,15 +66,14 @@ export default async function ProfilePage() {
   const owner = session.role === 'owner';
 
   return (
-    <>
-      <PageHead title={t.profile.title} standalone />
+    <div className="page-narrow">
+      <PageHead title={t.profile.title} meta={t.profile.lead} standalone />
 
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
-          {/* Карточка человека: кто вошёл и чем он тут занимается.
-              Цвет точки — тот же, которым этот человек помечен в ленте
-              и на смене. */}
-          <Panel>
+          <Panel title={t.profile.personal}>
+            {/* Кто вошёл. Цвет точки — тот же, которым этот человек
+                помечен в ленте и на смене. */}
             <div className="flex items-center gap-3.5">
               <span
                 className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[15px] font-bold"
@@ -76,68 +87,69 @@ export default async function ProfilePage() {
               </span>
               <div className="min-w-0">
                 <div className="truncate text-[20px] leading-tight font-bold">{me.name}</div>
-                <div className="num truncate text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {formatPhone(me.phone)} · {owner ? t.roles.owner : tenant.staffRole}
+                <div className="truncate text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+                  {owner ? t.roles.owner : tenant.staffRole}
                 </div>
               </div>
             </div>
+
+            {/* Имя правится, телефон — нет, и выглядят они по-разному
+                намеренно: у первого поле с заливкой и подписью, у
+                второго просто строка. Раньше оба были серыми
+                прямоугольниками, и по номеру пробовали щёлкнуть. */}
+            <div className="mt-5">
+              <NameForm name={me.name} />
+            </div>
+
+            <div className="rows mt-2">
+              <ValueRow label={t.profile.phone} value={formatPhone(me.phone)} mono />
+            </div>
           </Panel>
 
-          {!account.phoneVerifiedAt && (
-            <Panel title={t.auth.verifyPhone}>
-              <VerifyPhonePanel phone={maskPhone(account.phone)} />
-            </Panel>
-          )}
+          <Panel title={t.profile.security}>
+            {!account.phoneVerifiedAt && (
+              /* Номер без подтверждения — дыра именно в безопасности:
+                 без него PIN не восстановить. Поэтому предложение стоит
+                 здесь, над самим кодом, а не отдельным прибором в
+                 стороне. */
+              <div className="mb-5 border-b pb-5" style={{ borderColor: 'var(--hairline)' }}>
+                <p className="mb-2.5 text-[14px] font-semibold">{t.auth.verifyPhone}</p>
+                <VerifyPhonePanel phone={maskPhone(account.phone)} />
+              </div>
+            )}
 
-          <Panel title={hasPin(account.pinHash) ? t.auth.changePin : t.auth.setPin}>
-            <ChangePinForm hasPin={hasPin(account.pinHash)} />
+            <PinCard hasPin={hasPin(account.pinHash)} />
           </Panel>
         </div>
 
         <div className="grid content-start gap-[var(--seam)] lg:col-span-5">
-          {/* Срок — плиткой, как в приложении: это показание, а не
-              строка настроек. Владельцу видно, сколько осталось;
-              работнику про оплату знать незачем, у него плитка бизнеса. */}
-          {/* Без `wide`. Этот столбец — не сетка плиток, а стопка в одну
-              колонку, и `col-span-2` создавал в ней вторую колонку из
-              воздуха: плитка растягивалась на обе, а панель «Այս սարքը»
-              под ней оставалась в первой и была на треть уже соседей. */}
-          {owner ? (
-            <Tile
-              tone={access.warn ? 'amber' : 'teal'}
-              label={t.profile.access}
-              value={
-                access.state === 'trial'
-                  ? t.billing.trialLeft(access.daysLeft)
-                  : access.state === 'active'
-                    ? t.billing.paidLeft(access.daysLeft)
-                    : t.billing.expiredTitle
-              }
-              note={tenant.name}
-            />
-          ) : (
-            <Tile tone="slate" label={t.settings.business} value={tenant.name} />
-          )}
+          <SubscriptionSummary access={access} businessName={tenant.name} owner={owner} />
 
-          {/* Язык стоит внутри «этого устройства», а не отдельной
-              панелью с тем же словом в заголовке: язык выбирает человек
-              для себя и на своём экране, а не владелец для всей мойки.
-              Мойщик на той же мойке может записывать машины
+          {/* Язык и тема — в одном приборе и оба про «мой экран», а не
+              про бизнес. Мойщик на той же мойке может записывать машины
               по-армянски, пока владелец читает отчёты по-русски. */}
+          <Panel title={t.profile.interface}>
+            <div className="rows">
+              <LanguagePicker />
+              <ThemePicker />
+            </div>
+          </Panel>
+
           <Panel title={t.profile.session}>
-            <LanguagePicker />
             <RememberLoginToggle initial={rememberLogin} />
-            <p className="note !mt-3 !border-0 !pt-0">{t.profile.signOutNote}</p>
-            <div className="mt-3 flex items-center gap-2.5">
-              <SignOutButton />
-              <span className="text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                {t.auth.signOut}
-              </span>
+          </Panel>
+
+          <Panel title={t.profile.account}>
+            <p className="text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+              {t.profile.signOutNote}
+            </p>
+            <div className="mt-3.5">
+              <SignOutButton labelled />
             </div>
           </Panel>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

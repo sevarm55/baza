@@ -7,6 +7,7 @@ import {
   FileChartColumn,
   ReceiptText,
   SlidersHorizontal,
+  Tags,
   TicketCheck,
   Users,
 } from 'lucide-react';
@@ -68,6 +69,18 @@ export function sections(t: Dict): Section[] {
     label: t.reports.title,
     /* Лист с полосками: отчёт — это сравнение, а не одно число. */
     icon: <FileChartColumn aria-hidden="true" />,
+  },
+  {
+    href: '/owner/services',
+    label: t.settings.tabServices,
+    /* Ценники. Услуга в продукте — это название и цена, и больше
+       ничего; ярлык с ценой говорит про неё ровно это.
+
+       Раздел годами лежал вкладкой внутри настроек, хотя цену правят
+       чаще всего остального в кабинете вместе взятого. Настройки — то,
+       что трогают раз в год; прейскурант — рабочая сущность наравне с
+       людьми и машинами, и место ему здесь. */
+    icon: <Tags aria-hidden="true" />,
   },
   {
     href: '/owner/clients',

@@ -85,6 +85,7 @@ export const ru: Dict = {
     themeLight: 'Светлая',
     themeDarkLong: 'Тёмная тема',
     themeLightLong: 'Светлая тема',
+    theme: 'Тема',
   },
 
   meta: {
@@ -281,6 +282,8 @@ export const ru: Dict = {
     changePin: 'Сменить PIN',
     currentPin: 'Текущий PIN',
     newPin: 'Новый PIN',
+    confirmPin: 'Повторите новый PIN',
+    pinMismatch: 'PIN-коды не совпадают',
     wrongPin: 'Текущий PIN неверный',
     pinChangedNote: 'После смены выйдут все устройства, включая это.',
     welcome: 'С возвращением',
@@ -366,6 +369,13 @@ export const ru: Dict = {
 
   profile: {
     title: 'Моя страница',
+    lead: 'Личные данные, безопасность и настройки аккаунта',
+    personal: 'Личные данные',
+    security: 'Безопасность',
+    interface: 'Интерфейс',
+    account: 'Аккаунт',
+    phone: 'Телефон',
+    pinNote: 'Используется для входа в ваш аккаунт',
     access: 'Подписка',
     session: 'Это устройство',
     rememberLogin: 'Запомнить этот аккаунт',
@@ -747,13 +757,16 @@ export const ru: Dict = {
   nav: {
     finance: 'ДЕНЬГИ',
     management: 'УПРАВЛЕНИЕ',
+    system: 'СИСТЕМА',
   },
 
   settings: {
     services: 'Услуги и цены',
     tabServices: 'Услуги',
     tabData: 'Данные',
-    lead: 'Услуги, цены и настройки бизнеса',
+    lead: 'Настройки бизнеса и данные',
+    servicesLead: 'Управление услугами, ценами и условиями работы',
+    createService: 'Создать услугу',
     servicesEmpty: 'Услуг пока нет',
     servicesEmptyNote:
       'Добавьте то, что продаёте, с ценой. Мойщик при записи выбирает из списка, а цена уходит в запись.',

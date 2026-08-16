@@ -22,10 +22,13 @@ export function BusinessForm({ name }: { name: string }) {
 
   return (
     <form action={saveBusiness} className="row-edit items-center">
+      {/* Подпись стоит снаружи, в `FormField`, и связана по `id`:
+          `aria-label` здесь дублировал бы её для читалки и молчал для
+          глаза. */}
       <input
+        id="business-name"
         className="field field-sm min-w-0 flex-1"
         name="name"
-        aria-label={t.settings.businessName}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         required

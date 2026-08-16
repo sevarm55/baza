@@ -1,38 +1,36 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
-import { getServiceStats, getTenant, listServices, startOfMonth } from '@/lib/queries';
-import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
+import { getTenant } from '@/lib/queries';
 import { Panel } from '@/components/board';
+import { FormField } from '@/components/form-field';
 import { PageHead } from '@/components/page-head';
-import { Segmented } from '@/components/segmented';
-import { Services, type ServiceRow } from './services';
 import { BusinessForm } from './business-form';
 import { getDict } from '@/lib/i18n/server';
-import { unitCount } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
-
-type Tab = 'services' | 'business' | 'data';
 
 /**
  * Настройки.
  *
- * Раздел называется «настройки», но настроек в привычном смысле здесь
- * почти нет: главное, что тут лежит, — прейскурант, а его правят чаще
- * всего остального в кабинете вместе взятого. Поэтому страница не список
- * переключателей, а три разных дела под одним именем:
+ * Раздел годами был контейнером для чужого: главным, что в нём лежало,
+ * был прейскурант — рабочая сущность, которую правят чаще всего
+ * остального в кабинете. Он уехал в свой раздел (`/owner/services`), и
+ * настройки наконец стали настройками: тем, что трогают раз в год.
  *
- *   услуги и цены   — что я продаю и почём;
- *   бизнес          — как называется точка и куда идти за остальным;
- *   данные          — забрать своё и уйти.
+ * Осталось ровно две работы, и вкладок между ними больше нет. Вкладка
+ * оправдана, когда за ней прячут длинный список, ради которого сюда и
+ * пришли; две карточки по три строки за двумя вкладками означают только
+ * одно — чтобы увидеть выгрузку, надо сначала догадаться, что она
+ * существует.
  *
- * Раньше они лежали в двух колонках вперемешку: слева прайс, справа
- * название бизнеса, ссылки, выгрузка и удаление бизнеса подряд. На
- * телефоне колонки складывались, и до цен приходилось листать мимо
- * кнопки, стирающей мойку целиком.
+ *   бизнес  — как называется точка и какие у неё филиалы;
+ *   данные  — забрать своё и уйти.
  *
- * Разделы живут в адресе, а не в состоянии: на «данные» можно послать
- * ссылку, а возврат из выгрузки открывает то место, откуда ушли.
+ * Ссылки на профиль здесь тоже больше нет. Профиль — не настройка
+ * бизнеса, у него своя страница и свой вход из меню пользователя, а
+ * второй путь к нему изнутри настроек делал их альтернативным меню.
+ * Филиалы остались: у них своего пункта в колонке нет, и настройки
+ * бизнеса — их единственный и правильный дом.
  */
 export default async function SettingsPage({
   searchParams,
@@ -41,14 +39,18 @@ export default async function SettingsPage({
 }) {
   const t = await getDict();
   const session = await requireOwner();
+
+  const asked = await searchParams;
+  /* Старый адрес прейскуранта. Ссылку на «услуги» человек мог сохранить
+     или отправить сотруднику, и она обязана открывать услуги, а не
+     настройки без вкладки, которую в ней ищут. */
+  if (asked.s === 'services') redirect('/owner/services');
+
   /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
      заводские: своё название владельца проходит насквозь (см. terms.ts).
      Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
-
-  const asked = await searchParams;
-  const tab: Tab = asked.s === 'business' || asked.s === 'data' ? asked.s : 'services';
 
   /* Маршрут удаления возвращает сюда с причиной отказа: показать её
      формой он не может — ответом уходит либо файл, либо редирект. */
@@ -62,116 +64,32 @@ export default async function SettingsPage({
           ? t.settings.deleteFailed
           : null;
 
-  /* Рядом с прейскурантом — что из него берут за месяц: цену правят
-     оглядываясь на спрос, а не на сам список. */
-  const [services, month] = await Promise.all([
-    listServices(tenant.id),
-    getServiceStats(tenant.id, startOfMonth(tenant.timezone)),
-  ]);
-
-  const symbol = currencySymbol(tenant.currency);
-  const step = toMajor(1, tenant.currency);
-  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
-  const sold = new Map(month.map((m) => [m.serviceId ?? '', m]));
-
-  const rows: ServiceRow[] = services.map((s) => ({
-    id: s.id,
-    name: s.name,
-    price: toMajor(s.price, tenant.currency),
-    display: formatAmount(s.price, tenant.currency, t.locale),
-    count: sold.get(s.id)?.count ?? 0,
-    revenue: money(sold.get(s.id)?.revenue ?? 0),
-  }));
-
-  const cars = month.reduce((sum, m) => sum + m.count, 0);
-  const revenue = month.reduce((sum, m) => sum + m.revenue, 0);
-  const avgPrice = services.length
-    ? Math.round(services.reduce((sum, s) => sum + s.price, 0) / services.length)
-    : 0;
-
-  /* Открытый раздел приходит из адреса и попадает обратно в него же:
-     ошибка удаления возвращается на «данные», а не на прайс. */
-  const href = (key: Tab) => (key === 'services' ? '/owner/settings' : `/owner/settings?s=${key}`);
-
   return (
     <>
-      <PageHead title={t.owner.tabSettings} meta={t.settings.lead}>
-        <Segmented
-          id="settings-tabs"
-          current={tab}
-          full
-          label={t.owner.tabSettings}
-          items={[
-            { key: 'services', label: t.settings.tabServices, href: href('services') },
-            { key: 'business', label: t.settings.business, href: href('business') },
-            { key: 'data', label: t.settings.tabData, href: href('data') },
-          ]}
-        />
-      </PageHead>
+      <PageHead title={t.owner.tabSettings} meta={t.settings.lead} />
 
-      {tab === 'services' && (
-        <>
-          {/* Операционная строка вместо четырёх карточек: сколько услуг в
-              прейскуранте, по какой средней цене и что он принёс за
-              месяц. Числа справочные, и весить как показания им незачем. */}
-          <p className="quick">
-            <b className="num">{services.length}</b> {t.owner.colService.toLocaleLowerCase(t.locale)}
-            {avgPrice > 0 && (
-              <>
-                <i />
-                {t.owner.avgShort} <b className="num">{money(avgPrice)}</b>
-              </>
-            )}
-            {cars > 0 && (
-              <>
-                <i />
-                {unitCount(cars, tenant.unitOne, t.locale)}
-                <i />
-                <b className="num">{money(revenue)}</b>{' '}
-                {t.owner.periodMonth.toLocaleLowerCase(t.locale)}
-              </>
-            )}
-          </p>
-
-          <div className="mt-[var(--seam)]">
-            <Services rows={rows} step={step} currencySymbol={symbol} />
-          </div>
-        </>
-      )}
-
-      {tab === 'business' && (
-        <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-          <Panel title={t.settings.business} className="lg:col-span-7">
-            {/* Подпись отдельной строкой, а не оберткой: внутри своя
-                форма, а форму в `<label>` заворачивать нельзя — поле
-                внутри неё перестаёт быть подписанным. */}
-            <div className="grid gap-1.5">
-              <span className="label">{t.settings.businessName}</span>
+      <div className="grid gap-[var(--seam)] lg:grid-cols-12">
+        <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
+          <Panel title={t.settings.business}>
+            {/* Подпись отдельной строкой и связана с полем по `id`, а не
+                обёрткой: внутри своя форма, а форму в `<label>`
+                заворачивать нельзя — поле внутри неё перестаёт быть
+                подписанным. */}
+            <FormField id="business-name" label={t.settings.businessName}>
               <BusinessForm name={tenant.name} />
-            </div>
+            </FormField>
 
-            {/* Точки и своя страница — не действия, а переходы, и живут
-                они строками в том же приборе, что название. Раньше под
-                каждый был отдельный прибор с одной широкой кнопкой. */}
+            {/* Филиалы — переход, а не действие, и живут строкой в том
+                же приборе, что название. Под них был отдельный прибор с
+                одной широкой кнопкой. */}
             <div className="rows mt-4">
-              <Link className="link-row" href="/owner/profile">
-                {t.profile.title}
-              </Link>
               <Link className="link-row" href="/owner/points">
                 {t.points.title}
               </Link>
             </div>
           </Panel>
 
-          <div className="lg:col-span-5">
-            <DangerZone deleteError={deleteError} />
-          </div>
-        </div>
-      )}
-
-      {tab === 'data' && (
-        <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-          <Panel title={t.settings.export} className="lg:col-span-7">
+          <Panel title={t.settings.export} id="data">
             <p className="text-[14px]" style={{ color: 'var(--board-muted)' }}>
               {t.settings.exportNote}
             </p>
@@ -183,7 +101,11 @@ export default async function SettingsPage({
             </div>
           </Panel>
         </div>
-      )}
+
+        <div className="lg:col-span-5">
+          <DangerZone deleteError={deleteError} />
+        </div>
+      </div>
     </>
   );
 }
@@ -215,9 +137,9 @@ async function DangerZone({ deleteError }: { deleteError: string | null }) {
       <p className="note note-warn mt-1.5 font-semibold">{t.settings.deleteNoWayBack}</p>
 
       <form method="post" action="/owner/settings/delete" className="mt-3.5 grid gap-2.5">
-        <label className="grid gap-1.5">
-          <span className="label">{t.settings.deletePin}</span>
+        <FormField id="delete-pin" label={t.settings.deletePin}>
           <input
+            id="delete-pin"
             className="field"
             name="pin"
             type="password"
@@ -227,7 +149,7 @@ async function DangerZone({ deleteError }: { deleteError: string | null }) {
             autoComplete="off"
             required
           />
-        </label>
+        </FormField>
 
         {deleteError && <p className="alert">{deleteError}</p>}
 

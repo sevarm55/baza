@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Languages } from 'lucide-react';
+import { Check, ChevronDown, Languages } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,19 +51,21 @@ export function LanguagePicker({ compact = false }: { compact?: boolean }) {
               <Languages aria-hidden="true" className="size-4" />
             </button>
           ) : (
-            <button
-              type="button"
-              disabled={switching}
-              className="flex w-full items-center justify-between gap-3 rounded-[var(--radius-sm)] px-1 py-2 text-start disabled:opacity-60"
-            >
+            /* Тот же каркас строки, что у темы рядом (`.setting-row`):
+               две соседние настройки в одном приборе, набранные разными
+               размерами и с разными полями, читаются как детали из
+               разных наборов. */
+            <button type="button" disabled={switching} className="setting-row disabled:opacity-60">
               <span className="flex min-w-0 items-center gap-2.5">
                 <Languages aria-hidden="true" className="size-4 shrink-0" />
-                <span className="truncate text-[15px]">{t.common.language}</span>
+                <span className="setting-row-label truncate">{t.common.language}</span>
               </span>
               {/* То, что стоит сейчас. Собственное имя языка, не код: «HY»
-                  не читается никем, кроме нас. */}
-              <span className="truncate text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                {LOCALE_NAMES[locale]}
+                  не читается никем, кроме нас. Рядом шеврон: без знака
+                  строка не отличается от читаемой. */}
+              <span className="flex items-center gap-1.5">
+                <span className="setting-row-value truncate">{LOCALE_NAMES[locale]}</span>
+                <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
               </span>
             </button>
           )

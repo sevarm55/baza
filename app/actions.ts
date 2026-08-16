@@ -26,7 +26,7 @@ import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness } from '@/lib/tenant';
-import { changePin, ProfileError } from '@/lib/profile';
+import { changePin, ProfileError, saveProfile } from '@/lib/profile';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
@@ -309,7 +309,7 @@ export async function saveService(
     return { error: t.errors.required };
   }
 
-  revalidatePath('/owner/settings');
+  revalidatePath('/owner/services');
   return { ok: true };
 }
 
@@ -321,7 +321,7 @@ export async function archiveService(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '');
   await catalog.archiveService({ tenantId: session.tid, id }).catch(() => {});
 
-  revalidatePath('/owner/settings');
+  revalidatePath('/owner/services');
 }
 
 export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -370,6 +370,41 @@ export async function archiveStaff(formData: FormData): Promise<void> {
  * перестаёт работать. Человека выбрасывает на вход, где он заходит
  * новым.
  */
+/**
+ * Своё имя.
+ *
+ * Механизм существовал с самого начала (`saveProfile`), и приложение им
+ * пользуется через `PATCH /api/v1/profile`, а из браузера дотянуться до
+ * него было нельзя: в кабинете имя показывали текстом. Человек,
+ * набравший себя с опечаткой при регистрации, видел её на каждом экране
+ * — в ленте, на смене, в зарплатах — и починить не мог.
+ *
+ * Роли здесь не проверяем: имя — данные о себе, а не о бизнесе, и
+ * править его вправе любой вошедший. Название бизнеса меняет отдельное
+ * действие, и оно спрашивает владельца.
+ */
+export async function saveOwnName(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireSession();
+  await ensureDb();
+
+  const name = String(formData.get('name') ?? '').trim();
+
+  try {
+    await saveProfile({ userId: session.uid, tenantId: session.tid, name });
+  } catch (e) {
+    if (e instanceof ProfileError) return { error: t.errors.required };
+    return { error: t.errors.generic };
+  }
+
+  /* Имя стоит не только в профиле: оно в шапке телефона, в меню внизу
+     колонки и в каждом списке, где этот человек упоминается. Полотно
+     кабинета обновляется целиком, иначе старое имя останется висеть в
+     колонке рядом с новым в профиле. */
+  revalidatePath('/owner', 'layout');
+  return { ok: true };
+}
+
 export async function changePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireSession();
   const t = await getDict();

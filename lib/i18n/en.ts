@@ -74,6 +74,7 @@ export const en: Dict = {
     themeLight: 'Light',
     themeDarkLong: 'Dark theme',
     themeLightLong: 'Light theme',
+    theme: 'Theme',
   },
 
   meta: {
@@ -270,6 +271,8 @@ export const en: Dict = {
     changePin: 'Change PIN',
     currentPin: 'Current PIN',
     newPin: 'New PIN',
+    confirmPin: 'Repeat the new PIN',
+    pinMismatch: 'The PINs do not match',
     wrongPin: 'The current PIN is wrong',
     pinChangedNote: 'After the change every device signs out, including this one.',
     welcome: 'Welcome back',
@@ -354,6 +357,13 @@ export const en: Dict = {
 
   profile: {
     title: 'My page',
+    lead: 'Personal details, security and account settings',
+    personal: 'Personal details',
+    security: 'Security',
+    interface: 'Interface',
+    account: 'Account',
+    phone: 'Phone',
+    pinNote: 'Used to sign in to your account',
     access: 'Subscription',
     session: 'This device',
     rememberLogin: 'Remember this account',
@@ -730,13 +740,16 @@ export const en: Dict = {
   nav: {
     finance: 'MONEY',
     management: 'MANAGEMENT',
+    system: 'SYSTEM',
   },
 
   settings: {
     services: 'Services and prices',
     tabServices: 'Services',
     tabData: 'Data',
-    lead: 'Services, prices and business settings',
+    lead: 'Business settings and data',
+    servicesLead: 'Services, prices and the terms you work by',
+    createService: 'Create service',
     servicesEmpty: 'No services yet',
     servicesEmptyNote:
       'Add what you sell, with a price. The washer picks from the list when logging, and the price goes into the record.',

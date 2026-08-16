@@ -7,6 +7,7 @@ import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { Sheet } from '@/components/sheet';
 import { AddService } from './add-service';
+import { ServiceFields } from './service-fields';
 import { useT } from '@/lib/i18n/client';
 
 export type ServiceRow = {
@@ -23,7 +24,7 @@ export type ServiceRow = {
 };
 
 /**
- * Прейскурант — главный модуль настроек.
+ * Прейскурант.
  *
  * Был списком «название — цена»: он отвечал, сколько стоит, и молчал о
  * том, что из него берут. Цену правили вслепую — поднять на комплексе,
@@ -37,8 +38,13 @@ export type ServiceRow = {
  * На широком экране это таблица, потому что здесь именно сравнивают
  * строки между собой; на телефоне сравнивать нечем, там читают строку за
  * строкой.
+ *
+ * Кнопки «добавить» в заголовке прибора больше нет: она стоит в
+ * заголовке раздела, одна на страницу. Две одинаковые кнопки в двадцати
+ * пикселях друг от друга заставляют выбирать между ними, хотя делают
+ * они одно и то же.
  */
-export function Services({
+export function ServiceList({
   rows,
   step,
   currencySymbol,
@@ -64,11 +70,7 @@ export function Services({
   }
 
   return (
-    <Panel
-      title={t.settings.services}
-      count={rows.length}
-      actions={<AddService currencySymbol={currencySymbol} step={step} />}
-    >
+    <Panel title={t.settings.services} count={rows.length}>
       <div className="board-journal lg:hidden">
         {rows.map((s) => (
           <button
@@ -127,7 +129,7 @@ export function Services({
                 {s.count ? s.revenue : '—'}
               </td>
 
-              <td className="num end font-semibold">
+              <td className="num end text-[15px] font-semibold">
                 {s.display} <span style={{ color: 'var(--board-muted)' }}>{currencySymbol}</span>
               </td>
 
@@ -145,8 +147,6 @@ export function Services({
           ))}
         </tbody>
       </table>
-
-      <p className="note mt-3.5">{t.settings.priceNote}</p>
 
       <ServiceEditor
         service={service}
@@ -203,6 +203,12 @@ function ServiceEditor({
           <button form="service-remove" className="btn-inline btn-inline-danger me-auto">
             {t.settings.remove}
           </button>
+          {/* Отмена рядом с сохранением, а не крестиком в углу: закрыть
+              окно и не сохранить — такое же решение, как сохранить, и
+              приниматься оно должно там же, где второе. */}
+          <button type="button" className="btn-inline" onClick={onClose}>
+            {t.common.cancel}
+          </button>
           <button form="service-edit" className="btn btn-auto" disabled={pending}>
             {pending ? t.common.loading : t.settings.save}
           </button>
@@ -229,34 +235,18 @@ function ServiceEditor({
 
           {/* Ключом стоит услуга: при переходе к другой поля обязаны
               сброситься, а не донести чужое название и чужую цену. */}
-          <form key={service.id} id="service-edit" action={action} className="mt-4 grid gap-3">
+          <form key={service.id} id="service-edit" action={action} className="mt-4 grid gap-3.5">
             <input type="hidden" name="id" value={service.id} />
 
-            <label className="grid gap-1.5">
-              <span className="label">{t.settings.name}</span>
-              <input className="field" name="name" defaultValue={service.name} required autoFocus />
-            </label>
+            <ServiceFields
+              idPrefix="service-edit"
+              name={service.name}
+              price={service.price}
+              step={step}
+              currencySymbol={currencySymbol}
+              autoFocus
+            />
 
-            <label className="grid gap-1.5">
-              <span className="label">{t.settings.price}</span>
-              <div className="relative">
-                <input
-                  className="field num !ps-8"
-                  name="price"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={step}
-                  defaultValue={service.price}
-                  required
-                />
-                <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
-                  {currencySymbol}
-                </span>
-              </div>
-            </label>
-
-            <p className="note">{t.settings.priceNote}</p>
             {state?.error && <p className="alert">{state.error}</p>}
           </form>
 

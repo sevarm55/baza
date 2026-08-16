@@ -1,9 +1,9 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useLocale, useSetLocale, useT } from '@/lib/i18n/client';
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n';
+import { setTheme, useTheme } from '@/components/use-theme';
 import {
   Check,
   ChevronsUpDown,
@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Moon,
+  SlidersHorizontal,
   SprayCan,
   Sun,
   UserRound,
@@ -32,23 +33,20 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-type Theme = 'light' | 'dark';
-const THEME_EVENT = 'tetrin:theme-change';
-
-function subscribeTheme(onStoreChange: () => void) {
-  window.addEventListener(THEME_EVENT, onStoreChange);
-  return () => window.removeEventListener(THEME_EVENT, onStoreChange);
-}
-
-function readTheme(): Theme {
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-}
-
-function readServerTheme(): Theme {
-  return 'dark';
-}
-
-/** Standard shadcn NavUser pattern: identity, role, theme and exit in one menu. */
+/**
+ * Меню пользователя внизу колонки.
+ *
+ * Это быстрый путь, а не вторая страница профиля. Всё, что здесь лежит,
+ * имеет свой настоящий дом: личные данные и безопасность — в профиле,
+ * настройки бизнеса — в настройках. Меню только сокращает дорогу до
+ * двух самых частых пунктов и держит три вещи, которые меняют на бегу и
+ * которые принадлежат человеку, а не бизнесу: экран мойщика, язык и
+ * тема.
+ *
+ * Переключение роли остаётся именно здесь, потому что другого входа на
+ * экран мойщика в кабинете нет вовсе: убрать его значило бы запереть
+ * владельца в кабинете.
+ */
 export function SidebarAccountMenu({
   userName,
   active,
@@ -60,19 +58,8 @@ export function SidebarAccountMenu({
   const locale = useLocale();
   const { setLocale } = useSetLocale();
   const { isMobile, setOpenMobile } = useSidebar();
-  const theme = useSyncExternalStore(subscribeTheme, readTheme, readServerTheme);
+  const theme = useTheme();
   const activeLabel = active === 'owner' ? t.roles.owner : t.roles.staff;
-
-  function flipTheme() {
-    const next: Theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem('bazis.theme', next);
-    } catch {
-      // Private browsing can reject storage; the current session still changes.
-    }
-    window.dispatchEvent(new Event(THEME_EVENT));
-  }
 
   const roles = [
     { href: '/work', key: 'work', label: t.roles.staff, icon: SprayCan },
@@ -109,10 +96,23 @@ export function SidebarAccountMenu({
             sideOffset={8}
             className="min-w-60"
           >
+            {/* Подпись обязана стоять ВНУТРИ группы: в Base UI она часть
+                группы, а не самостоятельный элемент меню, и снаружи
+                бросает исключение при отрисовке — вместе с ним рвётся
+                гидратация всей страницы, и не работает ни одна кнопка.
+
+                Две страницы, до которых отсюда сокращают дорогу. Больше
+                разделов здесь быть не должно: список разделов — в колонке
+                над этим меню, и второй такой же внутри него означал бы
+                два разных пути к одному месту. */}
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-2 py-1.5">
-                <span className="block truncate text-sm font-semibold text-popover-foreground">{userName}</span>
-                <span className="block truncate text-xs font-normal text-muted-foreground">{activeLabel}</span>
+                <span className="block truncate text-sm font-semibold text-popover-foreground">
+                  {userName}
+                </span>
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  {activeLabel}
+                </span>
               </DropdownMenuLabel>
               <DropdownMenuItem
                 render={<Link href="/owner/profile" onClick={() => setOpenMobile(false)} />}
@@ -120,6 +120,13 @@ export function SidebarAccountMenu({
               >
                 <UserRound aria-hidden="true" />
                 {t.profile.title}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                render={<Link href="/owner/settings" onClick={() => setOpenMobile(false)} />}
+                className="py-2"
+              >
+                <SlidersHorizontal aria-hidden="true" />
+                {t.owner.tabSettings}
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
@@ -144,7 +151,11 @@ export function SidebarAccountMenu({
 
             {/* Язык — здесь же, где тема: и то и другое человек меняет
                 для себя, а не для бизнеса. Каждый язык подписан своим
-                словом; флагов нет — флаг это страна, а не язык. */}
+                словом; флагов нет — флаг это страна, а не язык.
+
+                Полный вид обеих настроек живёт в профиле, в разделе
+                «интерфейс». Здесь короткий путь для того, кто уже знает,
+                что ищет. */}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               {LOCALES.map((code) => (
@@ -169,7 +180,13 @@ export function SidebarAccountMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               nativeButton
-              render={<button type="button" className="w-full py-2 text-start" onClick={flipTheme} />}
+              render={
+                <button
+                  type="button"
+                  className="w-full py-2 text-start"
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                />
+              }
             >
               {theme === 'light' ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
               {theme === 'light' ? t.common.themeDarkLong : t.common.themeLightLong}

@@ -20,7 +20,22 @@ function dropCache() {
   navigator.serviceWorker?.controller?.postMessage('bazis:signout');
 }
 
-export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
+export function SignOutButton({
+  shiftOpen,
+  labelled,
+}: {
+  shiftOpen?: boolean;
+  /**
+   * С подписью, а не одним значком.
+   *
+   * В шапке телефона значок один и место дорого — там подпись
+   * всплывающая. В профиле, в разделе «аккаунт», у него есть и место, и
+   * соседи: одинокая иконка питания среди строк настроек не читается
+   * как выход, а слово рядом с ней, набранное текстом, ещё и не
+   * нажимается — по нему в первую очередь и щёлкают.
+   */
+  labelled?: boolean;
+}) {
   const t = useT();
   const [asking, setAsking] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -32,11 +47,12 @@ export function SignOutButton({ shiftOpen }: { shiftOpen?: boolean }) {
     return (
       <form action={signOut} onSubmit={dropCache}>
         <button
-          className="btn-icon btn-icon-board"
-          title={t.auth.signOut}
-          aria-label={t.auth.signOut}
+          className={labelled ? 'btn-inline btn-inline-danger' : 'btn-icon btn-icon-board'}
+          title={labelled ? undefined : t.auth.signOut}
+          aria-label={labelled ? undefined : t.auth.signOut}
         >
           <IconPower className="size-4" />
+          {labelled && t.auth.signOut}
         </button>
       </form>
     );
