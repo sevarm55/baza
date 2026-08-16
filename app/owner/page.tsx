@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getDict } from '@/lib/i18n/server';
-import { localizeTenantOrNull, unitCount, staffCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, unitCount, unitForms, staffCount } from '@/lib/i18n/terms';
 import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
 import {
@@ -28,6 +28,7 @@ import { TodayCrew } from './today/crew';
 import { PaymentMix } from './today/payments';
 import { TodayOperations } from './today/operations';
 import { FlowChart } from './today/chart';
+import { QuickActions } from './today/quick';
 import type { CrewMember, FlowEvent, FlowPoint, MixSlice, Op } from './today/model';
 
 /**
@@ -222,6 +223,53 @@ export default async function TodayPage({
 
   const dayLabel = periodDates(from, to, tenant.timezone, byHour, t.locale);
 
+  /* Сравнение с прошлым отрезком — подпись к линии, а не показание.
+     Считается один раз: на широком экране оно стоит в заголовке прибора,
+     на телефоне — в строке свёрнутого графика, и разойтись этим двум
+     местам нельзя. */
+  const compare = (
+    <span
+      className="num text-[12.5px] font-semibold"
+      style={{
+        color:
+          prevStats.count === 0
+            ? 'var(--board-muted)'
+            : diff >= 0
+              ? 'var(--good-on-board)'
+              : 'var(--warn-on-board)',
+      }}
+    >
+      {prevStats.count === 0
+        ? t.owner.noBase
+        : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
+            isToday ? t.owner.vsLastWeek : t.owner.vsPrev
+          }`}
+    </span>
+  );
+
+  /* Само поле графика — или объяснение, почему его нет.
+
+     Не доехать имеет право только этот запрос: без графика страница
+     отвечает на все свои вопросы, кроме «когда был заезд», и ронять
+     из-за него сводку с деньгами значит менять частичный ответ на
+     полное молчание. */
+  const chart = flow ? (
+    <FlowChart
+      points={flow}
+      events={events}
+      currency={tenant.currency}
+      unitOne={tenant.unitOne}
+      byHour={byHour}
+    />
+  ) : (
+    <div className="grid justify-items-center gap-2 py-12 text-center">
+      <p className="text-[14px] font-semibold">{t.today.flowFailed}</p>
+      <a className="btn-inline" href={period === 'today' ? '/owner' : `/owner?p=${period}`}>
+        {t.payroll.retry}
+      </a>
+    </div>
+  );
+
   return (
     <>
       {/* Дата обязательна — сутки считаются по времени бизнеса и в
@@ -271,6 +319,10 @@ export default async function TodayPage({
         )}
       </p>
 
+      {/* Быстрые действия — только на телефоне. На компьютере разделы
+          стоят слева и видны всегда; там этот ряд повторял бы меню. */}
+      <QuickActions unitAcc={`${unitForms(tenant.unitOne, t.locale).acc}`} />
+
       {/* Раскладка рабочей части.
 
           Была колонка из трёх приборов справа от графика — и вместе они
@@ -285,63 +337,22 @@ export default async function TodayPage({
             чем платят (12)                — три полосы во всю ширину
             сегодняшняя работа (12)
 
-          Места приборов заданы явными `col-start`, поэтому порядок в
-          разметке от раскладки не зависит: на телефоне колонки нет, и
-          приборы идут сверху вниз в том порядке, в каком владелец
-          задаёт вопросы, — «что сейчас», потом «как шёл день». */}
+          Места приборов заданы явными `col-start` и `row-start`, поэтому
+          раскладка на компьютере не зависит от порядка в разметке. А
+          порядок в разметке задан телефоном: там колонки нет, и приборы
+          идут сверху вниз ровно так же, как экраны в приложении, —
+
+            кто работает → чем платили → как шёл день → что именно было.
+
+          Это не «то же самое, сложенное в столбик». Числа наверху уже
+          ответили «сколько»; следующий вопрос владельца — «кто сейчас на
+          площадке», а не «нарисуй мне кривую». График в приложении на
+          сегодняшнем экране убран совсем: за день пять машин, и «как
+          шло» видно по журналу построчно, а треть экрана он занимает
+          всегда. Здесь он не убран, а свёрнут в строку с ответом:
+          сравнение с прошлой неделей читается не открывая, а форма дня
+          открывается нажатием. */}
       <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
-        {/* График занимает две трети ширины: он единственное на экране,
-            что показывает не итог, а ход периода, и мелким он бесполезен.
-            Сравнение с прошлым отрезком ушло к нему в заголовок — это
-            подпись к линии, а не самостоятельное показание.
-
-            Справа от него — список работающих. Прибор «Հիմա» стоял
-            здесь же и отвечал то же самое дважды: состояние людей — а
-            оно и есть точки в этом списке. */}
-        <Panel
-          title={byHour ? t.today.flowDay : t.today.flowPeriod}
-          className="lg:col-span-8 lg:col-start-1 lg:row-start-1"
-          actions={
-            <span
-              className="num text-[12.5px] font-semibold"
-              style={{
-                color:
-                  prevStats.count === 0
-                    ? 'var(--board-muted)'
-                    : diff >= 0
-                      ? 'var(--good-on-board)'
-                      : 'var(--warn-on-board)',
-              }}
-            >
-              {prevStats.count === 0
-                ? t.owner.noBase
-                : `${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} ${
-                    isToday ? t.owner.vsLastWeek : t.owner.vsPrev
-                  }`}
-            </span>
-          }
-        >
-          {flow ? (
-            <FlowChart
-              points={flow}
-              events={events}
-              currency={tenant.currency}
-              unitOne={tenant.unitOne}
-              byHour={byHour}
-            />
-          ) : (
-            /* Не доехал только график. Панель говорит, что именно не
-               получилось, и предлагает повторить — остальная страница
-               при этом на месте и продолжает отвечать. */
-            <div className="grid justify-items-center gap-2 py-12 text-center">
-              <p className="text-[14px] font-semibold">{t.today.flowFailed}</p>
-              <a className="btn-inline" href={period === 'today' ? '/owner' : `/owner?p=${period}`}>
-                {t.payroll.retry}
-              </a>
-            </div>
-          )}
-        </Panel>
-
         {/* Кто работает — справа от графика, на месте прежнего «Հիմա».
             Так и надо было с самого начала: вопрос «кто сейчас на мойке»
             и список людей с точками состояния — это один прибор, а не
@@ -362,6 +373,53 @@ export default async function TodayPage({
           slices={mix}
           currency={tenant.currency}
         />
+
+        {/* График занимает две трети ширины: он единственное на экране,
+            что показывает не итог, а ход периода, и мелким он бесполезен.
+            Сравнение с прошлым отрезком ушло к нему в заголовок — это
+            подпись к линии, а не самостоятельное показание.
+
+            На телефоне место прибора зависит от периода, и зависит по
+            той же причине, что в приложении. У сегодняшнего дня он
+            уступает место свёрнутой строке ниже и поэтому спрятан: за
+            день пять машин, и «как шло» видно по журналу построчно. У
+            месяца он, наоборот, идёт первым, ещё до людей и оплат: там
+            тридцать точек, и форма месяца — настоящий ответ, которого
+            больше нигде нет.
+
+            На компьютере место прибора не меняется никогда: оно задано
+            явными `col-start` и `row-start`, а `order` до раскладки с
+            явными местами не дотягивается. */}
+        <Panel
+          title={byHour ? t.today.flowDay : t.today.flowPeriod}
+          className={`lg:col-span-8 lg:col-start-1 lg:row-start-1 ${
+            byHour ? 'hidden md:flex' : '-order-1 md:order-none'
+          }`}
+          actions={compare}
+        >
+          {chart}
+        </Panel>
+
+        {/* Тот же прибор, свёрнутый в строку. Отдельным узлом, а не тем
+            же самым: показать одно и то же дерево в двух местах разметки
+            нельзя, а выбирать между ними в браузере значило бы нарисовать
+            график и тут же убрать его на глазах у человека. Спрятанная
+            половина ничего не стоит — она никогда не показывается, а
+            рисуется только на сегодняшнем дне. */}
+        {byHour && (
+          <details className="fold md:hidden">
+            <summary>
+              {/* Ответ стоит в самой строке: «на пятьсот меньше, чем
+                  неделю назад» читается не открывая, а форма дня
+                  открывается тому, кому она нужна. */}
+              <span className="fold-name">
+                {t.phone.flow}
+                <span className="fold-note">{compare}</span>
+              </span>
+            </summary>
+            <div className="fold-body">{chart}</div>
+          </details>
+        )}
 
         <TodayOperations
           ops={ops}

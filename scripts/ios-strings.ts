@@ -131,11 +131,14 @@ export const IOS_ONLY: Record<string, Row> = {
   'shift.greetingPlain': { hy: 'Բարև', ru: 'Здравствуйте', en: 'Hello' },
   'shift.offShift': { hy: 'Հերթափոխից դուրս', ru: 'Вне смены', en: 'Off shift' },
   'shift.onShiftSince': { hy: 'Հերթափոխին եմ · %1$@-ից · %2$@', ru: 'Я на смене · с %1$@ · %2$@', en: "I'm on shift · since %1$@ · %2$@" },
+  /* Два тире ниже — промежутки «от и до», а не связки: для промежутка
+     тире и придумано. Связки из строк продукта убраны, разделителем
+     фактов в строке служит точка «·». */
   'shift.doneRange': { hy: 'Հերթափոխն ավարտված է · %1$@ — %2$@', ru: 'Смена завершена · %1$@ — %2$@', en: 'Shift finished · %1$@ — %2$@' },
   'shift.lastedMinutes': { hy: '%lld ր', ru: '%lld мин', en: '%lld min' },
   'shift.lastedHours': { hy: '%1$lld ժ %2$lld ր', ru: '%1$lld ч %2$lld мин', en: '%1$lld h %2$lld min' },
   'shift.cashInHand': { hy: 'Կանխիկ ձեռքին', ru: 'Наличные на руках', en: 'Cash in hand' },
-  'shift.yourShare': { hy: 'քո բաժինը՝ %lld%%', ru: 'твоя доля — %lld%%', en: 'your share — %lld%%' },
+  'shift.yourShare': { hy: 'քո բաժինը՝ %lld%%', ru: 'твоя доля %lld%%', en: 'your share %lld%%' },
   'shift.toHandOver': { hy: 'հանձնելու է վերջում', ru: 'сдать в конце', en: 'to hand over at the end' },
   'shift.record': { hy: 'Գրանցում', ru: 'Запись', en: 'Record' },
   'shift.latest': { hy: 'Վերջինները', ru: 'Последние', en: 'Latest' },
@@ -166,7 +169,12 @@ export const IOS_ONLY: Record<string, Row> = {
   /* --- вход --- */
   'auth.signInAs': { hy: 'Մուտք գործել որպես %@', ru: 'Войти как %@', en: 'Sign in as %@' },
   'auth.tapAvatarPhone': { hy: 'Հպեք ավատարին՝ մուտք գործելու համար', ru: 'Коснитесь аватара, чтобы войти', en: 'Tap your avatar to sign in' },
-  'auth.pinField': { hy: 'PIN կոդ · 4 նիշ', ru: 'PIN-код · 4 цифры', en: 'PIN · 4 digits' },
+  /* Шесть, а не четыре. PIN в продукте шестизначный (см. lib/pin.ts), и
+     каталог приложения это уже говорил — а здесь осталось старое число с
+     тех пор, когда код был короче. Пока никто не запускал генератор,
+     расхождение не было видно; первый же запуск подписал бы поле «4
+     цифры» под шестизначным вводом. */
+  'auth.pinField': { hy: 'PIN կոդ · 6 նիշ', ru: 'PIN-код · 6 цифр', en: 'PIN code · 6 digits' },
   'auth.staffNote': {
     hy: 'Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը',
     ru: 'Данные для входа выдаёт владелец бизнеса',
@@ -181,6 +189,39 @@ export const IOS_ONLY: Record<string, Row> = {
   'auth.pinMismatch': { hy: 'PIN-երը չեն համընկնում', ru: 'PIN-коды не совпадают', en: 'The PINs do not match' },
   'auth.pinWrong': { hy: 'PIN-ը սխալ է', ru: 'PIN неверный', en: 'The PIN is wrong' },
   'auth.throttled': { hy: 'Չափազանց շատ փորձեր։ Սպասեք։', ru: 'Слишком много попыток. Подождите.', en: 'Too many attempts. Wait.' },
+
+  /* --- проверка входа с незнакомого устройства ---
+
+     Эти девять строк жили только в собранном каталоге и в этот файл не
+     попали. Пока генератор не запускали, всё работало; первый же запуск
+     вычистил бы их, и экран проверки показал бы человеку собственные
+     ключи вместо слов. Возвращены сюда, чтобы каталог снова собирался из
+     одного места. --- */
+  'auth.stepUpTitle': { hy: 'Ստուգում', ru: 'Проверка', en: 'Verification' },
+  'auth.stepUpSub': {
+    hy: 'Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@',
+    ru: 'Вход с незнакомого устройства. Мы отправили код на %@',
+    en: 'Sign-in from an unfamiliar device. We sent a code to %@',
+  },
+  'auth.otpCode': { hy: 'Կոդը SMS-ից', ru: 'Код из SMS', en: 'Code from SMS' },
+  'auth.otpVerify': { hy: 'Հաստատել', ru: 'Подтвердить', en: 'Confirm' },
+  'auth.otpResend': { hy: 'Ուղարկել կրկին', ru: 'Отправить снова', en: 'Send again' },
+  'auth.otpInvalid': { hy: 'Կոդը սխալ է', ru: 'Код неверный', en: 'That code is wrong' },
+  'auth.otpExpired': {
+    hy: 'Կոդի ժամկետն անցել է։ Խնդրեք նորը։',
+    ru: 'Срок кода истёк. Запросите новый.',
+    en: 'The code expired. Ask for a new one.',
+  },
+  'auth.otpTooMany': {
+    hy: 'Չափազանց շատ փորձեր։ Խնդրեք նոր կոդ։',
+    ru: 'Слишком много попыток. Запросите новый код.',
+    en: 'Too many attempts. Ask for a new code.',
+  },
+  'auth.smsFailed': {
+    hy: 'Չհաջողվեց ուղարկել SMS։ Փորձեք քիչ անց։',
+    ru: 'Не удалось отправить SMS. Попробуйте позже.',
+    en: 'Could not send the SMS. Try again shortly.',
+  },
 
   /* --- «Ещё»: карта бизнеса --- */
   'more.title': { hy: 'Ավելին', ru: 'Ещё', en: 'More' },
@@ -203,8 +244,8 @@ export const IOS_ONLY: Record<string, Row> = {
   /* --- филиалы --- */
   'points.addOnWeb': {
     hy: 'Նոր մասնաճյուղն ավելացվում է կայքում՝ tetrin.pro',
-    ru: 'Новый филиал добавляется на сайте — tetrin.pro',
-    en: 'A new location is added on the website — tetrin.pro',
+    ru: 'Новый филиал добавляется на сайте tetrin.pro',
+    en: 'A new location is added on tetrin.pro',
   },
   'points.switchFailed': {
     hy: 'Չստացվեց անցնել։ Ստուգեք կապը և կրկնեք։',
@@ -335,7 +376,7 @@ export const IOS_ONLY: Record<string, Row> = {
   'delete.downloaded': { hy: 'Տվյալները ներբեռնված են։', ru: 'Данные скачаны.', en: 'The data is downloaded.' },
   'delete.fileNote': {
     hy: 'Ֆայլը կպահվի ձեր հեռախոսում՝ Excel-ի համար։',
-    ru: 'Файл сохранится в телефоне — для Excel.',
+    ru: 'Файл сохранится в телефоне, для Excel.',
     en: 'The file is saved on your phone, for Excel.',
   },
   'delete.downloadFailed': { hy: 'Չհաջողվեց ներբեռնել տվյալները։', ru: 'Не удалось скачать данные.', en: "Couldn't download the data." },
@@ -420,20 +461,20 @@ export const IOS_ONLY: Record<string, Row> = {
   'onboarding.s2Title': { hy: 'Աշխատավարձը հաշվվում է ինքնաշխատ', ru: 'Зарплата считается сама', en: 'Payroll adds itself up' },
   'onboarding.s2Body': {
     hy: 'Ամեն մեքենայից՝ լվացողի տոկոսը։ Տոկոսը պահվում է գրանցման պահին, ուստի գների փոփոխությունը անցյալը չի փոխում։',
-    ru: 'С каждой машины — процент мойщика. Процент запоминается в момент записи, поэтому изменение цен прошлое не меняет.',
+    ru: 'С каждой машины идёт процент мойщика. Процент запоминается в момент записи, поэтому изменение цен прошлое не меняет.',
     en: "The washer's percentage from every car. The percentage is stored at the moment of logging, so price changes do not rewrite the past.",
   },
   'onboarding.s3Title': { hy: 'Երևում է, թե որքան է մնում', ru: 'Видно, сколько остаётся', en: 'You see what is left' },
   'onboarding.s3Body': {
     hy: 'Հասույթից հանվում են աշխատավարձը և ծախսերը՝ վարձ, քիմիա, հոսանք։ Մնացածը ձեր շահույթն է։',
-    ru: 'Из выручки вычитаются зарплата и расходы: аренда, химия, электричество. Остальное — ваша прибыль.',
+    ru: 'Из выручки вычитаются зарплата и расходы: аренда, химия, электричество. Остальное ваша прибыль.',
     en: 'Payroll and expenses come off the revenue: rent, chemicals, electricity. The rest is your profit.',
   },
-  'onboarding.s4Title': { hy: 'Տվյալները ձերն են', ru: 'Данные — ваши', en: 'The data is yours' },
+  'onboarding.s4Title': { hy: 'Տվյալները ձերն են', ru: 'Данные ваши', en: 'The data is yours' },
   'onboarding.s4Body': {
-    hy: 'Ներբեռնեք ամեն ինչ Excel-ով ցանկացած պահի։ Կապը կտրվե՞ց — գրանցումները սպասում են հեռախոսում և ուղարկվում իրենք։',
-    ru: 'Скачайте всё в Excel в любой момент. Пропала связь — записи ждут в телефоне и уходят сами.',
-    en: 'Download everything to Excel at any moment. Lost connection — records wait on the phone and send themselves.',
+    hy: 'Ներբեռնեք ամեն ինչ Excel-ով ցանկացած պահի։ Կապը կտրվե՞ց, գրանցումները սպասում են հեռախոսում և ուղարկվում իրենք։',
+    ru: 'Скачайте всё в Excel в любой момент. Пропала связь, записи ждут в телефоне и уходят сами.',
+    en: 'Download everything to Excel at any moment. Lost connection, records wait on the phone and send themselves.',
   },
 
   /* --- виджет и живая активность --- */
@@ -453,11 +494,11 @@ export const IOS_ONLY: Record<string, Row> = {
   'expenses.hint4': { hy: 'Ջուր', ru: 'Вода', en: 'Water' },
   'expenses.hint5': { hy: 'Գույք', ru: 'Инвентарь', en: 'Equipment' },
   'expenses.hint6': { hy: 'Վերանորոգում', ru: 'Ремонт', en: 'Repairs' },
-  'payroll.alreadyPaid': { hy: 'արդեն՝ %@', ru: 'уже — %@', en: 'already — %@' },
+  'payroll.alreadyPaid': { hy: 'արդեն՝ %@', ru: 'уже %@', en: 'already %@' },
   'payroll.forWork': { hy: '%@ աշխատանքի համար', ru: 'за работу %@', en: 'for work on %@' },
   'payroll.forWorkUpTo': { hy: 'մինչև %@ աշխատանքի համար', ru: 'за работу по %@', en: 'for work up to %@' },
   'payroll.paySum': { hy: 'Վճարել %@', ru: 'Выплатить %@', en: 'Pay %@' },
-  'payroll.done': { hy: 'Վճարումը նշված է՝ %@', ru: 'Выплата отмечена — %@', en: 'Payout recorded — %@' },
+  'payroll.done': { hy: 'Վճարումը նշված է՝ %@', ru: 'Выплата отмечена · %@', en: 'Payout recorded · %@' },
 
   /* Функции веб-словаря: значением там не строка, а сборка строки, и
      вытащить её общим обходом нельзя — форма записана здесь. */

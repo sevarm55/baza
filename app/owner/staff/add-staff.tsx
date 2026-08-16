@@ -48,10 +48,28 @@ export function AddStaff({
         {t.settings.addStaff}
       </button>
 
-      <Sheet open={open} onClose={() => setOpen(false)} side title={t.settings.addStaff}>
+      {/* Действие в подвале окна, а не в конце формы: на телефоне здесь
+          пять полей, и с поднятой клавиатурой кнопка уезжала под неё.
+          Тем же кончаются окна расхода и услуги. */}
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        side
+        title={t.settings.addStaff}
+        footer={
+          <>
+            <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+              {t.common.cancel}
+            </button>
+            <button form="staff-new" className="btn btn-auto" disabled={pending}>
+              {pending ? t.common.loading : t.settings.addStaff}
+            </button>
+          </>
+        }
+      >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлым недописанным человеком. */}
-        <form key={String(open)} action={action} className="grid gap-3">
+        <form key={String(open)} id="staff-new" action={action} className="grid gap-3">
           <label className="grid gap-1.5">
             <span className="label">{t.settings.name}</span>
             <input className="field auth-field" name="name" required autoComplete="off" autoFocus />
@@ -117,10 +135,6 @@ export function AddStaff({
           </label>
 
           <p className="note">{t.settings.staffNote}</p>
-
-          <button className="btn mt-0.5" disabled={pending}>
-            {pending ? t.common.loading : t.settings.addStaff}
-          </button>
 
           {state?.error && <p className="alert">{state.error}</p>}
         </form>

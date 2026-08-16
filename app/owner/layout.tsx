@@ -6,7 +6,11 @@ import { getTenant, getUser } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
 import { Rail } from '@/components/rail';
 import { Logo } from '@/components/logo';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Bell } from '@/components/bell';
+import { MobileHead } from '@/components/mobile-head';
+import { MobileTabs } from '@/components/mobile-tabs';
+import { PointSwitcher } from '@/components/point-switcher';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
@@ -35,12 +39,22 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   const alerts = await getAlerts(tenant.id, me.id, tenant.timezone, t.locale);
   const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
 
+  /* Больше одной точки — переключатель вместо названия. Условие стоит
+     здесь, а не внутри компонента: у кого мойка одна, тот не должен
+     узнать, что бывают вторые. */
+  const many = points.length > 1;
+
   /* Два способа показать одно и то же.
 
      На компьютере кабинет — рабочая панель: разделы стоят слева
-     неподвижно, полотно занимает всё остальное. На телефоне схема
-     складывается в столбец с шапкой и полосой вкладок: продукт живёт
-     там в PWA, и прежний порядок был для него верным.
+     неподвижно, полотно занимает всё остальное.
+
+     На телефоне разделы уходят вниз, под большой палец, а шапка
+     начинает называть место и уметь вернуть назад. Это схема
+     приложения, перенесённая целиком: там она проверена на людях,
+     которые открывают продукт мокрыми руками между машинами.
+     Гамбургера больше нет — он превращал любой переход в два нажатия и
+     один экран, который надо прочитать.
 
      Переключает не состояние, а ширина окна: обе разметки лежат в
      дереве всегда, и переход между ними ничего не перезагружает. */
@@ -72,14 +86,36 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
           поле не существовало, потому что второй и третий уровень были
           одного цвета. */}
       <SidebarInset className="board min-w-0 text-[color:var(--on-board)]">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
-          <SidebarTrigger aria-label={t.common.expand} title={t.common.expand} />
-          <Logo size={24} withName={false} />
-          <div className="min-w-0">
-            <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>
-            <div className="truncate text-[11.5px] text-sidebar-foreground/55">{me.name}</div>
-          </div>
-        </header>
+        {/* Шапка телефона решает по адресу, чем ей быть: на корневом
+            экране это бизнес и колокольчик, внутри раздела — стрелка
+            назад и его название. Обе половины приезжают отсюда готовыми:
+            переключатель точек и колокольчик считаются на сервере, а
+            выбирает между ними уже браузер, знающий адрес. */}
+        <MobileHead
+          brand={
+            many ? (
+              <div className="min-w-0 flex-1">
+                <PointSwitcher points={points} currentId={tenant.id} subtitle={me.name} />
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <Logo size={26} withName={false} />
+                <div className="min-w-0">
+                  <div className="truncate text-[14px] leading-tight font-semibold">
+                    {tenant.name}
+                  </div>
+                  <div
+                    className="truncate text-[11.5px] leading-tight"
+                    style={{ color: 'var(--board-muted)' }}
+                  >
+                    {me.name}
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          actions={<Bell alerts={alerts} />}
+        />
 
         <div className="canvas">
           <div className="canvas-inner">
@@ -87,6 +123,8 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
             {children}
           </div>
         </div>
+
+        <MobileTabs />
       </SidebarInset>
     </SidebarProvider>
   );

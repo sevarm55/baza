@@ -10,7 +10,10 @@ import { formatMoney } from '@/lib/money';
 import { TopBar } from '@/components/top-bar';
 import { Rail } from '@/components/rail';
 import { Logo } from '@/components/logo';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { MobileHead } from '@/components/mobile-head';
+import { MobileTabs } from '@/components/mobile-tabs';
+import { PointSwitcher } from '@/components/point-switcher';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Grid, Reading, Tile } from '@/components/board';
 import { passesEnabled } from '@/lib/features';
 import { priceForTier, tiersOf } from '@/lib/catalog';
@@ -260,17 +263,38 @@ export default async function WorkPage() {
           active="work"
         />
         <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
-          <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
-            <SidebarTrigger aria-label={t.common.expand} title={t.common.expand} />
-            <Logo size={24} withName={false} />
-            <div className="min-w-0">
-              <div className="truncate text-[13.5px] font-semibold">{tenant.name}</div>
-              <div className="truncate text-[11.5px] text-sidebar-foreground/55">{me.name}</div>
-            </div>
-          </header>
+          {/* Экран смены — корневой: из него не возвращаются, поэтому
+              шапка называет бизнес, а разделы стоят внизу. Та же схема,
+              что во всём кабинете; переключается она адресом, а не
+              страницей. */}
+          <MobileHead
+            brand={
+              points.length > 1 ? (
+                <div className="min-w-0 flex-1">
+                  <PointSwitcher points={points} currentId={tenant.id} subtitle={me.name} />
+                </div>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <Logo size={26} withName={false} />
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] leading-tight font-semibold">
+                      {tenant.name}
+                    </div>
+                    <div
+                      className="truncate text-[11.5px] leading-tight"
+                      style={{ color: 'var(--board-muted)' }}
+                    >
+                      {me.name}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+          />
           <div className="canvas">
             <div className="canvas-inner">{body}</div>
           </div>
+          <MobileTabs />
         </SidebarInset>
       </SidebarProvider>
     );
