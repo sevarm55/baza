@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { THEME_SCRIPT_HASH } from '@/lib/theme-script';
+import { env } from '@/lib/env';
 
 /**
  * В Next 16 middleware переименован в proxy и работает на Node-рантайме.
@@ -27,12 +28,12 @@ import { THEME_SCRIPT_HASH } from '@/lib/theme-script';
  * что любой сайт читает данные мойки в браузере её владельца.
  */
 function allowedOrigins(): string[] {
-  const configured = (process.env.ALLOWED_ORIGINS ?? '')
+  const configured = (env('ALLOWED_ORIGINS') ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const site = process.env.PUBLIC_ORIGIN;
+  const site = env('PUBLIC_ORIGIN');
   if (site) configured.push(site);
 
   if (process.env.NODE_ENV !== 'production') {

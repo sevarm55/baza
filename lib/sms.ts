@@ -14,6 +14,8 @@
  * Текста кода в логах нет ни в одной ветке, включая ветку ошибки.
  */
 
+import { env } from './env';
+
 export type SmsMessage = {
   /** E.164 */
   to: string;
@@ -72,11 +74,11 @@ function twilioProvider(accountSid: string): SmsProvider {
   return {
     name: 'twilio',
     async send({ to, text }) {
-      const token = process.env.TWILIO_AUTH_TOKEN;
+      const token = env('TWILIO_AUTH_TOKEN');
       if (!token) return { ok: false, provider: 'twilio', reason: 'NO_AUTH_TOKEN' };
 
-      const service = process.env.TWILIO_MESSAGING_SERVICE_SID;
-      const from = process.env.TWILIO_FROM ?? process.env.SMS_SENDER;
+      const service = env('TWILIO_MESSAGING_SERVICE_SID');
+      const from = env('TWILIO_FROM') ?? env('SMS_SENDER');
       if (!service && !from) return { ok: false, provider: 'twilio', reason: 'NO_SENDER' };
 
       const form = new URLSearchParams({ To: to, Body: text });
@@ -144,10 +146,10 @@ function vonageProvider(apiKey: string): SmsProvider {
   return {
     name: 'vonage',
     async send({ to, text }) {
-      const secret = process.env.VONAGE_API_SECRET;
+      const secret = env('VONAGE_API_SECRET');
       if (!secret) return { ok: false, provider: 'vonage', reason: 'NO_API_SECRET' };
 
-      const from = process.env.VONAGE_FROM ?? process.env.SMS_SENDER ?? 'Tetrin';
+      const from = env('VONAGE_FROM') ?? env('SMS_SENDER') ?? 'Tetrin';
 
       try {
         const response = await fetch('https://rest.nexmo.com/sms/json', {
@@ -213,11 +215,11 @@ function httpProvider(endpoint: string): SmsProvider {
   return {
     name: 'http',
     async send({ to, text }) {
-      const token = process.env.SMS_TOKEN;
-      const scheme = process.env.SMS_AUTH_SCHEME ?? 'Bearer';
-      const sender = process.env.SMS_SENDER ?? 'Tetrin';
+      const token = env('SMS_TOKEN');
+      const scheme = env('SMS_AUTH_SCHEME') ?? 'Bearer';
+      const sender = env('SMS_SENDER') ?? 'Tetrin';
       const template =
-        process.env.SMS_BODY ?? '{"to":"{to}","from":"{sender}","text":"{text}"}';
+        env('SMS_BODY') ?? '{"to":"{to}","from":"{sender}","text":"{text}"}';
 
       /* Подстановка через JSON.stringify каждой части, а не склейкой:
          текст кода содержит перевод строки, и наивная склейка сделала бы
@@ -288,7 +290,7 @@ let resolved: SmsProvider | null = null;
 export function smsProvider(): SmsProvider {
   if (resolved) return resolved;
 
-  const sink = process.env.SMS_TEST_SINK;
+  const sink = env('SMS_TEST_SINK');
   if (sink && process.env.NODE_ENV !== 'production') {
     resolved = sinkProvider(sink);
     return resolved;
@@ -296,19 +298,19 @@ export function smsProvider(): SmsProvider {
 
   /* Именные провайдеры раньше общего шаблона: если заданы оба, значит
      оператора выбрали осознанно, а `SMS_ENDPOINT` остался от прежнего. */
-  const twilio = process.env.TWILIO_ACCOUNT_SID;
+  const twilio = env('TWILIO_ACCOUNT_SID');
   if (twilio) {
     resolved = twilioProvider(twilio);
     return resolved;
   }
 
-  const vonage = process.env.VONAGE_API_KEY;
+  const vonage = env('VONAGE_API_KEY');
   if (vonage) {
     resolved = vonageProvider(vonage);
     return resolved;
   }
 
-  const endpoint = process.env.SMS_ENDPOINT;
+  const endpoint = env('SMS_ENDPOINT');
   if (endpoint) {
     resolved = httpProvider(endpoint);
     return resolved;

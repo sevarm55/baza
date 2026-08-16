@@ -4,6 +4,7 @@ import { db } from './db';
 import { knownDevices } from './db/schema';
 import { failCount } from './login-guard';
 import { deviceLabel } from './security-log';
+import { env } from './env';
 
 /**
  * Нужно ли спрашивать код из SMS при обычном входе.
@@ -46,7 +47,7 @@ export type DeviceSignals = {
 };
 
 function pepper(): string {
-  return process.env.DEVICE_SECRET ?? process.env.SESSION_SECRET ?? 'dev-only-device-secret';
+  return env('DEVICE_SECRET') ?? env('SESSION_SECRET') ?? 'dev-only-device-secret';
 }
 
 /**

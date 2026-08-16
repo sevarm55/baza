@@ -6,6 +6,7 @@ import { sendSms } from './sms';
 import { logSecurity, logSecurityInBackground } from './security-log';
 import { maskPhone } from './phone';
 import { CODE_LENGTH } from './otp-shared';
+import { env } from './env';
 import { DEFAULT_LOCALE, isLocale, type Locale } from './i18n';
 
 /**
@@ -89,10 +90,10 @@ export type VerifyResult<T = Record<string, unknown>> =
  * Одинаковым с сессионным ключ не станет никогда.
  */
 function pepper(): string {
-  const own = process.env.OTP_SECRET;
+  const own = env('OTP_SECRET');
   if (own) return own;
 
-  const session = process.env.SESSION_SECRET;
+  const session = env('SESSION_SECRET');
   if (session) return `otp:${session}`;
 
   if (process.env.NODE_ENV === 'production') {
