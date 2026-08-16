@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getPeriodStats, getTenant } from '@/lib/queries';
-import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
+import { currencySymbol, formatAmount, toMajor } from '@/lib/money';
 import { expenseHints, getPeriodCosts, listPeriodExpenses } from '@/lib/expenses';
 import { windowFor } from '@/lib/summary-window';
 import { startOfDaysAgo, ymd } from '@/lib/time';
@@ -80,7 +80,6 @@ export default async function ExpensesPage({
   ]);
 
   const zone = tenant.timezone;
-  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   // у драма нет копеек, у рубля есть — шаг ввода берём из валюты
   const step = toMajor(1, tenant.currency);
   /* Часы читает `lib/time`, а не разметка: `Date.now()` в теле
@@ -142,7 +141,6 @@ export default async function ExpensesPage({
   /* Номинал действующих постоянных: под накопленной долей должно стоять
      то, из чего она набежала. */
   const monthlyNominal = monthly.reduce((sum, e) => sum + e.amount, 0);
-  const biggest = [...rows].sort((a, b) => b.share - a.share)[0] ?? null;
 
   return (
     <>
@@ -176,26 +174,20 @@ export default async function ExpensesPage({
         monthName={monthName}
       />
 
-      {/* Операционная строка — предложением, а не четвёртой карточкой.
-          Сколько записей и что из них весит больше всех: «главный
-          расход — аренда» это ответ, за которым иначе пришлось бы
-          сравнивать строки списка глазами. */}
-      {rows.length > 0 && (
-        <p className="quick">
-          <b className="num">{rows.length}</b> {t.expenses.records(rows.length)}
-          {/* Самый крупный расход называется, только когда есть из чего
-              выбирать: под единственной строкой «самый большой» — это её
-              же название, написанное второй раз. */}
-          {rows.length > 1 && biggest && biggest.share > 0 && (
-            <>
-              <i />
-              {t.expenses.biggest} <b>{biggest.category}</b>{' '}
-              <b className="num">{money(biggest.share)}</b>
-            </>
-          )}
-        </p>
-      )}
+      {/* Здесь стояла операционная строка: «3 записи · больше всего
+          аренда 154 839 ֏». Она ушла вместе с ещё одним переключателем и
+          вот почему.
 
+          Между заголовком раздела и первой настоящей строкой набралось
+          шесть слоёв: заголовок, пояснение, месяцы, кнопка, плита с
+          полосой, строка фактов и фильтр по виду. Шесть — это не
+          иерархия, это лестница, и по ней глаз спускается вместо того,
+          чтобы прочитать ответ.
+
+          Счётчик записей и так стоит у заголовков обеих панелей, а
+          «больше всего» на списке из трёх строк — это первая же строка,
+          названная второй раз. На списке из тридцати он был бы полезен,
+          но раздел с тридцатью расходами в месяц ещё поискать. */}
       <div className="mt-[var(--seam)]">
         <ExpenseList
           monthly={monthly}

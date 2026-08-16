@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { Building2 } from 'lucide-react';
 import { Bell } from '@/components/bell';
+import { Wordmark } from '@/components/wordmark';
 import type { Alert } from '@/lib/alerts';
-import { Logo } from '@/components/logo';
 import { SideNav } from '@/components/side-nav';
 import { PointSwitcher } from '@/components/point-switcher';
 import { SidebarAccountMenu } from '@/components/sidebar-account-menu';
@@ -44,18 +43,36 @@ export async function Rail({
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="relative gap-2 px-2 pt-3 pb-2">
+      <SidebarHeader className="relative gap-2.5 px-2 pt-3.5 pb-1">
         <SidebarMenu>
           <SidebarMenuItem>
+            {/* Марка — набранная, а не нарисованная.
+
+                Квадратная иконка приложения рядом со словом «TETRIN»
+                повторяла его же: два раза одно имя, и колонка начиналась
+                с картинки, а не с продукта. Осталось слово — разрядка
+                .18em, полужирный, тот же набор, что на витрине.
+
+                В свёрнутой колонке от него остаётся одна буква: шестьдесят
+                восемь точек не держат восемь знаков в разрядку, а
+                обрезанное «TET…» читается поломкой, а не сокращением. */}
             <SidebarMenuButton
               render={<Link href="/owner" aria-label={t.app.name} />}
               size="lg"
               tooltip={t.app.name}
             >
-              <Logo size={32} withName={false} className="shrink-0" />
-              <span className="truncate font-bold tracking-[.18em]">
-                {t.app.name.toUpperCase()}
+              {/* Свёрнутая колонка: одна буква по центру, ровно над
+                  столбиком значков. Буква — не значок, и правила
+                  центровки, которые колонка применяет к svg, до неё не
+                  доходят; поэтому ширина во всю строку и текст по
+                  середине. */}
+              <span
+                aria-hidden
+                className="wordmark hidden w-full shrink-0 text-center text-[17px] group-data-[collapsible=icon]:inline-block"
+              >
+                {t.app.name.charAt(0).toUpperCase()}
               </span>
+              <Wordmark className="text-[14px] group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
             <SidebarTrigger
               aria-label={t.common.collapse}
@@ -65,32 +82,33 @@ export async function Rail({
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <SidebarSeparator className="mx-1 my-1" />
-
         <SidebarMenu>
           <SidebarMenuItem>
             {many ? (
               <PointSwitcher points={points!} currentId={currentTid!} subtitle={userName} sidebar />
             ) : (
-              <SidebarMenuButton
-                render={<div />}
-                size="lg"
-                tooltip={tenantName}
+              /* Карточка бизнеса, а не строка меню.
+
+                 Значок дома в квадрате стоял тут вместо ответа: он
+                 сообщал «это бизнес», хотя это и так единственное имя
+                 собственное в колонке. Осталось само имя и точка под
+                 ним, на своей подложке с волосяной рамкой — так их видно
+                 как один предмет, а не как ещё два пункта меню. */
+              <div
+                className="mx-1 grid gap-0.5 rounded-lg border border-sidebar-border bg-background px-2.5 py-2 group-data-[collapsible=icon]:hidden"
                 aria-label={`${tenantName} · ${userName}`}
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-sidebar-accent-foreground">
-                  <Building2 className="size-4" aria-hidden="true" />
+                <span className="truncate text-[13px] font-semibold leading-tight">
+                  {tenantName}
                 </span>
-                <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{tenantName}</span>
-                  <span className="truncate text-xs text-sidebar-foreground/60">{userName}</span>
+                <span className="truncate text-[11.5px] leading-tight text-sidebar-foreground/55">
+                  {userName}
                 </span>
-              </SidebarMenuButton>
+              </div>
             )}
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <SidebarSeparator className="mx-1 mt-1" />
       </SidebarHeader>
 
       <SidebarContent>
