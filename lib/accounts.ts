@@ -200,13 +200,37 @@ export class PhoneTakenError extends Error {
  * Номер после удаления бизнеса освобождается не здесь, а тем, что
  * `deleteBusiness` уносит человека без единого участия.
  */
-export async function claimAccount(input: { phone: string; pinHash: string }): Promise<Account> {
+export async function claimAccount(input: {
+  phone: string;
+  pinHash: string;
+  /**
+   * Доказан ли номер.
+   *
+   * Ставится ровно там, где регистрация прошла через код из SMS. Никакой
+   * вызывающий не имеет права передать сюда true «за компанию»: значение
+   * этого поля решает, можно ли потом восстановить доступ по SMS, то
+   * есть отдать аккаунт предъявителю номера.
+   */
+  phoneVerified?: boolean;
+}): Promise<Account> {
   const [created] = await db
     .insert(accounts)
-    .values({ phone: input.phone, pinHash: input.pinHash })
+    .values({
+      phone: input.phone,
+      pinHash: input.pinHash,
+      phoneVerifiedAt: input.phoneVerified ? new Date() : null,
+    })
     .onConflictDoNothing({ target: accounts.phone })
     .returning();
 
   if (!created) throw new PhoneTakenError();
   return created;
+}
+
+/** Отметить, что номер человека доказан кодом из SMS. */
+export async function markPhoneVerified(accountId: string): Promise<void> {
+  await db
+    .update(accounts)
+    .set({ phoneVerifiedAt: new Date() })
+    .where(eq(accounts.id, accountId));
 }

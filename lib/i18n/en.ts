@@ -174,7 +174,7 @@ export const en: Dict = {
     wrongCredentials: 'Wrong phone or PIN',
     phoneTaken: 'This number is already registered',
 
-    pinHint: '4 digits',
+    pinHint: '6 digits',
     tooManyTries: (minutes: number) =>
       `Too many attempts. Try again in ${minutes} ${pl(minutes, 'minute', 'minutes')}.`,
 
@@ -183,6 +183,54 @@ export const en: Dict = {
     newPin: 'New PIN',
     wrongPin: 'The current PIN is wrong',
     pinChangedNote: 'After the change every device signs out, including this one.',
+    welcome: 'Welcome back',
+    welcomeSub: 'Sign in to continue',
+    createTitle: 'Create your car wash',
+    createSub: 'Setup takes less than a minute',
+    signingIn: 'Signing in…',
+    sending: 'Sending…',
+    checking: 'Checking…',
+    forgotPin: 'Forgot your PIN?',
+    createPin: 'Create a PIN',
+    pinMemo: 'Use 6 digits you will remember',
+
+    otpTitle: 'Confirm your number',
+    otpSent: (phone: string) => `We sent a code to ${phone}`,
+    otpCode: 'Code from SMS',
+    otpVerify: 'Confirm',
+    otpResend: 'Send the code again',
+    otpResendIn: (mmss: string) => `Send again in ${mmss}`,
+    otpResendsLeft: (n: number) => `${n} attempts left`,
+
+    stepUpTitle: 'Extra check',
+    stepUpSub: (phone: string) => `Sign-in from an unfamiliar device. We sent a code to ${phone}`,
+
+    resetTitle: 'Reset your PIN',
+    resetSub: 'Enter your number — we will send a confirmation code',
+    resetSend: 'Send the code',
+    resetSave: 'Save the new PIN',
+    resetDone: 'PIN changed',
+    resetDoneNote: 'All other devices have been signed out.',
+    backToSignIn: 'Back to sign in',
+
+    pinGroup: (n: number) => `PIN code, ${n} digits`,
+    otpGroup: (n: number) => `Confirmation code, ${n} digits`,
+    showCode: 'Show code',
+    hideCode: 'Hide code',
+    entered: (n: number, total: number) => `${n} of ${total} entered`,
+    country: 'Country code',
+
+    otpInvalid: 'That code is wrong',
+    otpExpired: 'The code expired. Ask for a new one.',
+    otpTooMany: 'Too many attempts. Ask for a new code.',
+    otpResendTooSoon: 'Wait a moment before asking for a new code',
+    smsFailed: 'Could not send the SMS. Try again shortly.',
+    pinTrivial: 'Pick a less obvious PIN',
+
+    verifyPhone: 'Confirm your number',
+    verifyPhoneNote: 'Without a confirmed number your PIN cannot be recovered. Takes half a minute.',
+    verifyNow: 'Confirm',
+    verified: 'Number confirmed',
   },
 
   onboarding: {

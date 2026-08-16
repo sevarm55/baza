@@ -74,7 +74,7 @@ export async function readToken(token: string): Promise<Claims | null> {
 
 export async function startSession(
   session: Session,
-  opts: { kind?: 'web' | 'app'; device?: string } = {},
+  opts: { kind?: 'web' | 'app'; device?: string | null } = {},
 ): Promise<string> {
   const [row] = await db
     .insert(sessions)
@@ -353,7 +353,7 @@ export async function switchSession(next: {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   const claims = token ? await readToken(token) : null;
-  if (!claims) redirect('/login');
+  if (!claims) redirect('/?auth=signIn');
 
   const [ver] = await db
     .select({ n: accounts.tokenVersion })
@@ -415,7 +415,7 @@ export async function requireSession(): Promise<Session> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   const claims = token ? await readToken(token) : null;
-  if (!claims) redirect('/login');
+  if (!claims) redirect('/?auth=signIn');
 
   // отзыв проверяется здесь, а не в getSession: здесь решается доступ
   if (!(await sessionAlive(claims))) redirect('/session-ended');

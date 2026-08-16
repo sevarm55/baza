@@ -6,6 +6,10 @@
  * снимки цен, атомарность записи, изоляцию бизнесов друг от друга.
  */
 process.env.PGLITE_DIR = 'memory://';
+/* Код из SMS проверке нужен, а телефона у неё нет: провайдер дописывает
+   отправленное в файл, и проверка читает код оттуда. Настоящий код,
+   настоящие сроки и счётчики — подменена только доставка. */
+process.env.SMS_TEST_SINK = './.data/smoke-sms.log';
 
 import { spawn } from 'node:child_process';
 
@@ -45,7 +49,7 @@ async function main() {
     businessName: 'Ավտոլվացում Կոմիտասի վրա',
     ownerName: 'Արամ',
     phone: '077 111 222',
-    pin: '1234',
+    pin: '511234',
   });
 
   console.log('бизнес:', tenant.name);
@@ -69,7 +73,7 @@ async function main() {
     .values({
       tenantId: tenant.id,
       phone: '+37477333444',
-      pinHash: await hashPin('5678'),
+      pinHash: await hashPin('595678'),
       name: 'Աշոտ',
       role: 'staff',
       percent: 40,
@@ -146,7 +150,7 @@ async function main() {
     businessName: 'Ատամնաբուժարան',
     ownerName: 'Անի',
     phone: '077 999 888',
-    pin: '4321',
+    pin: '604321',
   });
   const otherStats = await q.getPeriodStats(second.tenant.id, today);
   check('второй бизнес не видит чужих денег', otherStats.revenue === 0, otherStats.revenue);
@@ -173,7 +177,7 @@ async function main() {
   try {
     await createBusiness({
       niche: 'barber', businessName: 'X', ownerName: 'Y',
-      phone: '+374 77 111 222', pin: '0000',
+      phone: '+374 77 111 222', pin: '130000',
     });
   } catch {
     phoneBlocked = true;
@@ -618,7 +622,7 @@ async function main() {
     .values({
       tenantId: tenant.id,
       phone: freePhone,
-      pinHash: await hp('1234'),
+      pinHash: await hp('511234'),
       name: 'Ничей',
       role: 'staff',
       percent: 10,
@@ -626,7 +630,7 @@ async function main() {
     .returning();
   const healed = await accountOf(lonely);
   check('участие без человека чинится', healed.phone === freePhone);
-  check('и чинится СВОИМ кодом', await vp('1234', healed.pinHash));
+  check('и чинится СВОИМ кодом', await vp('511234', healed.pinHash));
   const [linked] = await db.select().from(users).where(eq(users.id, lonely.id));
   check('привязка записана', linked.accountId === healed.id);
   await db.delete(users).where(eq(users.id, lonely.id));
@@ -634,13 +638,13 @@ async function main() {
 
   // а вот занятый чужим человеком номер усыновлять нельзя
   const strayPhone = '+37477000777';
-  const stray = await claimAccount({ phone: strayPhone, pinHash: await hp('8888') });
+  const stray = await claimAccount({ phone: strayPhone, pinHash: await hp('298888') });
   const [orphaned] = await db
     .insert(users)
     .values({
       tenantId: tenant.id,
       phone: strayPhone,
-      pinHash: await hp('1234'),
+      pinHash: await hp('511234'),
       name: 'Тёзка',
       role: 'staff',
       percent: 10,
@@ -655,7 +659,7 @@ async function main() {
     .select()
     .from(accountsTable)
     .where(eq(accountsTable.id, stray.id));
-  check('и его код цел', await vp('8888', untouchedStray.pinHash));
+  check('и его код цел', await vp('298888', untouchedStray.pinHash));
   await db.delete(users).where(eq(users.id, orphaned.id));
   await db.delete(accountsTable).where(eq(accountsTable.id, stray.id));
 
@@ -663,7 +667,7 @@ async function main() {
      между чтением и вставкой помещается вторая такая же регистрация, и
      первая версия кода в этом окне переписывала чужой код своим. */
   let raced = false;
-  await claimAccount({ phone: ownerRow.phone, pinHash: await hp('0000') }).catch(() => {
+  await claimAccount({ phone: ownerRow.phone, pinHash: await hp('130000') }).catch(() => {
     raced = true;
   });
   check('занятый номер человеком не перехватывается', raced);
@@ -804,12 +808,12 @@ async function main() {
     });
 
   // владелец бизнеса №1 заводился с PIN 1234
-  const bad = await login(post('/login', { phone: '077 111 222', pin: '9999' }));
+  const bad = await login(post('/login', { phone: '077 111 222', pin: '069999' }));
   check('неверный PIN — 401', bad.status === 401, bad.status);
   check('и код, а не текст', (await bad.json()).error === 'WRONG_CREDENTIALS');
 
   const good = await login(
-    post('/login', { phone: '077 111 222', pin: '1234', device: 'iPhone 13' }),
+    post('/login', { phone: '077 111 222', pin: '511234', device: 'iPhone 13' }),
   );
   check('верный PIN — 200', good.status === 200, good.status);
   const tokens = await good.json();
@@ -893,7 +897,7 @@ async function main() {
   check('и сессия умирает', afterBye.status === 401, afterBye.status);
 
   // входим заново: дальше по файлу нужна живая пара
-  const backIn = await login(post('/login', { phone: '077 111 222', pin: '1234' }));
+  const backIn = await login(post('/login', { phone: '077 111 222', pin: '511234' }));
   check('после выхода можно войти снова', backIn.status === 200, backIn.status);
   rotated = await backIn.json();
 
@@ -973,20 +977,20 @@ async function main() {
   check('будущее не рисуется', hours[hours.length - 1] === '20', hours[hours.length - 1]);
 
   // уволенного не пускают: выше по скрипту мойщику сняли active
-  const fired = await login(post('/login', { phone: '077 333 444', pin: '5678' }));
+  const fired = await login(post('/login', { phone: '077 333 444', pin: '595678' }));
   check('уволенный сотрудник не входит', fired.status === 401, fired.status);
 
   // сотрудник в кабинет владельца не ходит
   await db.insert(users).values({
     tenantId: tenant.id,
     phone: '+37477555666',
-    pinHash: await hashPin('2468'),
+    pinHash: await hashPin('892468'),
     name: 'Գագիկ',
     role: 'staff',
     percent: 35,
   });
 
-  const staffLogin = await login(post('/login', { phone: '077 555 666', pin: '2468' }));
+  const staffLogin = await login(post('/login', { phone: '077 555 666', pin: '892468' }));
   check('действующий сотрудник входит', staffLogin.status === 200, staffLogin.status);
   const staffTokens = await staffLogin.json();
 
@@ -1000,6 +1004,41 @@ async function main() {
 
   const nichesRoute = (await import('../app/api/v1/niches/route')).GET;
   const registerRoute = (await import('../app/api/v1/auth/register/route')).POST;
+
+  /* Регистрация стала двухшаговой: заявка → код из SMS → бизнес.
+     Помощник проходит оба шага и отдаёт ответ второго — тот самый, что
+     раньше отдавал единственный. */
+  const { readFileSync: readSink, writeFileSync: resetSink } = await import('node:fs');
+  const { mkdirSync } = await import('node:fs');
+  mkdirSync('./.data', { recursive: true });
+  resetSink(process.env.SMS_TEST_SINK!, '');
+
+  const smsCode = (phone: string): string => {
+    const lines = readSink(process.env.SMS_TEST_SINK!, 'utf8').trim().split('\n').filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const row = JSON.parse(lines[i]) as { to: string; text: string };
+      if (row.to !== phone) continue;
+      const m = /Tetrin:\s(\d{6})/.exec(row.text);
+      if (m) return m[1];
+    }
+    throw new Error(`код для ${phone} не отправлен`);
+  };
+
+  const verifyRoute = (await import('../app/api/v1/auth/register/verify/route')).POST;
+
+  const registerFully = async (payload: Record<string, unknown>) => {
+    const started = await registerRoute(post('/register', payload));
+    if (started.status !== 202) return started;
+    const { challengeId } = (await started.json()) as { challengeId: string };
+    const { normalizePhone } = await import('../lib/phone');
+    return verifyRoute(
+      post('/register/verify', {
+        challengeId,
+        code: smsCode(normalizePhone(String(payload.phone))),
+        device: payload.device,
+      }),
+    );
+  };
 
   const nichesRes = nichesRoute();
   const nichesBody = await nichesRes.json();
@@ -1024,16 +1063,14 @@ async function main() {
     nichesBody.niches,
   );
 
-  const born = await registerRoute(
-    post('/register', {
+  const born = await registerFully({
       niche: nichesBody.niches[0].key,
       businessName: 'Նոր բիզնես',
       ownerName: 'Կարեն',
       phone: '077 654 321',
-      pin: '9876',
+      pin: '459876',
       device: 'iPhone',
-    }),
-  );
+  });
   check('бизнес регистрируется из приложения', born.status === 201, born.status);
   const bornBody = await born.json();
   check('и сразу выдаются токены', typeof bornBody.access === 'string' && bornBody.refresh);
@@ -1051,7 +1088,7 @@ async function main() {
       businessName: 'Другой',
       ownerName: 'Другой',
       phone: '077 654 321',
-      pin: '1111',
+      pin: '901111',
     }),
   );
   check('тот же телефон второй раз — отказ', sameAgain.status === 409, sameAgain.status);
@@ -1062,7 +1099,7 @@ async function main() {
       businessName: 'Кто-то',
       ownerName: 'Кто-то',
       phone: '077 654 999',
-      pin: '2222',
+      pin: '672222',
     }),
   );
   // ниша выключена флагом; эндпоинт открыт наружу, и прямым запросом
@@ -1095,13 +1132,13 @@ async function main() {
   check('сотруднику прайс править нельзя', byStaff.status === 403, byStaff.status);
 
   const hired = await staffRoute.POST(
-    post('/staff', { name: 'Վարդան', phone: '077 777 000', pin: '1357', percent: 45 }, rotated.access),
+    post('/staff', { name: 'Վարդան', phone: '077 777 000', pin: '121357', percent: 45 }, rotated.access),
   );
   check('сотрудник заводится', hired.status === 201, hired.status);
   const hiredId = (await hired.json()).staff.id;
 
   const dup = await staffRoute.POST(
-    post('/staff', { name: 'Другой', phone: '077 777 000', pin: '2468', percent: 10 }, rotated.access),
+    post('/staff', { name: 'Другой', phone: '077 777 000', pin: '892468', percent: 10 }, rotated.access),
   );
   check('тот же телефон второй раз — отказ', dup.status === 409, dup.status);
 
@@ -1154,7 +1191,7 @@ async function main() {
 
   /* Уволенный теряет доступ СРАЗУ, а не через месяц. Раньше у него
      оставался живой токен на весь его срок — это и проверяем. */
-  const hiredLogin = await login(post('/login', { phone: '077 777 000', pin: '1357' }));
+  const hiredLogin = await login(post('/login', { phone: '077 777 000', pin: '121357' }));
   const hiredTokens = await hiredLogin.json();
   check('новый сотрудник входит', hiredLogin.status === 200, hiredLogin.status);
 
@@ -1273,10 +1310,10 @@ async function main() {
     tenantId: tenant.id,
     name: 'Նորեկ',
     phone: '+37455000192',
-    pin: '3355',
+    pin: '983355',
     percent: 30,
   });
-  const rookieLogin = await login(post('/login', { phone: '+37455000192', pin: '3355' }));
+  const rookieLogin = await login(post('/login', { phone: '+37455000192', pin: '983355' }));
   const rookieTokens = await rookieLogin.json();
 
   const offShift = await ordersRoute.POST(
@@ -1684,17 +1721,17 @@ async function main() {
      Ради этого поле tokenVersion и заводилось — если сессии переживут
      смену, то тот, у кого старый PIN уже есть, продолжит работать. */
   const wrongOld = await pinApi.POST(
-    post('/profile/pin', { current: '0000', next: '5555' }, rotated.access),
+    post('/profile/pin', { current: '130000', next: '985555' }, rotated.access),
   );
   check('со старым неверным — отказ', wrongOld.status === 401, wrongOld.status);
 
   const shortPin = await pinApi.POST(
-    post('/profile/pin', { current: '1234', next: '12' }, rotated.access),
+    post('/profile/pin', { current: '511234', next: '12' }, rotated.access),
   );
   check('короткий новый не проходит', shortPin.status === 400, shortPin.status);
 
   const changed = await pinApi.POST(
-    post('/profile/pin', { current: '1234', next: '5555', device: 'iPhone' }, rotated.access),
+    post('/profile/pin', { current: '511234', next: '985555', device: 'iPhone' }, rotated.access),
   );
   check('PIN меняется', changed.status === 200, changed.status);
   const fresh = await changed.json();
@@ -1705,9 +1742,9 @@ async function main() {
   const newToken = await bootstrap(get('/bootstrap', fresh.access));
   check('а новый работает', newToken.status === 200, newToken.status);
 
-  const oldPinLogin = await login(post('/login', { phone: '077 111 222', pin: '1234' }));
+  const oldPinLogin = await login(post('/login', { phone: '077 111 222', pin: '511234' }));
   check('по старому PIN больше не войти', oldPinLogin.status === 401, oldPinLogin.status);
-  const newPinLogin = await login(post('/login', { phone: '077 111 222', pin: '5555' }));
+  const newPinLogin = await login(post('/login', { phone: '077 111 222', pin: '985555' }));
   check('по новому — входит', newPinLogin.status === 200, newPinLogin.status);
 
   // дальше по файлу владелец ходит этим токеном
@@ -2072,18 +2109,18 @@ async function main() {
   await staffRoute.POST(
     post(
       '/staff',
-      { name: 'Հասմիկ', phone: '077 654 322', pin: '4321', percent: 30 },
+      { name: 'Հասմիկ', phone: '077 654 322', pin: '604321', percent: 30 },
       bornBody.access,
     ),
   );
-  const helperRes = await login(post('/login', { phone: '077 654 322', pin: '4321' }));
+  const helperRes = await login(post('/login', { phone: '077 654 322', pin: '604321' }));
   const helper = await helperRes.json();
   check('сотрудник удаляемого бизнеса входит', helperRes.status === 200, helperRes.status);
 
-  const wipeByStaff = await accountRoute(del('/account', { pin: '4321' }, helper.access));
+  const wipeByStaff = await accountRoute(del('/account', { pin: '604321' }, helper.access));
   check('сотрудник удалить бизнес не может', wipeByStaff.status === 403, wipeByStaff.status);
 
-  const wrongPin = await accountRoute(del('/account', { pin: '0000' }, bornBody.access));
+  const wrongPin = await accountRoute(del('/account', { pin: '130000' }, bornBody.access));
   check('с неверным PIN — отказ', wrongPin.status === 401, wrongPin.status);
   check('и это WRONG_CREDENTIALS', (await wrongPin.json()).error === 'WRONG_CREDENTIALS');
   const survived = await bootstrap(get('/bootstrap', bornBody.access));
@@ -2091,7 +2128,7 @@ async function main() {
 
   const neighbourBefore = await db.select().from(orders).where(eq(orders.tenantId, tenant.id));
 
-  const wiped = await accountRoute(del('/account', { pin: '9876' }, bornBody.access));
+  const wiped = await accountRoute(del('/account', { pin: '459876' }, bornBody.access));
   check('владелец удаляет бизнес', wiped.status === 204, wiped.status);
   check('204 приходит без тела', (await wiped.text()) === '');
 
@@ -2125,16 +2162,14 @@ async function main() {
   const neighbourBoot = await bootstrap(get('/bootstrap', rotated.access));
   check('и его владелец работает дальше', neighbourBoot.status === 200, neighbourBoot.status);
 
-  const reborn = await registerRoute(
-    post('/register', {
+  const reborn = await registerFully({
       niche: nichesBody.niches[0].key,
       businessName: 'Կրկին',
       ownerName: 'Կարեն',
       phone: '077 654 321',
-      pin: '5555',
+      pin: '985555',
       device: 'iPhone',
-    }),
-  );
+  });
   check('номер освободился — можно завестись заново', reborn.status === 201, reborn.status);
 
   /* Отключённый за неуплату обязан иметь возможность уйти вместе со
@@ -2148,11 +2183,11 @@ async function main() {
   await staffRoute.POST(
     post(
       '/staff',
-      { name: 'Սամվել', phone: '077 654 323', pin: '4343', percent: 35 },
+      { name: 'Սամվել', phone: '077 654 323', pin: '144343', percent: 35 },
       rebornBody.access,
     ),
   );
-  const workerRes = await login(post('/login', { phone: '077 654 323', pin: '4343' }));
+  const workerRes = await login(post('/login', { phone: '077 654 323', pin: '144343' }));
   const worker = await workerRes.json();
   check('мойщик входит, пока счёт открыт', workerRes.status === 200, workerRes.status);
 
@@ -2195,7 +2230,7 @@ async function main() {
   /* Вход остаётся открытым намеренно — иначе мойщик упёрся бы в «неверный
      номер или код» и решил, что его уволили. Пускаем внутрь и там
      объясняем; работать всё равно нечем. */
-  const workerLogin = await login(post('/login', { phone: '077 654 323', pin: '4343' }));
+  const workerLogin = await login(post('/login', { phone: '077 654 323', pin: '144343' }));
   check('войти заново он может', workerLogin.status === 200, workerLogin.status);
   const freshShift = await shiftApi.GET(get('/shift', (await workerLogin.json()).access));
   check('но свежий токен так же пуст', freshShift.status === 403, freshShift.status);
@@ -2204,12 +2239,12 @@ async function main() {
      удаление открыты владельцу, а не всякому, кто остался в бизнесе. */
   const workerExport = await exportRoute.GET(get('/export?days=all', worker.access));
   check('выгрузка мойщику закрыта', workerExport.status === 403, workerExport.status);
-  const workerWipe = await accountRoute(del('/account', { pin: '4343' }, worker.access));
+  const workerWipe = await accountRoute(del('/account', { pin: '144343' }, worker.access));
   check('и удалить бизнес он не может', workerWipe.status === 403, workerWipe.status);
 
   const blockedExport = await exportRoute.GET(get('/export?days=all', rebornBody.access));
   check('но выгрузку он получает', blockedExport.status === 200, blockedExport.status);
-  const blockedWipe = await accountRoute(del('/account', { pin: '5555' }, rebornBody.access));
+  const blockedWipe = await accountRoute(del('/account', { pin: '985555' }, rebornBody.access));
   check('и удалить себя может', blockedWipe.status === 204, blockedWipe.status);
 
   /* ---------- наши деньги ----------
@@ -2278,7 +2313,7 @@ async function main() {
       businessName: 'Վարձի ստուգում',
       ownerName: 'Տ',
       phone: '077 555 111',
-      pin: '1234',
+      pin: '511234',
     })
   ).tenant;
 
@@ -2341,7 +2376,7 @@ async function main() {
     businessName: 'Դասերով լվացում',
     ownerName: 'Տիգրան',
     phone: '077 515 141',
-    pin: '1122',
+    pin: '671122',
   });
 
   const [tierWasher] = await db
@@ -2349,7 +2384,7 @@ async function main() {
     .values({
       tenantId: tierBiz.tenant.id,
       phone: '+37477515242',
-      pinHash: await hashPin('3344'),
+      pinHash: await hashPin('213344'),
       name: 'Կարեն',
       role: 'staff',
       percent: 40,
@@ -2468,7 +2503,7 @@ async function main() {
     businessName: 'Ցանց 1',
     ownerName: 'Սուրեն',
     phone: '077 313 001',
-    pin: '7711',
+    pin: '907711',
   });
   check('первая точка получает пробный срок', net1.trialGranted);
   check('и она открыта', currentAccess(net1.tenant).canRead, currentAccess(net1.tenant).state);
@@ -2502,7 +2537,7 @@ async function main() {
      физический порядок в куче, а его двигает любая правка. Владелец с
      неоплаченной второй точкой попадал бы на стену при работающей
      первой, и в приложении, где переключателя нет, застревал бы там. */
-  const netLogin = await login(post('/login', { phone: '077 313 001', pin: '7711' }));
+  const netLogin = await login(post('/login', { phone: '077 313 001', pin: '907711' }));
   check('вход по номеру с двумя точками проходит', netLogin.status === 200, netLogin.status);
   const netBody = await netLogin.json();
   const [landed] = await db.select().from(users).where(eq(users.id, netBody.user.id));
@@ -2526,7 +2561,7 @@ async function main() {
     .from(users)
     .where(and(eq(users.tenantId, net2.tenant.id), eq(users.accountId, human!.id)));
   await markUsed(onSecond.id);
-  const backAgain = await login(post('/login', { phone: '077 313 001', pin: '7711' }));
+  const backAgain = await login(post('/login', { phone: '077 313 001', pin: '907711' }));
   const backBody = await backAgain.json();
   const [landedAgain] = await db.select().from(users).where(eq(users.id, backBody.user.id));
   check(
@@ -2543,7 +2578,7 @@ async function main() {
     tenantId: net2.tenant.id,
     name: 'Կարեն',
     phone: '077 313 002',
-    pin: '2200',
+    pin: '132200',
     percent: 30,
   });
   check('новый человек нанимается', hired2.percent === 30);
@@ -2555,7 +2590,7 @@ async function main() {
       tenantId: net1.tenant.id,
       name: 'Կարեն',
       phone: '077 313 002',
-      pin: '9999',
+      pin: '069999',
       percent: 40,
     })
     .catch((e) => {
@@ -2567,7 +2602,7 @@ async function main() {
 
   /* Переход на другую точку из приложения. */
   const switchRoute = (await import('../app/api/v1/auth/switch/route')).POST;
-  const netTokens = await (await login(post('/login', { phone: '077 313 001', pin: '7711' }))).json();
+  const netTokens = await (await login(post('/login', { phone: '077 313 001', pin: '907711' }))).json();
   check('вход отдаёт список точек', netTokens.points.length === 2, netTokens.points?.length);
   check('и говорит, куда попал', netTokens.tenantId === net2.tenant.id, netTokens.tenantId);
 
@@ -2758,7 +2793,7 @@ async function main() {
     businessName: 'Триллион',
     ownerName: 'Богач',
     phone: '077 808 080',
-    pin: '1133',
+    pin: '441133',
   });
 
   const { addExpense: tryExpense, BadExpenseError } = await import('../lib/expenses');
@@ -2818,7 +2853,7 @@ async function main() {
     businessName: 'Кириллица',
     ownerName: 'Хозяин',
     phone: '077 707 070',
-    pin: '1144',
+    pin: '211144',
   });
   const cyrService = (await q.listServices(cyrBiz.tenant.id))[0];
 
@@ -2855,7 +2890,7 @@ async function main() {
     businessName: 'Округление',
     ownerName: 'Проверяющий',
     phone: '077 909 090',
-    pin: '1122',
+    pin: '671122',
   });
 
   const [oddWasher] = await db
@@ -2863,7 +2898,7 @@ async function main() {
     .values({
       tenantId: oddBiz.tenant.id,
       phone: '+37477909091',
-      pinHash: await hashPin('3344'),
+      pinHash: await hashPin('213344'),
       name: 'Դրոբնի',
       role: 'staff',
       percent: 33,

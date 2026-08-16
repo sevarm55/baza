@@ -30,9 +30,9 @@ const PRICES = [
 ] as const;
 
 const CREW = [
-  { name: 'Աշոտ', phone: '077 501 001', pin: '1111', percent: 30 },
-  { name: 'Դավիթ', phone: '077 501 002', pin: '2222', percent: 40 },
-  { name: 'Կարեն', phone: '077 501 003', pin: '3333', percent: 50 },
+  { name: 'Աշոտ', phone: '077 501 001', pin: '901111', percent: 30 },
+  { name: 'Դավիթ', phone: '077 501 002', pin: '672222', percent: 40 },
+  { name: 'Կարեն', phone: '077 501 003', pin: '443333', percent: 50 },
 ] as const;
 
 /** По две машины на каждого: у одного седан, у другого кроссовер. */
@@ -63,7 +63,7 @@ async function main() {
   await ensureDb();
 
   const OWNER_PHONE = '077 500 000';
-  const OWNER_PIN = '9090';
+  const OWNER_PIN = '439090';
 
   const { tenant, owner } = await createBusiness({
     niche: 'carwash',

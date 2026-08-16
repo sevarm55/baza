@@ -109,8 +109,8 @@ export function AddStaff({
               className="field auth-field num !text-center !text-[19px] !font-semibold"
               name="pin"
               inputMode="numeric"
-              pattern="\d{4}"
-              maxLength={4}
+              pattern="\d{6}"
+              maxLength={6}
               required
               autoComplete="off"
             />

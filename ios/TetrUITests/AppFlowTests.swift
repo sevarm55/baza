@@ -26,9 +26,9 @@ import XCTest
 final class AppFlowTests: XCTestCase {
     /// Демо-бизнес из `npm run db:fresh`. Меняется он же — меняем здесь.
     private let washerPhone = "99000001"
-    private let washerPin = "1357"
+    private let washerPin = "121357"
     private let ownerPhone = "99000000"
-    private let ownerPin = "2468"
+    private let ownerPin = "892468"
 
     override func setUp() {
         super.setUp()
@@ -112,7 +112,7 @@ final class AppFlowTests: XCTestCase {
 
     /// Неверный код: одна и та же ошибка на чужой номер и на чужой PIN.
     func testWrongPinKeepsUserOnLogin() {
-        let app = launch(phone: washerPhone, pin: "0000")
+        let app = launch(phone: washerPhone, pin: "130000")
         waitForLogin(app)
 
         submitLogin(app)

@@ -1,10 +1,16 @@
 import SwiftUI
 
-/// Вход: телефон и четыре цифры.
+/// Вход: телефон и шесть цифр.
 ///
 /// Ошибка на неверный телефон и на неверный PIN одна и та же — так же,
 /// как на сервере. Разные тексты превратили бы форму в способ узнать,
 /// кто зарегистрирован.
+///
+/// Второй шаг — код из SMS — появляется не всегда, а только когда
+/// сервер отвечает `STEP_UP_REQUIRED`: вход с незнакомого устройства
+/// или после серии неудачных попыток. В обычный день его нет, и это
+/// главное: SMS на каждый вход — не безопасность, а налог, который
+/// владелец мойки платит каждое утро.
 struct LoginView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
@@ -14,10 +20,24 @@ struct LoginView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var manual = false
+
+    /// Заявка на код из SMS. Не nil — значит показываем второй шаг.
+    @State private var stepUp: StepUp?
+    @State private var code = ""
+
     @FocusState private var focus: Field?
     @Environment(\.splashActive) private var splashActive
 
-    private enum Field { case phone, pin }
+    private enum Field { case phone, pin, code }
+
+    /// Что известно про ожидаемый код: чем подтверждать и куда он ушёл.
+    private struct StepUp: Equatable {
+        let id: String
+        let phone: String
+    }
+
+    private static let pinLength = 6
+    private static let codeLength = 6
 
     /**
      * Предзаполнение формы для проверки на локальном сервере.
@@ -51,12 +71,15 @@ struct LoginView: View {
                     .tracking(4)
                     .foregroundStyle(Brand.lime)
 
-                Text(session.rememberedAccount != nil && !manual ? L("auth.welcomeBack") : L("auth.signInTitle"))
+                Text(headline)
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.top, 10)
 
-                if let account = session.rememberedAccount, !manual {
+                if let waiting = stepUp {
+                    codeForm(waiting)
+                        .padding(.top, 34)
+                } else if let account = session.rememberedAccount, !manual {
                     remembered(account)
                         .padding(.top, 34)
                 } else {
@@ -83,6 +106,11 @@ struct LoginView: View {
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
+    }
+
+    private var headline: String {
+        if stepUp != nil { return L("auth.stepUpTitle") }
+        return session.rememberedAccount != nil && !manual ? "Կրկին բարև" : "Մուտք"
     }
 
     private func remembered(_ account: RememberedAccount) -> some View {
@@ -164,13 +192,17 @@ struct LoginView: View {
             }
 
             field(title: L("auth.pinField")) {
-                SecureField("••••", text: $pin)
+                SecureField("••••••", text: $pin)
                     .keyboardType(.numberPad)
+                    .textContentType(.password)
                     .focused($focus, equals: .pin)
                     .accessibilityIdentifier("login.pin")
                     .accessibilityLabel(L("auth.pin"))
                     .onChange(of: pin) { _, value in
-                        if value.count > 4 { pin = String(value.prefix(4)) }
+                        let digits = value.filter(\.isNumber)
+                        if digits != value || digits.count > Self.pinLength {
+                            pin = String(digits.prefix(Self.pinLength))
+                        }
                     }
             }
             .padding(.top, 16)
@@ -187,6 +219,10 @@ struct LoginView: View {
             }
             .accessibilityIdentifier("login.submit")
             .buttonStyle(LimeButton(loading: busy))
+            /* Четыре, а не шесть: столько цифр у всех, кто завёл
+               аккаунт до перехода на шестизначный код. Требовать шесть
+               значило бы запереть их снаружи. Длину нового кода
+               проверяет сервер — здесь код только вводят. */
             .disabled(busy || phone.isEmpty || pin.count < 4)
             .opacity(phone.isEmpty || pin.count < 4 ? 0.5 : 1)
             .padding(.top, 28)
@@ -197,6 +233,72 @@ struct LoginView: View {
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.top, 18)
+        }
+    }
+
+    /// Второй шаг: код из SMS. Появляется только по требованию сервера.
+    private func codeForm(_ waiting: StepUp) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(L("auth.stepUpSub", waiting.phone))
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
+
+            field(title: L("auth.otpCode")) {
+                TextField("••••••", text: $code)
+                    .keyboardType(.numberPad)
+                    /* Ради этой строки всё и затевалось: iOS сама
+                       предлагает код из только что пришедшей SMS, и
+                       человеку не надо уходить в «Сообщения». */
+                    .textContentType(.oneTimeCode)
+                    .focused($focus, equals: .code)
+                    .accessibilityIdentifier("login.code")
+                    .accessibilityLabel(L("auth.otpCode"))
+                    .onChange(of: code) { _, value in
+                        let digits = value.filter(\.isNumber)
+                        if digits != value || digits.count > Self.codeLength {
+                            code = String(digits.prefix(Self.codeLength))
+                        }
+                        // шесть цифр — отправляем сами, лишнее нажатие тут ни к чему
+                        if code.count == Self.codeLength { Task { await confirm(waiting) } }
+                    }
+            }
+            .padding(.top, 20)
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.lime)
+                    .padding(.top, 14)
+            }
+
+            Button(L("auth.otpVerify")) {
+                Task { await confirm(waiting) }
+            }
+            .accessibilityIdentifier("login.confirm")
+            .buttonStyle(LimeButton(loading: busy))
+            .disabled(busy || code.count < Self.codeLength)
+            .opacity(code.count < Self.codeLength ? 0.5 : 1)
+            .padding(.top, 26)
+
+            HStack(spacing: 18) {
+                Button(L("auth.otpResend")) {
+                    Task { await resend(waiting) }
+                }
+                .disabled(busy)
+
+                Button(L("common.back")) {
+                    stepUp = nil
+                    code = ""
+                    error = nil
+                    pin = ""
+                    focus = .pin
+                }
+            }
+            .font(.system(size: 13.5, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.72))
+            .frame(maxWidth: .infinity)
+            .padding(.top, 18)
         }
     }
 
@@ -234,10 +336,58 @@ struct LoginView: View {
         do {
             try await session.signIn(phone: phone, pin: pin)
         } catch let e as APIError {
+            /* Не отказ, а второй шаг: код подошёл, устройство сервер
+               видит впервые. Экран меняется, а не показывает ошибку —
+               человек всё сделал правильно. */
+            if e.code == "STEP_UP_REQUIRED", let id = e.challengeId {
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.96)) {
+                    stepUp = StepUp(id: id, phone: e.maskedPhone ?? "")
+                }
+                code = ""
+                focus = .code
+                return
+            }
             pin = ""
             error = message(for: e)
         } catch {
             self.error = L("payroll.failed")
+        }
+    }
+
+    private func confirm(_ waiting: StepUp) async {
+        guard !busy, code.count == Self.codeLength else { return }
+        busy = true
+        error = nil
+        defer { busy = false }
+
+        do {
+            try await session.completeStepUp(challengeId: waiting.id, code: code)
+        } catch let e as APIError {
+            code = ""
+            error = message(for: e)
+            /* Заявка сгорела — возвращаем к телефону и коду: другого
+               честного пути отсюда нет. */
+            if e.code == "OTP_EXPIRED" || e.code == "OTP_TOO_MANY" {
+                stepUp = nil
+                pin = ""
+                focus = .pin
+            }
+        } catch {
+            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
+        }
+    }
+
+    private func resend(_ waiting: StepUp) async {
+        busy = true
+        error = nil
+        defer { busy = false }
+
+        do {
+            try await session.resendCode(challengeId: waiting.id)
+        } catch let e as APIError {
+            error = message(for: e)
+        } catch {
+            self.error = "Չհաջողվեց։ Փորձեք կրկին։"
         }
     }
 
@@ -290,6 +440,14 @@ struct LoginView: View {
             return Ln("auth.tooManyTries", minutes)
         case "WRONG_CREDENTIALS":
             return L("auth.wrongCredentials")
+        case "OTP_INVALID":
+            return L("auth.otpInvalid")
+        case "OTP_EXPIRED":
+            return L("auth.otpExpired")
+        case "OTP_TOO_MANY":
+            return L("auth.otpTooMany")
+        case "SMS_FAILED":
+            return L("auth.smsFailed")
         default:
             return L("payroll.failed")
         }

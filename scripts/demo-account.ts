@@ -20,8 +20,8 @@ import { hashPin } from '../lib/pin';
 
 const OWNER_PHONE = '+37499000000';
 const STAFF_PHONE = '+37499000001';
-const OWNER_PIN = '2468';
-const STAFF_PIN = '1357';
+const OWNER_PIN = '892468';
+const STAFF_PIN = '121357';
 
 /* Сначала здесь стоял 00 000 000 — код оператора, которого в Армении нет
    и который поэтому не может достаться живому человеку. Номер оказался

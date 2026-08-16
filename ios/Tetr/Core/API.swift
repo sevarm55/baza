@@ -700,6 +700,15 @@ struct APIError: Error {
     let code: String?
     let retryAfter: Int?
 
+    /// Заявка на код из SMS — приходит вместе с `STEP_UP_REQUIRED`.
+    ///
+    /// Отказ здесь не окончательный: PIN подошёл, но вход идёт с
+    /// незнакомого устройства, и сервер ждёт код. Без этих двух полей
+    /// экрану не с чем открыть ввод кода, и «дополнительная проверка»
+    /// выглядела бы просто отказом.
+    var challengeId: String? = nil
+    var maskedPhone: String? = nil
+
     /// Сеть не ответила вовсе — запись уйдёт в очередь, а не потеряется.
     var isOffline: Bool { status == 0 }
     var isUnauthorized: Bool { status == 401 }
@@ -880,7 +889,9 @@ actor APIClient {
             throw APIError(
                 status: status,
                 code: json?["error"] as? String,
-                retryAfter: json?["retryAfter"] as? Int
+                retryAfter: json?["retryAfter"] as? Int,
+                challengeId: json?["challengeId"] as? String,
+                maskedPhone: json?["phone"] as? String
             )
         }
         return data

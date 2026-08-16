@@ -3,12 +3,14 @@ import { rememberedLoginEnabled, requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
-import { formatPhone } from '@/lib/phone';
+import { formatPhone, maskPhone } from '@/lib/phone';
 import { personColor } from '@/lib/person-color';
 import { Panel, Tile } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
+import { accountOf } from '@/lib/accounts';
 import { ChangePinForm } from './change-pin-form';
+import { VerifyPhonePanel } from './verify-phone-panel';
 import { RememberLoginToggle } from './remember-login-toggle';
 import { getDict } from '@/lib/i18n/server';
 import { LanguagePicker } from '@/components/language-picker';
@@ -43,6 +45,10 @@ export default async function ProfilePage() {
      своё название владельца проходит насквозь (см. terms.ts). */
   const tenant = localizeTenant(raw, t.locale);
 
+  /* Подтверждён ли номер — свойство человека, а не его работы на
+     точке. Панель показывается только тем, у кого он не подтверждён. */
+  const account = await accountOf(me);
+
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
 
@@ -75,6 +81,12 @@ export default async function ProfilePage() {
               </div>
             </div>
           </Panel>
+
+          {!account.phoneVerifiedAt && (
+            <Panel title={t.auth.verifyPhone}>
+              <VerifyPhonePanel phone={maskPhone(account.phone)} />
+            </Panel>
+          )}
 
           <Panel title={t.auth.changePin}>
             <ChangePinForm />

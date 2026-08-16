@@ -27,6 +27,12 @@ try {
 
 const BASE = process.env.BASE ?? 'http://localhost:3100';
 
+/* Чтение файла нужно в одном месте — за кодом из SMS. Импорт держим
+   рядом с использованием, чтобы прогон по проду его вообще не касался. */
+function requireFs() {
+  return { readFileSync };
+}
+
 /**
  * Писать разрешено только по своей машине.
  *
@@ -123,18 +129,51 @@ async function main() {
     return report();
   }
 
+  /* Регистрация стала двухшаговой: заявка → код из SMS → бизнес.
+     Код проверке взять неоткуда, поэтому сервер поднимают с
+     `SMS_TEST_SINK=<файл>` — провайдер дописывает туда отправленное.
+     Код при этом настоящий: случайный, одноразовый, с обычным сроком.
+     Подменена только доставка, а не проверка. */
+  const SINK = process.env.SMS_TEST_SINK ?? './.data/sms-test.log';
+
+  const smsCode = (to: string): string => {
+    const { readFileSync: read } = requireFs();
+    const lines = read(SINK, 'utf8').trim().split('\n').filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const row = JSON.parse(lines[i]) as { to: string; text: string };
+      if (row.to !== to) continue;
+      const m = /Tetrin:\s(\d{6})/.exec(row.text);
+      if (m) return m[1];
+    }
+    throw new Error(
+      `код для ${to} не найден в ${SINK}. Сервер запущен без SMS_TEST_SINK?`,
+    );
+  };
+
+  const registerFully = async (body: Record<string, unknown>) => {
+    const started = await api('/auth/register', { body });
+    if (started.status !== 202) return started;
+
+    const { normalizePhone } = await import('../lib/phone');
+    return api('/auth/register/verify', {
+      body: {
+        challengeId: started.json?.challengeId,
+        code: smsCode(normalizePhone(String(body.phone))),
+        device: body.device,
+      },
+    });
+  };
+
   /* ─────────────── регистрация ─────────────── */
   group('регистрация');
   const ownerPhone = phone(1);
-  const reg = await api('/auth/register', {
-    body: {
+  const reg = await registerFully({
       niche: 'carwash',
       businessName: 'Тест Мойка',
       ownerName: 'Тест Владелец',
       phone: ownerPhone,
-      pin: '2468',
+      pin: '892468',
       device: 'e2e',
-    },
   });
   check('регистрация проходит', reg.status === 201, reg.status);
   const owner = reg.json ?? {};
@@ -147,7 +186,7 @@ async function main() {
       businessName: 'Второй',
       ownerName: 'Второй',
       phone: ownerPhone,
-      pin: '1111',
+      pin: '901111',
       device: 'e2e',
     },
   });
@@ -155,9 +194,9 @@ async function main() {
   check('и код ошибки PHONE_TAKEN', dup.json?.error === 'PHONE_TAKEN', dup.json);
 
   for (const [what, payload] of [
-    ['ниша', { niche: 'нетакой', businessName: 'A', ownerName: 'B', phone: phone(2), pin: '1234' }],
-    ['имя', { niche: 'carwash', businessName: 'A', ownerName: 'B', phone: phone(3), pin: '1234' }],
-    ['телефон', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', phone: '123', pin: '1234' }],
+    ['ниша', { niche: 'нетакой', businessName: 'A', ownerName: 'B', phone: phone(2), pin: '511234' }],
+    ['имя', { niche: 'carwash', businessName: 'A', ownerName: 'B', phone: phone(3), pin: '511234' }],
+    ['телефон', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', phone: '123', pin: '511234' }],
     ['PIN', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', phone: phone(4), pin: '12' }],
   ] as const) {
     const bad = await api('/auth/register', { body: payload });
@@ -168,14 +207,14 @@ async function main() {
 
   /* ─────────────── вход ─────────────── */
   group('вход');
-  const login = await api('/auth/login', { body: { phone: ownerPhone, pin: '2468', device: 'e2e-2' } });
+  const login = await api('/auth/login', { body: { phone: ownerPhone, pin: '892468', device: 'e2e-2' } });
   check('вход с верным кодом', login.status === 200, login.json);
 
-  const wrong = await api('/auth/login', { body: { phone: ownerPhone, pin: '9999', device: 'x' } });
+  const wrong = await api('/auth/login', { body: { phone: ownerPhone, pin: '069999', device: 'x' } });
   check('неверный код — 401', wrong.status === 401, wrong.status);
   check('и код ошибки WRONG_CREDENTIALS', wrong.json?.error === 'WRONG_CREDENTIALS', wrong.json);
 
-  const nobody = await api('/auth/login', { body: { phone: phone(9), pin: '1234', device: 'x' } });
+  const nobody = await api('/auth/login', { body: { phone: phone(9), pin: '511234', device: 'x' } });
   check('несуществующий номер — 401, а не 404', nobody.status === 401, nobody.status);
 
   /* ─────────────── токены ─────────────── */
@@ -360,15 +399,13 @@ async function main() {
   /* ─────────────── чужое ─────────────── */
   group('изоляция бизнесов');
   const otherPhone = phone(50);
-  const other = await api('/auth/register', {
-    body: {
+  const other = await registerFully({
       niche: 'carwash',
       businessName: 'Чужая мойка',
       ownerName: 'Чужой',
       phone: otherPhone,
-      pin: '1357',
+      pin: '121357',
       device: 'e2e',
-    },
   });
   const otherToken = other.json?.access;
   check('второй бизнес создан', Boolean(otherToken), other.json);
@@ -392,7 +429,7 @@ async function main() {
   const staffPhone = phone(80);
   const hire = await api('/staff', {
     token,
-    body: { name: 'Мойщик', phone: staffPhone, pin: '4321', percent: 40 },
+    body: { name: 'Мойщик', phone: staffPhone, pin: '604321', percent: 40 },
   });
   check('работник нанимается', hire.status === 200 || hire.status === 201, hire.json);
 
@@ -406,7 +443,7 @@ async function main() {
   check('у человека известна смена', typeof hired?.onShift === 'boolean', hired);
   check('и долг', typeof hired?.due === 'number', hired);
 
-  const staffLogin = await api('/auth/login', { body: { phone: staffPhone, pin: '4321', device: 'e2e-staff' } });
+  const staffLogin = await api('/auth/login', { body: { phone: staffPhone, pin: '604321', device: 'e2e-staff' } });
   check('работник входит своим кодом', staffLogin.status === 200, staffLogin.json);
   const staffToken = staffLogin.json?.access;
 
@@ -541,24 +578,22 @@ async function main() {
   /* Проверяем не «запрос прошёл», а то, что после гонки цифры сходятся.
      Мойка — это два-три телефона во дворе и связь, которая пропадает;
      ошибки такого рода не ломают запрос, а тихо задваивают выручку. */
-  const raceOwner = await api('/auth/register', {
-    body: {
+  const raceOwner = await registerFully({
       niche: 'carwash', businessName: 'Гонки', ownerName: 'Вл',
-      phone: phone(50), pin: '2468', device: 'race',
-    },
+      phone: phone(50), pin: '892468', device: 'race',
   });
   const rt = raceOwner.json?.access as string;
   const raceSvc = await api('/services', { token: rt, body: { name: 'Мойка', price: 5000 } });
   const raceSvcId = raceSvc.json?.service?.id ?? raceSvc.json?.id;
 
   const oneMan = await api('/staff', {
-    token: rt, body: { name: 'Первый', phone: phone(51), pin: '1111', percent: 30 },
+    token: rt, body: { name: 'Первый', phone: phone(51), pin: '901111', percent: 30 },
   });
   const twoMan = await api('/staff', {
-    token: rt, body: { name: 'Второй', phone: phone(52), pin: '2222', percent: 50 },
+    token: rt, body: { name: 'Второй', phone: phone(52), pin: '672222', percent: 50 },
   });
-  const tA = (await api('/auth/login', { body: { phone: oneMan.json?.staff?.phone, pin: '1111', device: 'A' } })).json?.access;
-  const tB = (await api('/auth/login', { body: { phone: twoMan.json?.staff?.phone, pin: '2222', device: 'B' } })).json?.access;
+  const tA = (await api('/auth/login', { body: { phone: oneMan.json?.staff?.phone, pin: '901111', device: 'A' } })).json?.access;
+  const tB = (await api('/auth/login', { body: { phone: twoMan.json?.staff?.phone, pin: '672222', device: 'B' } })).json?.access;
   await api('/shift', { token: tA, body: { open: true } });
   await api('/shift', { token: tB, body: { open: true } });
 

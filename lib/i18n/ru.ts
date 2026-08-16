@@ -186,7 +186,7 @@ export const ru: Dict = {
     wrongCredentials: 'Неверный телефон или PIN',
     phoneTaken: 'Этот номер уже зарегистрирован',
 
-    pinHint: '4 цифры',
+    pinHint: '6 цифр',
     tooManyTries: (minutes: number) =>
       `Слишком много попыток. Повторите через ${minutes} ${pl(minutes, 'минуту', 'минуты', 'минут')}.`,
 
@@ -195,6 +195,54 @@ export const ru: Dict = {
     newPin: 'Новый PIN',
     wrongPin: 'Текущий PIN неверный',
     pinChangedNote: 'После смены выйдут все устройства, включая это.',
+    welcome: 'С возвращением',
+    welcomeSub: 'Войдите, чтобы продолжить работу',
+    createTitle: 'Создайте автомойку',
+    createSub: 'Настройка займёт меньше минуты',
+    signingIn: 'Входим…',
+    sending: 'Отправляем…',
+    checking: 'Проверяем…',
+    forgotPin: 'Забыли PIN?',
+    createPin: 'Создайте PIN',
+    pinMemo: 'Используйте 6 цифр, которые сможете запомнить',
+
+    otpTitle: 'Подтвердите номер',
+    otpSent: (phone: string) => `Мы отправили код на ${phone}`,
+    otpCode: 'Код из SMS',
+    otpVerify: 'Подтвердить',
+    otpResend: 'Отправить код повторно',
+    otpResendIn: (mmss: string) => `Отправить повторно через ${mmss}`,
+    otpResendsLeft: (n: number) => `Осталось попыток: ${n}`,
+
+    stepUpTitle: 'Дополнительная проверка',
+    stepUpSub: (phone: string) => `Вход с незнакомого устройства. Мы отправили код на ${phone}`,
+
+    resetTitle: 'Восстановление PIN',
+    resetSub: 'Введите номер — пришлём код подтверждения',
+    resetSend: 'Отправить код',
+    resetSave: 'Сохранить новый PIN',
+    resetDone: 'PIN изменён',
+    resetDoneNote: 'Все другие устройства вышли.',
+    backToSignIn: 'Вернуться ко входу',
+
+    pinGroup: (n: number) => `PIN-код, ${n} цифр`,
+    otpGroup: (n: number) => `Код подтверждения, ${n} цифр`,
+    showCode: 'Показать код',
+    hideCode: 'Скрыть код',
+    entered: (n: number, total: number) => `Введено ${n} из ${total}`,
+    country: 'Код страны',
+
+    otpInvalid: 'Код неверный',
+    otpExpired: 'Срок кода истёк. Запросите новый.',
+    otpTooMany: 'Слишком много попыток. Запросите новый код.',
+    otpResendTooSoon: 'Немного подождите перед новым кодом',
+    smsFailed: 'Не удалось отправить SMS. Попробуйте позже.',
+    pinTrivial: 'Выберите менее очевидный PIN',
+
+    verifyPhone: 'Подтвердите свой номер',
+    verifyPhoneNote: 'Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты.',
+    verifyNow: 'Подтвердить',
+    verified: 'Номер подтверждён',
   },
 
   onboarding: {

@@ -260,19 +260,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN կոդ · 4 նիշ"
+            "value": "PIN կոդ · 6 նիշ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN-код · 4 цифры"
+            "value": "PIN-код · 6 цифр"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN · 4 digits"
+            "value": "PIN code · 6 digits"
           }
         }
       }
@@ -9127,6 +9127,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "Work total"
+          }
+        }
+      }
+    },
+    "auth.stepUpTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verification"
+          }
+        }
+      }
+    },
+    "auth.stepUpSub": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход с незнакомого устройства. Мы отправили код на %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in from an unfamiliar device. We sent a code to %@"
+          }
+        }
+      }
+    },
+    "auth.otpCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդը SMS-ից"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код из SMS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code from SMS"
+          }
+        }
+      }
+    },
+    "auth.otpVerify": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հաստատել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтвердить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm"
+          }
+        }
+      }
+    },
+    "auth.otpResend": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ուղարկել կրկին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить снова"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send again"
+          }
+        }
+      }
+    },
+    "auth.otpInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդը սխալ է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код неверный"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That code is wrong"
+          }
+        }
+      }
+    },
+    "auth.otpExpired": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կոդի ժամկետն անցել է։ Խնդրեք նորը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок кода истёк. Запросите новый."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code expired. Ask for a new one."
+          }
+        }
+      }
+    },
+    "auth.otpTooMany": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Չափազանց շատ փորձեր։ Խնդրեք նոր կոդ։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком много попыток. Запросите новый код."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many attempts. Ask for a new code."
+          }
+        }
+      }
+    },
+    "auth.smsFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Չհաջողվեց ուղարկել SMS։ Փորձեք քիչ անց։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отправить SMS. Попробуйте позже."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not send the SMS. Try again shortly."
           }
         }
       }

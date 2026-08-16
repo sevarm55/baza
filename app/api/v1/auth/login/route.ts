@@ -1,95 +1,90 @@
-import { and, eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { users } from '@/lib/db/schema';
-import { verifyPin } from '@/lib/pin';
-import { normalizePhone } from '@/lib/phone';
-import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
-import { accountByPhone, listPoints, markPointUsed, pointForLogin } from '@/lib/accounts';
-import { issueForDevice } from '@/lib/api/tokens';
+import { clientIp } from '@/lib/login-guard';
+import { attemptLogin, noteLoginSucceeded } from '@/lib/auth-flow';
+import { signalsFromHeaders } from '@/lib/risk';
+import { issueSession } from '@/lib/api/session-response';
+import { resolveLocale } from '@/lib/i18n';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
 /**
  * Вход приложения.
  *
- * Тот же счётчик попыток, что и у веба: смысла защищать одну дверь и
- * оставить открытой вторую нет никакого. Ответ на неверный телефон и на
- * неверный PIN одинаковый — иначе эндпоинт превращается в способ узнать,
- * кто зарегистрирован.
+ * Сценарий тот же, что у веба, и это буквально один и тот же код:
+ * `attemptLogin` в `lib/auth-flow.ts`. Две копии входа разошлись бы на
+ * первой правке, и разошлись бы именно в защите — там, где это заметят
+ * последним.
+ *
+ * Отличий от веба два, и оба про транспорт: сессия здесь пара токенов, а
+ * не cookie, и отпечаток устройства приложение присылает своим
+ * идентификатором установки — он надёжнее заголовка браузера.
+ *
+ * Ответ на неверный телефон и на неверный PIN одинаковый. Время ответа
+ * тоже: когда сверять нечего, сверка всё равно выполняется (см.
+ * `attemptLogin`), иначе неизвестный номер отвечал бы заметно быстрее.
  */
 export async function POST(request: Request) {
   try {
     await ensureDb();
 
-    const input = await body<{ phone?: string; pin?: string; device?: string }>(request);
+    const input = await body<{
+      phone?: string;
+      pin?: string;
+      device?: string;
+      /** идентификатор установки: по нему узнаётся знакомое устройство */
+      installId?: string;
+      country?: string;
+      /** язык интерфейса приложения — на нём придёт код из SMS */
+      locale?: string;
+    }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
-    const phone = normalizePhone(str(input.phone));
+    const phone = str(input.phone);
     const pin = str(input.pin);
     if (!phone || !pin) return fail('BAD_REQUEST', 400);
 
     const ip = clientIp(request.headers);
+    const signals = signalsFromHeaders(request.headers, str(input.installId) || null);
 
-    const guard = await checkLogin(phone, ip);
-    if (!guard.allowed) {
-      return fail('TOO_MANY_TRIES', 429, { retryAfter: guard.retryAfter });
+    const outcome = await attemptLogin({
+      phone,
+      pin,
+      ip,
+      signals,
+      countryCode: str(input.country) || undefined,
+      locale: resolveLocale({ chosen: str(input.locale) || null, header: request.headers.get('accept-language') }),
+    });
+
+    if (outcome.kind === 'throttled') {
+      return fail('TOO_MANY_TRIES', 429, { retryAfter: outcome.retryAfter });
+    }
+    if (outcome.kind === 'denied') return fail('WRONG_CREDENTIALS', 401);
+
+    if (outcome.kind === 'step_up') {
+      /* 401 с собственным кодом, а не 200: вход НЕ состоялся, и клиент,
+         который просто проверяет статус, не должен считать иначе.
+         Экран ввода кода открывается по коду ошибки. */
+      return fail('STEP_UP_REQUIRED', 401, {
+        challengeId: outcome.challengeId,
+        phone: outcome.phoneMasked,
+        resendAt: outcome.resendAt.toISOString(),
+        expiresAt: outcome.expiresAt.toISOString(),
+      });
     }
 
-    /* Код спрашиваем у человека, а не у его работы на точке: у кого две
-       мойки, тот входит одним кодом в обе. */
-    const account = await accountByPhone(phone);
-
-    /* Участие ищем только ради людей, которых завёл ещё старый код и не
-       успел привязать. Своей копией кода они и сверяются. */
-    const [legacy] = account
-      ? []
-      : await db.select().from(users).where(and(eq(users.phone, phone), eq(users.active, true)));
-
-    const secret = account?.pinHash ?? legacy?.pinHash;
-    const good = secret ? await verifyPin(pin, secret) : false;
-    await noteLogin(phone, ip, good);
-    if (!good) return fail('WRONG_CREDENTIALS', 401);
-
-    /* Куда именно вести — решает pointForLogin, а не порядок строк в
-       таблице. Телефон больше не уникален, индекса по нему нет, и
-       «первая попавшаяся» означала бы случайную мойку. Открытая идёт
-       первой: владельца с неоплаченной второй точкой нельзя высаживать
-       на стену при работающей первой, тем более в приложении, где
-       переключателя пока нет вовсе. */
-    const point = account ? await pointForLogin(account.id) : undefined;
-
-    const membership = point
-      ? { id: point.membershipId, tenantId: point.id, role: point.role }
-      : legacy
-        ? { id: legacy.id, tenantId: legacy.tenantId, role: legacy.role === 'owner' ? ('owner' as const) : ('staff' as const) }
-        : null;
-
-    // код верный, а работать негде: все участия отключены
-    if (!membership) return fail('WRONG_CREDENTIALS', 401);
-
-    const issued = await issueForDevice({
-      tenantId: membership.tenantId,
-      userId: membership.id,
-      role: membership.role,
-      device: str(input.device) || null,
-    });
-
-    await markPointUsed(membership.id);
-
-    const [me] = await db.select().from(users).where(eq(users.id, membership.id));
-
-    return ok({
-      access: issued.access,
-      refresh: issued.refresh,
-      expiresIn: issued.expiresIn,
-      user: { id: me.id, name: me.name, role: me.role, percent: me.percent },
-      /* Надмножество прежнего ответа: старые сборки лишние ключи просто
-         игнорируют и попадают в ту же точку, что и раньше. Двухшагового
-         «сначала список, потом выбор» нет намеренно — он сломал бы их и
-         добавил экран девяноста пяти клиентам из ста. */
-      tenantId: membership.tenantId,
-      points: account ? await listPoints(account.id) : [],
-    });
+    return ok(
+      await issueSession({
+        membership: outcome.membership,
+        accountId: outcome.accountId,
+        device: str(input.device) || null,
+        after: () =>
+          noteLoginSucceeded({
+            outcome,
+            phone,
+            ip,
+            agent: request.headers.get('user-agent'),
+          }),
+      }),
+    );
   } catch (e) {
     return failFromError(e);
   }

@@ -20,6 +20,17 @@ export type CreateBusinessInput = {
    */
   phone?: string;
   pin?: string;
+  /**
+   * Уже посчитанный хеш кода.
+   *
+   * Так приходит регистрация с подтверждением номера: PIN хешируется на
+   * первом шаге, до отправки SMS, и в заявке между шагами лежит только
+   * хеш. Открытому PIN незачем ждать в базе десять минут, пока человек
+   * ищет телефон.
+   */
+  pinHash?: string;
+  /** Номер доказан кодом из SMS — тогда и только тогда. */
+  phoneVerified?: boolean;
   accountId?: string;
 };
 
@@ -46,7 +57,8 @@ export async function createBusiness(input: CreateBusinessInput) {
     ? await byId(input.accountId)
     : await claimAccount({
         phone: normalizePhone(input.phone ?? ''),
-        pinHash: await hashPin(input.pin ?? ''),
+        pinHash: input.pinHash ?? (await hashPin(input.pin ?? '')),
+        phoneVerified: input.phoneVerified,
       });
 
   /* Пробный срок даётся ЧЕЛОВЕКУ один раз, а не каждой его мойке. Иначе

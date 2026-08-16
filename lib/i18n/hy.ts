@@ -171,7 +171,7 @@ export const hy = {
   errors: {
     required: 'Լրացրեք բոլոր դաշտերը',
     badPhone: 'Սխալ հեռախոսահամար',
-    badPin: 'PIN-ը պետք է լինի 4 նիշ',
+    badPin: 'PIN-ը պետք է լինի 6 նիշ',
     badPercent: 'Տոկոսը պետք է լինի 0-ից 100',
     generic: 'Ինչ-որ բան սխալ գնաց',
   },
@@ -192,7 +192,7 @@ export const hy = {
     wrongCredentials: 'Սխալ հեռախոս կամ PIN',
     phoneTaken: 'Այս համարն արդեն գրանցված է',
 
-    pinHint: '4 նիշ',
+    pinHint: '6 նիշ',
     // после нескольких неудач вход закрывается на растущее время
     tooManyTries: (minutes: number) =>
       `Չափազանց շատ փորձեր։ Կրկնեք ${minutes} րոպեից։`,
@@ -204,6 +204,60 @@ export const hy = {
     newPin: 'Նոր PIN',
     wrongPin: 'Ընթացիկ PIN-ը սխալ է',
     pinChangedNote: 'Փոխելուց հետո բոլոր սարքերը դուրս կգան, ներառյալ այս մեկը։',
+    /* ───────── подтверждение номера и восстановление ─────────
+
+       Появилось вместе с кодом из SMS. Раньше вход держался на телефоне
+       и четырёх цифрах, номер никто не проверял, а забытый PIN означал
+       мёртвый бизнес: восстановления не было вовсе. */
+    welcome: 'Բարի վերադարձ',
+    welcomeSub: 'Մուտք գործեք՝ աշխատանքը շարունակելու համար',
+    createTitle: 'Ստեղծեք ձեր ավտոլվացումը',
+    createSub: 'Կարգավորումը կտևի մեկ րոպեից պակաս',
+    signingIn: 'Մուտք…',
+    sending: 'Ուղարկվում է…',
+    checking: 'Ստուգվում է…',
+    forgotPin: 'Մոռացե՞լ եք PIN-ը',
+    createPin: 'Ստեղծեք PIN',
+    pinMemo: 'Օգտագործեք 6 թիվ, որոնք կհիշեք',
+
+    otpTitle: 'Հաստատեք համարը',
+    otpSent: (phone: string) => `Կոդն ուղարկեցինք ${phone}`,
+    otpCode: 'Կոդը SMS-ից',
+    otpVerify: 'Հաստատել',
+    otpResend: 'Ուղարկել կոդը կրկին',
+    otpResendIn: (mmss: string) => `Ուղարկել կրկին ${mmss}-ից`,
+    otpResendsLeft: (n: number) => `Մնացել է ${n} փորձ`,
+
+    stepUpTitle: 'Լրացուցիչ ստուգում',
+    stepUpSub: (phone: string) => `Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք ${phone}`,
+
+    resetTitle: 'PIN-ի վերականգնում',
+    resetSub: 'Մուտքագրեք համարը — կուղարկենք հաստատման կոդ',
+    resetSend: 'Ուղարկել կոդը',
+    resetSave: 'Պահպանել նոր PIN-ը',
+    resetDone: 'PIN-ը փոխված է',
+    resetDoneNote: 'Բոլոր մյուս սարքերը դուրս եկան։',
+    backToSignIn: 'Վերադառնալ մուտքին',
+
+    /* Читалка экрана произносит группу целиком, а не шесть полей. */
+    pinGroup: (n: number) => `PIN-կոդ՝ ${n} թիվ`,
+    otpGroup: (n: number) => `Հաստատման կոդ՝ ${n} թիվ`,
+    showCode: 'Ցույց տալ կոդը',
+    hideCode: 'Թաքցնել կոդը',
+    entered: (n: number, total: number) => `Մուտքագրված է ${n} ${total}-ից`,
+    country: 'Երկրի կոդը',
+
+    otpInvalid: 'Կոդը սխալ է',
+    otpExpired: 'Կոդի ժամկետն անցել է։ Խնդրեք նորը։',
+    otpTooMany: 'Չափազանց շատ փորձեր։ Խնդրեք նոր կոդ։',
+    otpResendTooSoon: 'Մի փոքր սպասեք նոր կոդի համար',
+    smsFailed: 'Չհաջողվեց ուղարկել SMS։ Փորձեք քիչ անց։',
+    pinTrivial: 'Ընտրեք ավելի դժվար PIN',
+
+    verifyPhone: 'Հաստատեք ձեր համարը',
+    verifyPhoneNote: 'Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։',
+    verifyNow: 'Հաստատել',
+    verified: 'Համարը հաստատված է',
   },
 
   onboarding: {
