@@ -66,7 +66,6 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
     <>
       <PageHead
         title={client.key}
-        standalone
         meta={
           <Link href="/owner/clients" style={{ color: 'var(--board-muted)' }}>
             ← {t.owner.tabClients}

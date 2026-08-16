@@ -36,7 +36,7 @@ export default async function PointsPage() {
     <>
       {/* Точки открывают из настроек, в полосе вкладок их нет —
           значит на телефоне назвать раздел больше нечему. */}
-      <PageHead title={t.points.title} standalone />
+      <PageHead title={t.points.title} />
 
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         <Panel title={t.points.title} count={points.length} className="lg:col-span-7">

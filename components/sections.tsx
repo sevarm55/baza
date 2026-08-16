@@ -118,14 +118,24 @@ export function sectionsFor(passes: boolean, t: Dict): Section[] {
 }
 
 /**
- * Подпись открытого раздела — для заголовка страницы.
+ * Какой раздел открыт сейчас.
  *
- * По самому длинному совпадению, иначе `/owner` победил бы всех:
- * с него начинается каждый адрес кабинета.
+ * По самому длинному совпадению — иначе обзор победил бы всех: с
+ * `/owner` начинается каждый адрес кабинета.
+ *
+ * И поэтому же обзор совпадает ТОЛЬКО точно. Он единственный раздел без
+ * собственной ветки адресов, и правило «адрес начинается с этого» делало
+ * его подсвеченным везде: на своей странице, на профиле, на филиалах.
+ * У человека, открывшего профиль, в меню горел «Сегодня» — то есть меню
+ * говорило, что он в другом месте, чем на самом деле.
+ *
+ * Страницы вне списка (профиль, филиалы) не подсвечивают ничего, и это
+ * верно: их вход не в меню разделов, а внизу колонки и в настройках.
  */
-export function sectionTitle(pathname: string, t: Dict): string {
-  const hit = [...sections(t)]
+export function currentSection(pathname: string, t: Dict): Section | undefined {
+  return [...sections(t)]
     .sort((a, b) => b.href.length - a.href.length)
-    .find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`));
-  return hit?.label ?? t.owner.tabToday;
+    .find((s) =>
+      s.href === '/owner' ? pathname === s.href : pathname === s.href || pathname.startsWith(`${s.href}/`),
+    );
 }

@@ -62,18 +62,26 @@ export function VerifyPhonePanel({
 
         {state.error && <p className="alert">{state.error}</p>}
 
-        <button className="btn btn-ghost" disabled={pending}>
-          {pending ? t.auth.checking : t.auth.otpVerify}
-        </button>
+        <div>
+          <button className="btn-inline" disabled={pending}>
+            {pending ? t.auth.checking : t.auth.otpVerify}
+          </button>
+        </div>
       </form>
     );
   }
 
   return (
-    <form action={action} className="grid gap-3">
+    /* Кнопка по содержимому, а не во всю ширину прибора.
+
+       Пустая обведённая полоса в шестьсот пикселей на светлом приборе
+       читалась не кнопкой, а пустым полем ввода — тем самым, из-за
+       которого профиль и переделывали. Действие здесь предложение, а не
+       главное дело страницы, и занимать столько места ему незачем. */
+    <form action={action} className="grid justify-items-start gap-3">
       <p className="text-[13.5px] text-muted">{t.auth.verifyPhoneNote}</p>
       {state?.error && <p className="alert">{state.error}</p>}
-      <button className="btn btn-ghost" disabled={pending}>
+      <button className="btn-inline" disabled={pending}>
         {pending ? t.auth.sending : t.auth.verifyNow}
       </button>
     </form>

@@ -67,7 +67,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="page-narrow">
-      <PageHead title={t.profile.title} meta={t.profile.lead} standalone />
+      <PageHead title={t.profile.title} meta={t.profile.lead} />
 
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         <div className="grid content-start gap-[var(--seam)] lg:col-span-7">

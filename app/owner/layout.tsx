@@ -56,7 +56,22 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         alerts={alerts}
       />
 
-      <SidebarInset className="min-w-0 bg-board text-[color:var(--on-board)]">
+      {/* `board` здесь не ради фона — он уже задан классом рядом, — а
+          ради тонов, которые этот класс объявляет: поверхность, линия,
+          подсветка строки и заливка поля (см. globals.css, «полотно —
+          среда»).
+
+          Класс потерялся, когда колонка переехала на shadcn: разметка
+          `.shell > .rail + .canvas` уступила место `SidebarProvider`, и
+          вместе с ней ушёл единственный узел, на котором эти тоны
+          назывались. Полгода кабинет жил на корневых значениях, и
+          заметнее всего это было на формах: поле брало запасной серый
+          #f4f4f5, подложка прибора — те же пять процентов чернил, и
+          место ввода сливалось с коробкой вокруг него. Отсюда и брались
+          «одинаковые серые прямоугольники»: иерархии страница → прибор →
+          поле не существовало, потому что второй и третий уровень были
+          одного цвета. */}
+      <SidebarInset className="board min-w-0 text-[color:var(--on-board)]">
         <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar/92 px-3 backdrop-blur md:hidden">
           <SidebarTrigger aria-label={t.common.expand} title={t.common.expand} />
           <Logo size={24} withName={false} />

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePendingTab } from '@/components/use-pending-tab';
-import { sectionsFor } from '@/components/sections';
+import { currentSection, sectionsFor } from '@/components/sections';
 import { useT } from '@/lib/i18n/client';
 import {
   SidebarGroup,
@@ -23,11 +23,10 @@ export function SideNav({ passes }: { passes: boolean }) {
   const sections = sectionsFor(passes, t);
   const { setOpenMobile } = useSidebar();
 
-  const current =
-    [...sections]
-      .sort((a, b) => b.href.length - a.href.length)
-      .find((section) => pathname === section.href || pathname.startsWith(`${section.href}/`))
-      ?.href ?? '';
+  /* «Вы находитесь здесь» считает `currentSection` — там же, где
+     заголовок страницы. Две копии этого правила расходились: меню
+     подсвечивало один раздел, а заголовок называл другой. */
+  const current = currentSection(pathname, t)?.href ?? '';
 
   const { active, pending, select } = usePendingTab(current);
 
