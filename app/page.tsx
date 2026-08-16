@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getRememberedAccount, getSession } from '@/lib/auth';
 import { formatMoney } from '@/lib/money';
-import { PRICE, TRIAL_DAYS } from '@/lib/plan';
+import { APP_STORE_URL, PRICE, TRIAL_DAYS } from '@/lib/plan';
 import { ACTIVE_NICHES, getNiche } from '@/lib/niches';
-import { appStoreUrl } from '@/lib/features';
 import { AuthPortal, AuthTrigger } from '@/components/auth-buttons';
 import { LanguagePicker } from '@/components/language-picker';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Logo } from '@/components/logo';
 import { getDict } from '@/lib/i18n/server';
 import { LandingWorkspace } from './landing-workspace';
@@ -65,10 +65,6 @@ export default async function Home({
   const niche = ACTIVE_NICHES[0] ?? getNiche('carwash');
   const l = t.landing;
 
-  /* Ссылки на приложение может ещё не быть: iOS ждёт ревью, и адрес
-     появляется вместе с публикацией. Выдумывать его нельзя. */
-  const appStore = appStoreUrl();
-
   return (
     <div className={s.page}>
       <AuthPortal
@@ -96,10 +92,15 @@ export default async function Home({
           </div>
 
           <div className={s.navActions}>
-            {/* Язык выбирают до входа, а не внутри окна: окно живёт в
-                верхнем слое браузера, и любой выпадающий список в нём
-                оказывается под ним. */}
+            {/* Язык и тема выбираются до входа, а не внутри окна: окно
+                живёт в верхнем слое браузера, и любой выпадающий список
+                в нём оказывается под ним.
+
+                Тема здесь ещё и показывает продукт с обеих сторон: тот,
+                кто работает вечером, видит, что кабинет умеет темнеть, —
+                и видит это на самом кабинете, а не на обещании. */}
             <LanguagePicker compact />
+            <ThemeToggle />
             <AuthTrigger mode="signIn" className={s.ghost}>
               {t.auth.signInTitle}
             </AuthTrigger>
@@ -180,28 +181,20 @@ export default async function Home({
               <p className={s.mobileLead}>{l.app.lead}</p>
 
               <div className={s.stores}>
-                {appStore ? (
-                  <a
-                    className={s.store}
-                    href={appStore}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={l.app.appStore}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/app-store-badge.svg" alt="" width={132} height={44} aria-hidden />
-                  </a>
-                ) : (
-                  /* Знак без ссылки, потому что вести пока некуда. Он не
-                     кнопка и не притворяется ею: ни курсора-руки, ни
-                     подсветки — рядом стоит слово «скоро». */
-                  <span className={`${s.store} ${s.storeSoon}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/app-store-badge.svg" alt={l.app.appStore} width={132} height={44} />
-                    <em>{l.app.soon}</em>
-                  </span>
-                )}
+                <a
+                  className={s.store}
+                  href={APP_STORE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={l.app.appStore}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/app-store-badge.svg" alt="" width={132} height={44} aria-hidden />
+                </a>
 
+                {/* Android ещё нет, и знака магазина для него тоже нет:
+                    знак обещает, что по нему поставят приложение. Здесь
+                    только слово. */}
                 <span className={s.storeNote}>{l.app.android}</span>
               </div>
             </div>

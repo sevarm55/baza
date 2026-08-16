@@ -221,7 +221,6 @@ export const en: Dict = {
       title: 'Tetrin goes with you.',
       lead: 'Run the business and watch the numbers straight from your iPhone.',
       appStore: 'Download on the App Store',
-      soon: 'soon',
       android: 'Android soon',
     },
 

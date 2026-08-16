@@ -1157,21 +1157,6 @@ a.store:focus-visible {
   outline-offset: 3px;
 }
 
-/* Знак, за которым пока некуда вести. Он не кнопка и не притворяется
-   ею: ни курсора-руки, ни подсветки под ним — рядом стоит слово. */
-.storeSoon {
-  cursor: default;
-}
-.storeSoon img {
-  opacity: 0.55;
-}
-.storeSoon em {
-  font-size: 13px;
-  font-style: normal;
-  font-weight: 600;
-  color: var(--faint);
-}
-
 .storeNote {
   font-size: 13px;
   color: var(--faint);

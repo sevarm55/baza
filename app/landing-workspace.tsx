@@ -128,7 +128,11 @@ export function LandingWorkspace({
     );
     for (const el of beats.current) if (el) io.observe(el);
     return () => io.disconnect();
-  }, [wide]);
+    /* Язык в зависимостях — вторая застёжка к ключам выше. Наблюдатель
+       держит ссылки на узлы, а не на компоненты, и любая пересборка
+       разметки оставляет его следить за пустотой. Пересобрать его стоит
+       ничего, а поймать такое в браузере — полдня. */
+  }, [wide, t.locale]);
 
   /* Две вещи, которые происходят сами.
 
@@ -254,7 +258,7 @@ export function LandingWorkspace({
       <div className={s.segments} role="group" aria-label={t.landing.nav.how}>
         {t.landing.beats.map((beat, i) => (
           <button
-            key={beat.label}
+            key={i}
             type="button"
             aria-pressed={step === i}
             className={s.segment}
@@ -267,9 +271,18 @@ export function LandingWorkspace({
       </div>
 
       <div className={s.beats}>
+        {/* Ключ — номер сцены, а НЕ её подпись, и это не придирка к стилю.
+
+            Подпись переводится. При смене языка `router.refresh()`
+            перерисовывает страницу новым словарём, ключи всех пяти сцен
+            меняются разом, React выбрасывает старые узлы и создаёт новые —
+            а наблюдатель прокрутки продолжает следить за выброшенными.
+            Оторванный от документа узел не пересекается ни с чем никогда,
+            и панель замирала на той сцене, на которой человек переключил
+            язык: дальше он листал, а справа ничего не менялось. */}
         {t.landing.beats.map((beat, i) => (
           <section
-            key={beat.label}
+            key={i}
             ref={(el) => {
               beats.current[i] = el;
             }}
@@ -653,7 +666,7 @@ function Team({
             const name = d.crew[i];
             const color = personColor(name);
             return (
-              <div key={name} className={s.person}>
+              <div key={i} className={s.person}>
                 <span
                   className={`${s.personDot} ${person.onShift ? '' : s.personOff}`}
                   style={{ background: color, color }}
@@ -940,7 +953,7 @@ function Picks({
       <div className={s.picks} role="radiogroup" aria-labelledby={id}>
         {options.map((name, i) => (
           <button
-            key={name}
+            key={i}
             type="button"
             role="radio"
             aria-checked={value === i}

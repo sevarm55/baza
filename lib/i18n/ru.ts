@@ -232,7 +232,6 @@ export const ru: Dict = {
       title: 'Tetrin всегда с вами.',
       lead: 'Управляйте бизнесом и следите за показателями прямо с iPhone.',
       appStore: 'Загрузить в App Store',
-      soon: 'скоро',
       android: 'Android скоро',
     },
 
