@@ -62,6 +62,33 @@ services:
       # Секрет для задач по расписанию. Пусто — маршрут отвечает 404, то
       # есть его как будто нет.
       CRON_SECRET: ${CRON_SECRET:-}
+      # Отправка SMS с кодом подтверждения. Пусто — регистрация упрётся в
+      # честный отказ: номер подтверждается кодом, и подтвердить его
+      # нечем. Провайдер за одним интерфейсом, поэтому смена оператора —
+      # это правка этих строк, а не выката (см. lib/sms.ts).
+      SMS_ENDPOINT: ${SMS_ENDPOINT:-}
+      SMS_TOKEN: ${SMS_TOKEN:-}
+      SMS_AUTH_SCHEME: ${SMS_AUTH_SCHEME:-}
+      SMS_SENDER: ${SMS_SENDER:-}
+      SMS_BODY: ${SMS_BODY:-}
+      # Именные провайдеры — если однажды переедем с D7.
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      VONAGE_API_KEY: ${VONAGE_API_KEY:-}
+      VONAGE_API_SECRET: ${VONAGE_API_SECRET:-}
+      VONAGE_FROM: ${VONAGE_FROM:-}
+      # Разные секреты для разных задач: утечка одного не отдаёт второе.
+      # Пусто — выводятся из SESSION_SECRET со своей меткой назначения и
+      # с ним никогда не совпадают.
+      OTP_SECRET: ${OTP_SECRET:-}
+      DEVICE_SECRET: ${DEVICE_SECRET:-}
+      # Свой домен и разрешённые источники. Проверка источника работает и
+      # без списка — она сверяет Origin с хостом запроса; список нужен
+      # там, где наружный хост не совпадает с внутренним.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-tetrin.pro}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       # экземпляр один, поэтому миграции при старте безопасны
       MIGRATE_ON_START: '1'
     depends_on:
