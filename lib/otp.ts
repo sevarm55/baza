@@ -58,7 +58,15 @@ const PER_PHONE_HOURLY = 6;
 /** Сколько кодов с одного адреса за час — защита от рассылки по чужим номерам. */
 const PER_IP_HOURLY = 20;
 
-export type Purpose = 'register' | 'reset' | 'step_up' | 'phone_change';
+/**
+ * Зачем выдан код.
+ *
+ * `entry` — главный вход: телефон и код, без PIN. Один повод и для
+ * входа, и для регистрации, и это не экономия на типах, а требование:
+ * будь их два, по поводу заявки можно было бы узнать, знаком нам номер
+ * или нет. Ровно то, от чего этот вход и защищает.
+ */
+export type Purpose = 'entry' | 'register' | 'reset' | 'step_up' | 'phone_change';
 
 export type StartResult =
   | {

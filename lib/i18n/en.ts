@@ -231,6 +231,14 @@ export const en: Dict = {
     verifyPhoneNote: 'Without a confirmed number your PIN cannot be recovered. Takes half a minute.',
     verifyNow: 'Confirm',
     verified: 'Number confirmed',
+    entryTitle: 'Sign in to Tetrin',
+    entrySub: 'Enter your number — we will send a code',
+    entrySend: 'Continue',
+    entryPinDoor: 'Sign in with a PIN',
+    entrySmsDoor: 'Sign in with an SMS code',
+    nameTitle: 'What is your car wash called?',
+    nameSub: 'Last step — then straight to work',
+    nameCreate: 'Create and start',
   },
 
   onboarding: {

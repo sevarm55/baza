@@ -8,7 +8,7 @@ import { checkLogin, noteLogin } from './login-guard';
 import { accountByPhone, markPhoneVerified, pointForLogin, type Point } from './accounts';
 import { createBusiness, PhoneTakenError } from './tenant';
 import { revokeAccountSessions } from './auth';
-import { assessLogin, forgetDevices, rememberDevice, type DeviceSignals } from './risk';
+import { assessLogin, fingerprint, forgetDevices, rememberDevice, type DeviceSignals } from './risk';
 import { logSecurity } from './security-log';
 import { challengeState, resendChallenge, startChallenge, verifyChallenge } from './otp';
 import { isNicheAvailable, type NicheKey } from './niches';
@@ -862,3 +862,264 @@ export async function completePhoneProof(input: {
 }
 
 export { isValidPin };
+
+/* ═══════════════════ вход по коду из SMS ═══════════════════ */
+
+/**
+ * Главный вход: телефон и код, без PIN.
+ *
+ * ПОЧЕМУ ЭТО ОДИН СЦЕНАРИЙ, А НЕ ДВА. Раньше вход и регистрация были
+ * разными дверями, и объединить их мешало ровно одно: чтобы выбрать
+ * дверь, надо сказать, знаком ли нам номер, — а это превращает форму в
+ * справочник зарегистрированных.
+ *
+ * Здесь выбирать не нужно. Код уходит ВСЕГДА, на любой номер, и экран
+ * дальше один и тот же. Знаком номер или нет, выясняется уже ПОСЛЕ
+ * кода — то есть только для того, кто держит этот телефон в руках.
+ * Постороннему узнавать нечего.
+ *
+ * PIN при этом никуда не делся: он остаётся второй дверью — для
+ * мойщиков, которым аккаунт заводит владелец, и на случай, когда SMS не
+ * идёт. Единственной дверью код из SMS делать нельзя: оператор ложится,
+ * роуминг отваливается, а бизнес в этот момент не должен закрываться.
+ */
+export async function beginEntry(input: {
+  phone: string;
+  countryCode?: string;
+  ip: string | null;
+  agent?: string | null;
+  locale?: string;
+}): Promise<BeginReset> {
+  const phone = normalizePhone(String(input.phone ?? ''), input.countryCode);
+
+  /* Кривой номер тоже получает экран ввода кода — просто без SMS.
+     Иначе «такого номера не бывает» становится подсказкой о том, какие
+     номера бывают. */
+  if (!isValidPhone(phone, input.countryCode)) return silentEntry(phone, input.ip);
+
+  const account = await accountByPhone(phone);
+
+  const started = await startChallenge({
+    purpose: 'entry',
+    phone,
+    ip: input.ip,
+    accountId: account?.id ?? null,
+    locale: input.locale,
+    /* Что делать после кода, решено ЗДЕСЬ и записано в заявку. Реши мы
+       это на втором шаге, пришлось бы снова искать человека по номеру —
+       и снова отвечать по-разному. */
+    payload: account ? { accountId: account.id } : {},
+  });
+
+  if (!started.ok) {
+    return started.reason === 'THROTTLED'
+      ? { ok: false, problem: 'THROTTLED', retryAfter: started.retryAfter }
+      : { ok: false, problem: 'SMS_FAILED' };
+  }
+
+  await logSecurity({
+    event: account ? 'auth.login.step_up_required' : 'auth.register.started',
+    phone,
+    ip: input.ip,
+    agent: input.agent ?? null,
+    accountId: account?.id ?? null,
+    data: { flow: 'entry' },
+  });
+
+  return {
+    ok: true,
+    challengeId: started.challengeId,
+    phoneMasked: maskPhone(phone),
+    resendAt: started.resendAt,
+    expiresAt: started.expiresAt,
+  };
+}
+
+async function silentEntry(phone: string, ip: string | null): Promise<BeginReset> {
+  const started = await startChallenge({
+    purpose: 'entry',
+    phone,
+    ip,
+    silent: true,
+    payload: { __silent: true },
+  });
+
+  if (!started.ok) {
+    return started.reason === 'THROTTLED'
+      ? { ok: false, problem: 'THROTTLED', retryAfter: started.retryAfter }
+      : { ok: false, problem: 'SMS_FAILED' };
+  }
+
+  return {
+    ok: true,
+    challengeId: started.challengeId,
+    phoneMasked: maskPhone(phone),
+    resendAt: started.resendAt,
+    expiresAt: started.expiresAt,
+  };
+}
+
+export type EntryOutcome =
+  /** номер знакомый — человек внутри */
+  | { kind: 'ok'; membership: Membership; accountId: string; fingerprint: string; phone: string }
+  /** номер новый — осталось спросить название мойки */
+  | { kind: 'new'; ticket: string }
+  /** код верный, но работать негде: все участия отключены */
+  | { kind: 'denied' }
+  | { kind: 'otp'; reason: 'INVALID' | 'EXPIRED' | 'TOO_MANY_TRIES' };
+
+/**
+ * Код сошёлся. Дальше — либо внутрь, либо к названию мойки.
+ *
+ * Устройство запоминается сразу: человек только что доказал, что
+ * телефон его, и переспрашивать при следующем входе с этого же
+ * браузера незачем.
+ */
+export async function completeEntry(input: {
+  challengeId: string;
+  code: string;
+  ip: string | null;
+  signals: DeviceSignals;
+}): Promise<EntryOutcome> {
+  const verified = await verifyChallenge<{ accountId?: string; __silent?: boolean }>({
+    challengeId: input.challengeId,
+    code: input.code,
+    purpose: 'entry',
+    ip: input.ip,
+  });
+
+  if (!verified.ok) return { kind: 'otp', reason: verified.reason };
+
+  const phone = verified.challenge.phone;
+  const agent = input.signals.agent ?? null;
+
+  /* Заявка-пустышка с невозможного номера: подобрать её код нельзя, но
+     если это случилось — заводить бизнес на такой номер тем более. */
+  if (verified.payload.__silent) return { kind: 'otp', reason: 'INVALID' };
+
+  const accountId = verified.payload.accountId;
+
+  if (!accountId) {
+    /* Номер свободен. Аккаунта всё ещё нет — он появится, когда человек
+       назовёт мойку. Пропуск живёт десять минут и обменивается один раз
+       (см. completeSignUp). */
+    return { kind: 'new', ticket: await signTicket({ accountId: '', challengeId: verified.challenge.id, phone }) };
+  }
+
+  const point = await pointForLogin(accountId);
+  if (!point) {
+    await logSecurity({
+      event: 'auth.login.failed',
+      phone,
+      ip: input.ip,
+      agent,
+      accountId,
+      data: { reason: 'NO_ACTIVE_MEMBERSHIP', flow: 'entry' },
+    });
+    return { kind: 'denied' };
+  }
+
+  const fp = fingerprint(input.signals);
+  await rememberDevice({ accountId, fingerprint: fp, agent });
+
+  await logSecurity({
+    event: 'auth.login.success',
+    phone,
+    ip: input.ip,
+    agent,
+    accountId,
+    tenantId: point.id,
+    userId: point.membershipId,
+    data: { flow: 'entry' },
+  });
+
+  return {
+    kind: 'ok',
+    membership: { id: point.membershipId, tenantId: point.id, role: point.role },
+    accountId,
+    fingerprint: fp,
+    phone,
+  };
+}
+
+export type SignUpResult =
+  | { ok: true; tenantId: string; ownerId: string; accountId: string }
+  | { ok: false; problem: 'TICKET_INVALID' | 'NAME' | 'NICHE' | 'PHONE_TAKEN' };
+
+/**
+ * Последний шаг новичка: название мойки и имя владельца.
+ *
+ * PIN не спрашивается вовсе — входить человек будет кодом. Аккаунт
+ * заводится сразу с подтверждённым номером: он только что доказал его
+ * кодом, второй раз спрашивать нечего.
+ *
+ * Хеш кода при этом всё равно кладётся — случайный, который никто
+ * никогда не введёт. Колонка `pin_hash` объявлена NOT NULL, и обходить
+ * это ради нового пути значило бы менять схему под всех, включая тех,
+ * у кого PIN есть и работает. Захочет владелец завести себе PIN как
+ * вторую дверь — сменит его обычной сменой кода.
+ */
+export async function completeSignUp(input: {
+  ticket: string;
+  niche: string;
+  businessName: string;
+  ownerName: string;
+  ip: string | null;
+  signals: DeviceSignals;
+}): Promise<SignUpResult> {
+  const claims = await readTicket(String(input.ticket ?? ''));
+  if (!claims) return { ok: false, problem: 'TICKET_INVALID' };
+
+  const businessName = String(input.businessName ?? '').trim();
+  const ownerName = String(input.ownerName ?? '').trim();
+  if (businessName.length < 2 || businessName.length > 80) return { ok: false, problem: 'NAME' };
+  if (ownerName.length < 2 || ownerName.length > 80) return { ok: false, problem: 'NAME' };
+  if (!isNicheAvailable(input.niche)) return { ok: false, problem: 'NICHE' };
+
+  /* Обмен пропуска: строка заявки удаляется, и её удаление и есть
+     проверка «этим пропуском ещё не пользовались». Иначе одна SMS
+     заводила бы сколько угодно моек. */
+  const [redeemed] = await db
+    .delete(authChallenges)
+    .where(eq(authChallenges.id, claims.challengeId))
+    .returning({ id: authChallenges.id });
+
+  if (!redeemed) return { ok: false, problem: 'TICKET_INVALID' };
+
+  try {
+    const { tenant, owner } = await createBusiness({
+      niche: input.niche as NicheKey,
+      businessName,
+      ownerName,
+      phone: claims.phone,
+      pinHash: await hashPin(`sms-only:${Math.random()}:${Date.now()}`),
+      phoneVerified: true,
+    });
+
+    const [account] = await db.select().from(accounts).where(eq(accounts.phone, claims.phone));
+
+    if (account) {
+      await rememberDevice({
+        accountId: account.id,
+        fingerprint: fingerprint(input.signals),
+        agent: input.signals.agent,
+      });
+    }
+
+    await logSecurity({
+      event: 'auth.register.completed',
+      phone: claims.phone,
+      ip: input.ip,
+      agent: input.signals.agent ?? null,
+      accountId: account?.id ?? null,
+      tenantId: tenant.id,
+      userId: owner.id,
+      data: { niche: input.niche, flow: 'entry' },
+    });
+
+    return { ok: true, tenantId: tenant.id, ownerId: owner.id, accountId: account?.id ?? '' };
+  } catch (e) {
+    if (e instanceof PhoneTakenError) return { ok: false, problem: 'PHONE_TAKEN' };
+    throw e;
+  }
+}

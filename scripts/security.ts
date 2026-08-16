@@ -292,6 +292,64 @@ async function main() {
   });
   check('номер занят — отказ', taken.status === 409 && taken.body.error === 'PHONE_TAKEN', taken);
 
+  /* ===================== ВХОД ПО КОДУ ===================== */
+  section('Вход по коду из SMS: одна дверь для входа и регистрации');
+
+  {
+    const fresh = freshPhone();
+
+    const newcomer = await api('/auth/entry', { body: { phone: fresh } });
+    const returning = await api('/auth/entry', { body: { phone } });
+    const garbage = await api('/auth/entry', { body: { phone: '+3747' } });
+
+    /* Главное свойство этого входа: по ответу нельзя понять, знаком ли
+       номер. Иначе форма снова превращается в справочник клиентов. */
+    check('незнакомый номер принят', newcomer.status === 200, newcomer);
+    check(
+      'знакомый отвечает ТАК ЖЕ',
+      returning.status === newcomer.status &&
+        Object.keys(returning.body).sort().join() === Object.keys(newcomer.body).sort().join(),
+      { newcomer: newcomer.body, returning: returning.body },
+    );
+    check(
+      'и невозможный номер тоже',
+      garbage.status === newcomer.status &&
+        Object.keys(garbage.body).sort().join() === Object.keys(newcomer.body).sort().join(),
+      garbage,
+    );
+
+    const wrong = await api('/auth/entry/verify', {
+      body: { challengeId: newcomer.body.challengeId, code: '000003' },
+    });
+    check('неверный код отклонён', wrong.status === 401, wrong);
+
+    const code = codeFor(fresh) ?? '';
+    const verified = await api('/auth/entry/verify', {
+      body: { challengeId: newcomer.body.challengeId, code },
+    });
+    check('верный код у новичка ведёт к названию мойки', verified.status === 200 && Boolean(verified.body.ticket), verified);
+
+    const made = await api('/auth/entry/verify', {
+      body: { ticket: verified.body.ticket, niche: 'carwash', businessName: 'Кодовая', ownerName: 'Ашот' },
+    });
+    check('мойка создана без единого PIN', made.status === 201 && typeof made.body.access === 'string', made);
+
+    const again = await api('/auth/entry/verify', {
+      body: { ticket: verified.body.ticket, niche: 'carwash', businessName: 'Вторая', ownerName: 'Ашот' },
+    });
+    check('одна SMS — одна мойка', again.status !== 201, again);
+
+    /* А теперь тот же номер входит: аккаунт уже есть, названия не
+       спрашивают, токены выдаются сразу. */
+    const back = await api('/auth/entry', { body: { phone: fresh } });
+    const backCode = codeFor(fresh) ?? '';
+    const inside = await api('/auth/entry/verify', {
+      body: { challengeId: back.body.challengeId, code: backCode },
+    });
+    check('второй раз тот же номер просто входит', inside.status === 200 && typeof inside.body.access === 'string', inside);
+    check('и названия мойки уже не спрашивают', !('ticket' in inside.body), inside.body);
+  }
+
   /* ===================== ВХОД ===================== */
   section('Вход');
 

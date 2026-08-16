@@ -10,7 +10,10 @@ import { signalsFromHeaders } from '@/lib/risk';
 import { deviceLabel } from '@/lib/security-log';
 import {
   attemptLogin,
+  beginEntry,
   beginPinReset,
+  completeEntry,
+  completeSignUp,
   beginRegistration,
   checkResetCode,
   completePinReset,
@@ -51,7 +54,7 @@ export type AuthState =
   /** ждём код из SMS */
   | {
       step: 'otp';
-      purpose: 'register' | 'step_up' | 'reset';
+      purpose: 'entry' | 'register' | 'step_up' | 'reset';
       challengeId: string;
       phoneMasked: string;
       /** мс эпохи: Date через границу сервер-клиент проходит, но числом надёжнее */
@@ -68,6 +71,14 @@ export type AuthState =
    * минут и обменивается ровно один раз.
    */
   | { step: 'new-pin'; ticket: string; error?: string }
+  /**
+   * Код сошёлся, номер свободен — осталось назвать мойку.
+   *
+   * PIN здесь не спрашивается: входить человек будет кодом. Пропуск
+   * подписан и обменивается один раз, иначе одна SMS заводила бы
+   * сколько угодно моек.
+   */
+  | { step: 'name'; ticket: string; error?: string }
   | { step: 'done'; message: string };
 
 type Ctx = {
@@ -109,6 +120,12 @@ export async function authAction(prev: AuthState, data: FormData): Promise<AuthS
   const ctx = await context();
 
   switch (field(data, 'intent')) {
+    case 'entry':
+      return entryBegin(data, ctx);
+    case 'entryVerify':
+      return entryVerify(data, ctx, prev);
+    case 'signUp':
+      return signUp(data, ctx);
     case 'signIn':
       return signIn(data, ctx);
     case 'stepUp':
@@ -130,7 +147,89 @@ export async function authAction(prev: AuthState, data: FormData): Promise<AuthS
   }
 }
 
-/* ------------------------------ вход ------------------------------ */
+/* ---------------------- вход по коду из SMS ---------------------- */
+
+async function entryBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
+  const started = await beginEntry({
+    phone: field(data, 'phone'),
+    countryCode: field(data, 'country') || undefined,
+    ip: ctx.ip,
+    agent: ctx.agent,
+    locale: ctx.locale,
+  });
+
+  if (!started.ok) {
+    return {
+      step: 'credentials',
+      error:
+        started.problem === 'THROTTLED'
+          ? ctx.t.auth.tooManyTries(Math.ceil((started.retryAfter ?? 3600) / 60))
+          : ctx.t.auth.smsFailed,
+    };
+  }
+
+  return {
+    step: 'otp',
+    purpose: 'entry',
+    challengeId: started.challengeId,
+    phoneMasked: started.phoneMasked,
+    resendAt: started.resendAt.getTime(),
+    expiresAt: started.expiresAt.getTime(),
+    resendsLeft: 3,
+  };
+}
+
+async function entryVerify(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
+  const done = await completeEntry({
+    challengeId: field(data, 'challengeId'),
+    code: field(data, 'code'),
+    ip: ctx.ip,
+    signals: ctx.signals,
+  });
+
+  if (done.kind === 'otp') return otpError(prev, done.reason, ctx.t);
+  if (done.kind === 'denied') return { step: 'credentials', error: ctx.t.auth.wrongCredentials };
+  if (done.kind === 'new') return { step: 'name', ticket: done.ticket };
+
+  await enter(
+    { kind: 'ok', membership: done.membership, accountId: done.accountId, fingerprint: '' },
+    ctx,
+    { phone: done.phone, alreadyLogged: true },
+  );
+  redirect(done.membership.role === 'owner' ? '/owner' : '/work');
+}
+
+async function signUp(data: FormData, ctx: Ctx): Promise<AuthState> {
+  const ticket = field(data, 'ticket');
+
+  const made = await completeSignUp({
+    ticket,
+    niche: field(data, 'niche'),
+    businessName: field(data, 'businessName'),
+    ownerName: field(data, 'ownerName'),
+    ip: ctx.ip,
+    signals: ctx.signals,
+  });
+
+  if (!made.ok) {
+    if (made.problem === 'NAME') return { step: 'name', ticket, error: ctx.t.errors.required };
+    if (made.problem === 'PHONE_TAKEN') {
+      return { step: 'credentials', error: ctx.t.auth.phoneTaken };
+    }
+    // пропуск просрочен или уже обменян — честного пути отсюда нет
+    return { step: 'credentials', error: ctx.t.auth.otpExpired };
+  }
+
+  await startSession(
+    { uid: made.ownerId, tid: made.tenantId, role: 'owner' },
+    { kind: 'web', device: deviceLabel(ctx.agent) },
+  );
+  await markPointUsed(made.ownerId);
+
+  redirect('/owner');
+}
+
+/* ------------------------ вход по PIN ------------------------ */
 
 async function signIn(data: FormData, ctx: Ctx): Promise<AuthState> {
   const phone = field(data, 'phone');

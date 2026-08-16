@@ -258,6 +258,14 @@ export const hy = {
     verifyPhoneNote: 'Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։',
     verifyNow: 'Հաստատել',
     verified: 'Համարը հաստատված է',
+    entryTitle: 'Մուտք Tetrin',
+    entrySub: 'Մուտքագրեք համարը — կուղարկենք կոդ',
+    entrySend: 'Շարունակել',
+    entryPinDoor: 'Մուտք PIN-ով',
+    entrySmsDoor: 'Մուտք SMS-ի կոդով',
+    nameTitle: 'Ինչպե՞ս է կոչվում ձեր ավտոլվացումը',
+    nameSub: 'Վերջին քայլը. հետո միանգամից աշխատանքի',
+    nameCreate: 'Ստեղծել և սկսել',
   },
 
   onboarding: {

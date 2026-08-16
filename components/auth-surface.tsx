@@ -6,7 +6,6 @@ import { resumeSavedAccount, type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
 import { PhoneField } from '@/components/phone-field';
 import { IconBack, IconCheck } from '@/components/icons';
-import { SwitchMark } from '@/components/switch-mark';
 import { personColor } from '@/lib/person-color';
 import { PIN_LENGTH } from '@/lib/phone';
 import { CODE_LENGTH } from '@/lib/otp-shared';
@@ -42,7 +41,13 @@ export function AuthSurface({
   remembered?: RememberedWebAccount | null;
   trialDays: number;
 }) {
-  const [tab, setTab] = useState<'signIn' | 'register'>(mode);
+  /* Дверей две, но не равных. Главная — телефон и код из SMS: ею
+     входят владельцы, и ею же регистрируются, потому что после кода эти
+     два случая перестают различаться. Вторая — телефон и PIN: ею входят
+     мойщики, которым аккаунт завёл владелец, и она же остаётся, когда
+     SMS не идёт. Показывать их вкладками значило бы соврать о том, как
+     продуктом пользуются. */
+  const [door, setDoor] = useState<'sms' | 'pin'>(mode === 'register' ? 'sms' : 'sms');
   const [forgot, setForgot] = useState(false);
 
   /* Язык берётся из общего контекста продукта, а не из своего состояния.
@@ -53,33 +58,11 @@ export function AuthSurface({
 
   return (
     <div className={s.surface}>
-      <div className={s.tabs} role="tablist">
-        {(['signIn', 'register'] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            className={s.tab}
-            data-on={tab === k ? '' : undefined}
-            onClick={() => {
-              setTab(k);
-              setForgot(false);
-            }}
-          >
-            {tab === k && <SwitchMark id="auth-tabs" radius={8} fill="var(--surface)" />}
-            <span className={s.tabLabel}>
-              {k === 'signIn' ? t.auth.signInTitle : t.onboarding.createAccount}
-            </span>
-          </button>
-        ))}
-      </div>
-
       <Conversation
         /* Ключ обнуляет разговор при смене вкладки и при уходе в
            восстановление: другого способа сбросить useActionState нет. */
-        key={`${tab}:${forgot}`}
-        tab={tab}
+        key={`${door}:${forgot}`}
+        door={door}
         forgot={forgot}
         niche={niche}
         remembered={remembered}
@@ -87,6 +70,10 @@ export function AuthSurface({
         trialDays={trialDays}
         onForgot={() => setForgot(true)}
         onBack={() => setForgot(false)}
+        onDoor={(next) => {
+          setDoor(next);
+          setForgot(false);
+        }}
       />
 
     </div>
@@ -94,7 +81,7 @@ export function AuthSurface({
 }
 
 function Conversation({
-  tab,
+  door,
   forgot,
   niche,
   remembered,
@@ -102,8 +89,9 @@ function Conversation({
   trialDays,
   onForgot,
   onBack,
+  onDoor,
 }: {
-  tab: 'signIn' | 'register';
+  door: 'sms' | 'pin';
   forgot: boolean;
   niche: string;
   remembered: RememberedWebAccount | null;
@@ -111,13 +99,14 @@ function Conversation({
   trialDays: number;
   onForgot: () => void;
   onBack: () => void;
+  onDoor: (next: 'sms' | 'pin') => void;
 }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(authAction, null);
   const [manual, setManual] = useState(!remembered);
 
   /* Сохранённый профиль показывается только на входе и только пока
      человек не попросил другой аккаунт. */
-  if (tab === 'signIn' && !forgot && remembered && !manual && state === null) {
+  if (door === 'sms' && !forgot && remembered && !manual && state === null) {
     return <RememberedAccount who={remembered} t={t} onOther={() => setManual(true)} />;
   }
 
@@ -137,6 +126,8 @@ function Conversation({
   }
 
   if (state?.step === 'otp') return <OtpStep state={state} action={action} pending={pending} t={t} />;
+  if (state?.step === 'name')
+    return <NameStep state={state} action={action} pending={pending} t={t} niche={niche} trialDays={trialDays} />;
   if (state?.step === 'new-pin') return <NewPinStep state={state} action={action} pending={pending} t={t} />;
 
   const error = state?.step === 'credentials' ? state.error : undefined;
@@ -169,68 +160,31 @@ function Conversation({
     );
   }
 
-  if (tab === 'register') {
+  if (door === 'sms') {
     return (
       <form action={action} className={s.step}>
-        <input type="hidden" name="intent" value="register" />
-        <input type="hidden" name="niche" value={niche} />
+        <input type="hidden" name="intent" value="entry" />
 
-        <Head title={t.auth.createTitle} subtitle={t.auth.createSub} />
-
-        <div className={s.pair}>
-          <label className="grid gap-2">
-            <span className={s.label}>{t.onboarding.bizName}</span>
-            <input
-              className={s.text}
-              name="businessName"
-              required
-              maxLength={80}
-              autoComplete="organization"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className={s.label}>{t.onboarding.ownerName}</span>
-            <input
-              className={s.text}
-              name="ownerName"
-              required
-              maxLength={80}
-              autoComplete="name"
-            />
-          </label>
-        </div>
+        <Head title={t.auth.entryTitle} subtitle={t.auth.entrySub} />
 
         <PhoneField
           label={t.auth.phone}
           countryLabel={t.auth.country}
           autoComplete="tel"
+          autoFocus
           invalid={Boolean(error)}
         />
-
-        <div className="grid gap-2">
-          <CodeInput
-            name="pin"
-            length={PIN_LENGTH}
-            label={t.auth.pinGroup(PIN_LENGTH)}
-            title={t.auth.createPin}
-            autoComplete="new-password"
-            revealable
-            revealLabel={t.auth.showCode}
-            hideLabel={t.auth.hideCode}
-            enteredLabel={t.auth.entered}
-            invalid={Boolean(error)}
-          />
-          <p className={s.hint}>{t.auth.pinMemo}</p>
-        </div>
 
         {error && <p className={s.error}>{error}</p>}
 
         <div className={s.actions}>
-          <Submit pending={pending} idle={t.common.next} busy={t.auth.sending} />
-          <p className={s.hint} style={{ textAlign: 'center' }}>
-            {t.onboarding.freeDays(trialDays)}
-          </p>
+          <Submit pending={pending} idle={t.auth.entrySend} busy={t.auth.sending} />
+          {/* Вторая дверь строкой, а не вкладкой: ею входят мойщики,
+              которым аккаунт завёл владелец, и она же остаётся, когда
+              SMS не идёт. */}
+          <button type="button" className={s.quiet} onClick={() => onDoor('pin')}>
+            {t.auth.entryPinDoor}
+          </button>
         </div>
       </form>
     );
@@ -280,6 +234,9 @@ function Conversation({
         <button type="button" className={s.quiet} onClick={onForgot}>
           {t.auth.forgotPin}
         </button>
+        <button type="button" className={s.quiet} onClick={() => onDoor('sms')}>
+          {t.auth.entrySmsDoor}
+        </button>
       </div>
     </form>
   );
@@ -301,7 +258,13 @@ function OtpStep({
   const left = useCountdown(state.resendAt);
 
   const intent =
-    state.purpose === 'register' ? 'registerVerify' : state.purpose === 'reset' ? 'resetCheck' : 'stepUp';
+    state.purpose === 'entry'
+      ? 'entryVerify'
+      : state.purpose === 'register'
+        ? 'registerVerify'
+        : state.purpose === 'reset'
+          ? 'resetCheck'
+          : 'stepUp';
 
   const title = state.purpose === 'step_up' ? t.auth.stepUpTitle : t.auth.otpTitle;
   const description =
@@ -352,6 +315,62 @@ function OtpStep({
         )}
       </form>
     </div>
+  );
+}
+
+/* ------------------------- название мойки ------------------------- */
+
+/**
+ * Последний шаг новичка.
+ *
+ * PIN здесь не спрашивается: входить он будет кодом. Два поля вместо
+ * четырёх — и это единственный экран, который человек видит один раз в
+ * жизни, поэтому на нём и стоит обещание про бесплатные дни.
+ */
+function NameStep({
+  state,
+  action,
+  pending,
+  t,
+  niche,
+  trialDays,
+}: {
+  state: Extract<AuthState, { step: 'name' }>;
+  action: (data: FormData) => void;
+  pending: boolean;
+  t: Dict;
+  niche: string;
+  trialDays: number;
+}) {
+  return (
+    <form action={action} className={s.step}>
+      <input type="hidden" name="intent" value="signUp" />
+      <input type="hidden" name="ticket" value={state.ticket} />
+      <input type="hidden" name="niche" value={niche} />
+
+      <Head title={t.auth.nameTitle} subtitle={t.auth.nameSub} />
+
+      <div className={s.pair}>
+        <label className="grid gap-2">
+          <span className={s.label}>{t.onboarding.bizName}</span>
+          <input className={s.text} name="businessName" required maxLength={80} autoFocus autoComplete="organization" />
+        </label>
+
+        <label className="grid gap-2">
+          <span className={s.label}>{t.onboarding.ownerName}</span>
+          <input className={s.text} name="ownerName" required maxLength={80} autoComplete="name" />
+        </label>
+      </div>
+
+      {state.error && <p className={s.error}>{state.error}</p>}
+
+      <div className={s.actions}>
+        <Submit pending={pending} idle={t.auth.nameCreate} busy={t.auth.sending} />
+        <p className={s.hint} style={{ textAlign: 'center' }}>
+          {t.onboarding.freeDays(trialDays)}
+        </p>
+      </div>
+    </form>
   );
 }
 

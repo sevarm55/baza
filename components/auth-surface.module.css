@@ -26,46 +26,6 @@
   color: var(--ink);
 }
 
-/* ───────── переключатель ─────────
-   Компактный, во всю ширину, без тяжёлых вкладок. */
-
-.tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 3px;
-  background: var(--sunken);
-  border-radius: 11px;
-}
-
-.tab {
-  position: relative;
-  padding: 0.45rem 0.75rem;
-  border-radius: 9px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--muted);
-  transition: color 0.14s ease;
-}
-.tab:hover {
-  color: var(--ink);
-}
-.tab[data-on] {
-  color: var(--ink);
-}
-.tabLabel {
-  position: relative;
-  z-index: 1;
-}
-/* Плашка выбранной вкладки: заливка окна плюс волосяной край, чтобы
-   она читалась приподнятой, а не пятном. */
-.tab > span:not(.tabLabel) {
-  background: var(--up) !important;
-  box-shadow:
-    0 1px 2px rgb(10 8 16 / 14%),
-    0 0 0 1px rgb(10 8 16 / 5%);
-}
-
 /* ───────── шапка шага ───────── */
 
 .head {

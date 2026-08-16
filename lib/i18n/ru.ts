@@ -243,6 +243,14 @@ export const ru: Dict = {
     verifyPhoneNote: 'Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты.',
     verifyNow: 'Подтвердить',
     verified: 'Номер подтверждён',
+    entryTitle: 'Вход в Tetrin',
+    entrySub: 'Введите номер — пришлём код',
+    entrySend: 'Продолжить',
+    entryPinDoor: 'Войти по PIN',
+    entrySmsDoor: 'Войти по коду из SMS',
+    nameTitle: 'Как называется ваша автомойка?',
+    nameSub: 'Последний шаг — и сразу к работе',
+    nameCreate: 'Создать и начать',
   },
 
   onboarding: {
