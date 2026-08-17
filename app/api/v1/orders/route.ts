@@ -76,6 +76,10 @@ export async function POST(request: Request) {
       note: str(input.note) || undefined,
       price: typeof input.price === 'number' ? input.price : undefined,
       tier: str(input.tier) || undefined,
+      /* Язык и валюта уведомления — бизнеса, а не приложения: пуш
+         прилетит владельцу, а не тому, кто записал машину. */
+      locale: ctx.tenant.locale,
+      currency: ctx.tenant.currency,
     });
 
     return ok(

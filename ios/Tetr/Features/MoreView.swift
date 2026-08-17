@@ -21,6 +21,7 @@ struct MoreView: View {
                 }
 
                 calendarCard
+                reportCard
                 controlMosaic
                 staffCard
                 profileCard
@@ -193,6 +194,47 @@ struct MoreView: View {
             }
             .frame(height: 148)
             .clipShape(.rect(cornerRadius: 25))
+        }
+        .buttonStyle(.press)
+    }
+
+    /**
+     * Отчёт по месяцам.
+     *
+     * Рядом с календарём и такой же строкой: оба про прошлое, только
+     * календарь про дни внутри месяца, а отчёт про месяцы между собой.
+     * Сводка на них не похожа и остаётся вкладкой — в неё заходят каждый
+     * день, а сюда раз в месяц.
+     */
+    private var reportCard: some View {
+        NavigationLink {
+            ReportView().navigationTitle(L("reports.title"))
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.sandInk)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.sandCard, in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("reports.title"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text(L("reports.lead"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Brand.sandInk)
+            }
+            .padding(13)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
         }
         .buttonStyle(.press)
     }

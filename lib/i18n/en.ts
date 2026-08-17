@@ -95,6 +95,7 @@ export const en: Dict = {
     cashDeclared: (sum: string) => `handed over ${sum}`,
     cashNotDeclared: 'not stated',
     someone: 'Staff member',
+    orderInstead: (sum: string) => `instead of ${sum}`,
   },
 
   csv: {
@@ -317,6 +318,13 @@ export const en: Dict = {
     smsFailed: 'Could not send the SMS. Try again shortly.',
     pinTrivial: 'Pick a less obvious PIN',
 
+    changePhone: 'Change number',
+    changePhoneNote: 'Your number is your sign-in. We will check it is you, then send a code to the new number.',
+    changePhoneProof: 'First confirm it is you',
+    changePhoneNew: 'New number',
+    changePhoneDone: 'Number changed',
+    changePhoneDoneNote: 'All sessions are closed. Sign in with the new number.',
+    samePhone: 'This is your current number',
     verifyPhone: 'Confirm your number',
     verifyPhoneNote: 'Without a confirmed number your PIN cannot be recovered. Takes half a minute.',
     verifyNow: 'Confirm',
@@ -432,6 +440,16 @@ export const en: Dict = {
     pinNote: 'Used to sign in to your account',
     access: 'Subscription',
     session: 'This device',
+    devices: 'Devices',
+    devicesNote: 'Where your sign-in is open right now. You can close the others.',
+    deviceThis: 'This device',
+    deviceRevoke: 'Close the sign-in',
+    deviceLastSeen: (when: string) => `last seen ${when}`,
+    deviceApp: 'App',
+    deviceWeb: 'Browser',
+    devicesOne: 'The sign-in is open only on this device.',
+    notifyOrders: 'A notification for every car',
+    notifyOrdersNote: 'The shift-opened notification always arrives',
     rememberLogin: 'Remember this account',
     rememberLoginNote: 'After signing out you come back with one tap on the avatar.',
     signOutNote: 'Turn this off if other people use this computer too.',
@@ -481,6 +499,14 @@ export const en: Dict = {
     shiftRevenue: 'Shift revenue',
 
     worksTotal: 'Work total',
+
+    handOver: 'Handing over in cash',
+
+    cashInShift: (sum: string) => `${sum} collected`,
+
+    handOverDiff: (sum: string) => `Off by ${sum}. The owner will see it.`,
+
+    toHandOver: 'to hand over',
     yourShare: (percent: number) => `your share ${percent}%`,
 
     onShift: "I'm on shift",
@@ -517,6 +543,8 @@ export const en: Dict = {
     stepService: 'Service',
     stepPayment: 'Payment',
     toPay: 'Amount due',
+    giveDiscount: 'Give a discount',
+    discounted: 'Charged',
     addFor: (unit: string, sum: string) => `Add ${unit} · ${sum}`,
     saved: 'Logged',
     addFailed: "Couldn't log it. Try again.",
@@ -638,6 +666,36 @@ export const en: Dict = {
     privacy: 'Privacy policy',
     support: 'Support',
   },
+
+  day: {
+
+    shifts: 'Shifts',
+
+    noShifts: 'No shifts that day',
+
+    noShiftsNote: 'Nobody started a shift.',
+
+    work: 'Work that day',
+
+    noCash: 'No cash that day',
+
+    notDeclared: 'did not state how much was handed over',
+
+    cashMatches: 'matches',
+
+    stillOpen: 'the shift is still on',
+
+  },
+
+
+  calendar: {
+
+    title: 'Calendar',
+
+    lead: 'Every day of the month on one screen',
+
+  },
+
 
   expenses: {
     title: 'Expenses',
@@ -792,6 +850,7 @@ export const en: Dict = {
     month: 'Month',
     whereGone: 'Where it went',
     whereFrom: 'Where it came from',
+    discounts: 'Discounts',
     emptyMonth: 'There was no work this month',
     emptyAll: 'Reports appear once there is data',
     emptyAllNote: 'Log the first car to start collecting statistics.',
@@ -894,6 +953,27 @@ export const en: Dict = {
     priceNote:
       "A price change does not affect records already made. Yesterday's revenue and payroll stay as they were.",
 
+    tiers: 'Classes',
+    tiersLead: 'A jeep and a sedan do not cost the same. Classes apply to the whole price list.',
+    tiersLabel: 'What it is called',
+    tiersLabelHint: 'Class, Body type — whatever you say at the wash',
+    tiersOff: 'Classes are off. Add two to turn them on.',
+    tiersTooFew: 'One class is not a class. Add a second one or remove them all.',
+    tiersOn: (n: number) => `${n} classes. Every service gets its own prices.`,
+    addTier: 'Add a class',
+    tierName: 'Class name',
+    tierPrices: 'Prices by class',
+    tierPriceHint: 'Empty means the base price',
+
+    pinReset: 'Issue a new code',
+
+    pinResetNote: 'The staff member forgot the code — set a new one. Sign-ins with the old code will close.',
+
+    pinResetDone: 'The code is changed. Pass it to the staff member.',
+
+    pinWorksElsewhere: 'This person works elsewhere too. They change the code themselves, from their own page.',
+
+
     deleteTitle: 'Delete the business',
     deleteWhat:
       'Everything goes: records, clients, services and all staff. Staff access closes immediately.',
@@ -905,5 +985,11 @@ export const en: Dict = {
     deleteWrongPin: 'The PIN is wrong.',
     deleteThrottled: 'Too many attempts. Wait and try again.',
     deleteFailed: "Couldn't do it. Try again.",
+    deleteSendCode: 'Send a confirmation code',
+    deleteCodeAsk: 'Confirm with the code from SMS',
+    deleteCodeSent: (phone: string) => `The code went to ${phone}.`,
+    deleteCodeWrong: 'The code is wrong.',
+    deleteCodeExpired: 'The code has expired. Send a new one.',
+    deleteSmsFailed: "Couldn't send the SMS. Try again.",
   },
 };

@@ -21,6 +21,8 @@ export function ServiceFields({
   idPrefix,
   name,
   price,
+  tiers,
+  tierPrices,
   step,
   currencySymbol,
   autoFocus = false,
@@ -29,6 +31,10 @@ export function ServiceFields({
   name?: string;
   /** цена в крупных единицах — её и правят в поле */
   price?: number;
+  /** классы бизнеса; пусто — ряда цен по классам нет вовсе */
+  tiers: string[];
+  /** цена на каждый класс, в крупных единицах; 0 — «как базовая» */
+  tierPrices?: number[];
   step: number;
   currencySymbol: string;
   autoFocus?: boolean;
@@ -73,6 +79,58 @@ export function ServiceFields({
           </span>
         </div>
       </FormField>
+
+      {/* Цены по классам.
+
+          Показываются, только когда классы у бизнеса есть: у остальных
+          это был бы ряд полей, который ничего не меняет. Скрытый признак
+          рядом — по нему серверное действие отличает «форма их не
+          показывала» от «человек очистил все поля»: первое означает «не
+          трогать», второе — «везде базовая».
+
+          Пустая клетка уезжает нулём, и правило «нет своей цены —
+          берём базовую» остаётся в одном месте на весь продукт
+          (`priceForTier`). Подставлять сюда базовую цену за человека
+          нельзя: тогда поднятие базовой перестало бы поднимать классы. */}
+      {tiers.length > 0 && (
+        <div className="grid gap-2">
+          <input type="hidden" name="tierPrices" value="1" />
+          <span className="label">{t.settings.tierPrices}</span>
+
+          {tiers.map((tier, i) => (
+            <label key={tier} className="flex items-center gap-2.5">
+              <span
+                className="min-w-0 flex-1 truncate text-[14px]"
+                style={{ color: 'var(--board-muted)' }}
+              >
+                {tier}
+              </span>
+              <div className="relative w-[9.5rem] shrink-0">
+                <input
+                  className="field auth-field num !ps-9"
+                  name={`tierPrice${i}`}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={step}
+                  defaultValue={tierPrices?.[i] ? tierPrices[i] : ''}
+                  placeholder={price !== undefined ? String(price) : ''}
+                  autoComplete="off"
+                />
+                <span
+                  className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-[15px]"
+                  style={{ color: 'var(--faint)' }}
+                  aria-hidden
+                >
+                  {currencySymbol}
+                </span>
+              </div>
+            </label>
+          ))}
+
+          <p className="note">{t.settings.tierPriceHint}</p>
+        </div>
+      )}
     </>
   );
 }

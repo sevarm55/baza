@@ -28,6 +28,8 @@ struct ProfileView: View {
     @State private var saved = false
 
     @State private var changingPin = false
+    @State private var verifyingPhone = false
+    @State private var changingPhone = false
     @State private var notifyOrders = true
     @State private var deleting = false
 
@@ -57,6 +59,8 @@ struct ProfileView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .sheet(isPresented: $changingPin) { PinChangeView() }
+        .sheet(isPresented: $verifyingPhone) { VerifyPhoneView() }
+        .sheet(isPresented: $changingPhone) { ChangePhoneView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
         .task {
             businessName = session.tenant?.name ?? ""
@@ -292,10 +296,47 @@ struct ProfileView: View {
 
     private var actions: some View {
         VStack(spacing: gap) {
-            action(L("auth.changePin"), L("profile.pinNote"),
+            /* «Задать», а не «сменить», у тех, у кого кода нет вовсе:
+               заведённые по SMS входят кодом из сообщения, и слово
+               «сменить» обещало бы им вопрос про текущий код, которого
+               не существует. Признак приходит с сервера, по хешу в базе
+               (см. `hasPin` в bootstrap). */
+            /* Неподтверждённый номер — дыра именно в безопасности: без
+               него код не восстановить. Поэтому строка стоит НАД самим
+               кодом, а не отдельным разделом в стороне. У подтверждённых
+               здесь ни одного нового пикселя. */
+            if !session.phoneVerified {
+                action(L("auth.verifyPhone"), L("auth.verifyPhoneWhy"),
+                       icon: "checkmark.shield", danger: false) {
+                    verifyingPhone = true
+                }
+            }
+
+            action(session.hasPin ? L("auth.changePin") : L("auth.setPin"),
+                   session.hasPin ? L("profile.pinNote") : L("auth.pinNoneNote"),
                    icon: "lock.rotation", danger: false) {
                 changingPin = true
             }
+
+            /* Номер стоит здесь же, под кодом: это второй ключ от входа,
+               а не строка личных данных. В карточке выше он показан
+               просто значением — там отвечают на вопрос «как со мной
+               связаться». */
+            action(L("auth.changePhone"), L("auth.changePhoneNote"),
+                   icon: "phone.arrow.up.right", danger: false) {
+                changingPhone = true
+            }
+
+            /* Устройства стоят перед «выйти», а не после: сначала то, что
+               можно закрыть у других, потом то, что закрывает себя. */
+            NavigationLink {
+                DevicesView().navigationTitle(L("profile.devices"))
+            } label: {
+                actionFace(L("profile.devices"), L("profile.devicesNote"),
+                           icon: "laptopcomputer.and.iphone", danger: false,
+                           leadsSomewhere: true)
+            }
+            .buttonStyle(.press)
 
             action(L("auth.signOut"), "", icon: "power", danger: false) {
                 Task { await session.signOut() }
@@ -323,30 +364,52 @@ struct ProfileView: View {
         run: @escaping () -> Void
     ) -> some View {
         Button(action: run) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(danger ? .red : Brand.grape)
-                    .frame(width: 22)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundStyle(danger ? .red : Brand.onBoard)
-                    if !note.isEmpty {
-                        Text(note)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Brand.boardMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            actionFace(title, note, icon: icon, danger: danger)
         }
         .buttonStyle(.press)
+    }
+
+    /// Лицо строки-действия, без самой кнопки.
+    ///
+    /// Отдельно от `action`, потому что часть строк не действия, а
+    /// переходы: `NavigationLink` рисует своё нажатие сам, и обернуть его
+    /// в `Button` значило бы получить две кнопки одна в другой.
+    private func actionFace(
+        _ title: String,
+        _ note: String,
+        icon: String,
+        danger: Bool,
+        /// Шеврон только у переходов. У «выйти» он обещал бы экран, которого
+        /// нет: это действие, а не место, куда идут.
+        leadsSomewhere: Bool = false
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(danger ? .red : Brand.grape)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(danger ? .red : Brand.onBoard)
+                if !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            Spacer(minLength: 0)
+            if leadsSomewhere {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
     }
 
     // ══════════════════════════ данные ══════════════════════════
@@ -426,11 +489,23 @@ private struct AccessSkin: ViewModifier {
     }
 }
 
-/// Смена PIN.
-///
-/// Старый спрашивается обязательно: телефон может лежать разблокированным
-/// на столе, и смена без подтверждения означала бы, что случайный человек
-/// рядом отбирает аккаунт целиком.
+/**
+ * Смена PIN. И его установка впервые.
+ *
+ * Старый спрашивается обязательно: телефон может лежать разблокированным
+ * на столе, и смена без подтверждения означала бы, что случайный человек
+ * рядом отбирает аккаунт целиком.
+ *
+ * ОДНО ИСКЛЮЧЕНИЕ: кода нет вовсе. Так живут заведённые по коду из SMS —
+ * входят они кодом, и `pin_hash` у них помечен «кода нет». Спрашивать у
+ * них текущий значит задать вопрос без верного ответа, и второй двери у
+ * них не появилось бы никогда. Решает не этот экран, а сервер — по хешу
+ * в базе; экран лишь не показывает поле, которого не заполнить.
+ *
+ * Длина берётся из `API.pinLength`. Стояла четвёрка, а сервер требует
+ * шесть: смена кода не работала ни у кого, кто завёл его после перехода
+ * на шестизначный, и отвечала общей ошибкой.
+ */
 struct PinChangeView: View {
     @EnvironmentObject private var session: Session
     @Environment(\.dismiss) private var dismiss
@@ -441,20 +516,29 @@ struct PinChangeView: View {
     @State private var error: String?
     @State private var busy = false
 
+    /// Есть ли что менять. Нет — экран задаёт код впервые.
+    private var changing: Bool { session.hasPin }
+
     private var ready: Bool {
-        current.count == 4 && next.count == 4 && next == again && !busy
+        guard !busy, next.count == API.pinLength, next == again else { return false }
+        /* Ввод СУЩЕСТВУЮЩЕГО кода не ограничен шестью: у заведённых до
+           перехода их четыре, и требовать шесть значило бы запереть их
+           снаружи собственного профиля. */
+        return changing ? current.count >= API.pinMinLength : true
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    pin(L("auth.currentPin"), $current)
+                    if changing { pin(L("auth.currentPin"), $current) }
                     pin(L("auth.newPin"), $next)
                     pin(L("common.retry"), $again)
                 } footer: {
                     if !again.isEmpty && next != again {
                         Text(L("auth.pinMismatch")).foregroundStyle(.red)
+                    } else if !changing {
+                        Text(L("auth.pinNoneNote"))
                     }
                 }
 
@@ -463,14 +547,20 @@ struct PinChangeView: View {
                 }
 
                 Section {
-                    Button(L("common.edit")) { Task { await change() } }
-                        .loading(busy, tint: Brand.grape, size: 18)
-                        .disabled(!ready)
+                    Button(changing ? L("common.edit") : L("common.save")) {
+                        Task { await change() }
+                    }
+                    .loading(busy, tint: Brand.grape, size: 18)
+                    .disabled(!ready)
                 } footer: {
-                    Text(L("profile.pinChangedNote"))
+                    /* Гашение сессий — следствие СМЕНЫ, а не установки.
+                       Когда кода не было вовсе, отбирать нечего: человек
+                       просто завёл себе вторую дверь, и обещать ему выход
+                       со всех устройств было бы неправдой. */
+                    Text(changing ? L("profile.pinChangedNote") : L("auth.pinMemo"))
                 }
             }
-            .navigationTitle(L("auth.changePin"))
+            .navigationTitle(changing ? L("auth.changePin") : L("auth.setPin"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -482,12 +572,13 @@ struct PinChangeView: View {
 
     private func pin(_ title: String, _ value: Binding<String>) -> some View {
         LabeledContent(title) {
-            SecureField("••••", text: value)
+            SecureField("••••••", text: value)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.trailing)
                 .monospaced()
                 .onChange(of: value.wrappedValue) { _, v in
-                    if v.count > 4 { value.wrappedValue = String(v.prefix(4)) }
+                    let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
+                    if clean != v { value.wrappedValue = clean }
                 }
         }
     }
@@ -498,13 +589,15 @@ struct PinChangeView: View {
         error = nil
 
         do {
-            try await session.changePin(current: current, next: next)
+            try await session.changePin(current: changing ? current : "", next: next)
             dismiss()
         } catch let e as APIError {
             current = ""
             switch e.code {
             case "WRONG_CREDENTIALS": error = L("auth.wrongPin")
             case "TOO_MANY_TRIES": error = L("auth.throttled")
+            case "PIN_WEAK":
+                error = e.reason == "TRIVIAL_PIN" ? L("auth.pinTrivial") : L("auth.pinMemo")
             default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }
         } catch {

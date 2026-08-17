@@ -14,6 +14,7 @@ import {
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
 import { normalizeClientKey } from './client-key';
+import { DEFAULT_LOCALE, dict } from './i18n';
 
 export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 
@@ -53,6 +54,16 @@ export type CreateOrderInput = {
    * разошлись, продукту перестают верить.
    */
   price?: number;
+  /**
+   * Язык и валюта уведомления — бизнеса, а не того, кто нажал кнопку.
+   *
+   * Пуш собирает сервер, спросить человека негде; то же правило уже
+   * работает у смен (`openShift`). Оба необязательны и падают на
+   * умолчания: запись машины не имеет права сломаться из-за того, что
+   * вызывающий не передал язык сообщения.
+   */
+  locale?: string;
+  currency?: string;
 };
 
 export class NotFoundError extends Error {}
@@ -277,7 +288,13 @@ export async function createOrder(input: CreateOrderInput) {
         title: made.client?.key ?? made.order.serviceName,
         // скидку показываем сразу: она всплывает в тот же вечер, а не
         // через месяц при сверке
-        body: discountLine(made.order.serviceName, made.order.price, made.order.listPrice),
+        body: discountLine(
+          made.order.serviceName,
+          made.order.price,
+          made.order.listPrice,
+          input.locale ?? DEFAULT_LOCALE,
+          input.currency,
+        ),
         thread: 'orders',
       },
       'orders',
@@ -287,11 +304,27 @@ export async function createOrder(input: CreateOrderInput) {
   return made;
 }
 
-/** «Կոմպլեքս · 4 000 ֏» или «Կոմպլեքս · 4 000 ֏ (5 000-ի փոխարեն)» */
-function discountLine(service: string, price: number, listPrice: number | null): string {
-  const line = `${service} · ${formatMoney(price)}`;
+/**
+ * «Комплекс · 4 000 ֏» или «Комплекс · 4 000 ֏ (вместо 5 000 ֏)».
+ *
+ * Язык — бизнеса (`tenants.locale`), а не того, кто нажал кнопку: пуш
+ * собирает сервер, спросить человека негде, и то же правило уже работает
+ * у смен (`openShift`). Здесь вторая половина строки была написана
+ * по-армянски прямо в коде, и у русского владельца получалось
+ * «Комплекс · 4 000 ֏ (5 000-ի փոխարեն)» — половина фразы на чужом
+ * языке.
+ */
+function discountLine(
+  service: string,
+  price: number,
+  listPrice: number | null,
+  locale: string,
+  currency?: string,
+): string {
+  const money = (sum: number) => formatMoney(sum, currency, locale);
+  const line = `${service} · ${money(price)}`;
   if (listPrice === null || listPrice <= price) return line;
-  return `${line} (${formatMoney(listPrice)}-ի փոխարեն)`;
+  return `${line} (${dict(locale).push.orderInstead(money(listPrice))})`;
 }
 
 /**

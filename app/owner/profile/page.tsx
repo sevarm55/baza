@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation';
-import { rememberedLoginEnabled, requireSession } from '@/lib/auth';
+import { currentSessionId, rememberedLoginEnabled, requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
+import { listDevices } from '@/lib/devices';
+import { hhmm, ymd } from '@/lib/time';
+import { intlLocale } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
 import { formatPhone, maskPhone } from '@/lib/phone';
@@ -11,7 +15,10 @@ import { SignOutButton } from '@/components/sign-out-button';
 import { ValueRow } from '@/components/value-row';
 import { accountOf } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
+import { ChangePhonePanel } from './change-phone-panel';
+import { DeviceList, type DeviceRow } from './devices';
 import { NameForm } from './name-form';
+import { NotifyOrdersToggle } from './notify-orders-toggle';
 import { PinCard } from './pin-card';
 import { SubscriptionSummary } from './subscription-summary';
 import { ThemePicker } from './theme-picker';
@@ -49,10 +56,11 @@ export default async function ProfilePage() {
   const session = await requireSession();
   await ensureDb();
 
-  const [raw, me, rememberLogin] = await Promise.all([
+  const [raw, me, rememberLogin, sid] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
     rememberedLoginEnabled(),
+    currentSessionId(),
   ]);
   if (!raw || !me) redirect('/session-ended');
 
@@ -73,6 +81,17 @@ export default async function ProfilePage() {
      третий месяц, возвращать нечего (см. lib/onboarding.ts). */
   const setup = owner ? await getSetup(raw, me, { ignoreHidden: true }) : null;
   const canResume = owner && me.setupHiddenAt !== null && setup !== null && setup.visible;
+
+  /* Часы собираются здесь, в поясе бизнеса: `Date` через границу
+     сервер-клиент проходит, но пересчитан на той стороне будет по
+     часам смотрящего, и вход из вечера превратится в утро. */
+  const devices: DeviceRow[] = (await listDevices(session.uid, sid)).map((d) => ({
+    id: d.id,
+    kind: d.kind,
+    device: d.device,
+    lastSeen: whenLabel(d.lastSeenAt, tenant.timezone, t),
+    current: d.current,
+  }));
 
   return (
     <div className="page-narrow">
@@ -128,6 +147,14 @@ export default async function ProfilePage() {
             )}
 
             <PinCard hasPin={hasPin(account.pinHash)} />
+
+            {/* Номер — здесь же, под кодом: это второй ключ от входа, а
+                не строка личных данных. Выше, в «личных данных», он
+                показан просто как значение — там на него отвечают на
+                вопрос «как со мной связаться». */}
+            <div className="mt-5 border-t pt-5" style={{ borderColor: 'var(--hairline)' }}>
+              <ChangePhonePanel hasPin={hasPin(account.pinHash)} />
+            </div>
           </Panel>
         </div>
 
@@ -156,7 +183,23 @@ export default async function ProfilePage() {
           )}
 
           <Panel title={t.profile.session}>
-            <RememberLoginToggle initial={rememberLogin} />
+            <div className="grid gap-2">
+              {/* Уведомления — настройка человека, а не браузера: она в
+                  базе и решает, придёт ли пуш на телефон. Владелец,
+                  сидящий за компьютером, выключает их отсюда, а не идёт
+                  за телефоном. Мойщику не показываем: письма о записях
+                  уходят владельцам, и ему этот выключатель не отвечает
+                  ни на что. */}
+              {owner && <NotifyOrdersToggle initial={me.notifyOrders} />}
+              <RememberLoginToggle initial={rememberLogin} />
+            </div>
+          </Panel>
+
+          {/* Устройства — рядом с «этим устройством», а не в
+              «безопасности»: там лежит то, чем закрыт вход, а здесь то,
+              где он уже открыт. Вопросы разные, и решения по ним разные. */}
+          <Panel title={t.profile.devices}>
+            <DeviceList rows={devices} />
           </Panel>
 
           <Panel title={t.profile.account}>
@@ -171,6 +214,31 @@ export default async function ProfilePage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Когда последний раз видели этот вход.
+ *
+ * «Сегодня, 12:24» вместо «17 августа 2026, 12:24»: строка стоит под
+ * названием устройства и отвечает на вопрос «давно ли», а не «какого
+ * числа». Точная дата нужна только у входа, которого человек не узнаёт,
+ * и там она как раз и появляется — у всего, что старше вчера.
+ */
+function whenLabel(at: Date, timezone: string, t: Dict): string {
+  const day = ymd(at, timezone);
+  const time = hhmm(at, timezone);
+
+  if (day === ymd(new Date(), timezone)) return `${t.common.today}, ${time}`;
+  if (day === ymd(new Date(Date.now() - 86_400_000), timezone)) {
+    return `${t.common.yesterday}, ${time}`;
+  }
+
+  const date = new Intl.DateTimeFormat(intlLocale(t.locale), {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  }).format(at);
+  return `${date}, ${time}`;
 }
 
 /** Две буквы имени: тот же приём, что у плитки человека в списке. */

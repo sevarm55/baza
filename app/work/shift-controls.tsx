@@ -23,9 +23,12 @@ import { useT } from '@/lib/i18n/client';
  * сколько из этого твоего.
  */
 
-function toggle(open: boolean) {
+function toggle(open: boolean, cash?: string) {
   const data = new FormData();
   data.set('open', String(open));
+  /* Пустое поле — это «не отметил», а не ноль, и на сервер оно не едет
+     вовсе: владелец должен различать «сдал 0» и «не сказал сколько». */
+  if (cash !== undefined && cash !== '') data.set('cash', cash);
   return toggleShiftAction(data);
 }
 
@@ -60,17 +63,31 @@ export function EndShift({
   count,
   revenue,
   earned,
+  cash,
   currency,
   unitOne,
 }: {
   count: number;
   revenue: number;
   earned: number;
+  /**
+   * Сколько наличных набралось за смену. Считает сервер тем же
+   * `cashInShift`, которым он посчитает ожидаемое при закрытии.
+   */
+  cash: number;
   currency: string;
   unitOne: string;
 }) {
   const t = useT();
   const [asking, setAsking] = useState(false);
+  /**
+   * Сколько человек говорит, что сдаёт.
+   *
+   * Подставляем набежавшее: в девяти случаях из десяти сдают именно
+   * столько, и заставлять переписывать своё же число незачем. Стереть
+   * можно — тогда владелец увидит «не отмечено», и это честнее нуля.
+   */
+  const [declared, setDeclared] = useState(String(cash));
   const [pending, startTransition] = useTransition();
 
   return (
@@ -96,11 +113,16 @@ export function EndShift({
         open={asking}
         onClose={pending ? () => {} : () => setAsking(false)}
         title={t.work.endTitle}
+        /* Два равноправных выхода — значит две кнопки одного размера.
+           Пара «мелкая слева, крупная справа» в продукте означает
+           «отмена и сохранить», то есть объявляет один из выходов
+           ошибкой. Здесь ошибочного нет: остаться на смене — такое же
+           решение, как её закрыть. Разницу несёт заливка, а не габарит. */
         footer={
-          <>
+          <div className="setup-foot">
             <button
               type="button"
-              className="btn-inline"
+              className="btn btn-ghost"
               onClick={() => setAsking(false)}
               disabled={pending}
             >
@@ -108,13 +130,13 @@ export function EndShift({
             </button>
             <button
               type="button"
-              className="btn btn-auto"
+              className="btn"
               disabled={pending}
-              onClick={() => startTransition(async () => void (await toggle(false)))}
+              onClick={() => startTransition(async () => void (await toggle(false, declared)))}
             >
               {pending ? t.common.loading : t.work.endConfirm}
             </button>
-          </>
+          </div>
         }
       >
         <div className="grid gap-3">
@@ -125,6 +147,46 @@ export function EndShift({
                 та, ради которой человек читает окно. */}
             <Line label={t.work.earnedToday} value={formatMoney(earned, currency, t.locale)} strong />
           </div>
+
+          {/* Сдача наличных.
+
+              Это единственный момент, когда деньги переходят из рук в
+              руки, и другого места спросить не будет. До сих пор веб
+              закрывал смену молча: сколько намыто наличными, знал сервер,
+              а сколько человек отдал — не знал никто, и недостача не
+              всплывала вовсе. На телефоне это спрашивали с самого начала.
+
+              Поле не обязательное: закрыться человек должен уметь всегда,
+              а пустое означает «не отметил» — владелец увидит именно это,
+              а не ноль. */}
+          <label className="grid gap-1.5">
+            <span className="label">{t.work.handOver}</span>
+            <div className="flex items-center gap-2.5">
+              <input
+                className="field num flex-1 text-end"
+                value={declared}
+                onChange={(e) => setDeclared(e.target.value.replace(/\D/g, ''))}
+                inputMode="numeric"
+                autoComplete="off"
+                disabled={pending}
+              />
+              <span className="shrink-0 text-[13px]" style={{ color: 'var(--muted)' }}>
+                {t.work.cashInShift(formatMoney(cash, currency, t.locale))}
+              </span>
+            </div>
+          </label>
+
+          {/* Расхождение называем сразу, до нажатия: узнать о недостаче
+              вечером из уведомления владельца — не то же самое, что
+              увидеть её, пока ещё можно пересчитать деньги в руках. */}
+          {declared !== '' && Number(declared) !== cash && (
+            <p className="note note-warn">
+              {t.work.handOverDiff(
+                formatMoney(Math.abs(Number(declared) - cash), currency, t.locale),
+              )}
+            </p>
+          )}
+
           <p className="text-[12.5px]" style={{ color: 'var(--muted)' }}>
             {t.work.endNote(unitOne)}
           </p>

@@ -6,11 +6,23 @@ import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
 
 /**
- * Смена PIN.
+ * Смена PIN. И его установка впервые.
  *
  * Старый спрашивается обязательно, и тот же счётчик попыток, что на
  * входе: иначе это тихий способ подобрать PIN изнутри уже открытого
  * приложения — без блокировки и без следа в истории входов.
+ *
+ * ЕДИНСТВЕННОЕ ИСКЛЮЧЕНИЕ: у человека кода нет вовсе. Так живут все, кто
+ * завёл мойку по коду из SMS, — `pin_hash` у них помечен «кода нет» (см.
+ * lib/pin.ts). Спрашивать у них текущий значит задать вопрос, на который
+ * нет верного ответа: `verifyPin` на этой метке отказывает всегда, и
+ * второй двери у них не появилось бы никогда. А без второй двери
+ * подтвердить нечем и удаление бизнеса.
+ *
+ * Дыры здесь нет: человек уже вошёл, и сам вход и есть доказательство,
+ * что это он. Решает не маршрут, а `changePin` — по хешу в базе, а не по
+ * тому, что прислал клиент: присланный признак «у меня нет кода» был бы
+ * способом сменить чужой код, не зная старого.
  *
  * После смены все сессии гаснут, включая ту, из которой пришёл запрос, —
  * в этом весь смысл. Но человека, который только что сменил PIN, выкидывать
@@ -29,7 +41,10 @@ export async function POST(request: Request) {
     const input = await body<{ current?: string; next?: string; device?: string }>(request);
     const current = str(input?.current);
     const next = str(input?.next);
-    if (!current || !next) return fail('BAD_REQUEST', 400);
+    /* Текущий не обязателен: есть он у человека или нет, знает
+       `changePin`, и знает по базе. Пустой при существующем коде там же
+       и упрётся в `WRONG_PIN`. */
+    if (!next) return fail('BAD_REQUEST', 400);
 
     const ip = clientIp(request.headers);
     const guard = await checkLogin(ctx.user.phone, ip);
@@ -61,7 +76,14 @@ export async function POST(request: Request) {
       expiresIn: issued.expiresIn,
     });
   } catch (e) {
-    if (e instanceof ProfileError) return fail('BAD_REQUEST', 400, { reason: e.message });
+    /* «Мало цифр» и «слишком очевидный» — отдельный код ответа, а не
+       общий BAD_REQUEST: человек в этот момент придумывает код, и ему
+       надо сказать, что именно с ним не так. Тот же `PIN_WEAK`, что
+       отдаёт регистрация. */
+    if (e instanceof ProfileError) {
+      const weak = e.message === 'BAD_PIN' || e.message === 'TRIVIAL_PIN';
+      return fail(weak ? 'PIN_WEAK' : 'BAD_REQUEST', 400, { reason: e.message });
+    }
     return failFromError(e);
   }
 }

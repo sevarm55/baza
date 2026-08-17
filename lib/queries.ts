@@ -244,6 +244,19 @@ export async function getPeriodStats(tenantId: string, from: Date, to?: Date) {
       passUses: sql<number>`count(*) filter (where ${orders.payment} = 'pass')::int`,
       serviceRevenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
       cash: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} = 'cash'), 0)::int`,
+      /**
+       * Сколько скидок дали за период.
+       *
+       * Разница между прайсом и взятым, сложенная по всем записям. До
+       * этой строки скидка была невидимой: продукт её записывал
+       * (`orders.list_price`), но не показывал нигде, кроме
+       * уведомления в момент записи, — владелец, пропустивший push, не
+       * узнавал о ней никогда.
+       *
+       * `list_price` пуст у записей, сделанных до появления скидок, и
+       * `coalesce` приравнивает их к цене: скидки там не было.
+       */
+      discounts: sql<number>`coalesce(sum(greatest(coalesce(${orders.listPrice}, ${orders.price}) - ${orders.price}, 0)) filter (where ${orders.payment} <> 'pass'), 0)::int`,
     })
     .from(orders)
     .where(where);
@@ -289,6 +302,14 @@ export async function getPeriodStats(tenantId: string, from: Date, to?: Date) {
      */
     payroll: byStaff.reduce((sum, s) => sum + s.earned, 0),
     cash: totals?.cash ?? 0,
+    /**
+     * Скидок дано за период — разница между прайсом и взятым.
+     *
+     * Не убыток и не расход: это деньги, которых бизнес решил не брать.
+     * Показывается там, где владелец смотрит на итоги, и молчит, когда
+     * равна нулю — «скидок 0 ֏» сообщает ровно то же, что её отсутствие.
+     */
+    discounts: totals?.discounts ?? 0,
     // средний чек считаем только по оплаченным на месте: иначе один
     // проданный абонемент на 40 000 раздувает его до неузнаваемости
     avgCheck: paidCount ? Math.round(serviceRevenue / paidCount) : 0,
@@ -365,6 +386,10 @@ export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Da
       id: orders.id,
       createdAt: orders.createdAt,
       price: orders.price,
+      /* Цена по прайсу. Нужна ровно для одного: показать, что взяли
+         меньше. Пусто у записей, сделанных до появления скидок, — там
+         разницы не было. */
+      listPrice: orders.listPrice,
       serviceName: orders.serviceName,
       payment: orders.payment,
       staffName: users.name,
@@ -835,6 +860,10 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
       id: orders.id,
       createdAt: orders.createdAt,
       price: orders.price,
+      /* Цена по прайсу. Нужна ровно для одного: показать, что взяли
+         меньше. Пусто у записей, сделанных до появления скидок, — там
+         разницы не было. */
+      listPrice: orders.listPrice,
       serviceName: orders.serviceName,
       payment: orders.payment,
       staffName: users.name,

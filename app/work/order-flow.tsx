@@ -3,7 +3,6 @@
 import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -18,12 +17,17 @@ import { EmptyState } from '@/components/empty-state';
 import { Panel, Row } from '@/components/board';
 import { IconCard, IconCash, IconCheck, IconTicket, IconTransfer } from '@/components/icons';
 import {
+  drop,
   enqueue,
   flushQueue,
   newRef,
+  stamp,
   queueSnapshot,
+  rejected,
+  retry,
   serverSnapshot,
   subscribe,
+  waiting,
   type QueuedOrder,
 } from '@/lib/offline';
 import type { Payment } from '@/lib/orders';
@@ -78,9 +82,14 @@ type Known = {
  * записи. Теперь последнее движение — отдельная кнопка, и на ней стоит
  * то, что произойдёт, и за сколько.
  *
- * Движение, отданное кнопке, возвращается на следующей машине: после
- * записи форма не закрывается, а очищается и снова ждёт номер. Мойщик
- * записывает машины подряд, а не по одной с возвратом на главную.
+ * ПОСЛЕ ЗАПИСИ ФОРМА ЗАКРЫВАЕТСЯ. Раньше она оставалась открытой и
+ * очищалась — «мойщик записывает машины подряд». На деле это отвечало
+ * не на тот вопрос: после нажатия человек хочет увидеть, что машина
+ * записалась, а пустая форма на её месте выглядит так, будто ничего не
+ * произошло и надо набирать заново. Подтверждение, которому верят, —
+ * машина в журнале и выросший счётчик; они на общем экране, туда и
+ * возвращаемся. Следующая машина начинается с той же большой кнопки,
+ * которой началась эта.
  */
 type Step = 'home' | 'compose';
 
@@ -144,11 +153,22 @@ export function OrderFlow({
   const t = useT();
   const [wanted, setStep] = useState<Step>('home');
   const [clientKey, setClientKey] = useState('');
-  const [service, setService] = useState<Service | null>(null);
+  /**
+   * Выбранные услуги.
+   *
+   * За один заезд делают комплекс и химчистку салона, и до сих пор в
+   * браузере это записывали двумя машинами: число машин, средний чек и
+   * счётчик визитов клиента выходили завышенными. Телефон умел это
+   * давно — и сервер тоже.
+   */
+  const [chosen, setChosen] = useState<Service[]>([]);
   /** класс, который выбрал сам мойщик; null — ещё не трогал */
   const [picked, setPicked] = useState<number | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [passId, setPassId] = useState<string | null>(null);
+  /** Скидка: развёрнута ли строка и что в ней набрано. */
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [discountText, setDiscountText] = useState('');
   const [known, setKnown] = useState<Known | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -197,6 +217,17 @@ export function OrderFlow({
   /** Цена услуги в выбранном классе. Ряд посчитал сервер. */
   const priceOf = (s: Service) => (tier === null ? s.price : (s.prices[tier] ?? s.price));
 
+  /** Сколько стоит по прайсу всё выбранное. */
+  const listTotal = chosen.reduce((sum, s) => sum + priceOf(s), 0);
+
+  /* Сколько возьмём: набранная сумма или прайс. Выше прайса не пускаем —
+     то же правило, что на сервере: запись фиксирует сумму, а не
+     назначает её. */
+  const typed = Number.parseInt(discountText, 10);
+  const charged =
+    showDiscount && Number.isFinite(typed) ? Math.max(0, Math.min(typed, listTotal)) : listTotal;
+  const discounted = charged < listTotal;
+
   useEffect(() => () => {
     if (savedTimer.current) clearTimeout(savedTimer.current);
   }, []);
@@ -208,9 +239,17 @@ export function OrderFlow({
       void flushQueue(async (item) => {
         await addOrder({
           clientKey: item.clientKey,
-          serviceId: item.serviceId,
+          /* Обе формы: в очереди могли остаться записи, сделанные до
+             появления мультивыбора, и терять их из-за формата нельзя. */
+          serviceId: item.serviceIds?.length ? undefined : item.serviceId,
+          serviceIds: item.serviceIds,
           payment: item.payment,
           passId: item.passId,
+          /* Цену шлём только когда она отличается от прайса: в обычной
+             записи это лишнее поле, а в записи со скидкой — единственное,
+             что её сохраняет. */
+          price:
+            item.listPrice !== undefined && item.price < item.listPrice ? item.price : undefined,
           tier: item.tier,
           clientRef: item.ref,
         });
@@ -248,39 +287,37 @@ export function OrderFlow({
     if (step === 'compose') inputRef.current?.focus();
   }, [step]);
 
-  /** Очистить набранное, оставив форму открытой и курсор в номере. */
-  const clear = useCallback(() => {
-    setClientKey('');
-    setService(null);
-    setPayment(null);
-    setPassId(null);
-    setPicked(null);
-    setKnown(null);
-    setError(null);
-    inputRef.current?.focus();
-  }, []);
-
+  /** Закрыть форму и обнулить набранное. */
   function close() {
     setStep('home');
     setClientKey('');
-    setService(null);
+    setChosen([]);
     setPayment(null);
     setPassId(null);
     setPicked(null);
     setKnown(null);
+    setShowDiscount(false);
+    setDiscountText('');
     setError(null);
   }
 
-  /** Записалось: короткая строка вместо экрана «готово» — и следующий номер. */
+  /**
+   * Записалось.
+   *
+   * Возвращаемся на общий экран: там машина уже стоит в журнале, а
+   * счётчик и деньги пересчитаны — это и есть подтверждение, которому
+   * верят. Строка «записано» держится пару секунд поверх него, чтобы
+   * связь между нажатием и результатом не пришлось додумывать.
+   */
   function succeed() {
-    clear();
+    close();
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 2500);
   }
 
   function submit() {
-    if (!service || !payment || !resolvedClientKey) return;
+    if (chosen.length === 0 || !payment || !resolvedClientKey) return;
     if (sending.current) return;
     sending.current = true;
     setSaved(false);
@@ -289,16 +326,20 @@ export function OrderFlow({
     const item: QueuedOrder = {
       ref: newRef(),
       clientKey: resolvedClientKey,
-      serviceId: service.id,
-      serviceName: service.name,
-      price: priceOf(service),
+      /* Старое поле заполняем всегда: запись могла быть сделана этой
+         версией, а отправлена — после откате на прежнюю. */
+      serviceId: chosen[0].id,
+      serviceIds: chosen.map((s) => s.id),
+      serviceName: chosen.map((s) => s.name).join(' + '),
+      price: charged,
+      listPrice: listTotal,
       payment,
       passId: passId ?? undefined,
       /* Класс уходит словом, а не номером: пока запись лежит в очереди без
          связи, владелец мог переставить классы местами, и номер указал бы
          на соседний. Слово либо совпадёт, либо цена будет базовой. */
       tier: tier === null ? undefined : tiers[tier],
-      at: Date.now(),
+      at: stamp(),
     };
 
     // без связи даже не пытаемся: запись ложится в очередь, мойщик
@@ -314,9 +355,10 @@ export function OrderFlow({
       try {
         await addOrder({
           clientKey: item.clientKey,
-          serviceId: item.serviceId,
+          serviceIds: item.serviceIds,
           payment: item.payment,
           passId: item.passId,
+          price: discounted ? item.price : undefined,
           tier: item.tier,
           clientRef: item.ref,
         });
@@ -355,11 +397,52 @@ export function OrderFlow({
      откроют или появится хоть одна запись, он возвращается: пустой
      журнал НА смене — другой ответ, он говорит «всё в порядке, первая
      машина просто ещё не приехала». */
+  /* `queued` и `stuck`, а не `pending`: имя `pending` уже занято
+     признаком идущей отправки от `useTransition`. */
+  const queued = waiting(queue);
+  const stuck = rejected(queue);
   const nothingYet = recent.length === 0 && queue.length === 0;
   const journal = !shiftOpen && nothingYet ? null : (
     <Panel title={t.work.recent} count={recent.length + queue.length}>
       <div className="board-journal">
-        {queue.map((q) => (
+        {/* Отвергнутые первыми и с разбором.
+
+            Раньше отказ сервера обрывал всю очередь, и запись висела в
+            ней «ожидающей» вечно: страница обещала, что она уйдёт, а она
+            не уходила никогда. Теперь она названа тем, что есть, вместе с
+            причиной, и решает человек: повторить (например, после того
+            как владелец вернул услугу в прайс) или убрать. Сама очередь
+            работу мойщика не выбрасывает. */}
+        {stuck.map((q) => (
+          <Row key={q.ref}>
+            <span className="min-w-0 flex-1">
+              <span className="num block truncate text-[14.5px] font-semibold">{q.clientKey}</span>
+              <span className="block truncate text-[12.5px]" style={{ color: 'var(--bad)' }}>
+                {[q.serviceName, q.failure].filter(Boolean).join(' · ')}
+              </span>
+              <span className="mt-1 flex gap-2">
+                <button
+                  type="button"
+                  className="btn-inline"
+                  onClick={() => {
+                    retry(q.ref);
+                    router.refresh();
+                  }}
+                >
+                  {t.payroll.retry}
+                </button>
+                <button type="button" className="btn-inline" onClick={() => drop(q.ref)}>
+                  {t.expenses.remove}
+                </button>
+              </span>
+            </span>
+            <span className="num shrink-0 text-[14px] font-semibold">
+              {formatMoney(q.price, currency, t.locale)}
+            </span>
+          </Row>
+        ))}
+
+        {queued.map((q) => (
           <Row key={q.ref}>
             <span className="min-w-0 flex-1">
               <span className="num block truncate text-[14.5px] font-semibold">{q.clientKey}</span>
@@ -443,8 +526,11 @@ export function OrderFlow({
         {saved && <Saved />}
 
         {/* Мойщик должен видеть, что его работа не потерялась, даже если
-            связи нет прямо сейчас. */}
-        {queue.length > 0 && <div className="hint-warn">{t.work.waitingToSend(queue.length)}</div>}
+            связи нет прямо сейчас. Отвергнутые здесь не считаем: они не
+            «ждут отправки», а ждут решения, и живут строками в журнале. */}
+        {queued.length > 0 && (
+          <div className="hint-warn">{t.work.waitingToSend(queued.length)}</div>
+        )}
 
         {/* Журнал — прибор с подложкой, как списки в кабинете. Раньше он
             лежал прямо на полотне: строки висели в пустоте, а время и
@@ -456,16 +542,19 @@ export function OrderFlow({
   }
 
   /* ----------------------------- запись ------------------------------ */
-  const activePass = service
-    ? known?.passes?.find((p) => p.serviceId === service.id)
+  /* Абонемент покрывает ОДНУ услугу, поэтому и предлагается только когда
+     выбрана одна. При «комплекс + химчистка» списывать с него нечего:
+     сервер посчитал бы всю запись по номиналу одной мойки внутри
+     абонемента, и вторая услуга уехала бы бесплатно. */
+  const single = chosen.length === 1 ? chosen[0] : null;
+  const activePass = single
+    ? known?.passes?.find((p) => p.serviceId === single.id)
     : undefined;
   /* Абонемент выбран, а клиент сменил услугу — списывать больше нечего.
      Считаем по факту, а не по тому, что было нажато минуту назад. */
   const usingPass = payment === 'pass' && Boolean(activePass);
-  const ready = resolvedClientKey.length > 0 && service !== null && payment !== null;
-  const sum = usingPass
-    ? t.payment.pass
-    : formatMoney(service ? priceOf(service) : 0, currency);
+  const ready = resolvedClientKey.length > 0 && chosen.length > 0 && payment !== null;
+  const sum = usingPass ? t.payment.pass : formatMoney(charged, currency);
 
   /* Запись — на той же подложке, что журнал на её месте. Иначе при
      переходе с главной прибор исчезает, и форма висит на голом
@@ -548,37 +637,79 @@ export function OrderFlow({
         <div className="label mt-4 mb-2">{t.work.stepService}</div>
         {/* Услуги фишками, а не столбцом кнопок: их пять-шесть, названия
             разной длины, и в столбце они занимали пол-экрана — до оплаты
-            приходилось листать. Повторное нажатие снимает выбор. */}
+            приходилось листать. Повторное нажатие снимает выбор.
+
+            Выбрать можно несколько: за один заезд делают комплекс и
+            химчистку салона, и двумя машинами это записывать нельзя —
+            число машин и средний чек выходят завышенными. */}
         <div className="flex flex-wrap gap-2">
-          {services.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="pick"
-              data-on={service?.id === s.id ? '' : undefined}
-              aria-pressed={service?.id === s.id}
-              onClick={() =>
-                setService((cur) => {
-                  const next = cur?.id === s.id ? null : s;
-                  /* Услугу сменили — абонемент был от прежней. Оставить
-                     его значило бы списать мойку, которой у клиента на
-                     эту услугу нет. */
+          {services.map((s) => {
+            const on = chosen.some((x) => x.id === s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className="pick"
+                data-on={on ? '' : undefined}
+                aria-pressed={on}
+                onClick={() => {
+                  setChosen((cur) =>
+                    on ? cur.filter((x) => x.id !== s.id) : [...cur, s],
+                  );
+                  /* Набор услуг сменился — абонемент был от прежнего.
+                     Оставить его значило бы списать мойку, которой у
+                     клиента на эти услуги нет. */
                   if (payment === 'pass') {
                     setPayment(null);
                     setPassId(null);
                   }
-                  return next;
-                })
-              }
-            >
-              <span className="pick-name">{s.name}</span>
-              {/* Цена та, которую сейчас возьмут: сменили класс — весь
-                  ряд пересчитался. Прайс по классам иначе приходится
-                  держать в голове. */}
-              <span className="num pick-price">{formatMoney(priceOf(s), currency)}</span>
-            </button>
-          ))}
+                }}
+              >
+                <span className="pick-name">{s.name}</span>
+                {/* Цена та, которую сейчас возьмут: сменили класс — весь
+                    ряд пересчитался. Прайс по классам иначе приходится
+                    держать в голове. */}
+                <span className="num pick-price">{formatMoney(priceOf(s), currency)}</span>
+              </button>
+            );
+          })}
         </div>
+
+        {/* Скидка.
+
+            Свёрнута по умолчанию и стоит под услугами, а не полем цены
+            наверху: скидка — исключение, и вводит её тот, кто её правда
+            даёт, а не каждый по дороге. Больше прайса ввести нельзя, и
+            это же правило стоит на сервере: запись фиксирует сумму, а не
+            назначает её.
+
+            До неё мойщик выбирал услугу подешевле или не записывал
+            вовсе, и цифры расходились с кассой. */}
+        {chosen.length > 0 && !usingPass && (
+          <div className="mt-3">
+            {showDiscount ? (
+              <label className="flex items-center gap-2.5">
+                <span className="label shrink-0">{t.work.discounted}</span>
+                <input
+                  className="field num !h-10 flex-1 text-end"
+                  value={discountText}
+                  onChange={(e) => setDiscountText(e.target.value.replace(/\D/g, ''))}
+                  inputMode="numeric"
+                  placeholder={String(listTotal)}
+                  autoComplete="off"
+                />
+              </label>
+            ) : (
+              <button
+                type="button"
+                className="btn-inline"
+                onClick={() => setShowDiscount(true)}
+              >
+                {t.work.giveDiscount}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Итог и оплата — низом, у большого пальца руки, которой держат
             телефон. */}
@@ -589,7 +720,25 @@ export function OrderFlow({
             <span className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
               {t.work.toPay}
             </span>
-            <span className="num text-[24px] leading-none font-bold tracking-[-0.03em]">{sum}</span>
+            <span className="flex items-baseline gap-2">
+              {/* Зачёркнутый прайс рядом со взятой суммой: без него
+                  «4 000» не отличить от обычной цены, и скидку не видно
+                  ни мойщику, ни тому, кто смотрит через плечо. */}
+              {discounted && !usingPass && (
+                <span
+                  className="num text-[14px] line-through"
+                  style={{ color: 'var(--board-muted)' }}
+                >
+                  {formatMoney(listTotal, currency)}
+                </span>
+              )}
+              <span
+                className="num text-[24px] leading-none font-bold tracking-[-0.03em]"
+                style={discounted && !usingPass ? { color: 'var(--warn-on-board)' } : undefined}
+              >
+                {sum}
+              </span>
+            </span>
           </div>
 
           <div className="label mb-2">{t.work.stepPayment}</div>

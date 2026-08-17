@@ -440,3 +440,22 @@ export async function requireOwner(): Promise<Session> {
   if (session.role !== 'owner') redirect('/work');
   return session;
 }
+
+/**
+ * Строка сессии, которой открыт этот браузер.
+ *
+ * Нужна одному месту — списку устройств: там надо пометить «это
+ * устройство», чтобы человек не погасил вход, из которого смотрит, и не
+ * решил, что продукт сломался. Ничего, кроме пометки, от неё не зависит,
+ * поэтому и отдаётся отдельно, а не подмешивается в `Session`: там она
+ * стала бы доступна всему коду, которому решать по ней нечего.
+ *
+ * Пусто у cookie, выданных до появления таблицы сессий: у них `sid` нет
+ * вовсе (см. `sessionAlive`). Тогда просто ни одна строка не помечена.
+ */
+export async function currentSessionId(): Promise<string | null> {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  return claims?.sid || null;
+}

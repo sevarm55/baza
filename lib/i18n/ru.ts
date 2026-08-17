@@ -106,6 +106,7 @@ export const ru: Dict = {
     cashDeclared: (sum: string) => `сдал ${sum}`,
     cashNotDeclared: 'не указал',
     someone: 'Сотрудник',
+    orderInstead: (sum: string) => `вместо ${sum}`,
   },
 
   csv: {
@@ -328,6 +329,13 @@ export const ru: Dict = {
     smsFailed: 'Не удалось отправить SMS. Попробуйте позже.',
     pinTrivial: 'Выберите менее очевидный PIN',
 
+    changePhone: 'Сменить номер',
+    changePhoneNote: 'Номер — это ваш вход. Проверим, что это вы, и пришлём код на новый номер.',
+    changePhoneProof: 'Сначала подтвердите, что это вы',
+    changePhoneNew: 'Новый номер',
+    changePhoneDone: 'Номер изменён',
+    changePhoneDoneNote: 'Все входы закрыты. Войдите с нового номера.',
+    samePhone: 'Это ваш текущий номер',
     verifyPhone: 'Подтвердите свой номер',
     verifyPhoneNote: 'Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты.',
     verifyNow: 'Подтвердить',
@@ -444,6 +452,16 @@ export const ru: Dict = {
     pinNote: 'Используется для входа в ваш аккаунт',
     access: 'Подписка',
     session: 'Это устройство',
+    devices: 'Устройства',
+    devicesNote: 'Откуда сейчас открыт ваш вход. Чужой можно закрыть.',
+    deviceThis: 'Это устройство',
+    deviceRevoke: 'Закрыть вход',
+    deviceLastSeen: (when: string) => `последний раз ${when}`,
+    deviceApp: 'Приложение',
+    deviceWeb: 'Браузер',
+    devicesOne: 'Вход открыт только с этого устройства.',
+    notifyOrders: 'Уведомление о каждой машине',
+    notifyOrdersNote: 'Уведомление об открытии смены приходит всегда',
     rememberLogin: 'Запомнить этот аккаунт',
     rememberLoginNote: 'После выхода вернётесь одним нажатием на аватар.',
     signOutNote: 'Выключите, если этим компьютером пользуется кто-то ещё.',
@@ -496,6 +514,14 @@ export const ru: Dict = {
     shiftRevenue: 'Выручка смены',
 
     worksTotal: 'Сумма работ',
+
+    handOver: 'Сдаю наличными',
+
+    cashInShift: (sum: string) => `набралось ${sum}`,
+
+    handOverDiff: (sum: string) => `Расхождение ${sum}. Владелец его увидит.`,
+
+    toHandOver: 'сдать при закрытии',
     yourShare: (percent: number) => `твоя доля ${percent}%`,
 
     onShift: 'Я на смене',
@@ -532,6 +558,8 @@ export const ru: Dict = {
     stepService: 'Услуга',
     stepPayment: 'Оплата',
     toPay: 'Сумма к оплате',
+    giveDiscount: 'Дать скидку',
+    discounted: 'Взяли',
     addFor: (unit: string, sum: string) => `Добавить ${unit} · ${sum}`,
     saved: 'Записано',
     addFailed: 'Не удалось записать. Попробуйте ещё раз.',
@@ -654,6 +682,36 @@ export const ru: Dict = {
     privacy: 'Политика конфиденциальности',
     support: 'Поддержка',
   },
+
+  day: {
+
+    shifts: 'Смены',
+
+    noShifts: 'В этот день смен не было',
+
+    noShiftsNote: 'Никто не вставал на смену.',
+
+    work: 'Работа за этот день',
+
+    noCash: 'Наличных не было',
+
+    notDeclared: 'не отметил, сколько сдал',
+
+    cashMatches: 'сошлось',
+
+    stillOpen: 'смена ещё идёт',
+
+  },
+
+
+  calendar: {
+
+    title: 'Календарь',
+
+    lead: 'Все дни месяца на одном экране',
+
+  },
+
 
   expenses: {
     title: 'Расходы',
@@ -809,6 +867,7 @@ export const ru: Dict = {
     month: 'Месяц',
     whereGone: 'Куда ушло',
     whereFrom: 'Откуда пришло',
+    discounts: 'Скидок',
     emptyMonth: 'В этом месяце работы не было',
     emptyAll: 'Отчёты появятся после первых данных',
     emptyAllNote: 'Запишите первую машину, чтобы начать собирать статистику.',
@@ -911,6 +970,27 @@ export const ru: Dict = {
     priceNote:
       'Изменение цены не влияет на уже сделанные записи. Вчерашняя выручка и зарплата останутся прежними.',
 
+    tiers: 'Классы',
+    tiersLead: 'Джип и седан стоят по-разному. Классы действуют на весь прайс.',
+    tiersLabel: 'Как называется',
+    tiersLabelHint: 'Класс, Тип кузова — как говорят у вас на мойке',
+    tiersOff: 'Классы выключены. Добавьте два, чтобы включить.',
+    tiersTooFew: 'Один класс — это не класс. Добавьте второй или удалите все.',
+    tiersOn: (n: number) => `${n} класса. Все услуги прайса получат свои цены.`,
+    addTier: 'Добавить класс',
+    tierName: 'Название класса',
+    tierPrices: 'Цены по классам',
+    tierPriceHint: 'Пусто — та же базовая цена',
+
+    pinReset: 'Выдать новый код',
+
+    pinResetNote: 'Сотрудник забыл код — назначьте новый. Входы старым кодом закроются.',
+
+    pinResetDone: 'Код изменён. Передайте его сотруднику.',
+
+    pinWorksElsewhere: 'Этот человек работает не только здесь. Код он меняет сам, из своего профиля.',
+
+
     deleteTitle: 'Удалить бизнес',
     deleteWhat:
       'Удаляется всё: записи, клиенты, услуги и все сотрудники. Вход для сотрудников закроется сразу.',
@@ -922,5 +1002,11 @@ export const ru: Dict = {
     deleteWrongPin: 'PIN неверный.',
     deleteThrottled: 'Слишком много попыток. Подождите и повторите.',
     deleteFailed: 'Не удалось. Попробуйте ещё раз.',
+    deleteSendCode: 'Выслать код подтверждения',
+    deleteCodeAsk: 'Подтвердите кодом из SMS',
+    deleteCodeSent: (phone: string) => `Код отправлен на ${phone}.`,
+    deleteCodeWrong: 'Код неверный.',
+    deleteCodeExpired: 'Срок кода истёк. Вышлите новый.',
+    deleteSmsFailed: 'Не удалось отправить SMS. Попробуйте ещё раз.',
   },
 };

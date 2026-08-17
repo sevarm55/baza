@@ -141,7 +141,15 @@ export function TodayOperations({
             {shown.map((o) => (
               <article key={o.id} className="op-card">
                 <span className="op-card-key num">{o.clientKey ?? '—'}</span>
-                <span className="op-card-price num">{money(o.price)}</span>
+                {/* Скидка: зачёркнутый прайс рядом со взятым. Без него
+                    «6 500» не отличить от обычной цены, и о скидке
+                    владелец не узнаёт вовсе. */}
+                <span className="op-card-price num">
+                  {o.listPrice !== null && (
+                    <span className="op-list-price">{money(o.listPrice)}</span>
+                  )}
+                  {money(o.price)}
+                </span>
 
                 <span className="op-card-meta truncate">
                   {o.time} · {o.serviceName} · {o.paymentLabel}
@@ -321,7 +329,12 @@ function Line({
         <td>
           <span className="tag">{op.paymentLabel}</span>
         </td>
-        <td className="num end font-semibold">{money(op.price)}</td>
+        <td className="num end font-semibold">
+          {op.listPrice !== null && (
+            <span className="op-list-price">{money(op.listPrice)}</span>
+          )}
+          {money(op.price)}
+        </td>
         <td className="num end" style={{ color: 'var(--board-muted)' }}>
           {op.share > 0 ? money(op.share) : '—'}
         </td>

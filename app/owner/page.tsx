@@ -195,6 +195,9 @@ export default async function TodayPage({
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
       price: o.price,
+      /* Прайс приезжает рядом со взятым и только когда они разошлись:
+         скидка обязана быть видна там, где владелец читает работу. */
+      listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
       percent: o.staffPercent,
       share,
       yours: o.price - share,

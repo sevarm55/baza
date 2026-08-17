@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { changePinAction, type FormState } from '@/app/actions';
+import { useState } from 'react';
+import { type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
@@ -28,13 +28,29 @@ import { useT } from '@/lib/i18n/client';
  */
 export function ChangePinForm({
   hasPin = true,
+  state,
+  action,
+  pending,
   onCancel,
 }: {
   hasPin?: boolean;
+  /**
+   * Состояние действия приходит сверху, а не заводится здесь.
+   *
+   * Успешная первая установка обязана свернуть форму обратно в строку —
+   * иначе на странице остаётся раскрытый ряд пустых клеток от уже
+   * сделанного дела. Но сворачивает форму родитель, и решать это он
+   * должен по своему состоянию: пока `useActionState` жил здесь, форма
+   * дёргала родительский `onCancel` прямо в отрисовке, а это запрещённое
+   * обновление чужого компонента во время рендера — React ругался в
+   * консоль на каждой установке кода.
+   */
+  state: FormState;
+  action: (formData: FormData) => void;
+  pending: boolean;
   /** свернуть форму обратно в строку «PIN-код» */
   onCancel?: () => void;
 }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(changePinAction, null);
   const t = useT();
 
   /* Новый и повтор — под нашим присмотром: их надо сравнить. Текущий
@@ -42,18 +58,6 @@ export function ChangePinForm({
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
   const [mismatch, setMismatch] = useState(false);
-
-  /* Смена кода уводит на вход — сессии погашены, включая эту. А вот
-     первая установка оставляет человека на месте и возвращает `ok`:
-     форма после этого обязана свернуться обратно в строку, иначе на
-     странице остаётся раскрытый ряд пустых клеток от уже сделанного
-     дела. Состояние сверяется в отрисовке, а не эффектом: эффект успел
-     бы показать лишний кадр. */
-  const [seen, setSeen] = useState(state);
-  if (seen !== state) {
-    setSeen(state);
-    if (state?.ok) onCancel?.();
-  }
 
   /* Расходятся ли уже набранные части. Пока повтор короче нового,
      молчим: ругаться на второй цифре из шести значит ругаться на

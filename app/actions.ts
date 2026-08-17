@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
 import { getDict, getLocale } from '@/lib/i18n/server';
+import type { Dict } from '@/lib/i18n';
 import { intlLocale } from '@/lib/i18n/format';
 import {
   findClient,
@@ -22,10 +23,12 @@ import { dayMonth, hhmm, pastDay } from '@/lib/time';
 import { settleMany } from '@/lib/payroll';
 import { addExpense, editExpense, removeExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
+import { tiersOf } from '@/lib/catalog';
 import { listActivePasses, sellPass } from '@/lib/passes';
 import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness } from '@/lib/tenant';
+import { revokeDevice } from '@/lib/devices';
 import { changePin, ProfileError, saveProfile } from '@/lib/profile';
 import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
@@ -43,7 +46,14 @@ import {
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { accountOf, listPoints, markPointUsed } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
-import { isValidPhone, normalizePhone, pinProblem } from '@/lib/phone';
+import { isValidPhone, maskPhone, normalizePhone, pinProblem } from '@/lib/phone';
+import {
+  changeNeedsCode,
+  finishPhoneChange,
+  startPhoneChange,
+  startSelfProof,
+  type PhoneProblem,
+} from '@/lib/phone-change';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { logSecurityInBackground } from '@/lib/security-log';
 import { beginPhoneProof, completePhoneProof } from '@/lib/auth-flow';
@@ -113,6 +123,27 @@ export async function setRememberLogin(enabled: boolean): Promise<void> {
 }
 
 /**
+ * Слать ли уведомление о каждой записи.
+ *
+ * Настройка человека, а не браузера: она лежит в базе и решает, придёт
+ * ли пуш на телефон. Поэтому её обязано быть видно с обеих сторон —
+ * владелец, который сидит за компьютером, выключает уведомления на
+ * телефоне именно отсюда, а не ищет телефон, чтобы выключить их там.
+ *
+ * Только владельцу: уведомления о записях уходят владельцам (см.
+ * `notifyOwners`), и мойщику этот выключатель не отвечает ни на что.
+ * Проверяем здесь же, а не только на экране: экран никогда не граница
+ * доступа.
+ */
+export async function setNotifyOrders(enabled: boolean): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+
+  await db.update(users).set({ notifyOrders: enabled }).where(eq(users.id, session.uid));
+  revalidatePath('/owner/profile');
+}
+
+/**
  * Перейти на другую свою точку.
  *
  * Точка живёт в подписанной cookie, а не в адресе, поэтому подменить её
@@ -161,6 +192,8 @@ export async function createPoint(_prev: FormState, formData: FormData): Promise
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const niche = String(formData.get('niche') ?? '');
   const businessName = String(formData.get('businessName') ?? '').trim();
@@ -204,6 +237,8 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const name = String(formData.get('name') ?? '').trim();
   const phone = normalizePhone(String(formData.get('phone') ?? ''));
@@ -248,6 +283,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
 export async function deactivateStaff(staffId: string): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await requireWriteAccess(session.tid);
 
   await catalog.deactivateStaff({
     tenantId: session.tid,
@@ -266,16 +302,39 @@ export async function deactivateStaff(staffId: string): Promise<void> {
 }
 
 /**
- * Проверка подписки перед любой записью новой работы.
+ * Проверка подписки перед любой записью.
  *
  * Блокируем только запись. Чтение, отчёты и выгрузка остаются открытыми:
  * данные принадлежат бизнесу, а не нам.
+ *
+ * ПОЧЕМУ ЭТО СТОИТ В КАЖДОМ ДЕЙСТВИИ, А НЕ ОДИН РАЗ В РАСКЛАДКЕ.
+ * Раскладка кабинета правда уводит просроченного на `/blocked`, и через
+ * интерфейс он ничего не запишет. Но Server Action — это открытый
+ * POST-эндпоинт, а не внутренняя функция: cookie у него ещё живая, и
+ * прямым запросом действие проходило. API на те же операции отвечал 402,
+ * то есть веб разрешал то, что запрещало приложение, — и расходились они
+ * молча, в защите.
  */
 async function requireWriteAccess(tenantId: string) {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error('NO_TENANT');
   if (!currentAccess(tenant).canWrite) throw new SubscriptionExpiredError();
   return tenant;
+}
+
+/**
+ * То же самое для действий, которые отвечают формой, а не исключением.
+ *
+ * Отказ здесь надо показать человеку в той же форме, где он нажал, —
+ * брошенное исключение превратилось бы в страницу ошибки поверх
+ * заполненных полей. Возвращает готовый отказ или `null`, если писать
+ * можно.
+ */
+async function writeBlocked(tenantId: string, t: Dict): Promise<FormState> {
+  const tenant = await getTenant(tenantId);
+  if (!tenant) return { error: t.errors.generic };
+  if (!currentAccess(tenant).canWrite) return { error: t.billing.expiredTitle };
+  return null;
 }
 
 /* -------------------------- услуги и цены ------------------------ *
@@ -291,6 +350,8 @@ export async function saveService(
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: t.errors.generic };
@@ -299,12 +360,36 @@ export async function saveService(
   const name = String(formData.get('name') ?? '').trim();
   const price = toMinor(Number(formData.get('price') ?? 0), tenant.currency);
 
+  /**
+   * Цены по классам.
+   *
+   * Приходят полем на класс, в порядке `tenants.tiers`, и только когда
+   * форма их вообще показывала: у мойки без классов ряда нет, и слать
+   * оттуда пустой массив значило бы стереть прайс, выставленный с
+   * телефона. Отсутствие поля и есть «не трогать» — так же его понимает
+   * `upsertService`.
+   *
+   * Пустая клетка означает «как базовая», и уезжает нулём: правило
+   * «нет своей цены — берём базовую» живёт в `priceForTier`, одно на
+   * весь продукт. Заполнять её за человека нельзя — тогда поднятие
+   * базовой цены перестало бы поднимать цены классов.
+   */
+  const tiers = tiersOf(tenant);
+  const tierPrices = formData.has('tierPrices')
+    ? tiers.map((_, i) => {
+        const raw = String(formData.get(`tierPrice${i}`) ?? '').trim();
+        return raw ? toMinor(Number(raw), tenant.currency) : 0;
+      })
+    : undefined;
+
   try {
-    /* Цены по классам отсюда не передаются — и это не упущение.
-       В кабинете формы под них нет, а `undefined` означает «не трогать»:
-       правка названия или базовой цены из браузера не должна стирать
-       прайс по классам, выставленный с телефона. */
-    await catalog.upsertService({ tenantId: session.tid, id: id || undefined, name, price });
+    await catalog.upsertService({
+      tenantId: session.tid,
+      id: id || undefined,
+      name,
+      price,
+      tierPrices,
+    });
   } catch {
     return { error: t.errors.required };
   }
@@ -313,10 +398,54 @@ export async function saveService(
   return { ok: true };
 }
 
+/**
+ * Классы машин: как свойство называется и какие в нём варианты.
+ *
+ * ПОЧЕМУ ЭТО ПОЯВИЛОСЬ В ВЕБЕ. Свойство включалось только с телефона:
+ * кабинет умел классы ПОКАЗЫВАТЬ при записи, но не умел их завести. То
+ * есть бизнес, настроенный через браузер, не получал их никогда — целая
+ * часть продукта была доступна половине клиентов.
+ *
+ * Пустой список выключает свойство. Один класс запрещён на сервере:
+ * один вариант — это отсутствие вариантов, поданное как выбор, и мойщик
+ * жал бы единственную кнопку сорок раз за смену.
+ *
+ * Цены услуг при этом не трогаются: убрали класс — его цена остаётся
+ * лежать и вернётся вместе с ним. Стирать её значило бы наказывать за
+ * опечатку в названии потерей всего прайса.
+ */
+export async function saveTiersAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireOwner();
+  await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
+
+  try {
+    await catalog.saveTiers({
+      tenantId: session.tid,
+      label: String(formData.get('label') ?? ''),
+      tiers: formData.getAll('tier').map((v) => String(v)),
+    });
+  } catch (e) {
+    if (e instanceof catalog.ValidationError && e.message === 'TIERS_TOO_FEW') {
+      return { error: t.settings.tiersTooFew };
+    }
+    return { error: t.errors.generic };
+  }
+
+  /* Классы меняют прайс целиком, поэтому перечитываем и услуги, и экран
+     смены: там из них собран ряд кнопок и весь ряд цен. */
+  revalidatePath('/owner/services');
+  revalidatePath('/work');
+  return { ok: true };
+}
+
 /** Не удаляем: на услугу ссылаются прошлые записи. */
 export async function archiveService(formData: FormData): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await requireWriteAccess(session.tid);
 
   const id = String(formData.get('id') ?? '');
   await catalog.archiveService({ tenantId: session.tid, id }).catch(() => {});
@@ -328,6 +457,8 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const id = String(formData.get('id') ?? '');
   const name = String(formData.get('name') ?? '').trim();
@@ -343,9 +474,64 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   return { ok: true };
 }
 
+/**
+ * Выдать сотруднику новый код.
+ *
+ * Нужно потому, что забытый мойщиком код был тупиком: восстановить по SMS
+ * он не может (номер ему заводил владелец и подтверждённым не стал), а
+ * сменить его владелец не мог вовсе. Оставалось отключить человека и
+ * завести заново на другой номер, потеряв связь с его историей.
+ *
+ * Кому нельзя и почему — в `resetStaffPin`. Главное там: человеку,
+ * который работает не только здесь, код так не выдают. Назначенный нами
+ * код открыл бы чужой бизнес.
+ */
+export async function resetStaffPinAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireOwner();
+  await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
+
+  try {
+    await catalog.resetStaffPin({
+      tenantId: session.tid,
+      id: String(formData.get('id') ?? ''),
+      actorId: session.uid,
+      pin: String(formData.get('pin') ?? ''),
+    });
+  } catch (e) {
+    if (e instanceof catalog.ValidationError) {
+      if (e.message === 'BAD_PIN') {
+        /* «Мало цифр» и «слишком очевидный» здесь не различаются:
+           `isValidPin` отвечает одним признаком, и придумывать разницу
+           только для этой формы значило бы соврать про правило. */
+        return { error: t.errors.badPin };
+      }
+      if (e.message === 'WORKS_ELSEWHERE') return { error: t.settings.pinWorksElsewhere };
+      return { error: t.errors.generic };
+    }
+    return { error: t.errors.generic };
+  }
+
+  logSecurityInBackground({
+    event: 'role.changed',
+    tenantId: session.tid,
+    userId: session.uid,
+    data: { staffId: String(formData.get('id') ?? ''), what: 'pin' },
+  });
+
+  revalidatePath('/owner/staff');
+  return { ok: true };
+}
+
 export async function archiveStaff(formData: FormData): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await requireWriteAccess(session.tid);
 
   const id = String(formData.get('id') ?? '');
   // владелец не должен отключить сам себя и потерять доступ к кабинету —
@@ -461,6 +647,37 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
   return { ok: true };
 }
 
+/* --------------------------- устройства --------------------------- */
+
+/**
+ * Погасить чужой вход.
+ *
+ * Гасить можно только своё — проверку делает `revokeDevice` условием в
+ * самом UPDATE, а не этот код: id сессии угадываемый uuid, и без неё
+ * любой вошедший выкидывал бы кого угодно.
+ *
+ * Роль не спрашиваем: это данные о себе, а не о бизнесе, и закрывать
+ * свои входы вправе любой вошедший. Состояние счёта тоже не смотрим —
+ * безопасность не зависит от оплаты.
+ */
+export async function revokeDeviceAction(sessionId: string): Promise<void> {
+  const session = await requireSession();
+  await ensureDb();
+
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+
+  await revokeDevice({
+    userId: session.uid,
+    sessionId,
+    tenantId: session.tid,
+    phone: me.phone,
+    ip: clientIp(await headers()),
+  });
+
+  revalidatePath('/owner/profile');
+}
+
 /* ------------------- подтверждение своего номера ------------------- */
 
 export type VerifyPhoneState =
@@ -527,9 +744,149 @@ export async function verifyOwnPhoneAction(
   return { step: 'code', challengeId: started.challengeId };
 }
 
+/* ------------------------ смена своего номера ------------------------ */
+
+export type ChangePhoneState =
+  | null
+  /** закрыто, или вернулись после отказа */
+  | { step: 'idle'; error?: string }
+  /** у кого нет PIN: код на свой номер */
+  | { step: 'proof'; proofId: string; phone: string; error?: string }
+  /** доказали себя, называем новый номер */
+  | { step: 'phone'; proofId?: string; proofCode?: string; error?: string }
+  /** код с нового номера */
+  | { step: 'code'; challengeId: string; phone: string; error?: string }
+  | { step: 'done' };
+
+/**
+ * Сменить свой номер телефона.
+ *
+ * Считает `lib/phone-change.ts` — тот же код, которым живёт приложение.
+ * Действие только раскладывает форму по шагам и переводит отказы на язык
+ * смотрящего: правила безопасности не имеют права зависеть от того, с
+ * сайта пришли или с телефона.
+ *
+ * Шагов на экране до трёх, и первый из них появляется не у всех: тому, у
+ * кого есть PIN, доказывать себя кодом незачем — он вводит PIN на том же
+ * шаге, где называет новый номер.
+ */
+export async function changePhoneAction(
+  prev: ChangePhoneState,
+  formData: FormData,
+): Promise<ChangePhoneState> {
+  const session = await requireSession();
+  const t = await getDict();
+  await ensureDb();
+
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+  const account = await accountOf(me);
+
+  const ip = clientIp(await headers());
+  const locale = await getLocale();
+  const field = (name: string) => String(formData.get(name) ?? '').trim();
+
+  /* Отказ модуля — в строку на экране. Один разбор на все шаги: два
+     списка сообщений разошлись бы на первой же новой причине. */
+  const say = (problem: PhoneProblem, retryAfter?: number): string => {
+    switch (problem) {
+      case 'BAD_PHONE':
+        return t.errors.badPhone;
+      case 'SAME_PHONE':
+        return t.auth.samePhone;
+      case 'PHONE_TAKEN':
+        return t.auth.phoneTaken;
+      case 'WRONG_PIN':
+        return t.auth.wrongPin;
+      case 'THROTTLED':
+        return t.auth.tooManyTries(Math.ceil((retryAfter ?? 60) / 60));
+      case 'CODE_EXPIRED':
+        return t.auth.otpExpired;
+      case 'CODE_TOO_MANY':
+        return t.auth.otpTooMany;
+      case 'SMS_FAILED':
+        return t.auth.smsFailed;
+      default:
+        return t.auth.otpInvalid;
+    }
+  };
+
+  const challengeId = field('challengeId');
+
+  /* ---- шаг последний: код с нового номера ---- */
+  if (challengeId) {
+    const done = await finishPhoneChange({
+      account,
+      tenantId: session.tid,
+      userId: session.uid,
+      challengeId,
+      code: field('code'),
+      ip,
+    });
+
+    if (!done.ok) {
+      return { step: 'code', challengeId, phone: field('shown'), error: say(done.problem) };
+    }
+
+    /* Страницу НЕ перерисовываем, и это не забывчивость. Смена гасит все
+       сессии, включая эту; `revalidatePath` пошёл бы на сервер уже
+       мёртвым cookie и увёл бы на экран входа. Человек увидел бы, что
+       его выкинуло, но не узнал бы, почему, — а причина ровно та, что он
+       только что сделал. Поэтому последним кадром остаётся «номер
+       изменён, войдите заново», и уходит человек сам. */
+    return { step: 'done' };
+  }
+
+  /* ---- нулевой шаг: код на свой номер, у кого нет PIN ---- */
+  if (changeNeedsCode(account) && !field('proofId')) {
+    const started = await startSelfProof({ account, ip, locale });
+    if (!started.ok) return { step: 'idle', error: say(started.problem, started.retryAfter) };
+
+    void prev;
+    return { step: 'proof', proofId: started.challengeId, phone: maskPhone(account.phone) };
+  }
+
+  const proofId = field('proofId');
+  const proofCode = field('proofCode');
+
+  /* Между «доказал себя» и «назвал номер» экран меняется, а
+     доказательство обязано дожить до конца: код проверяется один раз,
+     вместе с новым номером. Пока номера нет, спрашивать нечего. */
+  if (!field('phone')) return { step: 'phone', proofId, proofCode };
+
+  const started = await startPhoneChange({
+    account,
+    phone: field('phone'),
+    country: field('country') || undefined,
+    pin: field('pin'),
+    proofId,
+    proofCode,
+    ip,
+    locale,
+  });
+
+  if (!started.ok) {
+    /* Просроченный или исчерпанный код на СВОЙ номер отбрасывает в
+       начало: доказывать себя придётся заново, и оставлять человека на
+       экране с мёртвым кодом в скрытом поле значило бы показывать ему
+       одну и ту же ошибку до перезагрузки страницы. */
+    const dead =
+      started.problem === 'CODE_EXPIRED' ||
+      started.problem === 'CODE_TOO_MANY' ||
+      started.problem === 'CODE_INVALID';
+    if (changeNeedsCode(account) && dead) {
+      return { step: 'idle', error: say(started.problem, started.retryAfter) };
+    }
+    return { step: 'phone', proofId, proofCode, error: say(started.problem, started.retryAfter) };
+  }
+
+  return { step: 'code', challengeId: started.challengeId, phone: maskPhone(started.phone) };
+}
+
 export async function saveBusiness(formData: FormData): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await requireWriteAccess(session.tid);
 
   const name = String(formData.get('name') ?? '').trim();
   if (name.length < 2) return;
@@ -571,6 +928,7 @@ export async function saveClientContact(
 ): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await requireWriteAccess(session.tid);
 
   const cleanPhone = phone.trim();
   await db
@@ -620,6 +978,10 @@ export async function clientHistory(key: string) {
       id: o.id,
       serviceName: o.serviceName,
       price: o.price,
+      /* Прайс — только когда взяли меньше. Скидка живёт в истории
+         машины наравне с ценой: постоянному её дают не один раз, и
+         владелец должен видеть, сколько всего простил. */
+      listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
       payment: o.payment,
       staffName: o.staffName,
       day: dayMonth(o.createdAt, tenant.timezone),
@@ -649,6 +1011,10 @@ export async function settlePayroll(
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { ok: false, paid: 0, people: 0 };
+  /* Просрочка закрывает и расчёт: `POST /payouts` требует того же, и
+     веб не должен разрешать то, что запрещает приложение. Отдельной
+     строкой отказа здесь нет — форма и так показывает `ok: false`. */
+  if (!currentAccess(tenant).canWrite) return { ok: false, paid: 0, people: 0 };
 
   const result = await settleMany({
     tenantId: session.tid,
@@ -694,9 +1060,28 @@ export async function snoozeAlert(key: string): Promise<void> {
 
 export async function addOrder(input: {
   clientKey: string;
-  serviceId: string;
+  /** одна услуга — форма записей, уже лежащих в офлайн-очереди */
+  serviceId?: string;
+  /**
+   * Несколько услуг за один заезд.
+   *
+   * За один заезд делают комплекс и химчистку салона, и в браузере это
+   * до сих пор записывали двумя машинами: число машин, средний чек и
+   * счётчик визитов клиента выходили завышенными. Телефон умел это
+   * давно, сервер тоже (`createOrder`); не умела только эта дверь.
+   */
+  serviceIds?: string[];
   payment: Payment;
   passId?: string;
+  /**
+   * Сколько взяли, если меньше прайса.
+   *
+   * Скидки на мойке дают — постоянному, за брак, «по-соседски». Пока
+   * продукт этого не умел, мойщик выбирал услугу подешевле или не
+   * записывал вовсе, и цифры расходились с кассой. Потолок и проверка
+   * живут на сервере: здесь сумму передают, а не назначают.
+   */
+  price?: number;
   /**
    * Класс машины — СЛОВОМ, как его видел мойщик («Ջիպ»).
    *
@@ -730,14 +1115,25 @@ export async function addOrder(input: {
     tenantId: session.tid,
     staffId: session.uid,
     serviceId: input.serviceId,
+    serviceIds: input.serviceIds?.length ? input.serviceIds : undefined,
     clientKey: input.clientKey,
     payment: input.payment,
     passId: input.passId,
     /* Цену по классу считает сервер, а не браузер. Браузер её только
        показывает: присланная им сумма означала бы, что цену назначает
-       тот, кто берёт деньги. */
+       тот, кто берёт деньги.
+
+       Скидка — исключение, и оно проверяемое: `createOrder` не пускает
+       ни выше прайса, ни ниже нуля. То есть браузер может сказать «взяли
+       меньше», но не «взяли сколько захочу». */
+    price: typeof input.price === 'number' ? input.price : undefined,
     tier: input.tier,
     clientRef: input.clientRef,
+    /* Язык и валюта уведомления — бизнеса, а не браузера: пуш прилетит
+       владельцу на телефон, а не тому, кто записал машину. Тенант здесь
+       уже прочитан ради проверки смены — второго запроса не нужно. */
+    locale: tenantForShift.locale,
+    currency: tenantForShift.currency,
   });
 
   // счётчик смены должен обновиться сразу — сотрудник на него смотрит
@@ -831,6 +1227,10 @@ export async function sellPassAction(
 export async function revokeOrder(orderId: string): Promise<void> {
   const session = await requireSession();
   await ensureDb();
+  /* Отмена — тоже запись: она меняет выручку и зарплату. `POST
+     /orders/:id/cancel` требует права записи, и веб обязан требовать
+     того же. */
+  await requireWriteAccess(session.tid);
 
   await cancelOrder({
     tenantId: session.tid,
@@ -856,6 +1256,8 @@ export async function addExpenseAction(
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: t.errors.generic };
@@ -911,6 +1313,8 @@ export async function removeExpenseAction(
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: t.errors.generic };
@@ -939,6 +1343,8 @@ export async function saveExpenseAction(
   const t = await getDict();
   const session = await requireOwner();
   await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
 
   const tenant = await getTenant(session.tid);
   if (!tenant) return { error: t.errors.generic };
@@ -975,9 +1381,17 @@ export async function saveExpenseAction(
  * это оставило бы веб-версию неработоспособной, а дыру со сдачей
  * наличных — открытой ровно там, где на неё никто не смотрит.
  *
- * Сдаваемую сумму здесь не спрашиваем: на телефоне для этого есть лист
- * с подтверждением, а в вебе городить его ради второго по важности
- * клиента незачем. Владелец увидит «не отмечено» — это честнее нуля.
+ * Сдаваемую сумму спрашиваем и здесь.
+ *
+ * Раньше не спрашивали, и это было решением «ради второго по важности
+ * клиента». Оно оказалось дороже, чем выглядело: сдача наличных —
+ * единственный момент, когда деньги переходят из рук в руки, и
+ * единственный контроль, ради которого продукт стоит. Мойщик, закрывший
+ * смену в браузере, не отмечал ничего, владелец видел «не отмечено», и
+ * недостача не всплывала вовсе — ни в тот вечер, ни при сверке.
+ *
+ * Поле необязательное: закрыться человек должен уметь всегда. Не
+ * прислали — по-прежнему «не отмечено», и это честнее нуля.
  */
 export async function toggleShiftAction(formData: FormData): Promise<void> {
   const session = await requireSession();
@@ -990,7 +1404,14 @@ export async function toggleShiftAction(formData: FormData): Promise<void> {
   if (String(formData.get('open')) === 'true') {
     await openShift(session.tid, session.uid, startOfDay(tenant.timezone), tenant.locale);
   } else {
-    await closeShift(session.tid, session.uid, undefined, tenant.locale);
+    /* Только целое и неотрицательное. Не число — значит «не отметил», а
+       не ноль: это разные вещи, и владелец должен их различать. Правило
+       то же, что в `/api/v1/shift`. */
+    const raw = formData.get('cash');
+    const asked = typeof raw === 'string' && raw !== '' ? Number(raw) : NaN;
+    const declared = Number.isInteger(asked) && asked >= 0 ? asked : undefined;
+
+    await closeShift(session.tid, session.uid, declared, tenant.locale);
   }
 
   revalidatePath('/work');

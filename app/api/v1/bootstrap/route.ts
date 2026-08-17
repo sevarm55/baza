@@ -2,6 +2,7 @@ import { ensureDb } from '@/lib/db/ready';
 import { tiersOf } from '@/lib/catalog';
 import { listServices } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
+import { hasPin } from '@/lib/pin';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
 import { clientIdLabelTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
@@ -60,6 +61,25 @@ export async function GET(request: Request) {
         notifyOrders: ctx.user.notifyOrders,
         // телефон — это логин, и человек должен видеть, каким он входит
         phone: ctx.user.phone,
+        /* Есть ли у человека код вовсе.
+         *
+         * У заведённых по SMS его нет: входят они кодом из сообщения, и
+         * `pin_hash` у них помечен «кода нет» (см. lib/pin.ts). Клиенту
+         * это нужно в двух местах, и оба неотвечаемы без признака: в
+         * профиле стоит «задать код», а не «сменить», и текущий у такого
+         * человека не спрашивают, потому что спрашивать нечего; а
+         * подтвердить удаление бизнеса ему нечем, кроме кода из SMS.
+         *
+         * Сам хеш наружу не уходит ни в каком виде — только этот факт. */
+        hasPin: hasPin(ctx.account.pinHash),
+        /* Доказан ли номер кодом из SMS.
+         *
+         * Значит ровно одно, и оно важное: восстановить доступ по SMS
+         * можно только по подтверждённому номеру — иначе восстановление
+         * само стало бы способом забрать чужой непроверенный аккаунт.
+         * Поэтому у неподтверждённых приложение предлагает подтвердить, а
+         * у остальных не показывает ни одного нового пикселя. */
+        phoneVerified: ctx.account.phoneVerifiedAt !== null,
         /* Читал ли человек приветствие первого входа.
            Признак живёт на сервере, а не в памяти телефона: приложение
            переустанавливают, телефон меняют, а владелец, который вчера

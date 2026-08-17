@@ -49,6 +49,8 @@ export async function GET(
         id: o.id,
         createdAt: o.createdAt,
         price: o.price,
+        // прайс рядом со взятым — только когда взяли меньше
+        listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
         serviceName: o.serviceName,
         payment: o.payment,
         staffName: o.staffName,

@@ -270,6 +270,19 @@ export default async function ReportsPage({
             {t.owner.avgCheck} <b className="num">{money(current.avgCheck)}</b>
           </>
         )}
+        {/* Скидки называются, только когда они были: «скидок 0 ֏»
+            сообщает ровно то же, что их отсутствие, и занимает место в
+            строке, где каждое слово отвечает на вопрос.
+
+            Стоят рядом со средним чеком, а не в слагаемых прибыли: это
+            не расход, а деньги, которых бизнес решил не брать, и в
+            вычитание им нельзя — там они посчитались бы дважды. */}
+        {current.discounts > 0 && (
+          <>
+            <i />
+            {t.reports.discounts} <b className="num">{money(current.discounts)}</b>
+          </>
+        )}
         <i />
         <span
           className="num font-semibold"

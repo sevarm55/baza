@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
-import { archiveStaff, saveStaff, type FormState } from '@/app/actions';
+import { archiveStaff, resetStaffPinAction, saveStaff, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { formatPhone } from '@/lib/phone';
 import type { StaffPerson } from './model';
@@ -183,6 +183,21 @@ export function StaffSheet({
             </dl>
 
             <p className="note mt-3">{t.settings.staffNote}</p>
+
+            {/* Выдать новый код.
+
+                Забытый мойщиком код был тупиком: восстановить по SMS он
+                не может (номер ему заводил владелец, подтверждённым он не
+                стал), а сменить его было нечем — оставалось отключить
+                человека и завести заново на другой номер, потеряв связь с
+                его историей.
+
+                Только сотруднику и только тому, кто больше нигде не
+                работает: назначенный здесь код открыл бы его второй
+                бизнес. Отказ на это приходит с сервера словами. */}
+            {person.canRemove && !person.owner && (
+              <ResetPin id={person.id} key={`pin-${person.id}`} />
+            )}
           </section>
 
           <Link className="link-row mt-5" href="/owner/payroll">
@@ -201,5 +216,67 @@ export function StaffSheet({
         </>
       )}
     </Sheet>
+  );
+}
+
+/**
+ * Новый код сотруднику.
+ *
+ * Свёрнуто по умолчанию, как форма смены своего PIN в профиле: пустой ряд
+ * клеток в карточке ничего не показывает и ничего не спрашивает, а
+ * читается сломанным элементом. Клетки приходят по нажатию — тогда, когда
+ * владелец решил код менять.
+ *
+ * Код показывается открытым, и это осознанно: владелец придумывает его
+ * вслух, стоя рядом с работником, и должен видеть, что набрал. Прятать
+ * звёздочками то, что он сам же сейчас продиктует, значит мешать без
+ * причины.
+ */
+function ResetPin({ id }: { id: string }) {
+  const t = useT();
+  const [state, action, pending] = useActionState<FormState, FormData>(resetStaffPinAction, null);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <div className="rows mt-3">
+        <button type="button" className="link-row" onClick={() => setOpen(true)}>
+          {t.settings.pinReset}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="mt-3 grid gap-2.5">
+      <input type="hidden" name="id" value={id} />
+
+      <label className="grid gap-1.5">
+        <span className="label">{t.settings.pinReset}</span>
+        <input
+          className="field num"
+          name="pin"
+          inputMode="numeric"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          autoComplete="off"
+          autoFocus
+          required
+        />
+      </label>
+
+      <p className="note">{t.settings.pinResetNote}</p>
+      {state?.error && <p className="alert">{state.error}</p>}
+      {state?.ok && <p className="note note-good">{t.settings.pinResetDone}</p>}
+
+      <div className="flex gap-2">
+        <button className="btn-inline" disabled={pending}>
+          {pending ? t.common.loading : t.settings.save}
+        </button>
+        <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
   );
 }

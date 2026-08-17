@@ -1,11 +1,12 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
-import { services, shifts, tenants, users } from './db/schema';
+import { accounts, services, shifts, tenants, users } from './db/schema';
 import { listServices } from './queries';
 import { hashPin } from './pin';
 import { isValidPhone, isValidPin, normalizePhone } from './phone';
-import { revokeMembershipSessions } from './auth';
-import { claimAccount, PhoneTakenError } from './accounts';
+import { revokeAccountSessions, revokeMembershipSessions } from './auth';
+import { accountOf, claimAccount, PhoneTakenError } from './accounts';
+import { logSecurity } from './security-log';
 import { MAX_MONEY } from './money';
 
 /**
@@ -253,6 +254,88 @@ export async function deactivateStaff(params: {
     );
 
   return row;
+}
+
+/**
+ * Выдать сотруднику новый код.
+ *
+ * ПОЧЕМУ ЭТО ВООБЩЕ НУЖНО. Мойщик забыл код. Восстановить по SMS он не
+ * может: номер ему заводил владелец, и подтверждённым он не стал (см.
+ * `claimAccount`), а восстановление работает только по подтверждённому.
+ * Владелец сменить ему код тоже не мог: `saveStaff` правит имя и
+ * процент, а `claimAccount` умеет назначить код только при создании
+ * человека. Один забытый код означал потерю сотрудника из системы: его
+ * оставалось отключить и завести заново на другой номер, потеряв связь с
+ * его историей записей и выплат.
+ *
+ * ПОЧЕМУ ЭТО НЕ ДЫРА. Опасность здесь одна и названа в `claimAccount`:
+ * если человек работает не только у нас, назначенный нами код открыл бы
+ * чужой бизнес — тот же номер, тот же код, вход как этот человек. Поэтому
+ * отказываем всем, у кого есть второе участие, и отказываем прямо: пусть
+ * он сменит код сам, из своего профиля.
+ *
+ * Владельцу код так не выдают: владелец распоряжается собой сам, а
+ * «выдать код владельцу» — это способ отобрать бизнес у совладельца.
+ */
+export async function resetStaffPin(params: {
+  tenantId: string;
+  id: string;
+  actorId: string;
+  pin: string;
+}) {
+  if (params.id === params.actorId) throw new ValidationError('CANNOT_RESET_SELF');
+  if (!isValidPin(params.pin)) throw new ValidationError('BAD_PIN');
+
+  const [staff] = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.id, params.id),
+        eq(users.tenantId, params.tenantId),
+        eq(users.active, true),
+      ),
+    );
+  if (!staff) throw new ValidationError('NOT_FOUND');
+  if (staff.role !== 'staff') throw new ValidationError('OWNER_KEEPS_OWN_PIN');
+
+  const account = await accountOf(staff);
+
+  /* Второе участие — отказ. Считаем по человеку, а не по этой точке:
+     код принадлежит человеку, и назначить его здесь значит назначить его
+     сразу везде, где он работает. */
+  const memberships = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.accountId, account.id), eq(users.active, true)));
+  if (memberships.length > 1) throw new ValidationError('WORKS_ELSEWHERE');
+
+  const pinHash = await hashPin(params.pin);
+
+  /* Одной транзакцией: оборвись она между двумя записями, у человека
+     остался бы новый код на входе и старый в подтверждении удаления
+     бизнеса. */
+  await db.transaction(async (tx) => {
+    await tx.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
+    // копия в users, пока схема обязана оставаться совместимой
+    await tx.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
+  });
+
+  /* Гасим его входы. Смысл выдачи нового кода ровно в этом: тот, у кого
+     остался старый — или чужой телефон с живым токеном, — перестаёт
+     работать. */
+  await revokeAccountSessions(account.id);
+
+  await logSecurity({
+    event: 'auth.pin.reset',
+    phone: staff.phone,
+    accountId: account.id,
+    tenantId: params.tenantId,
+    userId: params.actorId,
+    data: { staffId: params.id, byOwner: true },
+  });
+
+  return staff;
 }
 
 /* ------------------------------ тарифы ------------------------------ */

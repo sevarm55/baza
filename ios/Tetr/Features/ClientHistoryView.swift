@@ -335,6 +335,16 @@ struct ClientHistoryView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
+            /* Скидка видна и в истории машины: постоянному её дают не
+               один раз, и «сколько всего оставил» без неё читается
+               неправдой в обе стороны. */
+            if let list = order.listPrice, list > order.price {
+                Text(money(list, currency))
+                    .font(.system(size: 11.5))
+                    .monospacedDigit()
+                    .strikethrough()
+                    .foregroundStyle(Brand.boardMuted)
+            }
             Text(money(order.price, currency))
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()

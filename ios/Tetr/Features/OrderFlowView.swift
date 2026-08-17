@@ -33,8 +33,6 @@ struct OrderFlowView: View {
      */
     @State private var chosen: [API.Service] = []
     @State private var known: API.KnownClient?
-    /// Короткая строка «записано». Уходит сама через пару секунд.
-    @State private var saved = false
     @State private var scanning = false
     @State private var detectedPlate: String?
     /// Выбранный способ оплаты. Пусто — кнопка записи погашена.
@@ -89,22 +87,13 @@ struct OrderFlowView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    /* «Записано» — строкой, а не экраном.
+                    /* Строки «записано» здесь больше нет.
                      *
-                     * Экран успеха с галкой в кружке занимал место формы
-                     * полторы секунды и всё это время не давал набрать
-                     * следующую машину: очередь ждала анимацию. Строка
-                     * говорит то же самое, стоит там, где глаз, и ничего не
-                     * закрывает — а подтверждение, которому мойщик верит,
-                     * всё равно другое: машина в журнале смены. */
-                    if saved {
-                        Label(L("work.saved"), systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 13.5, weight: .semibold))
-                            .foregroundStyle(Brand.goodOnBoard)
-                            .padding(.bottom, 12)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
+                     * Она была нужна, пока лист оставался открытым после
+                     * записи: экран не менялся, и без неё нажатие
+                     * выглядело безответным. Теперь лист закрывается, а
+                     * подтверждение стоит там, где ему и место, — машина
+                     * в журнале смены, подсвеченная и с галкой. */
                     plateRow
 
                     if let known {
@@ -506,8 +495,14 @@ struct OrderFlowView: View {
                и передумать, а промах по соседней плитке записывал не тот
                способ оплаты и правился только отменой всей записи.
 
-               Движение возвращается на следующей машине: после записи
-               лист не закрывается, а очищается и снова ждёт номер. */
+               ПОСЛЕ ЗАПИСИ ЛИСТ ЗАКРЫВАЕТСЯ. Раньше он оставался и
+               очищался — «мойщик записывает машины подряд». На деле это
+               отвечало не на тот вопрос: после нажатия человек хочет
+               увидеть, что машина записалась, а пустой лист на её месте
+               выглядит так, будто ничего не произошло и надо набирать
+               заново. Подтверждение, которому верят, — машина в журнале
+               смены и выросший счётчик; они на экране под листом, туда и
+               возвращаемся. */
             Button {
                 record()
             } label: {
@@ -611,16 +606,13 @@ struct OrderFlowView: View {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         Task { @MainActor in
+            /* Сначала перечитываем смену, потом закрываем лист: иначе
+               человек на мгновение увидит журнал БЕЗ своей машины — то
+               есть ровно то, чего боится, нажимая кнопку. */
             await onDone()
             clear()
             sending = false
-            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.25)) {
-                saved = true
-            }
-            /* Строка успеха уходит сама. Мойщик уже набирает следующий
-               номер, и убирать её руками ему незачем. */
-            try? await Task.sleep(for: .seconds(2.5))
-            withAnimation(.easeOut(duration: 0.2)) { saved = false }
+            dismiss()
         }
     }
 

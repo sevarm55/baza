@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getServiceStats, getTenant, listServices, startOfMonth } from '@/lib/queries';
+import { tiersOf } from '@/lib/catalog';
 import { currencySymbol, formatAmount, formatMoney, toMajor } from '@/lib/money';
 import { PageHead } from '@/components/page-head';
 import { AddService } from './add-service';
 import { ServiceList, type ServiceRow } from './service-list';
+import { TiersEditor } from './tiers';
 import { getDict } from '@/lib/i18n/server';
 import { unitCount } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
@@ -50,6 +52,10 @@ export default async function ServicesPage() {
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const sold = new Map(month.map((m) => [m.serviceId ?? '', m]));
 
+  /* Классы машин. Пусто — ни ряда цен в форме услуги, ни разговора о
+     них: у мойки без классов это управление, которое ничего не меняет. */
+  const tiers = tiersOf(tenant);
+
   const rows: ServiceRow[] = services.map((s) => ({
     id: s.id,
     name: s.name,
@@ -57,6 +63,9 @@ export default async function ServicesPage() {
     display: formatAmount(s.price, tenant.currency, t.locale),
     count: sold.get(s.id)?.count ?? 0,
     revenue: money(sold.get(s.id)?.revenue ?? 0),
+    /* По одной цене на класс, в порядке `tiers`. Ноль означает «своей
+       нет, берём базовую» — то же, что понимает `priceForTier`. */
+    tierPrices: tiers.map((_, i) => toMajor(s.tierPrices?.[i] ?? 0, tenant.currency)),
   }));
 
   const cars = month.reduce((sum, m) => sum + m.count, 0);
@@ -68,7 +77,14 @@ export default async function ServicesPage() {
   return (
     <>
       <PageHead title={t.settings.tabServices} meta={t.settings.servicesLead}>
-        <AddService currencySymbol={symbol} step={step} />
+        {/* Классы стоят рядом с прайсом, а не в настройках бизнеса: они
+            меняют весь прайс целиком, и правят их, глядя на него. */}
+        <TiersEditor
+          label={tenant.tierLabel ?? t.work.tier}
+          tiers={tiers}
+          unitOne={tenant.unitOne}
+        />
+        <AddService currencySymbol={symbol} step={step} tiers={tiers} />
       </PageHead>
 
       {/* Операционная строка вместо карточек: сколько услуг в
@@ -98,7 +114,7 @@ export default async function ServicesPage() {
       )}
 
       <div className={services.length > 0 ? 'mt-[var(--seam)]' : ''}>
-        <ServiceList rows={rows} step={step} currencySymbol={symbol} />
+        <ServiceList rows={rows} step={step} currencySymbol={symbol} tiers={tiers} />
       </div>
     </>
   );

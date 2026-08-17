@@ -144,20 +144,20 @@ export default async function ExpensesPage({
 
   return (
     <>
+      {/* Своей обёртки здесь больше нет: ряд из кнопок раздела собирает
+          сам `PageHead`, одинаково на всех страницах. */}
       <PageHead title={t.expenses.title} meta={t.expenses.lead}>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <MonthTabs current={month} />
-          {/* В прошлом месяце заводить нечего: запись всё равно легла бы
-              его последним днём и в открытом периоде бы не появилась. */}
-          {!prev && (
-            <AddExpense
-              currencySymbol={currencySymbol(tenant.currency)}
-              hints={expenseHints(t.locale)}
-              today={todayKey}
-              openNew={openNew}
-            />
-          )}
-        </div>
+        <MonthTabs current={month} />
+        {/* В прошлом месяце заводить нечего: запись всё равно легла бы
+            его последним днём и в открытом периоде бы не появилась. */}
+        {!prev && (
+          <AddExpense
+            currencySymbol={currencySymbol(tenant.currency)}
+            hints={expenseHints(t.locale)}
+            today={todayKey}
+            openNew={openNew}
+          />
+        )}
       </PageHead>
 
       <ExpensesSummary

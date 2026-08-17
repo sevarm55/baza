@@ -1,8 +1,8 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { expenses } from '@/lib/db/schema';
 import { getPeriodCosts, shareOfPeriod } from '@/lib/expenses';
-import { getPeriodStats } from '@/lib/queries';
+import { getPeriodStats, getServiceBreakdown } from '@/lib/queries';
 import { daysInMonthOf, startOfDay, startOfMonth } from '@/lib/time';
 
 /** Один месяц в отчёте: всё, из чего складывается «осталось». */
@@ -19,6 +19,14 @@ export type ReportMonth = {
   /** доля постоянных, пришедшаяся на месяц */
   monthlyShare: number;
   avgCheck: number;
+  /**
+   * Скидок дано за месяц.
+   *
+   * Не расход и не убыток: это деньги, которых бизнес решил не брать.
+   * Считает `getPeriodStats` тем же запросом, что выручку, — второй
+   * счёт скидок разошёлся бы с ней на первой же отменённой записи.
+   */
+  discounts: number;
   profit: number;
   /** доля, которая осталась владельцу, в процентах */
   kept: number;
@@ -30,7 +38,23 @@ export type ReportMonth = {
    * и спрашивать её второй раз ради открытого месяца значило бы сделать
    * лишний запрос за уже посчитанным.
    */
-  byStaff: { staffId: string | null; name: string | null; count: number; earned: number }[];
+  /**
+   * Кто это сделал — той же формой, что и на сводке.
+   *
+   * `revenue` здесь не для экрана: кабинет рисует по нему только имя и
+   * заработок. Он есть потому, что разбивка по людям — одно понятие
+   * продукта, и отдавать её из двух мест в двух разных формах значит
+   * заставлять клиентов держать два типа под одно и то же. Приложение на
+   * этом уже споткнулось: экран отчёта падал на разборе ответа, потому
+   * что тип, годный для сводки, не подходил к отчёту.
+   */
+  byStaff: {
+    staffId: string | null;
+    name: string | null;
+    count: number;
+    revenue: number;
+    earned: number;
+  }[];
 };
 
 /**
@@ -88,6 +112,7 @@ export async function getMonthlyReport(
         revenue: stats.revenue,
         payroll: stats.payroll,
         costs: costs.total,
+        discounts: stats.discounts,
         oneOff: costs.oneOff,
         monthlyShare: costs.monthlyShare,
         avgCheck: stats.avgCheck,
@@ -97,6 +122,7 @@ export async function getMonthlyReport(
           staffId: s.staffId,
           name: s.name,
           count: s.count,
+          revenue: s.revenue,
           earned: s.earned,
         })),
       };
@@ -205,35 +231,31 @@ export type EarnLine = { name: string; count: number; revenue: number };
 /**
  * Откуда пришли деньги — по услугам.
  *
- * Считаем по названию, записанному в самой записи, а не по ссылке на
- * прейскурант: услугу могли удалить, а деньги, которые она принесла,
- * остаются деньгами. Отчёт за прошлый год не должен зависеть от того,
- * что владелец правил прайс вчера.
+ * Считаем ПО СТРОКАМ записи (`order_items`), а не по её названию.
+ *
+ * Раньше группировали по `orders.service_name`, и пока услуга в записи
+ * была одна, это работало. С появлением нескольких услуг за заезд
+ * название стало составным — «Комплекс + Химчистка», — и разрез начал
+ * показывать его отдельной услугой: в отчёте появлялись строки, которых
+ * нет в прейскуранте, а настоящие услуги теряли свои деньги. Заметить
+ * это по экрану почти невозможно: строка выглядит как обычная услуга,
+ * просто с длинным именем.
+ *
+ * Название берём из самой строки, а не из прейскуранта: услугу могли
+ * удалить, а деньги, которые она принесла, остаются деньгами. Отчёт за
+ * прошлый год не должен зависеть от того, что владелец правил прайс
+ * вчера.
+ *
+ * Считаем по прайсовой цене строки, а не по взятой: скидка живёт на
+ * счёте целиком, и разносить её по услугам пришлось бы наугад. Владельцу
+ * здесь важно другое — что чаще заказывают и что дороже стоит; сколько
+ * скидок он дал, названо отдельным числом.
  */
 export async function getEarnedByService(
   tenantId: string,
   from: Date,
   to: Date,
 ): Promise<EarnLine[]> {
-  const { orders } = await import('@/lib/db/schema');
-
-  const rows = await db
-    .select({
-      name: orders.serviceName,
-      count: sql<number>`count(*)::int`,
-      revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.tenantId, tenantId),
-        sql`${orders.createdAt} >= ${from.toISOString()}::timestamptz`,
-        sql`${orders.createdAt} < ${to.toISOString()}::timestamptz`,
-        sql`${orders.canceledAt} is null`,
-      ),
-    )
-    .groupBy(orders.serviceName)
-    .orderBy(desc(sql`3`));
-
-  return rows;
+  const rows = await getServiceBreakdown(tenantId, from, to);
+  return rows.map((r) => ({ name: r.name, count: r.count, revenue: r.revenue }));
 }

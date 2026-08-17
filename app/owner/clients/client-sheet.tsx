@@ -193,7 +193,15 @@ export function ClientSheet({
                     {o.staffName ?? '—'} · {paymentLabel(o.payment, t)} · {o.day} {o.time}
                   </span>
                 </span>
-                <span className="num shrink-0 text-[14px] font-semibold">{money(o.price)}</span>
+                <span className="num shrink-0 text-[14px] font-semibold">
+                  {/* Скидка видна и здесь: постоянному её дают не один
+                      раз, и «сколько всего оставил» без неё читается
+                      неправдой в обе стороны. */}
+                  {o.listPrice !== null && (
+                    <span className="op-list-price">{money(o.listPrice)}</span>
+                  )}
+                  {money(o.price)}
+                </span>
               </div>
             ))}
           </div>

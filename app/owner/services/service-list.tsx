@@ -21,6 +21,8 @@ export type ServiceRow = {
   count: number;
   /** сколько принесла за месяц, уже деньгами */
   revenue: string;
+  /** цена на каждый класс, в крупных единицах; 0 — «как базовая» */
+  tierPrices: number[];
 };
 
 /**
@@ -48,14 +50,34 @@ export function ServiceList({
   rows,
   step,
   currencySymbol,
+  tiers,
 }: {
   rows: ServiceRow[];
   step: number;
   currencySymbol: string;
+  /** классы бизнеса; пусто — ряда цен по классам в панели нет */
+  tiers: string[];
 }) {
   const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const service = rows.find((r) => r.id === open) ?? null;
+
+  /* Состояние сохранения живёт здесь, а не в панели, хотя правят там.
+     Панель закрывается, когда сервер подтвердил запись, а закрывает её
+     этот список — здесь лежит `open`. Пока состояние жило в самой
+     панели, она звала родительский `onClose` прямо в отрисовке:
+     запрещённое обновление чужого компонента во время рендера, и React
+     ругался в консоль на каждом сохранении.
+
+     Сверяем именно смену `state`, а не его удачность: иначе панель,
+     открытая второй раз, захлопывалась бы сразу — прошлый успех никуда
+     не девается. */
+  const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
+  const [seen, setSeen] = useState(state);
+  if (seen !== state) {
+    setSeen(state);
+    if (state?.ok) setOpen(null);
+  }
 
   if (rows.length === 0) {
     return (
@@ -63,7 +85,9 @@ export function ServiceList({
         <EmptyState
           title={t.settings.servicesEmpty}
           note={t.settings.servicesEmptyNote}
-          action={<AddService variant="cta" currencySymbol={currencySymbol} step={step} />}
+          action={
+            <AddService variant="cta" currencySymbol={currencySymbol} step={step} tiers={tiers} />
+          }
         />
       </Panel>
     );
@@ -156,6 +180,10 @@ export function ServiceList({
         service={service}
         step={step}
         currencySymbol={currencySymbol}
+        tiers={tiers}
+        state={state}
+        action={action}
+        pending={pending}
         onClose={() => setOpen(null)}
       />
     </Panel>
@@ -173,24 +201,24 @@ function ServiceEditor({
   service,
   step,
   currencySymbol,
+  tiers,
+  state,
+  action,
+  pending,
   onClose,
 }: {
   service: ServiceRow | null;
   step: number;
   currencySymbol: string;
+  /** классы бизнеса; пусто — ряда цен по классам в панели нет */
+  tiers: string[];
+  /** состояние сохранения — из списка: он же и закрывает панель */
+  state: FormState;
+  action: (formData: FormData) => void;
+  pending: boolean;
   onClose: () => void;
 }) {
   const t = useT();
-  const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
-
-  /* Панель закрывается, когда сервер подтвердил запись. Состояние
-     сверяется прямо в отрисовке, а не эффектом: эффект успел бы
-     показать кадр с уже сохранённым, но ещё открытым окном. */
-  const [seen, setSeen] = useState(state);
-  if (seen !== state) {
-    setSeen(state);
-    if (state?.ok) onClose();
-  }
 
   return (
     <Sheet
@@ -246,6 +274,8 @@ function ServiceEditor({
               idPrefix="service-edit"
               name={service.name}
               price={service.price}
+              tiers={tiers}
+              tierPrices={service.tierPrices}
               step={step}
               currencySymbol={currencySymbol}
               autoFocus

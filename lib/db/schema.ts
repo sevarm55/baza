@@ -597,7 +597,7 @@ export const authChallenges = pgTable(
   'auth_challenges',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    /** register | reset | step_up | phone_change */
+    /** entry | register | reset | step_up | phone_change | account_delete */
     purpose: text('purpose').notNull(),
     /** нормализованный E.164 — тот номер, на который ушла SMS */
     phone: text('phone').notNull(),

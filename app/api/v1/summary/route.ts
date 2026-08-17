@@ -127,6 +127,10 @@ export async function GET(request: Request) {
         // исполнителя по нему, а не по текущей ставке человека
         staffPercent: o.staffPercent,
         price: o.price,
+        /* Прайс — только когда взяли меньше. Скидка обязана быть видна
+           там, где владелец читает работу: до сих пор она была видна
+           только в push в момент записи. */
+        listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
         payment: o.payment,
         createdAt: o.createdAt,
       })),

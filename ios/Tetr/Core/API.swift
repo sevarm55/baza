@@ -21,6 +21,32 @@ enum API {
      */
     static let lostAfterDays = 21
 
+    /**
+     * Сколько цифр в коде.
+     *
+     * То же число, что на сервере (`PIN_LENGTH` в `lib/phone.ts`), и по
+     * нему же сервер отказывает: `isValidPin` требует ровно столько.
+     *
+     * Здесь оно одно на всё приложение, и это не аккуратность. Четвёрка
+     * стояла в трёх формах руками — найм, смена кода, удаление бизнеса, —
+     * и все три молча отправляли на сервер заведомо негодный код: найм не
+     * работал никогда, а смена и удаление перестали работать в тот день,
+     * когда код стал шестизначным. Ни одна из форм об этом не сообщала:
+     * снаружи это выглядело как «сервер отказал».
+     *
+     * ВВОД существующего кода этой длиной не ограничивается: у заведённых
+     * до перехода на шесть цифр их четыре, и требовать шесть значило бы
+     * запереть их снаружи. Минимум для ввода — `pinMinLength`.
+     */
+    static let pinLength = 6
+
+    /// Сколько цифр достаточно, чтобы ПОПРОБОВАТЬ войти. Столько их у
+    /// всех, кто завёл аккаунт до перехода на шестизначный код.
+    static let pinMinLength = 4
+
+    /// Длина кода из SMS. То же, что `CODE_LENGTH` в `lib/otp-shared.ts`.
+    static let codeLength = 6
+
     struct Tenant: Decodable {
         let id: String
         let name: String
@@ -77,7 +103,39 @@ enum API {
         /// настройка приезжает со сводкой, а до сводки оттуда не идут.
         let setupHidden: Bool?
 
+        /**
+         * Есть ли у человека PIN вообще.
+         *
+         * У заведённых по коду из SMS его нет: входят они кодом, и в
+         * `pin_hash` у них стоит метка «кода нет». Приложению это нужно в
+         * двух местах, и без признака оба задают неотвечаемый вопрос: в
+         * профиле у такого человека «задать код», а не «сменить», и
+         * текущий у него не спрашивают, потому что спрашивать нечего; а
+         * удаление бизнеса он подтверждает кодом из SMS, а не PIN-ом.
+         *
+         * Необязательное по общему правилу этого файла: приложение стоит
+         * на чужих телефонах и может оказаться новее сервера. Нет поля —
+         * считаем, что код есть: так экраны ведут себя как раньше.
+         */
+        let hasPin: Bool?
+
+        /**
+         * Доказан ли номер кодом из SMS.
+         *
+         * Значит ровно одно, и оно важное: восстановить доступ по SMS
+         * можно только по подтверждённому номеру. У сотрудников, которым
+         * аккаунт завёл владелец, он не подтверждён — и пока это так,
+         * забытый код для них тупик.
+         *
+         * Необязательное: нет поля — считаем подтверждённым и не
+         * предлагаем ничего. Показать предложение тому, у кого всё в
+         * порядке, хуже, чем не показать однажды.
+         */
+        let phoneVerified: Bool?
+
         var isOwner: Bool { role == "owner" }
+        var pinSet: Bool { hasPin ?? true }
+        var phoneProven: Bool { phoneVerified ?? true }
     }
 
     /**
@@ -178,6 +236,94 @@ enum API {
         let user: Me
         let tenantId: String?
         let points: [Point]?
+    }
+
+    /**
+     * Заявка на код из SMS.
+     *
+     * Один и тот же ответ у всех поводов: вход по коду, восстановление
+     * кода, подтверждение удаления бизнеса. Заявка сама знает, зачем её
+     * заводили, поэтому повод в ней и не назван.
+     *
+     * `phone` приходит закрытым (`+374 •• ••• •• 56`): экран обязан
+     * сказать, куда ушёл код, но показывать номер целиком человеку,
+     * который его ещё не доказал, незачем.
+     */
+    struct Challenge: Decodable {
+        let challengeId: String
+        /// Закрытый номер. Необязательный: повтор отправки его не шлёт.
+        let phone: String?
+        /// Раньше этого момента повторная отправка не сработает.
+        let resendAt: Date
+        let expiresAt: Date
+        /// Сколько повторов осталось. Приходит только в ответе на повтор.
+        let resendsLeft: Int?
+    }
+
+    /**
+     * Ответ второго шага главного входа.
+     *
+     * Либо пара токенов — номер знакомый, человек внутри; либо пропуск —
+     * номер свободен, и бизнес под него ещё не заведён. Приложение
+     * бизнесы не заводит (об этом ниже, в `LoginView`), поэтому пропуск
+     * ему нужен ровно для того, чтобы отличить одно от другого.
+     */
+    struct EntryResult: Decodable {
+        let access: String?
+        let refresh: String?
+        let expiresIn: Int?
+        let user: Me?
+        let points: [Point]?
+        /// Пропуск на создание мойки. Не пусто — номер свободен.
+        let ticket: String?
+    }
+
+    /// Пропуск на смену кода: выдаётся, когда код восстановления сошёлся.
+    struct ResetTicket: Decodable {
+        let ticket: String
+    }
+
+    /**
+     * Заявка нулевого шага смены номера: код на СВОЙ номер.
+     *
+     * Отдельный тип, а не `Challenge`, потому что и поле названо иначе —
+     * `proofId`. Разница не косметическая: этот идентификатор
+     * доказывает хозяина и уезжает обратно вместе с новым номером, тогда
+     * как `challengeId` последнего шага доказывает новый номер. Одно имя
+     * на оба означало бы, что их можно перепутать местами, а перепутать
+     * их нельзя.
+     */
+    struct PhoneProof: Decodable {
+        let proofId: String
+        /// Закрытый текущий номер: куда ушёл код.
+        let phone: String?
+        let resendAt: Date
+        let expiresAt: Date
+    }
+
+    /**
+     * Устройство, с которого сейчас открыт вход.
+     *
+     * Список свой, а не всего бизнеса: сессии сотрудников владелец здесь
+     * не видит. Уволить человека он и так может — это гасит его входы
+     * разом, — а разглядывать его устройства оснований нет.
+     */
+    struct Device: Decodable, Identifiable {
+        let id: String
+        /// web | app — чем человек вошёл
+        let kind: String
+        /// метка устройства, как её назвал клиент; пусто у старых сессий
+        let device: String?
+        let createdAt: Date
+        let lastSeenAt: Date
+        /// это устройство, с которого смотрят прямо сейчас
+        let current: Bool
+
+        var isApp: Bool { kind == "app" }
+    }
+
+    struct Devices: Decodable {
+        let devices: [Device]
     }
 
     struct ShiftOrder: Decodable, Identifiable {
@@ -306,6 +452,14 @@ enum API {
         let revenue: Int
         let count: Int
         let cash: Int
+        /**
+         * Скидок дано за период.
+         *
+         * Не расход и не убыток: деньги, которых бизнес решил не брать.
+         * Считает сервер тем же запросом, что выручку. Молчим, когда
+         * ноль: «скидок 0 ֏» сообщает то же, что их отсутствие.
+         */
+        let discounts: Int?
         let avgCheck: Int
         /// Начислено исполнителям за период — не выплачено, а именно начислено.
         let payroll: Int
@@ -385,6 +539,18 @@ enum API {
          */
         let staffPercent: Int?
         let price: Int
+        /**
+         * Цена по прайсу — только когда взяли меньше.
+         *
+         * Пусто, когда скидки не было. До этого поля скидку было видно
+         * ровно в одном месте: в уведомлении в момент записи. Владелец,
+         * пропустивший его, не узнавал о ней никогда — ни в ленте, ни в
+         * истории машины, ни в отчёте.
+         *
+         * Необязательное по общему правилу этого файла: приложение
+         * стоит на чужих телефонах и может оказаться новее сервера.
+         */
+        let listPrice: Int?
         let payment: String
         let createdAt: Date
 
@@ -651,6 +817,9 @@ enum API {
         let id: String
         let createdAt: String
         let price: Int
+        /// Прайс — только когда взяли меньше. Необязательное: сервер
+        /// может оказаться старее приложения.
+        let listPrice: Int?
         let serviceName: String
         let payment: String
         let staffName: String?
@@ -722,29 +891,84 @@ enum API {
         let services: [Service]
     }
 
-    /// Тип бизнеса. Приложение про ниши ничего не знает — список приходит
-    /// с сервера, из того же конфига, что и лендинг.
-    struct Niche: Decodable, Identifiable {
-        let key: String
-        let icon: String
-        let name: String
-        let tag: String
-        let defaultName: String
-        var id: String { key }
-
-        /// Значок для нативной карточки. Необязательный намеренно: если
-        /// сервер окажется старее приложения, разбор всего списка ниш упал
-        /// бы целиком — и экран регистрации остался бы пустым из-за иконки.
-        let symbol: String?
-        var glyph: String { symbol ?? "building.2.fill" }
-    }
-
-    struct Niches: Decodable {
-        let niches: [Niche]
-    }
-
     struct CreatedOrder: Decodable {
         let duplicate: Bool
+    }
+
+    /* ─────────────────────── отчёт по месяцам ───────────────────────
+
+       Тот же разбор, что в кабинете, и посчитанный тем же кодом на
+       сервере (`lib/reports.ts`). Сводка отвечает «сколько за месяц»;
+       отчёт отвечает на следующий вопрос — стало лучше или хуже и
+       почему, — и до сих пор этот ответ был только в браузере. */
+
+    /// Месяц в ряду: то, из чего собирается выбор и сравнение соседних.
+    struct ReportMonth: Decodable, Identifiable {
+        /// сколько месяцев назад: 0 — текущий
+        let back: Int
+        let from: Date
+        let to: Date
+        let count: Int
+        let revenue: Int
+        let payroll: Int
+        let costs: Int
+        let discounts: Int
+        let avgCheck: Int
+        let profit: Int
+        /// какая доля прихода осталась владельцу, в процентах
+        let kept: Int
+
+        var id: Int { back }
+    }
+
+    /// Открытый месяц целиком.
+    struct ReportCurrent: Decodable {
+        let back: Int
+        let from: Date
+        let to: Date
+        let count: Int
+        let revenue: Int
+        let payroll: Int
+        let costs: Int
+        let oneOff: Int
+        let monthlyShare: Int
+        let discounts: Int
+        let avgCheck: Int
+        let profit: Int
+        let kept: Int
+        let byStaff: [StaffLine]
+    }
+
+    /// С чем сравниваем: тот же отрезок прошлого месяца.
+    struct ReportBase: Decodable {
+        let revenue: Int
+        let profit: Int
+    }
+
+    /// Строка разреза: услуга или категория расхода.
+    struct ReportLine: Decodable, Identifiable {
+        /// у услуг — её название, у расходов — категория
+        let name: String
+        /// сколько раз брали; у расходов не приходит
+        let count: Int?
+        /// сколько принесла; у расходов — сколько потрачено
+        let revenue: Int?
+        let amount: Int?
+        /// постоянный ли расход; у услуг не приходит
+        let monthly: Bool?
+
+        var id: String { "\(name)-\(monthly ?? false)" }
+        /// Деньги строки, как бы поле ни называлось на своей стороне.
+        var value: Int { revenue ?? amount ?? 0 }
+    }
+
+    struct Report: Decodable {
+        let months: [ReportMonth]
+        let current: ReportCurrent
+        let base: ReportBase?
+        let services: [ReportLine]
+        let costsByCategory: [ReportLine]
+        let split: [SplitSegment]
     }
 }
 
@@ -766,6 +990,16 @@ struct APIError: Error {
     /// выглядела бы просто отказом.
     var challengeId: String? = nil
     var maskedPhone: String? = nil
+
+    /**
+     * Уточнение к коду ответа.
+     *
+     * Сервер кладёт его туда, где одного кода мало, чтобы сказать
+     * человеку правду: `PIN_WEAK` бывает и «мало цифр», и «слишком
+     * очевидный», а это разные беды, и общий ответ на них заставляет
+     * гадать, что не так с кодом, который только что придумали.
+     */
+    var reason: String? = nil
 
     /// Сеть не ответила вовсе — запись уйдёт в очередь, а не потеряется.
     var isOffline: Bool { status == 0 }
@@ -949,7 +1183,8 @@ actor APIClient {
                 code: json?["error"] as? String,
                 retryAfter: json?["retryAfter"] as? Int,
                 challengeId: json?["challengeId"] as? String,
-                maskedPhone: json?["phone"] as? String
+                maskedPhone: json?["phone"] as? String,
+                reason: json?["reason"] as? String
             )
         }
         return data

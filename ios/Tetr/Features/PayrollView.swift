@@ -894,7 +894,7 @@ struct PayrollView: View {
         } catch let error as APIError {
             failure = error.isOffline ? L("errors.offline") : "\(error.status) \(error.code ?? "—")"
         } catch {
-            failure = "\(error)"
+            failure = Failure.text(error)
         }
     }
 

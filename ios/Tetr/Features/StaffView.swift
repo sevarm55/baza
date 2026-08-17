@@ -228,6 +228,12 @@ struct StaffEditor: View {
     @State private var error: String?
     @State private var busy = false
     @State private var firing = false
+    /// Развёрнута ли выдача нового кода и что в ней набрано.
+    @State private var resettingPin = false
+    @State private var newPin = ""
+    /// Код выдан. Отдельно от `error`: та строка красная, и подтверждение
+    /// в ней читалось бы отказом.
+    @State private var pinDone = false
 
     /// Ставки, которые встречаются на мойке. Остальное — вручную.
     private let common = [30, 35, 40, 45, 50]
@@ -237,10 +243,18 @@ struct StaffEditor: View {
     private var ready: Bool {
         guard !busy, !name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         if isNew {
-            return phone.count >= 9 && pin.count == 4
+            /* Цифры, а не длина строки. Считалась именно строка, и порог
+               стоял в девять знаков — то есть местный армянский номер из
+               восьми цифр («77123456») кнопку не включал вовсе, а тот же
+               номер с нулём впереди включал. Сколько цифр в номере какой
+               страны, знает сервер (`isValidPhone`), и последнее слово
+               остаётся за ним; здесь только отсекается заведомо пустое. */
+            return phoneDigits >= 8 && pin.count == API.pinLength
         }
         return true
     }
+
+    private var phoneDigits: Int { phone.filter(\.isNumber).count }
 
     var body: some View {
         ScrollView {
@@ -253,9 +267,19 @@ struct StaffEditor: View {
                         divider
                         field(L("auth.phone"), text: $phone, placeholder: "+374 …", keyboard: .phonePad)
                         divider
-                        field(L("auth.pinShort"), text: $pin, placeholder: "••••", keyboard: .numberPad)
+                        /* Шесть цифр, а не четыре.
+                         *
+                         * Стояло четыре, и найм не работал НИКОГДА:
+                         * сервер требует ровно `PIN_LENGTH` (шесть) и
+                         * отвечал отказом на каждую попытку. Со стороны
+                         * это выглядело как «сервер сломался», потому что
+                         * форма отправляла заведомо негодный код и сама
+                         * об этом не знала. Длина берётся из одного места
+                         * на всё приложение — см. `API.pinLength`. */
+                        field(L("auth.pinShort"), text: $pin, placeholder: "••••••", keyboard: .numberPad)
                             .onChange(of: pin) { _, v in
-                                if v.count > 4 { pin = String(v.prefix(4)) }
+                                let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
+                                if clean != v { pin = clean }
                             }
                     }
                 }
@@ -271,7 +295,27 @@ struct StaffEditor: View {
                         .padding(.horizontal, 4)
                 }
 
-                if let person, !person.isMe {
+                if pinDone {
+                    Text(L("settings.pinResetDone"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.goodOnBoard)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
+
+                /* Новый код сотруднику.
+
+                   Забытый мойщиком код был тупиком: восстановить по SMS он
+                   не может — номер ему заводил владелец, и подтверждённым
+                   тот не стал, — а сменить его было нечем. Оставалось
+                   отключить человека и завести заново на другой номер,
+                   потеряв связь с его историей записей и выплат.
+
+                   Только сотруднику, и сервер откажет, если человек
+                   работает не только здесь: назначенный тут код открыл бы
+                   его второй бизнес. */
+                if let person, !person.isMe, person.role != "owner" {
+                    resetPinRow(person)
                     fireRow(person)
                 }
             }
@@ -428,6 +472,91 @@ struct StaffEditor: View {
         .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 
+    /**
+     * Выдать новый код.
+     *
+     * Свёрнуто по умолчанию: пустой ряд клеток в карточке ничего не
+     * показывает и ничего не спрашивает, а читается сломанным элементом.
+     * Клетки приходят по нажатию — тогда, когда владелец решил код менять.
+     *
+     * Код виден открытым, и это осознанно: владелец придумывает его вслух,
+     * стоя рядом с работником, и должен видеть, что набрал. Прятать
+     * звёздочками то, что он сам сейчас продиктует, значит мешать без
+     * причины.
+     */
+    @ViewBuilder
+    private func resetPinRow(_ person: API.StaffMember) -> some View {
+        if resettingPin {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L("settings.pinReset"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+
+                TextField("••••••", text: $newPin)
+                    .keyboardType(.numberPad)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onBoard)
+                    .padding(.horizontal, 14)
+                    .frame(height: 52)
+                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 16))
+                    .onChange(of: newPin) { _, v in
+                        let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
+                        if clean != v { newPin = clean }
+                    }
+
+                Text(L("settings.pinResetNote"))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Brand.boardMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Button(L("common.save")) { Task { await resetPin(person) } }
+                        .buttonStyle(.glass)
+                        .disabled(busy || newPin.count != API.pinLength)
+                    Button(L("common.cancel")) {
+                        resettingPin = false
+                        newPin = ""
+                    }
+                    .buttonStyle(.glass)
+                    .tint(Brand.muted)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .padding(.top, 14)
+        } else {
+            Button {
+                resettingPin = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.rotation")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.grape)
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(L("settings.pinReset"))
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                        Text(L("settings.pinResetNote"))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Brand.boardMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            }
+            .buttonStyle(.press)
+            .disabled(busy)
+            .padding(.top, 14)
+        }
+    }
+
     private func fireRow(_ person: API.StaffMember) -> some View {
         Button {
             firing = true
@@ -509,11 +638,64 @@ struct StaffEditor: View {
             await onSave()
             dismiss()
         } catch let e as APIError {
-            error = e.code == "PHONE_TAKEN"
-                ? L("auth.phoneTaken")
-                : L("errors.failedCode", e.code ?? "\(e.status)")
+            /* Отказ называется своим именем там, где человек может его
+               исправить: номер занят, код слишком простой, номер не
+               похож на номер. Общий «ошибка BAD_REQUEST» на форме, где
+               три поля, не говорит, какое из них переписать. */
+            switch (e.code, e.reason) {
+            case ("PHONE_TAKEN", _): error = L("auth.phoneTaken")
+            case (_, "TRIVIAL_PIN"), (_, "BAD_PIN"): error = L("auth.pinTrivial")
+            case (_, "BAD_PHONE"): error = L("auth.wrongCredentials")
+            case ("TOO_MANY_TRIES", _): error = L("auth.throttled")
+            default:
+                error = e.isOffline
+                    ? L("errors.offline")
+                    : L("errors.failedCode", e.code ?? "\(e.status)")
+            }
         } catch {
-            self.error = "\(error)"
+            self.error = Failure.text(error)
+        }
+    }
+
+    /**
+     * Выдать сотруднику новый код.
+     *
+     * Экран не закрываем: владелец только что придумал код и сейчас
+     * продиктует его человеку, а закрывшаяся карточка забрала бы его с
+     * глаз. Вместо этого форма сворачивается, а на месте ошибки встаёт
+     * подтверждение.
+     */
+    private func resetPin(_ person: API.StaffMember) async {
+        busy = true
+        defer { busy = false }
+        error = nil
+
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "staff/\(person.id)/pin",
+                    method: "POST",
+                    body: ["pin": newPin],
+                    token: token
+                )
+            }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            resettingPin = false
+            newPin = ""
+            pinDone = true
+            await onSave()
+        } catch let e as APIError {
+            switch (e.code, e.reason) {
+            case (_, "WORKS_ELSEWHERE"): error = L("settings.pinWorksElsewhere")
+            case ("PIN_WEAK", _): error = L("auth.pinTrivial")
+            case ("FORBIDDEN", _): error = L("settings.pinWorksElsewhere")
+            default:
+                error = e.isOffline
+                    ? L("errors.offline")
+                    : L("errors.failedCode", e.code ?? "\(e.status)")
+            }
+        } catch {
+            self.error = L("payroll.failed")
         }
     }
 

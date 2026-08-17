@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
-import { getTenant } from '@/lib/queries';
+import { getTenant, getUser } from '@/lib/queries';
+import { accountOf } from '@/lib/accounts';
+import { deleteNeedsCode } from '@/lib/account';
+import { maskPhone } from '@/lib/phone';
 import { Panel } from '@/components/board';
 import { FormField } from '@/components/form-field';
 import { PageHead } from '@/components/page-head';
@@ -35,7 +38,7 @@ import { localizeTenantOrNull } from '@/lib/i18n/terms';
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ s?: string; delete?: string }>;
+  searchParams: Promise<{ s?: string; delete?: string; cid?: string }>;
 }) {
   const t = await getDict();
   const session = await requireOwner();
@@ -52,17 +55,35 @@ export default async function SettingsPage({
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
+  /* Чем человек подтверждает удаление, решает состояние его аккаунта, а
+     не форма: у заведённых по коду из SMS кода-PIN нет вовсе, и вопрос
+     «введите свой PIN» был бы для них неотвечаемым (см. lib/account.ts). */
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+  const account = await accountOf(me);
+  const byCode = deleteNeedsCode(account);
+
   /* Маршрут удаления возвращает сюда с причиной отказа: показать её
      формой он не может — ответом уходит либо файл, либо редирект. */
   const failure = asked.delete;
+  /* Заявка на код живёт в адресе. Сама по себе она ничего не открывает:
+     код приходит на телефон, а без него строка бесполезна. */
+  const challengeId = failure === 'sent' || failure === 'code' ? (asked.cid ?? '') : '';
+
   const deleteError =
     failure === 'pin'
       ? t.settings.deleteWrongPin
       : failure === 'throttled'
         ? t.settings.deleteThrottled
-        : failure
-          ? t.settings.deleteFailed
-          : null;
+        : failure === 'code'
+          ? t.settings.deleteCodeWrong
+          : failure === 'codeExpired'
+            ? t.settings.deleteCodeExpired
+            : failure === 'sms'
+              ? t.settings.deleteSmsFailed
+              : failure && failure !== 'sent'
+                ? t.settings.deleteFailed
+                : null;
 
   return (
     <>
@@ -114,7 +135,13 @@ export default async function SettingsPage({
           </Panel>
         </div>
 
-        <DangerZone deleteError={deleteError} />
+        <DangerZone
+          deleteError={deleteError}
+          byCode={byCode}
+          challengeId={challengeId}
+          phone={maskPhone(account.phone)}
+          codeSent={failure === 'sent' || failure === 'code'}
+        />
       </div>
     </>
   );
@@ -128,8 +155,34 @@ export default async function SettingsPage({
  * осознанно. Раньше оно лежало прямо под ссылкой на выгрузку, в одной
  * колонке с названием точки.
  */
-async function DangerZone({ deleteError }: { deleteError: string | null }) {
+async function DangerZone({
+  deleteError,
+  byCode,
+  challengeId,
+  phone,
+  codeSent,
+}: {
+  deleteError: string | null;
+  /** у человека нет PIN: подтверждать он будет кодом из SMS */
+  byCode: boolean;
+  challengeId: string;
+  /** куда ушёл код — номер показывается закрытым */
+  phone: string;
+  codeSent: boolean;
+}) {
   const t = await getDict();
+
+  /* Три состояния формы вместо одного:
+       есть PIN            — поле кода-пароля, как было;
+       нет PIN, код не слан — одна кнопка «выслать код»;
+       нет PIN, код слан    — поле кода и оба выхода.
+
+     Второе состояние существует ради честности: пока SMS не ушла,
+     показывать пустое поле кода значит просить ввести то, чего у
+     человека нет. */
+  const askCode = byCode && codeSent;
+  const askSend = byCode && !codeSent;
+
   /* Подложка и поле — те же, что у прибора, а не `.card`: на странице,
      где всё остальное собрано из приборов, карточка с другим полем
      читается деталью из другого набора. */
@@ -137,7 +190,7 @@ async function DangerZone({ deleteError }: { deleteError: string | null }) {
     <details
       className="panel-pad rounded-[var(--radius-card)]"
       style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
-      open={deleteError !== null}
+      open={deleteError !== null || codeSent}
     >
       <summary className="cursor-pointer text-[14px] font-semibold">
         {t.settings.deleteTitle}
@@ -147,30 +200,65 @@ async function DangerZone({ deleteError }: { deleteError: string | null }) {
       <p className="note note-warn mt-1.5 font-semibold">{t.settings.deleteNoWayBack}</p>
 
       <form method="post" action="/owner/settings/delete" className="mt-3.5 grid gap-2.5">
-        <FormField id="delete-pin" label={t.settings.deletePin}>
-          <input
-            id="delete-pin"
-            className="field"
-            name="pin"
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]{4,6}"
-            maxLength={6}
-            autoComplete="off"
-            required
-          />
-        </FormField>
+        {askSend ? (
+          <>
+            <p className="note">{t.settings.deleteCodeAsk}</p>
+            {deleteError && <p className="alert">{deleteError}</p>}
+            {/* Первый шаг ничего не удаляет: он только высылает код.
+                Поэтому и кнопка одна, и она не разрушительная. */}
+            <button className="btn" name="mode" value="code">
+              {t.settings.deleteSendCode}
+            </button>
+          </>
+        ) : (
+          <>
+            {askCode ? (
+              <>
+                <input type="hidden" name="challengeId" value={challengeId} />
+                <FormField id="delete-code" label={t.settings.deleteCodeAsk}>
+                  <input
+                    id="delete-code"
+                    className="field"
+                    name="code"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    /* Тот же autoComplete, что на входе: браузер и телефон
+                       подставляют код из только что пришедшей SMS сами. */
+                    autoComplete="one-time-code"
+                    required
+                  />
+                </FormField>
+                <p className="note">{t.settings.deleteCodeSent(phone)}</p>
+              </>
+            ) : (
+              <FormField id="delete-pin" label={t.settings.deletePin}>
+                <input
+                  id="delete-pin"
+                  className="field"
+                  name="pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]{4,6}"
+                  maxLength={6}
+                  autoComplete="off"
+                  required
+                />
+              </FormField>
+            )}
 
-        {deleteError && <p className="alert">{deleteError}</p>}
+            {deleteError && <p className="alert">{deleteError}</p>}
 
-        {/* Сохраняющий путь первым: по умолчанию человек уносит свои
-            данные с собой, а не теряет их молча. */}
-        <button className="btn" name="mode" value="keep">
-          {t.settings.deleteKeep}
-        </button>
-        <button className="btn btn-ghost text-bad" name="mode" value="wipe">
-          {t.settings.deleteWipe}
-        </button>
+            {/* Сохраняющий путь первым: по умолчанию человек уносит свои
+                данные с собой, а не теряет их молча. */}
+            <button className="btn" name="mode" value="keep">
+              {t.settings.deleteKeep}
+            </button>
+            <button className="btn btn-ghost text-bad" name="mode" value="wipe">
+              {t.settings.deleteWipe}
+            </button>
+          </>
+        )}
       </form>
 
       <p className="note mt-2.5">{t.settings.deleteHint}</p>

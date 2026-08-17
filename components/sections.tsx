@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Dict } from '@/lib/i18n';
 import {
   Banknote,
+  CalendarDays,
   CarFront,
   ChartNoAxesCombined,
   FileChartColumn,
@@ -69,6 +70,14 @@ export function sections(t: Dict): Section[] {
     label: t.reports.title,
     /* Лист с полосками: отчёт — это сравнение, а не одно число. */
     icon: <FileChartColumn aria-hidden="true" />,
+  },
+  {
+    href: '/owner/calendar',
+    label: t.calendar.title,
+    /* Сетка месяца — то же, что рисует сам раздел. Стоит рядом с
+       отчётом: оба про прошлое, только отчёт про месяцы, а календарь
+       про дни внутри одного. */
+    icon: <CalendarDays aria-hidden="true" />,
   },
   {
     href: '/owner/services',

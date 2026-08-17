@@ -44,6 +44,8 @@ struct OwnerView: View {
     /// segmented control меняется сразу, но подписи старых данных не имеют
     /// права называться новым периодом, пока его ответ ещё в пути.
     @State private var summaryPeriod = "today"
+    /// Каким способом платили — фильтр журнала; nil значит «всеми».
+    @State private var feedMethod: String?
     /// Поводы, требующие внимания: колокольчик в шапке.
     @State private var alerts: [API.Alert] = []
     @State private var showAlerts = false
@@ -899,6 +901,24 @@ struct OwnerView: View {
     @ViewBuilder
     private func journal(_ feed: [API.FeedItem]) -> some View {
         if !feed.isEmpty {
+            /* Способы оплаты — только те, что реально встретились: кнопка
+               «Փոխանցում», не выбирающая ни одной записи, сообщает ровно
+               то же, что её отсутствие, и занимает место.
+
+               Порядок — как в разрезе выше, по деньгам: два одинаковых
+               набора, отсортированных по-разному, читаются как разные. */
+            let present = feed.reduce(into: [String: Int]()) { acc, item in
+                acc[item.payment, default: 0] += item.price
+            }
+            let methods = present.sorted { $0.value > $1.value }.map(\.key)
+
+            /* Полоса появляется, только когда есть что фильтровать: на
+               дне из четырёх машин с одними наличными это управление,
+               которое ничего не меняет, и прочитать его приходится,
+               чтобы это понять. Тот же порог, что в кабинете. */
+            let filterable = feed.count > 8 && methods.count > 1
+            let shown = filterable ? feed.filter { feedMethod == nil || $0.payment == feedMethod } : feed
+
             VStack(spacing: 0) {
                 HStack {
                     /* Тем же словом, что в кабинете: владелец приходит
@@ -918,9 +938,13 @@ struct OwnerView: View {
                 .padding(.top, 22)
                 .padding(.bottom, 4)
 
-                ForEach(feed) { item in
+                if filterable {
+                    methodFilter(methods)
+                }
+
+                ForEach(shown) { item in
                     journalRow(item)
-                    if item.id != feed.last?.id {
+                    if item.id != shown.last?.id {
                         Rectangle()
                             .fill(Brand.boardInk.opacity(0.07))
                             .frame(height: 1)
@@ -928,6 +952,53 @@ struct OwnerView: View {
                 }
             }
         }
+    }
+
+    /**
+     * Чем платили — полоса кнопок над журналом.
+     *
+     * Вопрос, ради которого она есть, один: «сколько сегодня налом».
+     * Разрез выше отвечает суммой, а этот фильтр — списком: владелец
+     * пересчитывает деньги в ящике по строкам, а не по итогу.
+     *
+     * Прокрутка вбок, а не перенос на вторую строку: способов оплаты
+     * четыре, а на узком экране четыре кнопки в ряд не помещаются, и
+     * перенос сдвинул бы вниз весь журнал ради одной кнопки.
+     */
+    @ViewBuilder
+    private func methodFilter(_ methods: [String]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                methodChip(nil, label: L("today.all"))
+                ForEach(methods, id: \.self) { key in
+                    methodChip(key, label: paymentLabel(key))
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 6)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func methodChip(_ key: String?, label: String) -> some View {
+        let on = feedMethod == key
+        return Button {
+            /* Повторное нажатие по выбранному снимает фильтр: иначе
+               вернуться ко «всем» можно только прицелившись в первую
+               кнопку, которая на узком экране уже уехала влево. */
+            withAnimation(.easeOut(duration: 0.16)) {
+                feedMethod = on ? nil : key
+            }
+        } label: {
+            Text(label)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(on ? Brand.board : Brand.boardMuted)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(on ? Brand.onBoard : Brand.chipRest, in: .rect(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 
     private func journalRow(_ item: API.FeedItem) -> some View {
@@ -946,6 +1017,17 @@ struct OwnerView: View {
                         .transition(.opacity)
                 }
                 Spacer(minLength: 8)
+                /* Скидка: зачёркнутый прайс рядом со взятым. Без него
+                   «6 500» не отличить от обычной цены, и о скидке
+                   владелец не узнаёт вовсе — до сих пор она была видна
+                   только в уведомлении в момент записи. */
+                if let list = item.listPrice, list > item.price {
+                    Text(money(list, currency))
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .strikethrough()
+                        .foregroundStyle(Brand.boardMuted)
+                }
                 Text(money(item.price, currency))
                     .font(.system(size: 15, weight: .semibold))
                     .monospacedDigit()
@@ -1275,7 +1357,7 @@ struct OwnerView: View {
             period = summaryPeriod
             // разбор ответа: показываем как есть — это баг, а не сбой сети, и
             // прятать его за «попробуйте позже» значит никогда не найти
-            failure = "\(error)"
+            failure = Failure.text(error)
         }
     }
 }

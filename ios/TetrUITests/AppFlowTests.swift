@@ -65,6 +65,17 @@ final class AppFlowTests: XCTestCase {
     /// оставался на входе — то есть проверял, что вход не работает.
     private func waitForLogin(_ app: XCUIApplication) {
         XCTAssertTrue(waitUntil(timeout: 30) { !splashUp(app) }, "заставка не закончилась")
+
+        /* Главная дверь теперь другая: телефон и код из SMS. Тесты
+           проверяют вторую — телефон и PIN, — и открывают её сами.
+           Проверять код из SMS отсюда нечем: он приходит на настоящий
+           телефон, а симулятор сообщений не получает. */
+        let pinDoor = app.buttons["login.pinDoor"]
+        if pinDoor.waitForExistence(timeout: 30) {
+            XCTAssertTrue(waitUntil(timeout: 10) { pinDoor.isHittable }, "дверь PIN недоступна")
+            pinDoor.tap()
+        }
+
         let submit = app.buttons["login.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 30), "экран входа так и не появился")
         XCTAssertTrue(waitUntil(timeout: 30) { submit.isHittable }, "кнопка входа недоступна")

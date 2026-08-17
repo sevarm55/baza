@@ -23,10 +23,13 @@ import { useT } from '@/lib/i18n/client';
 export function AddService({
   currencySymbol,
   step,
+  tiers,
   variant = 'head',
 }: {
   currencySymbol: string;
   step: number;
+  /** классы бизнеса; пусто — ряда цен по классам в форме нет */
+  tiers: string[];
   /** в заголовке раздела — компактной кнопкой, в пустом месте — главной */
   variant?: 'head' | 'cta';
 }) {
@@ -77,6 +80,7 @@ export function AddService({
             idPrefix="service-new"
             step={step}
             currencySymbol={currencySymbol}
+            tiers={tiers}
             autoFocus
           />
           {state?.error && <p className="alert">{state.error}</p>}
