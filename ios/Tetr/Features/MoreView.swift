@@ -2,46 +2,52 @@ import SwiftUI
 
 /** Не системное меню, а небольшая карта бизнеса.
 
-    Календарь — широкий тёмный «объектив» истории, клиенты — высокий живой
-    блок, две настройки прайса пристыкованы к нему справа. Разные размеры
-    задают приоритеты без радуги и без шести одинаковых строк. */
+    Экран собран сверху вниз одной композицией: шапка, один контекстный
+    блок про историю и дальше сгруппированные списки — работа, бизнес,
+    учётка. Действий на экране нет вовсе: выгрузка данных уехала в профиль,
+    к смене кода, устройствам и удалению бизнеса, где ей и место. Здесь
+    остались только места, куда переходят.
+
+    Цветных плиток нет намеренно. Шесть залитых прямоугольников весили
+    одинаково, и приоритета не было ни у одного; цвет при этом никуда не
+    делся, он ушёл в значки. Мята принадлежит людям, лаванда прейскуранту и
+    филиалам, песок расходам, грейп деньгам и учётке — тот же смысл, что
+    был у заливок, только теперь он не спорит с заголовками. */
 struct MoreView: View {
     @EnvironmentObject private var session: Session
 
-    @State private var exporting = false
-    @State private var exported: URL?
+    /* Шкала скруглений одна на весь экран, а не своя у каждого блока:
+       крупный контекстный блок, карточки и коробки списков. Три значения,
+       и ни одного случайного. */
+    private let rHero: CGFloat = 28
+    private let rCard: CGFloat = 24
+    private let rGroup: CGFloat = 22
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                header
-
-                if session.canSwitch {
-                    pointsCard
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                    calendarCard
                 }
 
-                calendarCard
-                reportCard
-                controlMosaic
-                staffCard
-                profileCard
-                exportCard
-                /* Дверь обратно к настройке — только тому, кто её убрал.
-                   Пропустить можно случайно и в первый же день, а
-                   вспомнить о ней на третий; без этой строки вернуть
-                   список было бы нечем. У того, кто её не убирал, здесь
-                   ни одного нового пикселя. */
-                if session.setupHidden { resumeSetupCard }
+                /* Три коробки подряд, а не одна на всё: список из восьми
+                   строк читается таблицей, где всё равнозначно. Разрыв между
+                   коробками и есть ответ на вопрос «где работа, где бизнес,
+                   где я сам» — его видно раньше, чем прочитано первое
+                   слово. */
+                VStack(alignment: .leading, spacing: 14) {
+                    workGroup
+                    businessGroup
+                    accountGroup
+                }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
-        .sheet(item: $exported) { url in
-            ShareSheet(url: url)
-        }
     }
 
     // ══════════════════════════ шапка ══════════════════════════
@@ -49,11 +55,11 @@ struct MoreView: View {
     /**
      * Имя экрана крупно, хотя оно же написано во вкладке.
      *
-     * Повтор здесь не лишний: вкладка — это где я нахожусь, заголовок —
-     * с чего начинается страница. Без него плитки начинались от самой
-     * чёлки и экран выглядел вываленным, а не свёрстанным. Подпись под
-     * заголовком говорит, чем этот экран вообще является, — она читается
-     * один раз в жизни и дальше просто держит воздух над сеткой.
+     * Повтор здесь не лишний: вкладка это где я нахожусь, заголовок это с
+     * чего начинается страница. Но заголовок остаётся заголовком экрана, а
+     * не витриной: тридцать два пункта, подпись под ним и никакого воздуха
+     * сверх нужного. Вместе с чёлкой шапка занимает около сотни точек, и
+     * первый экран начинается с содержания, а не с типографики.
      */
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -61,14 +67,13 @@ struct MoreView: View {
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(Brand.onBoard)
             Text(L("more.lead"))
-                .font(.system(size: 13.5))
+                .font(.system(size: 15))
                 .foregroundStyle(Brand.boardMuted)
         }
         .padding(.horizontal, 4)
-        .padding(.bottom, 2)
     }
 
-    /// Сколько точек и сколько из них ждут денег — то, ради чего сюда
+    /// Сколько точек и сколько из них ждут денег: то, ради чего сюда
     /// заходят, видно ещё до нажатия.
     private var points: String {
         let all = session.points.count
@@ -78,387 +83,269 @@ struct MoreView: View {
             : L("more.pointsSomeClosed", all, closed)
     }
 
-    // ══════════════════════════ карта разделов ══════════════════════════
+    // ══════════════════════════ контекстный блок ══════════════════════════
 
-    /// Вернуть «Начало работы» на сводку.
-    ///
-    /// Тихой строкой в самом низу, а не карточкой раздела: это не место,
-    /// куда ходят, а действие, которое делают один раз.
-    private var resumeSetupCard: some View {
-        Button {
-            Task { await session.resumeSetup() }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.mintInk)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.mintCard, in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("setup.resume"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                    Text(L("setup.resumeNote"))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer()
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Brand.mintInk)
-            }
-            .padding(13)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-        }
-        .buttonStyle(.press)
-    }
-
-    private var pointsCard: some View {
-        NavigationLink {
-            PointsView().navigationTitle(L("points.title"))
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "building.2.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.lavenderInk)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.lavenderCard, in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("more.points"))
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(points)
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Brand.boardMuted)
-                }
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Brand.lavenderInk)
-            }
-            .padding(13)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-        }
-        .buttonStyle(.press)
-    }
-
+    /**
+     * История бизнеса: единственный крупный блок экрана.
+     *
+     * Он один такой намеренно. Если крупных блоков два, приоритета нет ни у
+     * одного, и глазу приходится читать оба заголовка, чтобы выбрать. Здесь
+     * же первым читается слово, а не картинка: календарь ушёл в подложку
+     * восемью процентами лавандовых чернил и держит правый нижний угол, где
+     * текста нет вовсе.
+     *
+     * Высота блока задана содержанием, а не числом: раньше в фиксированных
+     * ста сорока восьми точках нижняя треть пустовала.
+     */
     private var calendarCard: some View {
         NavigationLink {
             CalendarView().toolbar(.hidden, for: .navigationBar)
         } label: {
-            ZStack(alignment: .bottomLeading) {
-                /* Светлая карточка, как у соседей.
-
-                   Насыщенная фиолетовая плита читалась среди мятной и
-                   песочной карточек как чужеродная — не «раздел», а
-                   баннер. Приглушать её оттенками бесполезно: дело не в
-                   том, что она тёмная, а в том, что она единственная
-                   залитая цветом во всю площадь. Тот же лавандовый набор,
-                   что у остальных разделов, снимает вопрос совсем. */
-                Brand.lavenderCard
-
-                Image(systemName: "calendar")
-                    .font(.system(size: 104, weight: .black))
-                    .foregroundStyle(Brand.lavenderInk.opacity(0.10))
-                    .offset(x: 214, y: 20)
-
-                VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text("365")
                         .font(.system(size: 11, weight: .black, design: .rounded))
                         .tracking(1.4)
                         .foregroundStyle(Brand.lavenderInk.opacity(0.75))
                     Text(L("calendar.title"))
-                        .font(.system(size: 25, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(Brand.onBoard)
                     Text(L("calendar.lead"))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13.5))
                         .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(18)
 
+                Spacer(minLength: 0)
+
+                /* Стрелка без плашки под ней: нажимается всё равно вся
+                   карточка, и задача знака не позвать, а показать, что
+                   карточка ведёт куда-то. Плашка делала из него кнопку,
+                   которой он не является. */
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Brand.lavenderInk)
-                    .frame(width: 35, height: 35)
-                    .background(Brand.lavenderInk.opacity(0.12), in: .rect(cornerRadius: 11))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(14)
+                    .padding(.top, 2)
             }
-            .frame(height: 148)
-            .clipShape(.rect(cornerRadius: 25))
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+            .background {
+                ZStack {
+                    Brand.lavenderCard
+                    Image(systemName: "calendar")
+                        .font(.system(size: 108, weight: .semibold))
+                        .foregroundStyle(Brand.lavenderInk.opacity(0.085))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        /* Уведён за правый нижний угол настолько, чтобы под
+                           описанием оставалась чистая бумага: подложка,
+                           начинающаяся под строкой текста, читается не
+                           украшением, а грязью на ней. */
+                        .offset(x: 46, y: 44)
+                }
+            }
+            .clipShape(.rect(cornerRadius: rHero, style: .continuous))
         }
         .buttonStyle(.press)
+    }
+
+    // ══════════════════════════ сгруппированные списки ══════════════════════════
+
+    /**
+     * Ежедневная работа: клиенты, прейскурант, расходы и отчёт.
+     *
+     * Первая коробка после контекстного блока, и это её место по частоте:
+     * сюда заходят каждую неделю, в остальные две раз в месяц и раз в год.
+     * Отчёт стоит последним внутри своей же коробки — он про те же деньги,
+     * только собранные в месяцы.
+     */
+    private var workGroup: some View {
+        groupCard {
+            navRow(
+                symbol: "person.2.fill", tint: Brand.mintInk,
+                title: L("owner.tabClients"), note: L("more.clientsLead")
+            ) {
+                ClientsView().navigationTitle(L("owner.tabClients"))
+            }
+            separator
+            navRow(
+                symbol: "tag.fill", tint: Brand.lavenderInk,
+                title: L("settings.tabServices"), note: nil
+            ) {
+                ServicesView().navigationTitle(L("settings.services"))
+            }
+            separator
+            navRow(
+                symbol: "arrow.down.circle.fill", tint: Brand.sandInk,
+                title: L("expenses.title"), note: nil
+            ) {
+                ExpensesView().navigationTitle(L("expenses.title"))
+            }
+            separator
+            navRow(
+                symbol: "chart.bar.doc.horizontal.fill", tint: Brand.grape,
+                title: L("reports.title"), note: L("reports.lead")
+            ) {
+                ReportView().navigationTitle(L("reports.title"))
+            }
+        }
     }
 
     /**
-     * Отчёт по месяцам.
+     * Команда и филиалы.
      *
-     * Рядом с календарём и такой же строкой: оба про прошлое, только
-     * календарь про дни внутри месяца, а отчёт про месяцы между собой.
-     * Сводка на них не похожа и остаётся вкладкой — в неё заходят каждый
-     * день, а сюда раз в месяц.
+     * Это тоже бизнес, но не ежедневный: проценты правят при найме, филиалы
+     * заводят раз в год. Отдельная коробка говорит ровно это, и говорит
+     * молча.
      */
-    private var reportCard: some View {
-        NavigationLink {
-            ReportView().navigationTitle(L("reports.title"))
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.sandInk)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.sandCard, in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("reports.title"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                    Text(L("reports.lead"))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Brand.boardMuted)
-                }
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Brand.sandInk)
+    private var businessGroup: some View {
+        groupCard {
+            navRow(
+                symbol: "person.3.fill", tint: Brand.mintInk,
+                title: L("more.team"), note: L("more.teamLead")
+            ) {
+                StaffView().navigationTitle(L("more.team"))
             }
-            .padding(13)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-        }
-        .buttonStyle(.press)
-    }
 
-    private var controlMosaic: some View {
-        HStack(spacing: 10) {
-            NavigationLink {
-                ClientsView().navigationTitle(L("owner.tabClients"))
-            } label: {
-                VStack(alignment: .leading, spacing: 0) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Brand.mintInk)
-                    Spacer()
-                    Text(L("owner.tabClients"))
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Brand.mintInk)
-                    Text(L("more.clientsLead"))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Brand.mintInk.opacity(0.7))
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(15)
-                .frame(maxWidth: .infinity, minHeight: 170, alignment: .leading)
-                .background(Brand.mintCard, in: .rect(cornerRadius: 22))
-            }
-            .buttonStyle(.press)
-
-            VStack(spacing: 10) {
-                smallTile(
-                    L("settings.tabServices"), "tag.fill",
-                    fill: Brand.lavenderCard, ink: Brand.lavenderInk
+            /* Филиалы видит только тот, у кого их больше одного: остальные не
+               должны узнать, что вторые бывают. */
+            if session.canSwitch {
+                separator
+                navRow(
+                    symbol: "building.2.fill", tint: Brand.lavenderInk,
+                    title: L("more.points"), note: points
                 ) {
-                    ServicesView().navigationTitle(L("settings.services"))
-                }
-                smallTile(
-                    L("expenses.title"), "arrow.down",
-                    fill: Brand.sandCard, ink: Brand.sandInk
-                ) {
-                    ExpensesView().navigationTitle(L("expenses.title"))
+                    PointsView().navigationTitle(L("points.title"))
                 }
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
-    private func smallTile<D: View>(
-        _ title: String,
-        _ symbol: String,
-        fill: Color,
-        ink: Color,
+    /**
+     * Учётка отдельной коробкой от рабочих разделов.
+     *
+     * Профиль это язык, тема, ПИН и выход, то есть не место работы, а место
+     * настройки себя. Стоять в одном списке с клиентами и расходами он не
+     * должен: тогда «где мои настройки» становится вопросом чтения, а не
+     * взгляда.
+     */
+    private var accountGroup: some View {
+        groupCard {
+            navRow(
+                symbol: "person.crop.circle.fill", tint: Brand.grape,
+                title: L("more.profileLead"), note: nil
+            ) {
+                ProfileView().toolbar(.hidden, for: .navigationBar)
+            }
+
+            /* Дверь обратно к настройке только тому, кто её убрал. Пропустить
+               можно случайно и в первый же день, а вспомнить о ней на третий;
+               без этой строки вернуть список было бы нечем. У того, кто её не
+               убирал, здесь ни одного нового пикселя. */
+            if session.setupHidden {
+                separator
+                Button {
+                    Task { await session.resumeSetup() }
+                } label: {
+                    rowFace(
+                        symbol: "list.bullet.rectangle.fill", tint: Brand.mintInk,
+                        title: L("setup.resume"), note: L("setup.resumeNote"),
+                        trailing: "arrow.uturn.backward"
+                    )
+                }
+                .buttonStyle(.press)
+            }
+        }
+    }
+
+    /// Коробка списка: белая бумага, общее скругление, волосяная грань.
+    private func groupCard<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(Brand.boardSurface, in: .rect(cornerRadius: rGroup, style: .continuous))
+        .overlay { edge(rGroup) }
+    }
+
+    /// Волосяная линия между строками, отбитая под текст, а не под значок:
+    /// линия под значком разрезала бы коробку пополам.
+    private var separator: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(height: 0.7)
+            .padding(.leading, 56)
+    }
+
+    private func navRow<D: View>(
+        symbol: String,
+        tint: Color,
+        title: String,
+        note: String?,
         @ViewBuilder destination: @escaping () -> D
     ) -> some View {
         NavigationLink {
             destination()
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .opacity(0.55)
-            }
-            .foregroundStyle(ink)
-            .padding(13)
-            .frame(maxWidth: .infinity, minHeight: 80)
-            .background(fill, in: .rect(cornerRadius: 20))
+            rowFace(symbol: symbol, tint: tint, title: title, note: note)
         }
         .buttonStyle(.press)
     }
 
     /**
-     * Только команда.
-
-     * Зарплата отсюда убрана: она уже вкладка в нижней панели, и второй
-     * вход в неё из разделов означал, что человек ищет её в двух местах и
-     * в одном из них не находит. Раздел показывает то, чего в панели нет.
-     */
-    private var staffCard: some View {
-        NavigationLink {
-            StaffView().navigationTitle(L("more.team"))
-        } label: {
-            HStack(spacing: 11) {
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(Brand.mintInk)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("more.team"))
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Brand.onBoard)
-                    Text(L("more.teamLead"))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Brand.boardMuted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-            }
-            .padding(.horizontal, 15)
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .background(Brand.mintCard, in: .rect(cornerRadius: 22))
-        }
-        .buttonStyle(.press)
-    }
-
-    private var profileCard: some View {
-        NavigationLink {
-            ProfileView().toolbar(.hidden, for: .navigationBar)
-        } label: {
-            HStack(spacing: 11) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Brand.boardMuted)
-                Text(L("more.profileLead"))
-                    .font(.system(size: 14.5, weight: .semibold))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 54)
-            .background(Brand.chipRest, in: .rect(cornerRadius: 17))
-        }
-        .buttonStyle(.press)
-    }
-
-    // ══════════════════════════ выгрузка ══════════════════════════
-
-    /**
-     * Выгрузка приходит файлом и отдаётся системе: дальше человек сам
-     * решает — отправить себе в почту, положить в «Файлы», открыть в
-     * Excel. Приложению не нужно знать, что он с ней сделает.
+     * Лицо строки списка.
      *
-     * Не плитка и не строка раздела: это единственное на экране действие,
-     * а не место, куда переходят. Поэтому тёплая бумага вместо светящейся
-     * заливки — тише всего остального, — но марка в ней есть: грейповый
-     * квадрат с лаймовой стрелкой. Тем же двухцветием набрана и активная
-     * вкладка внизу, так что низ экрана держится одной парой цветов.
+     * Значок без плашки под ним: плашка это ещё один прямоугольник, а их на
+     * экране и так восемь штук, по одному на строку. Цвет раздела при этом
+     * остаётся — он просто перешёл с заливки на сам знак, и в столбце из
+     * четырёх строк по нему находят нужную раньше, чем прочитано слово.
+     *
+     * Колонка знаков фиксированной ширины, иначе широкая «стопка карточек»
+     * сдвинула бы заголовок своей строки относительно соседних, и ровного
+     * левого края у списка не было бы.
      */
-    private var exportCard: some View {
-        Button {
-            Task { await exportCsv() }
-        } label: {
-            HStack(spacing: 13) {
-                /* Лайм по светлой бумаге не виден — контраст 1.06. Поэтому
-                   он появляется только внутри тёмного квадрата: это та же
-                   лаймовая засечка, что на плитках, просто ей понадобилось
-                   принести с собой собственный тёмный фон. */
-                Image(systemName: "square.and.arrow.up.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.lime)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.grapeFill, in: .rect(cornerRadius: 12))
+    private func rowFace(
+        symbol: String,
+        tint: Color,
+        title: String,
+        note: String?,
+        trailing: String = "chevron.right"
+    ) -> some View {
+        HStack(spacing: 13) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 27, alignment: .center)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(exporting ? L("common.preparing") : L("more.export"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                    Text(L("more.exportLead"))
-                        .font(.system(size: 13))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if let note, !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 12.5))
                         .foregroundStyle(Brand.boardMuted)
-                }
-
-                Spacer(minLength: 0)
-
-                if exporting {
-                    TetrLoader(size: 20, tint: Brand.grape)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.warmCard, in: .rect(cornerRadius: 22))
-            .overlay {
-                // кремовая бумага по кремовому полотну без грани теряется
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
+
+            Spacer(minLength: 4)
+
+            Image(systemName: trailing)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Brand.boardMuted)
         }
-        .buttonStyle(.press)
-        .disabled(exporting)
-        .padding(.top, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+        .contentShape(.rect)
     }
 
-    private func exportCsv() async {
-        exporting = true
-        defer { exporting = false }
-
-        guard let data = try? await session.authed({ token in
-            try await APIClient.shared.raw("export?days=30", token: token)
-        }) else { return }
-
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("tetr-\(Int(Date().timeIntervalSince1970)).csv")
-        guard (try? data.write(to: url)) != nil else { return }
-        exported = url
+    /// Грань светлой карточки на светлом полотне: без неё белое по белому
+    /// перестаёт быть карточкой.
+    private func edge(_ radius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
     }
-}
-
-extension URL: @retroactive Identifiable {
-    public var id: String { absoluteString }
-}
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let url: URL
-
-    /// Сохранил файл или передумал.
-    ///
-    /// Нужно там, где за передачей файла следует необратимое действие:
-    /// закрытый крестиком лист обмена не должен считаться сохранением,
-    /// иначе человек лишится и данных, и копии.
-    var onFinish: ((Bool) -> Void)?
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        controller.completionWithItemsHandler = { _, completed, _, _ in onFinish?(completed) }
-        return controller
-    }
-
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

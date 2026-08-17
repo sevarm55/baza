@@ -33,6 +33,9 @@ struct ProfileView: View {
     @State private var notifyOrders = true
     @State private var deleting = false
 
+    @State private var exporting = false
+    @State private var exported: URL?
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isOwner: Bool { session.me?.isOwner == true }
@@ -62,6 +65,7 @@ struct ProfileView: View {
         .sheet(isPresented: $verifyingPhone) { VerifyPhoneView() }
         .sheet(isPresented: $changingPhone) { ChangePhoneView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
+        .sheet(item: $exported) { url in ShareSheet(url: url) }
         .task {
             businessName = session.tenant?.name ?? ""
             myName = session.me?.name ?? ""
@@ -338,6 +342,10 @@ struct ProfileView: View {
             }
             .buttonStyle(.press)
 
+            /* Копия данных стоит перед выходом и удалением, а не после:
+               забрать её нужно ДО того, как закрылась дверь. */
+            if isOwner { exportRow }
+
             action(L("auth.signOut"), "", icon: "power", danger: false) {
                 Task { await session.signOut() }
             }
@@ -354,6 +362,69 @@ struct ProfileView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    /**
+     * Выгрузка данных.
+     *
+     * Переехала сюда с карты разделов. Там она была единственным действием
+     * среди мест, куда переходят, и стояла последней просто потому, что
+     * больше её девать было некуда. Здесь она среди своих: код, устройства,
+     * выход, удаление бизнеса — всё это про учётку и то, что ей
+     * принадлежит.
+     *
+     * Только владельцу: раздел «Ավելին» есть лишь у него, и вместе с
+     * переездом строка могла бы достаться мойщику, у которого профиль тоже
+     * есть. Выгрузка — это вся касса за месяц, и открывать её тому, кто
+     * видит только свою смену, нельзя.
+     *
+     * Файл отдаётся системе: дальше человек сам решает — отправить себе в
+     * почту, положить в «Файлы», открыть в Excel. Приложению не нужно
+     * знать, что он с ним сделает.
+     */
+    private var exportRow: some View {
+        Button {
+            Task { await exportCsv() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(exporting ? L("common.preparing") : L("more.export"))
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text(L("more.exportLead"))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                Spacer(minLength: 0)
+                /* Загрузчик на месте шеврона, а не вместо надписи: надпись
+                   не должна прыгать под пальцем, пока сервер собирает
+                   файл. */
+                if exporting { TetrLoader(size: 18, tint: Brand.grape) }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        }
+        .buttonStyle(.press)
+        .disabled(exporting)
+    }
+
+    private func exportCsv() async {
+        exporting = true
+        defer { exporting = false }
+
+        guard let data = try? await session.authed({ token in
+            try await APIClient.shared.raw("export?days=30", token: token)
+        }) else { return }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tetr-\(Int(Date().timeIntervalSince1970)).csv")
+        guard (try? data.write(to: url)) != nil else { return }
+        exported = url
     }
 
     private func action(
@@ -469,6 +540,36 @@ struct ProfileView: View {
         default: return L("points.closed")
         }
     }
+}
+
+/**
+ * Лист обмена системы.
+ *
+ * Живёт рядом с выгрузкой, потому что она главный его повод, но нужен ещё
+ * двоим: удалению бизнеса и экрану истёкшего доступа. Там и там человеку
+ * сначала отдают копию данных, и только потом закрывают дверь.
+ */
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let url: URL
+
+    /// Сохранил файл или передумал.
+    ///
+    /// Нужно там, где за передачей файла следует необратимое действие:
+    /// закрытый крестиком лист обмена не должен считаться сохранением,
+    /// иначе человек лишится и данных, и копии.
+    var onFinish: ((Bool) -> Void)?
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in onFinish?(completed) }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
 /// Плитка доступа: янтарная, когда срок подходит, и обычная утопленная,
