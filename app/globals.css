@@ -4626,6 +4626,11 @@ input[type='radio'] {
     color: var(--board-muted);
     transition: background var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
   }
+  /* Точка следующего шага стоит поверх значка, поэтому строка вкладки
+     обязана быть системой координат для неё. */
+  .tabbar-item {
+    position: relative;
+  }
   .tabbar-item > span {
     max-width: 100%;
     overflow: hidden;
@@ -4940,5 +4945,275 @@ input[type='radio'] {
     .drawer .sheet-body {
       padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
     }
+  }
+}
+
+/* ══════════════════════ начало работы ══════════════════════
+
+   Слой поверх продукта, а не второй продукт рядом. Собственных цветов,
+   скруглений и теней здесь нет ни одного: подложку и заголовок даёт тот
+   же `Panel`, что у остальных приборов, кнопки — те же `.btn` и
+   `.btn-inline`, окно — тот же `Sheet`. Ниже только то, чего в продукте
+   ещё не было: полоса прогресса, список шагов и путь бизнеса в
+   приветствии.
+
+   Слой временный по своей природе: у работающей мойки он не показывается
+   вовсе. Тем важнее, чтобы он ничего не изобретал — иначе неделю продукт
+   выглядит одним, а потом другим. */
+@layer components {
+  /* Подпись под заголовком блока: зачем эти шаги. Мера ограничена, как
+     у всякого сплошного текста в продукте. */
+  .setup-lead {
+    max-width: 52ch;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--board-muted);
+  }
+
+  /* Правый угол заголовка: прогресс и тихий выход. На телефоне
+     переносится под название — `Panel` это умеет, здесь только порядок
+     внутри. */
+  .setup-head-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .setup-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .setup-progress-text {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--board-muted);
+    white-space: nowrap;
+  }
+
+  /* Полоса прогресса — волосок, а не индикатор загрузки.
+
+     Толстая полоса поперёк прибора превращает список дел в игру с
+     очками; здесь она отвечает на один вопрос — далеко ли до конца — и
+     отвечает боковым зрением, не отбирая внимания у самих шагов.
+     Ширины ей хватает шестидесяти точек: делений всего четыре. */
+  .setup-bar {
+    display: block;
+    width: 3.75rem;
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    overflow: hidden;
+  }
+  .setup-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--good-on-board);
+    transition: width var(--t-micro) var(--ease);
+  }
+
+  /* Список шагов — строки с волосяной линией, как всякий список в
+     продукте. Карточка вокруг каждого шага сделала бы четыре дела
+     четырьмя предметами. */
+  .setup-steps {
+    margin-top: 0.9rem;
+    display: grid;
+  }
+  /* Сеткой, а не строкой: у шага три части — знак, текст и действие, —
+     и на телефоне третья обязана уехать под вторую, а не выдавить экран
+     за край. Кнопка внутри неё не переносится по словам (`btn-inline`
+     держит подпись в одну строку), поэтому во flex-ряду она вылезала за
+     правый край вместе со всей страницей. */
+  .setup-step {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.7rem 0;
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+
+  /* В приветствии мойщика те же три строки стоят без линий: там это не
+     список дел, а порядок смены, и делить его чертами незачем. */
+  .setup-steps-plain .setup-step {
+    border-top: 0;
+    padding: 0.45rem 0;
+  }
+
+  /* Номер до выполнения, галочка после. Разница держится не только на
+     цвете: заливка против обводки читается и на солнце, и в чёрно-белом
+     снимке экрана. */
+  .setup-mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--board-ink) 20%, transparent);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--board-muted);
+  }
+  .setup-step[data-done] .setup-mark {
+    box-shadow: none;
+    background: var(--good-bg);
+    color: var(--good-ink);
+  }
+
+  .setup-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  /* Выполненное не зачёркивается: зачёркнутый текст читается как
+     ошибочный, а шаг сделан правильно. Гаснет — и этого достаточно. */
+  .setup-step[data-done] .setup-name {
+    font-weight: 500;
+    color: var(--board-muted);
+  }
+
+  /* Объяснение есть только у следующего шага — того единственного, к
+     которому оно относится прямо сейчас. */
+  .setup-note {
+    margin-top: 0.15rem;
+    max-width: 52ch;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--board-muted);
+  }
+
+  .setup-go {
+    margin-inline-start: auto;
+  }
+  /* На телефоне действие уезжает под свой текст и встаёт по его левому
+     краю. Отмена внешнего поля здесь обязательна: `auto` у поля сильнее
+     любого `justify-self`, и без этой строки кнопка осталась бы
+     прижатой вправо. */
+  @media (max-width: 639px) {
+    .setup-step {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .setup-go {
+      grid-column: 2;
+      justify-self: start;
+      margin-inline-start: 0;
+    }
+  }
+
+  /* Что будет дальше — заголовок над четырьмя строками объяснения.
+     Стоит после сообщения о завершении и перед самими строками. */
+  .setup-next-title {
+    margin: 1.1rem 0 0.6rem;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  /* Четыре объяснения по два в ряд, а не по три с висящим четвёртым.
+
+     `.facts` рассчитан на числа и ставит колонки по 7.5rem — под
+     «12 500 ֏» этого хватает, под предложение нет: строка ломается по
+     слогу, а последняя карточка остаётся одна во втором ряду. Здесь
+     мера считается от текста, и рядов всегда получается ровное число. */
+  .setup-next {
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    align-items: start;
+  }
+
+  /* Внутри `.facts` подпись обычно число, здесь — предложение: кегль
+     ниже и обычным начертанием, иначе четыре фразы читаются четырьмя
+     показаниями. */
+  .setup-next-note {
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--board-muted);
+  }
+
+  /* ───────── приветствие ───────── */
+
+  /* Подвал приветствия: кнопки одного размера во всю его ширину.
+
+     Подвал окна правки устроен иначе — слева тихая «отмена», справа
+     крупное действие, — и это верно там, где отказ не равен правке.
+     В приветствии оба выхода равноправны: осмотреться сначала такой же
+     нормальный ответ, как начать сразу. Разный размер объявлял бы один
+     из них ошибкой; разница остаётся в заливке. */
+  .setup-foot {
+    flex: 1;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .setup-welcome-note {
+    max-width: 46ch;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--board-muted);
+  }
+
+  /* Путь бизнеса: настройка → работа → расчёт → результат.
+
+     Не диаграмма и не стрелки картинкой — четыре строки с чертой слева,
+     по которой видно, что это одна последовательность, а не четыре
+     независимых обещания. На телефоне это единственная возможная форма:
+     четыре звена в ряд на экране в ладонь шириной ужимаются до слогов. */
+  .setup-flow {
+    margin-top: 1.1rem;
+    display: grid;
+    gap: 0.85rem;
+    padding-inline-start: 0.9rem;
+    border-inline-start: 2px solid color-mix(in srgb, var(--board-ink) 12%, transparent);
+  }
+  .setup-flow > li {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .setup-flow-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .setup-flow-note {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--board-muted);
+  }
+
+  /* ───────── точка следующего шага ─────────
+
+     Одна на весь продукт и только пока настройка не закончена. Восемь
+     светящихся точек в меню — это не подсказка, а ёлка: подсвечено всё,
+     значит не подсвечено ничего.
+
+     Цвет тот же, которым в продукте помечен человек на смене, то есть
+     «здесь сейчас происходит». Кольцо вокруг — чтобы точка читалась и на
+     подсвеченной строке выбранного раздела. */
+  .hint-dot {
+    display: inline-block;
+    flex: none;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--good-on-board);
+    box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--good-on-board) 20%, transparent);
+  }
+  /* В боковой колонке — у правого края строки, после названия раздела.
+     В свёрнутой колонке названия нет, и точка уезжает к значку. */
+  .hint-dot-nav {
+    margin-inline-start: auto;
+  }
+  /* Во вкладках телефона точка стоит у значка, а не у подписи: подписи
+     там в девять пунктов, и рядом с ними точка читается опечаткой. */
+  .hint-dot-tab {
+    position: absolute;
+    top: 0.35rem;
+    inset-inline-end: 50%;
+    translate: 1.05rem 0;
   }
 }

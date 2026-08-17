@@ -15,6 +15,8 @@ import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
+import { getSetup } from '@/lib/onboarding';
+import { phoneTab } from '@/components/mobile-place';
 import { getDict } from '@/lib/i18n/server';
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
@@ -38,6 +40,18 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
      человек увидит внутри, на какой бы странице он ни нажал. */
   const alerts = await getAlerts(tenant.id, me.id, tenant.timezone, t.locale);
   const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
+
+  /* Следующий шаг настройки — одна точка в меню, пока она не закончена.
+     Считается тем же кодом, что и блок на главной, и в одном запросе с
+     ним: два независимых чтения могли бы разойтись, и меню подсветило бы
+     раздел, которого на странице уже нет (см. lib/onboarding.ts).
+
+     Последний шаг — первая машина — ведёт на экран смены, а его в меню
+     разделов нет: он корневой экран, у него своё место. Точки для него в
+     колонке поэтому не будет, и это верно — блок на главной в этот
+     момент уже показывает единственную оставшуюся кнопку. */
+  const setup = await getSetup(tenant, me);
+  const hint = setup.visible ? (setup.next?.href ?? null) : null;
 
   /* Больше одной точки — переключатель вместо названия. Условие стоит
      здесь, а не внутри компонента: у кого мойка одна, тот не должен
@@ -68,6 +82,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         passes={passes}
         active="owner"
         alerts={alerts}
+        hint={hint}
       />
 
       {/* `board` здесь не ради фона — он уже задан классом рядом, — а
@@ -124,7 +139,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <MobileTabs />
+        <MobileTabs hint={hint ? phoneTab(hint) : null} />
       </SidebarInset>
     </SidebarProvider>
   );

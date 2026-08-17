@@ -29,6 +29,7 @@ export async function Rail({
   passes,
   active,
   alerts,
+  hint,
 }: {
   tenantName: string;
   userName: string;
@@ -37,6 +38,8 @@ export async function Rail({
   passes: boolean;
   active: 'owner' | 'work';
   alerts?: Alert[];
+  /** раздел со следующим шагом настройки; после неё — ничего */
+  hint?: string | null;
 }) {
   const t = await getDict();
   const many = !!points && points.length > 1 && !!currentTid;
@@ -112,7 +115,7 @@ export async function Rail({
       </SidebarHeader>
 
       <SidebarContent>
-        <SideNav passes={passes} />
+        <SideNav passes={passes} hint={hint} />
       </SidebarContent>
 
       <SidebarFooter className="gap-2 pb-3">

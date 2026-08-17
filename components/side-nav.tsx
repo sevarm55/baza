@@ -15,7 +15,21 @@ import {
 } from '@/components/ui/sidebar';
 
 /** Primary app navigation composed entirely from shadcn Sidebar parts. */
-export function SideNav({ passes }: { passes: boolean }) {
+export function SideNav({
+  passes,
+  hint,
+}: {
+  passes: boolean;
+  /**
+   * Раздел, в котором лежит следующий шаг настройки, — и только он.
+   *
+   * Одна точка на всю колонку и только у нового бизнеса. Подсветить
+   * восемь разделов сразу значит не подсветить ни одного, а после
+   * настройки не подсвечивается вовсе ничего: указывать «сюда» человеку,
+   * который знает продукт, — это шум, от которого нельзя избавиться.
+   */
+  hint?: string | null;
+}) {
   const t = useT();
   const pathname = usePathname();
   const sections = sectionsFor(passes, t);
@@ -82,6 +96,11 @@ export function SideNav({ passes }: { passes: boolean }) {
         >
           {section.icon}
           <span>{section.label}</span>
+          {hint === section.href && (
+            <span className="hint-dot hint-dot-nav" title={t.setup.hintAria}>
+              <span className="sr-only">{t.setup.hintAria}</span>
+            </span>
+          )}
         </SidebarMenuButton>
       </SidebarMenuItem>
     );

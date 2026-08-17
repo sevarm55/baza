@@ -167,11 +167,10 @@ struct OnboardingView: View {
 /// Флаг локальный, а не серверный: онбординг объясняет устройство
 /// приложения, а не состояние бизнеса. Поставил второй телефон — увидел
 /// объяснение заново, и это правильно.
-enum Onboarding {
-    private static let key = "tetr.onboarding.seen"
-
-    static var seen: Bool {
-        get { UserDefaults.standard.bool(forKey: key) }
-        set { UserDefaults.standard.set(newValue, forKey: key) }
-    }
-}
+/* Признак «уже видел» жил здесь, в `UserDefaults`, и отвечал не на тот
+   вопрос: не «читал ли человек приветствие», а «показывали ли его на
+   ЭТОМ устройстве». Владелец, заведший мойку в браузере, знакомился с
+   продуктом второй раз; переустановивший приложение — третий; со второго
+   телефона — снова. Теперь это дата на участии человека в бизнесе
+   (`users.welcome_seen_at`), она приезжает в bootstrap и живёт в
+   `Session.welcomeSeen`. */

@@ -5,6 +5,9 @@ import { formatMoney } from '@/lib/money';
 import { passesEnabled } from '@/lib/features';
 import { personColor } from '@/lib/person-color';
 import { daysInMonthOf } from '@/lib/time';
+import Link from 'next/link';
+import { Panel } from '@/components/board';
+import { EmptyState } from '@/components/empty-state';
 import { PageHead } from '@/components/page-head';
 import { getDict } from '@/lib/i18n/server';
 import { unitCount } from '@/lib/i18n/terms';
@@ -93,6 +96,35 @@ export default async function ReportsPage({
   let oldest = requested.length - 1;
   while (oldest > 0 && idle(requested[oldest])) oldest--;
   const months = requested.slice(0, oldest + 1);
+
+  /* Мойка, которая ещё не работала ни дня.
+   *
+   * Шесть месяцев нулей, пустой график и таблица из прочерков выглядят
+   * не как «данных пока нет», а как сломанная аналитика — и человек
+   * уходит, решив, что раздел не считает. Здесь пусто по одной причине,
+   * и её можно назвать: работы ещё не было. Отсюда же и единственное
+   * действие — записать первую машину.
+   *
+   * Возврат стоит до тяжёлых запросов месяца: считать разрезы по услугам
+   * и расходам там, где нет ни одной записи, незачем. */
+  if (months.length === 1 && idle(months[0])) {
+    return (
+      <>
+        <PageHead title={t.reports.title} meta={t.reports.note} />
+        <Panel>
+          <EmptyState
+            title={t.reports.emptyAll}
+            note={t.reports.emptyAllNote}
+            action={
+              <Link className="btn btn-auto" href="/work">
+                {t.reports.emptyAllCta}
+              </Link>
+            }
+          />
+        </Panel>
+      </>
+    );
+  }
 
   const asked = Number((await searchParams).m ?? 0);
   const index = Number.isFinite(asked) && asked >= 0 && asked < months.length ? asked : 0;

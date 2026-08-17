@@ -1,12 +1,15 @@
 import { redirect } from 'next/navigation';
 import { Clock3 } from 'lucide-react';
+import Link from 'next/link';
 import { requireOwner } from '@/lib/auth';
-import { getTenant } from '@/lib/queries';
+import { getTenant, listStaff } from '@/lib/queries';
 import { getPayrollBoard, type BoardPayment } from '@/lib/payroll-board';
 import { PAYROLL_AFTER_DAYS } from '@/lib/alerts';
 import { daysSince, hhmm, ymd } from '@/lib/time';
 import { personColor } from '@/lib/person-color';
 import { PageHead } from '@/components/page-head';
+import { Panel } from '@/components/board';
+import { EmptyState } from '@/components/empty-state';
 import { PayrollSummary } from './summary';
 import { PayrollWorkspace } from './workspace';
 import type { DayGroup, HistoryDay, StaffEntry } from './model';
@@ -50,6 +53,44 @@ export default async function PayrollPage() {
   if (!tenant) redirect('/session-ended');
 
   const board = await getPayrollBoard(tenant.id, tenant.timezone);
+
+  /* Ни одного расчёта за всю жизнь мойки.
+   *
+   * Пустой лист зарплат в первый день объяснял ровно ничего: плита с
+   * нулём, три нуля под ней и пустое место там, где ждали людей. Причин
+   * у пустоты две, и они требуют разных ответов — платить некому или
+   * платить пока не за что. Первая ведёт к работникам, вторая просто
+   * ждёт первой машины, и звать в ней некуда: записывает мойщик.
+   *
+   * Проверка стоит после доски, а не вместо неё: доска и есть источник
+   * правды о том, было ли начисление, и второго способа это узнать
+   * заводить незачем. */
+  const nothingYet =
+    board.days.length === 0 && board.payments.length === 0 && board.totals.accrued === 0;
+
+  if (nothingYet) {
+    const staff = await listStaff(tenant.id);
+    const hired = staff.some((s) => s.role !== 'owner');
+
+    return (
+      <>
+        <PageHead title={t.owner.tabPayroll} meta={t.payroll.lead} />
+        <Panel>
+          <EmptyState
+            title={hired ? t.payroll.emptyNoWork : t.payroll.emptyNoStaff}
+            note={hired ? t.payroll.emptyNoWorkNote : t.payroll.emptyNoStaffNote}
+            action={
+              hired ? undefined : (
+                <Link className="btn btn-auto" href="/owner/staff">
+                  {t.payroll.emptyNoStaffCta}
+                </Link>
+              )
+            }
+          />
+        </Panel>
+      </>
+    );
+  }
 
   const zone = tenant.timezone;
   const todayKey = ymd(new Date(), zone);

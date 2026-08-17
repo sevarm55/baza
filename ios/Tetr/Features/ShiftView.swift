@@ -34,6 +34,10 @@ struct ShiftView: View {
     @State private var loadID = 0
     /// Запись, которую собираются отменить. Пусто — вопроса нет.
     @State private var revoking: API.ShiftOrder?
+    /// Приветствие мойщика: три строки про смену, один раз за всю жизнь
+    /// его участия в этой мойке. Владельцу здесь не показывается — свой
+    /// первый экран он уже прочитал в кабинете.
+    @State private var welcoming = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -104,7 +108,19 @@ struct ShiftView: View {
         } message: { order in
             Text(L("shift.revokeBody", order.clientKey ?? order.serviceName, order.serviceName, money(order.price, currency)))
         }
+        .sheet(isPresented: $welcoming) {
+            WorkerWelcomeSheet { welcoming = false }
+        }
         .task { await reload() }
+        .task {
+            /* Отмечаем прочитанным при показе, а не по кнопке: окно,
+               которое возвращается при каждом открытии вкладки,
+               перестаёт быть приветствием и становится помехой. */
+            if session.me?.isOwner == false && !session.welcomeSeen {
+                welcoming = true
+                await session.markWelcomeSeen()
+            }
+        }
         .refreshable { await reload() }
     }
 

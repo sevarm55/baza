@@ -19,6 +19,8 @@ import { passesEnabled } from '@/lib/features';
 import { priceForTier, tiersOf } from '@/lib/catalog';
 import { BillingBanner } from '@/components/billing-banner';
 import { currentAccess } from '@/lib/subscription';
+import { needsWelcome } from '@/lib/onboarding';
+import { WorkerWelcome } from './welcome';
 import { EndShift, StartShift } from './shift-controls';
 import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
@@ -127,6 +129,12 @@ export default async function WorkPage() {
   const body = (
     <>
       <BillingBanner access={access} role={session.role} />
+
+      {/* Приветствие мойщика — только его и только один раз. Владельцу
+          оно здесь не показывается: свой первый экран он уже прочитал в
+          кабинете, и второе окно про смену было бы третьим объяснением
+          подряд человеку, который сюда зашёл записать машину. */}
+      {!owner && needsWelcome(me) && <WorkerWelcome />}
 
       <div className="mx-auto grid w-full max-w-[46rem] gap-[var(--seam)]">
         <div className="grid content-start gap-[var(--seam)]">

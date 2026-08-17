@@ -10,8 +10,10 @@ import {
   getPeriodStats,
   getRevenueSeries,
   getTenant,
+  getUser,
   startOfDay,
 } from '@/lib/queries';
+import { getSetup, needsWelcome } from '@/lib/onboarding';
 import { windowFor } from '@/lib/summary-window';
 import { hhmm, ymd } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
@@ -30,6 +32,8 @@ import { PaymentMix } from './today/payments';
 import { TodayOperations } from './today/operations';
 import { FlowChart } from './today/chart';
 import { QuickActions } from './today/quick';
+import { SetupPanel } from './setup/panel';
+import { Welcome } from './setup/welcome';
 import type { CrewMember, FlowEvent, FlowPoint, MixSlice, Op } from './today/model';
 
 /**
@@ -90,6 +94,13 @@ export default async function TodayPage({
      Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
+
+  /* Состояние настройки — здесь же, где всё остальное про этот день.
+     Считается по данным бизнеса и стоит три подсчёта по индексам, а тому,
+     кто блок уже убрал, не стоит и их (см. lib/onboarding.ts). */
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+  const setup = await getSetup(tenant, me);
 
   const { p } = await searchParams;
   const period = getPeriod(p);
@@ -306,6 +317,28 @@ export default async function TodayPage({
       >
         <PeriodTabs current={period} />
       </PageHead>
+
+      {/* Настройка идёт первой, пока она не закончена.
+
+          Приборы с деньгами при этом остаются на месте: у новой мойки
+          они показывают нули, и нули эти правдивые — работы ещё не было.
+          Прятать их значило бы отвечать «здесь ничего нет» на вопрос
+          «сколько я заработал сегодня», а первый рабочий день начинается
+          ровно с него. Блок уходит сам, как только все шаги сделаны и
+          мойка начала работать. */}
+      {setup.visible && (
+        <SetupPanel
+          steps={setup.steps}
+          done={setup.done}
+          total={setup.total}
+          complete={setup.complete}
+        />
+      )}
+
+      {/* Приветствие — только при самом первом входе, и оно поверх уже
+          готового кабинета, а не вместо него. Следующий шаг известен
+          заранее: окно ведёт в него, а не на второй экран мастера. */}
+      {needsWelcome(me) && <Welcome nextHref={setup.next?.href ?? '/owner/services'} />}
 
       <TodaySummary
         currency={tenant.currency}

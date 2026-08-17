@@ -7266,6 +7266,788 @@
         }
       }
     },
+    "setup.doneHide": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հասկացա"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        }
+      }
+    },
+    "setup.doneNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin-ը կարգավորված է։ Այսուհետ աշխատանքի տվյալները կհավաքվեն ինքնաբերաբար։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin настроен. Дальше данные по работе собираются сами."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin is configured. From here the numbers collect themselves."
+          }
+        }
+      }
+    },
+    "setup.doneTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամեն ինչ պատրաստ է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё готово"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All set"
+          }
+        }
+      }
+    },
+    "setup.nextControl": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վերահսկողություն"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контроль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control"
+          }
+        }
+      }
+    },
+    "setup.nextControlNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամփոփման էջում երևում է բիզնեսի վիճակը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На сводке видно состояние бизнеса."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The summary screen shows the state of the business."
+          }
+        }
+      }
+    },
+    "setup.nextMoney": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Փող"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Деньги"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Money"
+          }
+        }
+      }
+    },
+    "setup.nextMoneyNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin-ը հավաքում է հասույթը, աշխատավարձն ու ծախսերը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin собирает выручку, зарплаты и траты."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetrin collects revenue, payroll and costs."
+          }
+        }
+      }
+    },
+    "setup.nextReports": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վերլուծություն"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аналитика"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analytics"
+          }
+        }
+      }
+    },
+    "setup.nextReportsNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Օրացույցում՝ արդյունքը ընտրած ժամանակահատվածի համար։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В календаре — результат за выбранный период."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The calendar shows the result for the period you pick."
+          }
+        }
+      }
+    },
+    "setup.nextWork": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատանք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работа"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work"
+          }
+        }
+      }
+    },
+    "setup.nextWorkNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատակիցները գրանցում են լվացած մեքենաները։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работники записывают обслуженные машины."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your people log the cars they serve."
+          }
+        }
+      }
+    },
+    "setup.progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$d-ից %1$d-ը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d из %2$d"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d"
+          }
+        }
+      }
+    },
+    "setup.resume": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատանքի սկիզբ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начало работы"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting started"
+          }
+        }
+      }
+    },
+    "setup.resumeNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վերադարձնել կարգավորման քայլերը ամփոփման էջ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть шаги настройки на сводку"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring the setup steps back to the summary"
+          }
+        }
+      }
+    },
+    "setup.skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բաց թողնել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
+    "setup.stepBusiness": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բիզնեսը ստեղծված է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бизнес создан"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Business created"
+          }
+        }
+      }
+    },
+    "setup.stepBusinessNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Անվանումը, ծառայությունների ցանկը և դերերը արդեն տեղում են։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название, список услуг и роли уже на месте."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name, the price list and the roles are already in place."
+          }
+        }
+      }
+    },
+    "setup.stepFirst": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրանցեք առաջին մեքենան"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запишите первую машину"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log the first car"
+          }
+        }
+      }
+    },
+    "setup.stepFirstCta": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հերթափոխ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К смене"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To the shift"
+          }
+        }
+      }
+    },
+    "setup.stepFirstNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բացեք հերթափոխը և գրանցեք մեքենան․ մնացածը Tetrin-ը կհաշվի ինքը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте смену и запишите машину, остальное Tetrin посчитает сам."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open a shift and log a car — Tetrin counts the rest itself."
+          }
+        }
+      }
+    },
+    "setup.stepServices": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգեք գները"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте цены"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the prices"
+          }
+        }
+      }
+    },
+    "setup.stepServicesCta": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գները"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цены"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prices"
+          }
+        }
+      }
+    },
+    "setup.stepServicesNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ցանկը լրացրել ենք մենք։ Ուղղեք գները ձեր գներով։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список заполнили мы. Поправьте цены на свои."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We filled the list in. Change the prices to yours."
+          }
+        }
+      }
+    },
+    "setup.stepStaff": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ավելացրեք աշխատակիցներին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте работников"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add your people"
+          }
+        }
+      }
+    },
+    "setup.stepStaffCta": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատակիցներ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работники"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People"
+          }
+        }
+      }
+    },
+    "setup.stepStaffNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նրանք կմտնեն իրենց հաշիվ, կբացեն հերթափոխ և կգրանցեն մեքենաները։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они войдут в свой аккаунт, откроют смену и будут записывать машины."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They sign in to their own account, open a shift and log the cars."
+          }
+        }
+      }
+    },
+    "setup.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատանքի սկիզբ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начало работы"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting started"
+          }
+        }
+      }
+    },
+    "setup.workerCta": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սկսել աշխատանքը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать работу"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start working"
+          }
+        }
+      }
+    },
+    "setup.workerLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այստեղ անցնում է ձեր հերթափոխը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь проходит ваша смена."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is where your shift happens."
+          }
+        }
+      }
+    },
+    "setup.workerNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամեն գրանցումից հետո վերևում կտեսնեք ձեր վաստակածը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После каждой записи наверху видно, сколько вы заработали."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After every entry you see what you have earned at the top."
+          }
+        }
+      }
+    },
+    "setup.workerOne": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բացեք հերթափոխը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте смену"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the shift"
+          }
+        }
+      }
+    },
+    "setup.workerThree": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վերջում փակեք հերթափոխը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В конце закройте смену"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close the shift when you are done"
+          }
+        }
+      }
+    },
+    "setup.workerTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բարի գալուստ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добро пожаловать"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome"
+          }
+        }
+      }
+    },
+    "setup.workerTwo": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրանցեք լվացած մեքենաները"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записывайте обслуженные машины"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log the cars you serve"
+          }
+        }
+      }
+    },
     "shift.cashInHand": {
       "extractionState": "manual",
       "localizations": {

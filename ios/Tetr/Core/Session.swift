@@ -28,6 +28,21 @@ final class Session: ObservableObject {
     @Published private(set) var me: API.Me?
     @Published private(set) var access: API.Access?
     @Published private(set) var services: [API.Service] = []
+    /**
+     * Читал ли человек приветствие первого входа и убрал ли он
+     * «Начало работы».
+     *
+     * Отдельно от `me`, хотя приезжают вместе с ним: `API.Me` — это
+     * ответ сервера, неизменный слепок, а эти два меняются прямо на
+     * экране. Закрыл приветствие — окно не должно вернуться при
+     * следующем открытии вкладки, не дожидаясь нового bootstrap.
+     *
+     * Оба по умолчанию «уже сделано»: пока сервер не ответил, ничего не
+     * показываем. Лишний раз не показать приветствие лучше, чем
+     * показать его тому, кто работает в продукте полгода.
+     */
+    @Published private(set) var welcomeSeen = true
+    @Published private(set) var setupHidden = false
     @Published private(set) var rememberedAccount: RememberedAccount?
 
     /// Быстрый возврат после явного выхода. По умолчанию включён, но
@@ -179,12 +194,17 @@ final class Session: ObservableObject {
     }
 
     /// Выслать код повторно. Паузу между отправками держит сервер.
+    ///
+    /// Ответ пустой, и тип пустого ответа живёт у клиента, а не в `API`:
+    /// `API` — это то, что сервер присылает, а `Empty` — то, чего он не
+    /// присылает. Стояло здесь `API.Empty`, которого не существует, и
+    /// сборка приложения падала на этой строке.
     func resendCode(challengeId: String) async throws {
         _ = try await api.send(
             "auth/otp/resend",
             method: "POST",
             body: ["challengeId": challengeId],
-            as: API.Empty.self
+            as: APIClient.Empty.self
         )
     }
 
@@ -342,6 +362,10 @@ final class Session: ObservableObject {
         access = nil
         services = []
         points = []
+        /* Обратно в «уже сделано»: следующий вход начнётся с ответа
+           сервера, а не с чужого приветствия поверх экрана входа. */
+        welcomeSeen = true
+        setupHidden = false
         if !preserveRemembered { clearRememberedAccount() }
         state = .signedOut
     }
@@ -382,6 +406,45 @@ final class Session: ObservableObject {
         access = boot.access
         services = boot.services
         points = boot.points ?? []
+        welcomeSeen = boot.me.welcomeSeen ?? true
+        setupHidden = boot.me.setupHidden ?? false
+    }
+
+    // ─────────────────────────── начало работы ───────────────────────────
+
+    /**
+     * Приветствие прочитано.
+     *
+     * Отмечаем в момент показа, а не по нажатию: приветствие уже
+     * случилось — человек его видит. Ждать кнопки значило бы показывать
+     * окно снова после каждого перезапуска приложения, а окно, которое
+     * возвращается, перестаёт быть приветствием.
+     *
+     * Отказ сервера гасится: онбординг не повод показывать ошибку тому,
+     * кто только что зашёл впервые. Ценой того, что в следующий раз окно
+     * придёт ещё раз, — и это меньшее из двух зол.
+     */
+    func markWelcomeSeen() async {
+        welcomeSeen = true
+        await tellSetup("welcome")
+    }
+
+    /// Убрать «Начало работы» — и пропуск, и «Готово» в конце.
+    func hideSetup() async {
+        setupHidden = true
+        await tellSetup("hide")
+    }
+
+    /// Вернуть настройку на сводку — из разделов.
+    func resumeSetup() async {
+        setupHidden = false
+        await tellSetup("resume")
+    }
+
+    private func tellSetup(_ action: String) async {
+        _ = try? await authed { token in
+            try await self.api.raw("setup", method: "POST", body: ["action": action], token: token)
+        }
     }
 
     /**

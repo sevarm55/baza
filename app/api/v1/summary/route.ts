@@ -10,6 +10,7 @@ import {
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { whoIsOnShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
+import { getSetup } from '@/lib/onboarding';
 import { failFromError, ok } from '@/lib/api/respond';
 import { asPeriod, windowFor } from '@/lib/summary-window';
 
@@ -48,7 +49,17 @@ export async function GET(request: Request) {
        прибыль, её никто в уме не считает. С чем именно сравнивать каждый
        период — решено в `windowFor`. */
 
-    const [stats, series, split, feed, costs, present, prevStats, prevCosts] = await Promise.all([
+    /* Состояние настройки едет вместе со сводкой, а не отдельным
+       запросом. Причина та же, по которой сводка вообще одна: экран
+       владельца обновляют потягиванием вниз, и второй round-trip по
+       мобильной сети либо задержит его, либо оборвётся — и «Начало
+       работы» разойдётся с числами на том же экране.
+
+       Считается тем же кодом, что в вебе (`lib/onboarding.ts`), по
+       данным бизнеса, а не по нажатиям. Тому, кто блок убрал, это не
+       стоит ни одного запроса к базе. */
+    const [stats, series, split, feed, costs, present, prevStats, prevCosts, setup] =
+      await Promise.all([
       getPeriodStats(ctx.tenant.id, from, to),
       getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day', to),
       getPaymentSplit(ctx.tenant.id, from, to),
@@ -57,10 +68,26 @@ export async function GET(request: Request) {
       whoIsOnShift(ctx.tenant.id, today),
       getPeriodStats(ctx.tenant.id, prevFrom, prevTo),
       getPeriodCosts(ctx.tenant.id, prevFrom, prevTo, w.spread),
+      getSetup(ctx.tenant, ctx.user),
     ]);
 
     return ok({
       period,
+      /* Настройка первого дня. `visible: false` — блока нет, и клиенту
+         этого достаточно: разбираться, почему именно (убрали руками или
+         мойка уже работает), ему незачем. */
+      setup: {
+        visible: setup.visible,
+        complete: setup.complete,
+        done: setup.done,
+        total: setup.total,
+        /* Ключами, а не подписями: слова у приложения свои, и присылать
+           ему готовую армянскую строку значит навсегда лишить его
+           возможности показать её по-другому — то же правило, что у
+           кодов ошибок в lib/api/respond.ts. */
+        steps: setup.steps.map((step) => ({ key: step.key, done: step.done })),
+        next: setup.next?.key ?? null,
+      },
       from: from.toISOString(),
       /* Границы отдаются обеими сторонами: подпись под вкладкой должна
          называть даты. «К прошлому периоду» без дат не сообщает ничего —

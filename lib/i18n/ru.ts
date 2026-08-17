@@ -365,6 +365,74 @@ export const ru: Dict = {
     alreadyHave: 'Уже есть аккаунт?',
   },
 
+  setup: {
+    welcomeTitle: 'Добро пожаловать в Tetrin',
+    welcomeLead: 'Настроим бизнес и подготовим всё к работе.',
+    welcomeNote:
+      'Поправьте цены и добавьте работников. После этого можно принимать машины, а зарплату, расходы и прибыль Tetrin посчитает сам.',
+
+    flowSetup: 'Настройка',
+    flowSetupNote: 'Цены и работники',
+    flowWork: 'Работа',
+    flowWorkNote: 'Работники записывают машины',
+    flowMoney: 'Расчёт',
+    flowMoneyNote: 'Tetrin считает деньги',
+    flowResult: 'Результат',
+    flowResultNote: 'Вы видите прибыль',
+
+    welcomeStart: 'Начать настройку',
+    welcomeLook: 'Не сейчас',
+
+    title: 'Начало работы',
+    lead: 'Несколько шагов, и Tetrin начнёт работать на вас.',
+    progress: (done: number, total: number) => `${done} из ${total}`,
+    progressAria: 'Выполненные шаги',
+    skip: 'Пропустить',
+    hintAria: 'Следующий шаг',
+
+    stepBusiness: 'Бизнес создан',
+    stepBusinessNote: 'Название, список услуг и роли уже на месте.',
+    stepBusinessCta: 'Изменить название',
+
+    stepServices: 'Проверьте цены',
+    stepServicesNote: 'Список заполнили мы. Поправьте цены на свои.',
+    stepServicesCta: 'Открыть услуги',
+
+    stepStaff: 'Добавьте работников',
+    stepStaffNote: 'Они войдут в свой аккаунт, откроют смену и будут записывать машины.',
+    stepStaffCta: 'Добавить работника',
+
+    stepFirst: 'Запишите первую машину',
+    stepFirstNote: 'Откройте смену и запишите машину, остальное Tetrin посчитает сам.',
+    stepFirstCta: 'Перейти к смене',
+
+    doneTitle: 'Всё готово',
+    doneNote: 'Tetrin настроен. Дальше данные по работе собираются сами.',
+    doneHide: 'Понятно',
+
+    nextTitle: 'Дальше Tetrin делает большую часть сам',
+    nextWork: 'Работа',
+    nextWorkNote: 'Работники записывают обслуженные машины.',
+    nextMoney: 'Деньги',
+    nextMoneyNote: 'Tetrin собирает выручку, зарплаты и траты.',
+    nextControl: 'Контроль',
+    nextControlNote: 'На главной видно состояние бизнеса.',
+    nextReports: 'Аналитика',
+    nextReportsNote: 'В отчётах — результат за выбранный период.',
+
+    resume: 'Начало работы',
+    resumeNote: 'Вернуть шаги настройки на главную',
+    resumeCta: 'Вернуть',
+
+    workerTitle: 'Добро пожаловать',
+    workerLead: 'Здесь проходит ваша смена.',
+    workerOne: 'Откройте смену',
+    workerTwo: 'Записывайте обслуженные машины',
+    workerThree: 'В конце закройте смену',
+    workerNote: 'После каждой записи наверху видно, сколько вы заработали.',
+    workerCta: 'Начать работу',
+  },
+
   profile: {
     title: 'Моя страница',
     lead: 'Личные данные, безопасность и настройки аккаунта',
@@ -513,6 +581,12 @@ export const ru: Dict = {
     forWork: (day: string) => `за работу ${day}`,
     forWorkUpTo: (day: string) => `за работу по ${day}`,
     historyEmpty: 'Выплат ещё не было',
+
+    emptyNoStaff: 'Здесь Tetrin считает выплаты работникам',
+    emptyNoStaffNote: 'Сначала добавьте работника и его процент.',
+    emptyNoStaffCta: 'Перейти к работникам',
+    emptyNoWork: 'Платить пока не за что',
+    emptyNoWorkNote: 'Расчёт появится после первой записанной машины.',
 
     nothingUnpaid: 'Невыплаченных расчётов сейчас нет.',
     openHistory: 'Посмотреть историю',
@@ -736,6 +810,9 @@ export const ru: Dict = {
     whereGone: 'Куда ушло',
     whereFrom: 'Откуда пришло',
     emptyMonth: 'В этом месяце работы не было',
+    emptyAll: 'Отчёты появятся после первых данных',
+    emptyAllNote: 'Запишите первую машину, чтобы начать собирать статистику.',
+    emptyAllCta: 'Перейти к смене',
     toPayroll: 'Перейти к зарплатам',
   },
 

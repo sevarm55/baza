@@ -25,6 +25,12 @@ struct MoreView: View {
                 staffCard
                 profileCard
                 exportCard
+                /* Дверь обратно к настройке — только тому, кто её убрал.
+                   Пропустить можно случайно и в первый же день, а
+                   вспомнить о ней на третий; без этой строки вернуть
+                   список было бы нечем. У того, кто её не убирал, здесь
+                   ни одного нового пикселя. */
+                if session.setupHidden { resumeSetupCard }
             }
             .padding(.horizontal, 16)
             .padding(.top, 10)
@@ -72,6 +78,44 @@ struct MoreView: View {
     }
 
     // ══════════════════════════ карта разделов ══════════════════════════
+
+    /// Вернуть «Начало работы» на сводку.
+    ///
+    /// Тихой строкой в самом низу, а не карточкой раздела: это не место,
+    /// куда ходят, а действие, которое делают один раз.
+    private var resumeSetupCard: some View {
+        Button {
+            Task { await session.resumeSetup() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "checklist")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.mintInk)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.mintCard, in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("setup.resume"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text(L("setup.resumeNote"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.boardMuted)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer()
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Brand.mintInk)
+            }
+            .padding(13)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
+        }
+        .buttonStyle(.press)
+    }
 
     private var pointsCard: some View {
         NavigationLink {

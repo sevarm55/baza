@@ -353,6 +353,74 @@ export const en: Dict = {
     alreadyHave: 'Already have an account?',
   },
 
+  setup: {
+    welcomeTitle: 'Welcome to Tetrin',
+    welcomeLead: 'Let us set the business up and get it ready for work.',
+    welcomeNote:
+      'Adjust the prices and add your people. After that you can take in cars, and Tetrin will count payroll, costs and profit on its own.',
+
+    flowSetup: 'Setup',
+    flowSetupNote: 'Prices and people',
+    flowWork: 'Work',
+    flowWorkNote: 'Your people log the cars',
+    flowMoney: 'Counting',
+    flowMoneyNote: 'Tetrin counts the money',
+    flowResult: 'Result',
+    flowResultNote: 'You see the profit',
+
+    welcomeStart: 'Start setup',
+    welcomeLook: 'Not now',
+
+    title: 'Getting started',
+    lead: 'A few steps, and Tetrin starts working for you.',
+    progress: (done: number, total: number) => `${done} of ${total}`,
+    progressAria: 'Completed steps',
+    skip: 'Skip',
+    hintAria: 'Next step',
+
+    stepBusiness: 'Business created',
+    stepBusinessNote: 'The name, the price list and the roles are already in place.',
+    stepBusinessCta: 'Change the name',
+
+    stepServices: 'Check the prices',
+    stepServicesNote: 'We filled the list in. Change the prices to yours.',
+    stepServicesCta: 'Open services',
+
+    stepStaff: 'Add your people',
+    stepStaffNote: 'They sign in to their own account, open a shift and log the cars.',
+    stepStaffCta: 'Add a person',
+
+    stepFirst: 'Log the first car',
+    stepFirstNote: 'Open a shift and log a car — Tetrin counts the rest itself.',
+    stepFirstCta: 'Go to the shift',
+
+    doneTitle: 'All set',
+    doneNote: 'Tetrin is configured. From here the numbers collect themselves.',
+    doneHide: 'Got it',
+
+    nextTitle: 'From here Tetrin does most of it itself',
+    nextWork: 'Work',
+    nextWorkNote: 'Your people log the cars they serve.',
+    nextMoney: 'Money',
+    nextMoneyNote: 'Tetrin collects revenue, payroll and costs.',
+    nextControl: 'Control',
+    nextControlNote: 'The main screen shows the state of the business.',
+    nextReports: 'Analytics',
+    nextReportsNote: 'Reports show the result for the period you pick.',
+
+    resume: 'Getting started',
+    resumeNote: 'Bring the setup steps back to the main screen',
+    resumeCta: 'Bring back',
+
+    workerTitle: 'Welcome',
+    workerLead: 'This is where your shift happens.',
+    workerOne: 'Open the shift',
+    workerTwo: 'Log the cars you serve',
+    workerThree: 'Close the shift when you are done',
+    workerNote: 'After every entry you see what you have earned at the top.',
+    workerCta: 'Start working',
+  },
+
   profile: {
     title: 'My page',
     lead: 'Personal details, security and account settings',
@@ -498,6 +566,12 @@ export const en: Dict = {
     forWork: (day: string) => `for work on ${day}`,
     forWorkUpTo: (day: string) => `for work up to ${day}`,
     historyEmpty: 'No payouts yet',
+
+    emptyNoStaff: 'This is where Tetrin counts what you owe your people',
+    emptyNoStaffNote: 'Add a person and their percentage first.',
+    emptyNoStaffCta: 'Go to people',
+    emptyNoWork: 'Nothing to pay for yet',
+    emptyNoWorkNote: 'The numbers appear after the first car is logged.',
 
     nothingUnpaid: 'Nothing is unpaid right now.',
     openHistory: 'See the history',
@@ -719,6 +793,9 @@ export const en: Dict = {
     whereGone: 'Where it went',
     whereFrom: 'Where it came from',
     emptyMonth: 'There was no work this month',
+    emptyAll: 'Reports appear once there is data',
+    emptyAllNote: 'Log the first car to start collecting statistics.',
+    emptyAllCta: 'Go to the shift',
     toPayroll: 'Go to payroll',
   },
 

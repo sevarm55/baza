@@ -36,7 +36,20 @@ const TABS = [
   { href: '/owner/more', icon: LayoutGrid },
 ] as const;
 
-export function MobileTabs() {
+export function MobileTabs({
+  hint,
+}: {
+  /**
+   * Мобильный ответ точке в боковой колонке.
+   *
+   * Вкладок четыре, а разделов девять, и следующий шаг настройки чаще
+   * всего лежит не во вкладке, а за «Ավելին». Поэтому сюда приезжает уже
+   * переведённый адрес — той вкладки, через которую до шага доходят
+   * (см. `phoneTab`), а не самого раздела: точка обязана стоять там, куда
+   * человек нажмёт.
+   */
+  hint?: string | null;
+} = {}) {
   const t = useT();
   const pathname = usePathname();
   const current = phoneTab(pathname) ?? '/owner';
@@ -66,6 +79,11 @@ export function MobileTabs() {
           >
             <Icon className="size-5" aria-hidden strokeWidth={on ? 2.2 : 1.8} />
             <span>{label[tab.href]}</span>
+            {hint === tab.href && (
+              <span className="hint-dot hint-dot-tab">
+                <span className="sr-only">{t.setup.hintAria}</span>
+              </span>
+            )}
           </Link>
         );
       })}

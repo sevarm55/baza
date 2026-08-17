@@ -17,6 +17,8 @@ import { SubscriptionSummary } from './subscription-summary';
 import { ThemePicker } from './theme-picker';
 import { VerifyPhonePanel } from './verify-phone-panel';
 import { RememberLoginToggle } from './remember-login-toggle';
+import { ResumeSetup } from './resume-setup';
+import { getSetup } from '@/lib/onboarding';
 import { getDict } from '@/lib/i18n/server';
 import { LanguagePicker } from '@/components/language-picker';
 import { localizeTenant } from '@/lib/i18n/terms';
@@ -64,6 +66,13 @@ export default async function ProfilePage() {
 
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
+
+  /* Предложение вернуть настройку — только тому, кто её убрал, и только
+     пока в ней есть смысл. Считается тем же кодом, что и сам блок, но с
+     оглядкой на «как если бы не убирали»: у мойки, которая работает
+     третий месяц, возвращать нечего (см. lib/onboarding.ts). */
+  const setup = owner ? await getSetup(raw, me, { ignoreHidden: true }) : null;
+  const canResume = owner && me.setupHiddenAt !== null && setup !== null && setup.visible;
 
   return (
     <div className="page-narrow">
@@ -134,6 +143,17 @@ export default async function ProfilePage() {
               <ThemePicker />
             </div>
           </Panel>
+
+          {canResume && (
+            <Panel title={t.setup.resume}>
+              <p className="text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+                {t.setup.resumeNote}
+              </p>
+              <div className="mt-3.5">
+                <ResumeSetup />
+              </div>
+            </Panel>
+          )}
 
           <Panel title={t.profile.session}>
             <RememberLoginToggle initial={rememberLogin} />

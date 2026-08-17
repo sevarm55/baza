@@ -155,6 +155,13 @@
       "when": 1786622029004,
       "tag": "0021_auth_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786622029005,
+      "tag": "0022_onboarding",
+      "breakpoints": true
     }
   ]
 }
