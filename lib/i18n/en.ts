@@ -329,7 +329,7 @@ export const en: Dict = {
     verifyPhoneNote: 'Without a confirmed number your PIN cannot be recovered. Takes half a minute.',
     verifyNow: 'Confirm',
     verified: 'Number confirmed',
-    entryTitle: 'Sign in to Tetrin',
+    entryTitle: 'Sign in',
     entrySub: 'Enter your number and we will send a code',
     entrySend: 'Continue',
     entryPinDoor: 'Sign in with a PIN',

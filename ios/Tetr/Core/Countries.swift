@@ -32,20 +32,34 @@ struct Country: Identifiable, Hashable {
 
     var id: String { code }
 
-    /// Собрать то, что уйдёт на сервер. Он всё равно нормализует заново.
-    func e164(_ typed: String) -> String {
+    /**
+     * Национальная часть из того, что набрали.
+     *
+     * Набранное вместе с кодом страны или с ведущим нулём — обычное
+     * дело: человек диктует номер так, как привык, а вставленный из
+     * записной книжки приходит с плюсом и кодом. Отрезаем то, что иначе
+     * уехало бы в национальную часть и сделало номер длиннее
+     * настоящего.
+     *
+     * Обрезка по длине — ПОСЛЕ отсечения кода, а не до. Обратный
+     * порядок и был ошибкой: «+374 77 000 001» превращалось в «37477000»
+     * прямо во время набора, потому что восемь знаков кончались раньше,
+     * чем начинался сам номер.
+     */
+    func national(_ typed: String) -> String {
         var digits = typed.filter(\.isNumber)
 
-        /* Набранное вместе с кодом страны или с ведущим нулём — обычное
-           дело: человек диктует номер так, как привык. Отрезаем то, что
-           иначе уехало бы в национальную часть и сделало номер длиннее
-           настоящего. */
         if digits.count > length {
             if digits.hasPrefix(dial) { digits = String(digits.dropFirst(dial.count)) }
             else if digits.hasPrefix("0") { digits = String(digits.dropFirst()) }
         }
 
-        return "+\(dial)\(digits)"
+        return String(digits.prefix(length))
+    }
+
+    /// Собрать то, что уйдёт на сервер. Он всё равно нормализует заново.
+    func e164(_ typed: String) -> String {
+        "+\(dial)\(national(typed))"
     }
 }
 
@@ -71,6 +85,11 @@ enum Countries {
 struct CountryPhoneField: View {
     @Binding var country: Country
     @Binding var number: String
+    /// Цвет надписей. На экране входа полотно тёмное, и цвет чернил
+    /// кабинета на нём не виден вовсе.
+    var ink: Color = Brand.onBoard
+    /// Имя для UI-тестов и для читалки экрана.
+    var identifier: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -89,7 +108,7 @@ struct CountryPhoneField: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .bold))
                 }
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(ink)
             }
             .accessibilityLabel(L("auth.country"))
 
@@ -98,6 +117,8 @@ struct CountryPhoneField: View {
                 .textContentType(.telephoneNumber)
                 .font(.system(size: 17, weight: .medium))
                 .monospacedDigit()
+                .foregroundStyle(ink)
+                .accessibilityIdentifier(identifier ?? "")
                 .accessibilityLabel(L("auth.phone"))
                 /* Поле НЕ переписывается на каждом нажатии, и это не
                    лень, а исправленная ошибка: разбивка на группы прямо
@@ -108,7 +129,7 @@ struct CountryPhoneField: View {
                    Красивую разбивку показывает подсказка в пустом поле,
                    а собирает номер `e164` при отправке. */
                 .onChange(of: number) { _, v in
-                    let clean = String(v.filter(\.isNumber).prefix(country.length))
+                    let clean = country.national(v)
                     if clean != v { number = clean }
                 }
         }

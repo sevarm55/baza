@@ -340,7 +340,7 @@ export const ru: Dict = {
     verifyPhoneNote: 'Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты.',
     verifyNow: 'Подтвердить',
     verified: 'Номер подтверждён',
-    entryTitle: 'Вход в Tetrin',
+    entryTitle: 'Вход',
     entrySub: 'Введите номер, пришлём код',
     entrySend: 'Продолжить',
     entryPinDoor: 'Войти по PIN',

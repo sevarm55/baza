@@ -404,7 +404,7 @@ export const hy = {
     verifyPhoneNote: 'Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։',
     verifyNow: 'Հաստատել',
     verified: 'Համարը հաստատված է',
-    entryTitle: 'Մուտք Tetrin',
+    entryTitle: 'Մուտք',
     entrySub: 'Մուտքագրեք համարը, կուղարկենք կոդ',
     entrySend: 'Շարունակել',
     entryPinDoor: 'Մուտք PIN-ով',

@@ -108,7 +108,10 @@ final class AppFlowTests: XCTestCase {
         waitForLogin(app)
 
         let phone = app.textFields["login.phone"]
-        let pin = app.secureTextFields["login.pin"]
+        /* Клетками, а не одним `SecureField`: поле под ними обычное и
+           прозрачное — иначе автоподстановка кода из SMS не работает.
+           Поэтому искать его надо среди `textFields`. */
+        let pin = app.textFields["login.pin"]
         XCTAssertTrue(phone.waitForExistence(timeout: 5))
 
         phone.tap()

@@ -35,7 +35,9 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
+    @EnvironmentObject private var lang: LangStore
 
+    @State private var country = Countries.default
     @State private var phone = LoginView.prefilled("TETR_PHONE")
     @State private var pin = LoginView.prefilled("TETR_PIN")
     @State private var code = ""
@@ -52,7 +54,6 @@ struct LoginView: View {
     @State private var manual = false
 
     @FocusState private var focus: Field?
-    @Environment(\.splashActive) private var splashActive
 
     private enum Field { case phone, pin, code, newPin, repeatPin, businessName, ownerName }
 
@@ -106,16 +107,13 @@ struct LoginView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             Brand.heroGradient.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
-                Text("TETRIN")
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(4)
-                    .foregroundStyle(Brand.lime)
+                Wordmark()
 
                 Text(headline)
                     .font(.system(size: 40, weight: .bold))
@@ -129,21 +127,65 @@ struct LoginView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
+
+            languagePicker
         }
-        /* Курсор в первое поле — но не раньше, чем уйдёт заставка:
-           клавиатура рисуется системой поверх всего приложения и закрывала
-           бы ролик снизу. Оба обработчика нужны: экран может появиться и
-           до заставки, и после неё. */
+        /* Клавиатуру сами НЕ открываем.
+         *
+         * Раньше курсор ставился в поле телефона, едва уходила заставка,
+         * и первое, что человек видел, — экран, наполовину съеденный
+         * клавиатурой: ни марки, ни заголовка, ни второй двери под
+         * кнопкой. Открыть её он всё равно успеет, а закрыть, чтобы
+         * осмотреться, догадывается не каждый.
+         *
+         * Теперь она приходит по нажатию в поле, то есть тогда, когда
+         * человек уже решил писать. На следующих шагах — код, новый PIN —
+         * фокус по-прежнему ставится сам: там экран только из одного
+         * поля и состоит, и прятать за клавиатурой нечего. */
         .onAppear {
             if session.rememberedAccount == nil { manual = true }
-            if !splashActive && manual { focus = .phone }
-        }
-        .onChange(of: splashActive) { _, active in
-            if !active && manual { focus = .phone }
         }
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
+    }
+
+    /**
+     * Язык — прямо на экране входа.
+     *
+     * Раньше сменить его можно было только в профиле, то есть уже
+     * ВНУТРИ, и это была ловушка: человек, которому завели аккаунт, а
+     * по-армянски он не читает, видел незнакомые слова ровно там, где
+     * от него требуется действие, и до профиля добраться не мог. В
+     * кабинете переключатель на витрине стоит с первого дня; здесь его
+     * не было.
+     *
+     * Значком, а не строкой: экран входа — это заголовок, поле и
+     * кнопка, и четвёртый крупный орган на нём спорил бы с ними за
+     * внимание. Каждый язык подписан своим словом, флагов нет: флаг это
+     * страна, а не язык.
+     */
+    private var languagePicker: some View {
+        Menu {
+            Picker(L("common.language"), selection: Binding(
+                get: { lang.current },
+                set: { lang.set($0) }
+            )) {
+                ForEach(Lang.allCases, id: \.self) { option in
+                    Text(option.ownName).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: "globe")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 40, height: 40)
+                .background(.white.opacity(0.12), in: .circle)
+        }
+        .accessibilityLabel(L("common.language"))
+        .accessibilityValue(lang.current.ownName)
+        .padding(.trailing, 18)
     }
 
     @ViewBuilder
@@ -259,7 +301,7 @@ struct LoginView: View {
                 .foregroundStyle(.white.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
 
-            phoneField.padding(.top, 20)
+            phoneField.padding(.top, 30)
 
             errorLine
 
@@ -282,7 +324,7 @@ struct LoginView: View {
             }
             .accessibilityIdentifier("login.pinDoor")
             .frame(maxWidth: .infinity)
-            .padding(.top, 20)
+            .padding(.top, 30)
         }
     }
 
@@ -292,16 +334,17 @@ struct LoginView: View {
         VStack(alignment: .leading, spacing: 0) {
             phoneField
 
-            field(title: L("auth.pinField")) {
-                SecureField("••••••", text: $pin)
-                    .keyboardType(.numberPad)
-                    .textContentType(.password)
-                    .focused($focus, equals: .pin)
-                    .accessibilityIdentifier("login.pin")
-                    .accessibilityLabel(L("auth.pin"))
-                    .onChange(of: pin) { _, value in
-                        pin = digits(value, limit: API.pinLength)
-                    }
+            field(title: L("auth.pinField"), framed: false) {
+                CodeCells(
+                    text: $pin,
+                    focus: $focus,
+                    field: .pin,
+                    length: API.pinLength,
+                    label: L("auth.pin"),
+                    identifier: "login.pin",
+                    secure: true,
+                    contentType: .password
+                )
             }
             .padding(.top, 16)
 
@@ -334,7 +377,7 @@ struct LoginView: View {
                 .accessibilityIdentifier("login.smsDoor")
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 20)
+            .padding(.top, 30)
 
             Text(L("auth.staffNote"))
                 .font(.system(size: 13.5))
@@ -354,7 +397,7 @@ struct LoginView: View {
                 .foregroundStyle(.white.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
 
-            phoneField.padding(.top, 20)
+            phoneField.padding(.top, 30)
 
             errorLine
 
@@ -370,7 +413,7 @@ struct LoginView: View {
                 go(.pin)
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 20)
+            .padding(.top, 30)
         }
     }
 
@@ -387,23 +430,29 @@ struct LoginView: View {
             .foregroundStyle(.white.opacity(0.7))
             .fixedSize(horizontal: false, vertical: true)
 
-            field(title: L("auth.otpCode")) {
-                TextField("••••••", text: $code)
-                    .keyboardType(.numberPad)
+            field(title: L("auth.otpCode"), framed: false) {
+                CodeCells(
+                    text: $code,
+                    focus: $focus,
+                    field: .code,
+                    length: API.codeLength,
+                    label: L("auth.otpCode"),
+                    identifier: "login.code",
+                    /* Код из SMS не прячем: он только что пришёл человеку
+                       в открытом сообщении, и точки вместо цифр мешали бы
+                       сверить набранное с тем, что видно в шторке. */
+                    secure: false,
                     /* Ради этой строки всё и затевалось: iOS сама
                        предлагает код из только что пришедшей SMS, и
-                       человеку не надо уходить в «Сообщения». */
-                    .textContentType(.oneTimeCode)
-                    .focused($focus, equals: .code)
-                    .accessibilityIdentifier("login.code")
-                    .accessibilityLabel(L("auth.otpCode"))
-                    .onChange(of: code) { _, value in
-                        code = digits(value, limit: API.codeLength)
-                        // шесть цифр — отправляем сами, лишнее нажатие тут ни к чему
-                        if code.count == API.codeLength { Task { await confirm(waiting) } }
-                    }
+                       человеку не надо уходить в «Сообщения». Работает
+                       она только с ОДНИМ полем на код — потому клетки
+                       здесь и нарисованы, а не сделаны шестью полями. */
+                    contentType: .oneTimeCode,
+                    // шесть цифр — отправляем сами, лишнее нажатие тут ни к чему
+                    onComplete: { Task { await confirm(waiting) } }
+                )
             }
-            .padding(.top, 20)
+            .padding(.top, 30)
 
             errorLine
 
@@ -460,32 +509,34 @@ struct LoginView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.white.opacity(0.7))
 
-            field(title: L("auth.newPin")) {
-                SecureField("••••••", text: $newPin)
-                    .keyboardType(.numberPad)
-                    .textContentType(.newPassword)
-                    .focused($focus, equals: .newPin)
-                    .accessibilityLabel(L("auth.newPin"))
-                    .onChange(of: newPin) { _, value in
-                        newPin = digits(value, limit: API.pinLength)
-                    }
+            field(title: L("auth.newPin"), framed: false) {
+                CodeCells(
+                    text: $newPin,
+                    focus: $focus,
+                    field: .newPin,
+                    length: API.pinLength,
+                    label: L("auth.newPin"),
+                    secure: true,
+                    contentType: .newPassword
+                )
             }
-            .padding(.top, 20)
+            .padding(.top, 30)
 
             /* Повтор сервер не спрашивает и знать о нём не должен: он
                проверяется здесь, до отправки. Причина в последствии —
                опечатка в единственном поле означала бы новый код,
                которого человек не знает, и вход только через ещё одну
                SMS. Второе поле стоит одного лишнего движения раз в год. */
-            field(title: L("common.retry")) {
-                SecureField("••••••", text: $repeatPin)
-                    .keyboardType(.numberPad)
-                    .textContentType(.newPassword)
-                    .focused($focus, equals: .repeatPin)
-                    .accessibilityLabel(L("common.retry"))
-                    .onChange(of: repeatPin) { _, value in
-                        repeatPin = digits(value, limit: API.pinLength)
-                    }
+            field(title: L("common.retry"), framed: false) {
+                CodeCells(
+                    text: $repeatPin,
+                    focus: $focus,
+                    field: .repeatPin,
+                    length: API.pinLength,
+                    label: L("common.retry"),
+                    secure: true,
+                    contentType: .newPassword
+                )
             }
             .padding(.top, 14)
 
@@ -543,7 +594,7 @@ struct LoginView: View {
                     .accessibilityIdentifier("login.businessName")
                     .accessibilityLabel(L("onboarding.bizName"))
             }
-            .padding(.top, 20)
+            .padding(.top, 30)
 
             field(title: L("onboarding.ownerName")) {
                 TextField(L("staff.namePlaceholder"), text: $ownerName)
@@ -592,17 +643,28 @@ struct LoginView: View {
 
     // ══════════════════════ мелочи ══════════════════════
 
+    /**
+     * Телефон — с выбором кода страны, как в кабинете.
+     *
+     * Раньше здесь стояло одно поле с подсказкой «+374 77 123 456», и
+     * человек с российским или грузинским номером должен был сам
+     * догадаться набрать плюс и код. В браузере код выбирается списком с
+     * первого дня, и приложение оставалось единственным местом, где это
+     * надо было знать заранее.
+     *
+     * Номер, набранный по привычке целиком — с плюсом, с кодом страны
+     * или с ведущим нулём, — поле по-прежнему принимает: лишнее
+     * отрезается само (`Country.national`).
+     */
     private var phoneField: some View {
         field(title: L("auth.phone")) {
-            TextField("+374 77 123 456", text: $phone)
-                .keyboardType(.phonePad)
-                .textContentType(.telephoneNumber)
-                .focused($focus, equals: .phone)
-                /* Имена для VoiceOver и для UI-тестов — одни и те же.
-                   Плейсхолдер озвучивать нечего: «+374 77 123 456»
-                   читается как набор цифр, а не как «телефон». */
-                .accessibilityIdentifier("login.phone")
-                .accessibilityLabel(L("auth.phone"))
+            CountryPhoneField(
+                country: $country,
+                number: $phone,
+                ink: .white,
+                identifier: "login.phone"
+            )
+            .focused($focus, equals: .phone)
         }
     }
 
@@ -617,16 +679,49 @@ struct LoginView: View {
         }
     }
 
+    /**
+     * Вторая дверь и всё, что рядом с ней: строкой, но с телом.
+     *
+     * Раньше это была голая надпись в тринадцать с половиной пунктов, и
+     * попасть в неё было нечем: живой площади у неё высота строки, а в
+     * двадцати точках выше стоит лаймовая кнопка высотой в палец. Палец,
+     * нацеленный в «Войти по PIN», попадал в «Продолжить» — то есть
+     * вместо смены двери человек отправлял пустую форму.
+     *
+     * Теперь у надписи своя площадь: сорок четыре точки в высоту —
+     * меньше этого Apple не советует ни для чего, во что целятся
+     * пальцем, — и слабая подложка, которая говорит «это тоже кнопка».
+     * Подложка светлее полотна ровно настолько, чтобы читаться краем, и
+     * ни на йоту больше: главное действие на экране одно, и спорить с
+     * ним второй заливкой нельзя.
+     */
     private func quiet(_ title: String, run: @escaping () -> Void) -> some View {
-        Button(title, action: run)
-            .font(.system(size: 13.5, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.72))
-            .disabled(busy)
+        Button(action: run) {
+            Text(title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+                .padding(.horizontal, 18)
+                .frame(height: 44)
+                .background(.white.opacity(0.08), in: .rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
     }
 
     @ViewBuilder
     private func field<Content: View>(
         title: String,
+        /* Рисовать ли коробку поля.
+         *
+         * У клеток кода она своя, у каждой, и общая рамка вокруг ряда
+         * оказывалась ВТОРЫМ полем на заднем плане: под шестью клетками
+         * лежал ещё один прямоугольник, и ряд читался как поле внутри
+         * поля. */
+        framed: Bool = true,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -636,17 +731,21 @@ struct LoginView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(.white.opacity(0.6))
 
-            content()
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.white)
-                .tint(Brand.lime)
-                .padding(.horizontal, 16)
-                .frame(height: 54)
-                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                )
+            if framed {
+                content()
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .tint(Brand.lime)
+                    .padding(.horizontal, 16)
+                    .frame(height: 54)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                    )
+            } else {
+                content()
+            }
         }
     }
 
@@ -694,7 +793,7 @@ struct LoginView: View {
 
     private func sendEntryCode() async {
         await run {
-            let started = try await session.beginEntry(phone: phone)
+            let started = try await session.beginEntry(phone: country.e164(phone))
             go(.code(Waiting(
                 purpose: .entry,
                 id: started.challengeId,
@@ -707,7 +806,7 @@ struct LoginView: View {
 
     private func sendResetCode() async {
         await run {
-            let started = try await session.beginPinReset(phone: phone)
+            let started = try await session.beginPinReset(phone: country.e164(phone))
             go(.code(Waiting(
                 purpose: .reset,
                 id: started.challengeId,
@@ -724,7 +823,7 @@ struct LoginView: View {
         defer { busy = false }
 
         do {
-            try await session.signIn(phone: phone, pin: pin)
+            try await session.signIn(phone: country.e164(phone), pin: pin)
         } catch let e as APIError {
             /* Не отказ, а второй шаг: код подошёл, устройство сервер
                видит впервые. Экран меняется, а не показывает ошибку —

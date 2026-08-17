@@ -10356,19 +10356,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտք Tetrin"
+            "value": "Մուտք"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вход в Tetrin"
+            "value": "Вход"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign in to Tetrin"
+            "value": "Sign in"
           }
         }
       }
@@ -11473,6 +11473,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "All"
+          }
+        }
+      }
+    },
+    "auth.entered": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտքագրված է %1$lld %2$lld-ից"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введено %1$lld из %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld entered"
           }
         }
       }
