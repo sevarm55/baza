@@ -289,6 +289,11 @@ function OtpStep({
           autoComplete="one-time-code"
           autoFocus
           submitOnComplete
+          /* Единственное место с просветом посреди ряда: код из SMS
+             переписывают с другого экрана, и «204 815» сверяется
+             взглядом, а «204815» — пересчитывается пальцем. PIN
+             набирают по памяти, ему шов не нужен. */
+          groupEvery={3}
           enteredLabel={t.auth.entered}
           invalid={Boolean(state.error)}
         />

@@ -92,6 +92,50 @@
   transform: translateY(-1px);
 }
 
+/* Просвет посреди ряда, когда код просят разбить на группы. Не gap у
+   сетки: gap развёл бы ВСЕ клетки, а нужен один шов. */
+.cell[data-gap] {
+  margin-left: 11px;
+}
+
+/* Слой знаков поверх клетки. Цифра и каретка стоят в одной ячейке
+   сетки, а не рядом: уходящая цифра, приходящая цифра и каретка
+   обязаны занимать одно и то же место, иначе ряд дёргается на каждом
+   нажатии. */
+.glyphs {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.glyph {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+}
+
+/* Каретка. Настоящая спрятана: поле одно на шесть клеток, и её палка
+   стояла бы у левого края ряда, а не в пустой клетке. Эта — рисованная,
+   и мигает она тем же ритмом, что системная. */
+.caret {
+  grid-area: 1 / 1;
+  width: 2px;
+  height: 18px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: caret 1.06s steps(1, end) infinite;
+}
+
+@keyframes caret {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
 /* Точка вместо цифры, пока код скрыт. */
 .dot {
   width: 9px;
@@ -211,5 +255,11 @@
   }
   .cell {
     transition: none;
+  }
+  /* Каретка остаётся — она не украшение, а единственный указатель на
+     клетку ввода. Гаснет только мигание. */
+  .caret {
+    animation: none;
+    opacity: 1;
   }
 }

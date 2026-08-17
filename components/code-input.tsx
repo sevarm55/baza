@@ -1,8 +1,16 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { IconEye, IconEyeOff } from '@/components/icons';
 import s from './code-input.module.css';
+
+/* Цифра не появляется, а приезжает: снизу, из размытия, за 0.22 с.
+   Смысл не в красоте — движение показывает, КУДА попала цифра, когда
+   клавиатура закрывает половину экрана и смотреть на ряд некогда.
+   Уходит она вверх и быстрее, чтобы забой читался как отмена, а не как
+   вторая такая же цифра. */
+const ENTER = { duration: 0.22, ease: [0.23, 1, 0.32, 1] } as const;
 
 /**
  * Поле для кода — PIN или кода из SMS.
@@ -36,6 +44,7 @@ export function CodeInput({
   autoFocus = false,
   autoComplete = 'one-time-code',
   submitOnComplete = false,
+  groupEvery = 0,
   revealable = false,
   invalid = false,
   disabled = false,
@@ -66,6 +75,15 @@ export function CodeInput({
   /** one-time-code для SMS, current-password / new-password для PIN */
   autoComplete?: string;
   submitOnComplete?: boolean;
+  /**
+   * Разбить ряд на группы по столько клеток.
+   *
+   * Ноль — не разбивать. Просвет посреди ряда нужен там, где код
+   * ПЕРЕПИСЫВАЮТ с чужого экрана: 204 815 сверяется взглядом, 204815 —
+   * пересчитывается пальцем. Для PIN, который набирают по памяти,
+   * группировка бессмысленна и только режет узкий ряд в кабинете.
+   */
+  groupEvery?: number;
   revealable?: boolean;
   invalid?: boolean;
   disabled?: boolean;
@@ -78,6 +96,7 @@ export function CodeInput({
 }) {
   const [inner, setInner] = useState('');
   const value = controlled ?? inner;
+  const reduced = useReducedMotion();
 
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -125,6 +144,10 @@ export function CodeInput({
   /* Активна клетка, куда попадёт следующая цифра. Когда код набран
      целиком, подсвечиваем последнюю — иначе кольцо уезжает за ряд. */
   const active = Math.min(value.length, length - 1);
+  /* Код из SMS показывается цифрами: его переписывают с другого экрана,
+     и точки вместо цифр лишили бы человека единственного способа
+     проверить себя. PIN закрыт, пока не нажат глазок. */
+  const plain = revealed || autoComplete === 'one-time-code';
 
   return (
     <div className="grid gap-2">
@@ -166,8 +189,40 @@ export function CodeInput({
               className={s.cell}
               data-filled={digit ? '' : undefined}
               data-active={i === active ? '' : undefined}
+              data-gap={groupEvery > 0 && i > 0 && i % groupEvery === 0 ? '' : undefined}
             >
-              {digit && (revealed || autoComplete === 'one-time-code' ? digit : <span className={s.dot} />)}
+              <span className={s.glyphs}>
+                {/* Цифра живёт в своей клетке и меняется на месте:
+                    AnimatePresence на каждую клетку, а не на ряд —
+                    иначе правка одной цифры пересобирала бы все шесть. */}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {digit ? (
+                    <motion.span
+                      /* Ключ по тому, что ВИДНО. Под точками цифра
+                         меняется молча: показывать движение там, где
+                         картинка не изменилась, значит врать о вводе. */
+                      key={plain ? digit : 'dot'}
+                      className={s.glyph}
+                      initial={reduced ? false : { opacity: 0, scale: 0.97, y: 9, filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                      exit={
+                        reduced
+                          ? { opacity: 0 }
+                          : { opacity: 0, scale: 0.98, y: -6, filter: 'blur(3px)' }
+                      }
+                      transition={reduced ? { duration: 0 } : ENTER}
+                    >
+                      {plain ? digit : <span className={s.dot} />}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
+
+                {/* Каретка. Настоящая спрятана — она одна на весь ряд и
+                    стояла бы не в той клетке; эта показывает, куда
+                    попадёт следующая цифра, и только пока поле в фокусе
+                    и клетка пуста. */}
+                {focused && !digit && i === active && !disabled && <span className={s.caret} />}
+              </span>
             </div>
           ))}
         </div>
