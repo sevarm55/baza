@@ -39,6 +39,17 @@ export async function POST(request: Request) {
       price?: number;
       /** тариф словом, как его видел мойщик */
       tier?: string;
+      /**
+       * Кто ещё мыл эту машину, кроме отправителя.
+       *
+       * Пусто или нет поля — одиночная мойка, ответ тот же до знака, что
+       * и до появления совместной. Себя присылать не нужно, но и не
+       * вредно: сервер схлопнет повтор.
+       *
+       * Состав проверяется на сервере целиком — чужой бизнес, уволенный,
+       * соседняя точка отвергаются здесь, а не в приложении.
+       */
+      participants?: string[];
     }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
@@ -64,9 +75,14 @@ export async function POST(request: Request) {
       return fail('BAD_REQUEST', 400);
     }
 
+    const participants = Array.isArray(input.participants)
+      ? input.participants.map(str).filter(Boolean)
+      : [];
+
     const result = await createOrder({
       tenantId: ctx.tenant.id,
       staffId: ctx.user.id,
+      participantIds: participants.length > 0 ? participants : undefined,
       serviceId: serviceId || undefined,
       serviceIds: serviceIds.length > 0 ? serviceIds : undefined,
       clientKey,
@@ -89,10 +105,25 @@ export async function POST(request: Request) {
           serviceName: result.order.serviceName,
           price: result.order.price,
           listPrice: result.order.listPrice,
+          /* Ставка, применённая ко всей записи: у одиночной мойки это
+             процент исполнителя, как и раньше, у совместной — процент
+             команды, то есть весь зарплатный фонд машины. */
           staffPercent: result.order.staffPercent,
           payment: result.order.payment,
           createdAt: result.order.createdAt,
         },
+        /* Кому сколько досталось. Приложение показывает это сразу после
+           записи: участник должен увидеть СВОЮ долю в тот же момент, а
+           не вечером в ведомости. Пусто у повторной досылки — она ничего
+           не создавала. */
+        crew:
+          result.crew && result.shares
+            ? result.crew.map((person, i) => ({
+                staffId: person.id,
+                name: person.name,
+                earned: result.shares!.shares[i],
+              }))
+            : [],
         duplicate: result.duplicate,
       },
       result.duplicate ? 200 : 201,

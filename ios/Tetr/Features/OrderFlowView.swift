@@ -46,6 +46,19 @@ struct OrderFlowView: View {
     /// Выбранный тариф — номером в списке бизнеса. `nil`, когда тарифов
     /// нет вовсе.
     @State private var tier: Int?
+    /**
+     * Мыли вместе.
+     *
+     * Выключено по умолчанию, и это не мелочь: девять записей из десяти
+     * одиночные, и лишнее касание на них стоило бы сорока касаний за
+     * смену ради одного случая.
+     *
+     * Переключатель отдельно от списка отмеченных: человек выбирает
+     * «вместе с коллегами» раньше, чем успевает кого-то отметить, и до
+     * первой галочки экран обязан показывать выбор, а не молчать.
+     */
+    @State private var together = false
+    @State private var helpers: Set<String> = []
 
     @FocusState private var typingDiscount: Bool
     @Namespace private var glass
@@ -131,6 +144,7 @@ struct OrderFlowView: View {
                     section(L("owner.colService"))
                     services
                     discountRow
+                    crewRow
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 20)
@@ -429,6 +443,152 @@ struct OrderFlowView: View {
         }
     }
 
+    // ══════════════════════════ кто мыл ══════════════════════════
+
+    /// Коллеги точки. Себя из списка убрал `Session`: автор записи
+    /// участник по определению.
+    private var mates: [API.CrewMate] { session.mates }
+
+    /* Выбирать можно только тех, кто на смене. Остальные в списке не
+       стоят: сервер такую запись всё равно не примет, и показывать имя,
+       по которому придёт отказ, значит обещать несуществующее. */
+    private var working: [API.CrewMate] { mates.filter(\.working) }
+
+    /// Общий процент команды. Пусто — свойство у бизнеса выключено.
+    private var teamPercent: Int? { session.teamPercent }
+
+    /**
+     * Совместная работа предлагается, только когда её есть с кем делать и
+     * когда владелец назначил общий процент. Иначе выбор «кто мыл» —
+     * управление, которое ничего не меняет: его придётся прочитать, чтобы
+     * это понять, а читают его сорок раз за смену.
+     */
+    private var canShare: Bool { teamPercent != nil && !mates.isEmpty }
+
+    /// Отмеченные, оставшиеся в списке. Владелец мог уволить человека,
+    /// пока экран открыт; считаем по тому, что видно.
+    private var crewIds: [String] {
+        guard canShare, together else { return [] }
+        return working.map(\.id).filter { helpers.contains($0) }
+    }
+
+    private var crewSize: Int { crewIds.count + 1 }
+
+    /// Своя доля — тем же кодом, которым её посчитает сервер.
+    private var myShare: Int {
+        Crew.shares(price: charged, percent: teamPercent ?? 0, people: crewSize).first ?? 0
+    }
+
+    private var teamPool: Int {
+        Crew.pool(price: charged, percent: teamPercent ?? 0)
+    }
+
+    @ViewBuilder
+    private var crewRow: some View {
+        if canShare {
+            section(L("crew.who"))
+
+            HStack(spacing: 8) {
+                choice(L("crew.onlyMe"), on: !together) {
+                    together = false
+                    /* Отметки снимаем сразу. Оставленные «на потом» они не
+                       видны — список свёрнут, — а уходят на сервер и делят
+                       деньги молча. */
+                    helpers = []
+                }
+                choice(L("crew.together"), on: together) { together = true }
+            }
+
+            if together {
+                Flow(spacing: 8) {
+                    ForEach(working) { mate in
+                        let on = helpers.contains(mate.id)
+                        Button {
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            if on {
+                                helpers.remove(mate.id)
+                            } else if crewSize < Crew.maxSize {
+                                helpers.insert(mate.id)
+                            }
+                        } label: {
+                            HStack(spacing: 7) {
+                                Circle()
+                                    .fill(Brand.person(mate.name))
+                                    .frame(width: 8, height: 8)
+                                Text(mate.name)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(height: 44)
+                            .background(
+                                on ? Brand.lime : Brand.boardInk.opacity(0.07),
+                                in: .rect(cornerRadius: 14)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 10)
+
+                /* Что получится — числами и до нажатия.
+                 *
+                 * Главное место всей затеи. Мойщик должен увидеть СВОЮ
+                 * долю раньше, чем согласится на совместную запись, иначе
+                 * вечером он узнает её из ведомости и решит, что его
+                 * обсчитали.
+                 *
+                 * Пока никого не отметили — подсказка, а не расчёт: «фонд
+                 * 5 000, каждому 5 000» на одном участнике не считает, а
+                 * путает. */
+                Group {
+                    if working.isEmpty {
+                        /* Коллеги в бизнесе есть, но все вне смены.
+                           Молчать здесь нельзя: пустой список читается
+                           как поломка, а причина у него рабочая и
+                           поправимая — человеку надо встать на смену на
+                           своём телефоне. */
+                        Text(L("crew.nobodyOnShift"))
+                            .foregroundStyle(Brand.warnOnBoard)
+                    } else if crewIds.isEmpty {
+                        Text(L("crew.percentHint"))
+                            .foregroundStyle(Brand.boardMuted)
+                    } else {
+                        Text(
+                            Terms.staff(crewSize, session.tenant?.staffRole ?? "")
+                                + " · " + L("crew.teamPercent") + " \(teamPercent ?? 0)%\n"
+                                + L("crew.pool") + " " + money(teamPool, currency)
+                                + " · " + L("crew.yours") + " " + money(myShare, currency)
+                        )
+                        .foregroundStyle(Brand.goodOnBoard)
+                    }
+                }
+                .font(.system(size: 12.5, weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 10)
+            }
+        }
+    }
+
+    /// Один из двух равноправных выходов: разница только в заливке.
+    private func choice(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            action()
+        } label: {
+            Text(label)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(
+                    on ? Brand.lime : Brand.boardInk.opacity(0.07),
+                    in: .rect(cornerRadius: 16)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     // ══════════════════════════ оплата ══════════════════════════
 
     /**
@@ -605,6 +765,8 @@ struct OrderFlowView: View {
                 tier: tier.flatMap { tiers[safe: $0] },
                 // чья мойка: очередь переживает переключение точки
                 tenantId: session.tenant?.id,
+                // кто ещё мыл; пусто — одиночная запись, как и была
+                participants: crewIds.isEmpty ? nil : crewIds,
                 at: Date()
             )
         )
@@ -631,6 +793,12 @@ struct OrderFlowView: View {
         known = nil
         showDiscount = false
         discountText = ""
+        /* Состав сбрасывается вместе со всем остальным. Соблазн оставить
+           его «до конца смены» есть — бригада за день не меняется, — но
+           цена ошибки несимметрична: забытая галочка запишет коллеге
+           чужую машину и уполовинит заработок тому, кто мыл её один. */
+        together = false
+        helpers = []
         typing = true
     }
 

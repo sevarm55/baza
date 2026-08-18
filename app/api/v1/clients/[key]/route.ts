@@ -53,7 +53,9 @@ export async function GET(
         listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
         serviceName: o.serviceName,
         payment: o.payment,
+        // кто внёс запись; кто над ней работал — в `crew`
         staffName: o.staffName,
+        crew: o.crew,
       })),
     });
   } catch (e) {

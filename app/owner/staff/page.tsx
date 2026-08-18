@@ -9,6 +9,7 @@ import { Figures, Plate } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { AddStaff } from './add-staff';
 import { StaffRoster } from './roster';
+import { TeamWash } from './team-wash';
 import type { StaffPerson } from './model';
 import { getDict } from '@/lib/i18n/server';
 import { unitWord } from '@/lib/i18n/terms';
@@ -94,7 +95,11 @@ export default async function StaffPage() {
         a.name.localeCompare(b.name, 'hy'),
     );
 
-  const cars = month.byStaff.reduce((sum, r) => sum + r.count, 0);
+  /* Машин у БИЗНЕСА, а не сумма участий. Складывать `count` по людям
+     нельзя с появлением совместной работы: машина, которую мыли втроём,
+     попала бы в это число трижды, и страница людей начала бы спорить со
+     сводкой о том, сколько машин было в месяце. */
+  const cars = month.count;
   const payroll = month.byStaff.reduce((sum, r) => sum + r.earned, 0);
 
   return (
@@ -108,6 +113,15 @@ export default async function StaffPage() {
             число стояло второй раз в строке человека, которому оно
             причитается, и там оно как раз на месте: там видно, КОМУ.
             Наверху оставался крик без адресата. */}
+        {/* Совместная работа стоит рядом с наймом, а не в настройках
+            бизнеса: это условие оплаты труда, и место ему среди людей.
+            Строкой в заголовке, а не прибором на странице, — свойство
+            трогают раз в год, как и классы машин. */}
+        <TeamWash
+          percent={tenant.teamPercent}
+          currency={tenant.currency}
+          staffRole={tenant.staffRole}
+        />
         <AddStaff staffRole={tenant.staffRole} />
       </PageHead>
 

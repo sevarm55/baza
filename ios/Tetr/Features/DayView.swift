@@ -357,11 +357,18 @@ struct DayView: View {
     }
 
     private func recordRow(_ item: API.FeedItem) -> some View {
-        let who = item.staffName ?? "—"
-        let tone = Brand.personTone(who)
+        /* Кто мыл — ВСЕ, а не автор записи: совместную работу вносит
+           один человек, а работают несколько, и назвать одного значило бы
+           соврать про остальных. У одиночной записи имя ровно одно, и
+           строка выглядит как выглядела. */
+        let who = item.crewNames
+        /* Кружок с буквой — по первому участнику: цвет человека один и
+           тот же в команде, в зарплатах и здесь. */
+        let face = item.crew?.first?.name ?? item.staffName ?? "—"
+        let tone = Brand.personTone(face)
 
         return HStack(alignment: .top, spacing: 12) {
-            Text(String(who.prefix(1)))
+            Text(String(face.prefix(1)))
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
@@ -391,6 +398,19 @@ struct DayView: View {
                         .font(.system(size: 11.5))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted.opacity(0.75))
+
+                    /* Состав — отдельной строкой и только у совместной
+                       работы. У одиночной записи человека называет кружок
+                       с буквой слева, и повторять имя словом незачем; у
+                       бригады одной буквы мало — по ней не поймёшь, что
+                       работали трое. */
+                    if item.shared {
+                        Text(who)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
                 }
 
                 Spacer(minLength: 4)

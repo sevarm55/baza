@@ -5,9 +5,9 @@ import { ChevronRight, Search } from 'lucide-react';
 import { Panel } from '@/components/board';
 import { OrderMenu } from '@/components/order-menu';
 import { formatMoney } from '@/lib/money';
-import type { Op } from './model';
+import type { Op, OpWorker } from './model';
 import { useT } from '@/lib/i18n/client';
-import { unitCount } from '@/lib/i18n/terms';
+import { staffCount, unitCount } from '@/lib/i18n/terms';
 
 /**
  * Сегодняшняя работа.
@@ -43,6 +43,8 @@ export function TodayOperations({
   empty,
   /** способы оплаты, которые в этих записях реально встретились */
   methods,
+  staff,
+  teamPercent,
 }: {
   ops: Op[];
   currency: string;
@@ -54,6 +56,17 @@ export function TodayOperations({
   /** пусто: у сегодняшнего дня и у закрытого месяца это разные слова */
   empty: { title: string; note?: string };
   methods: { key: string; label: string }[];
+  /**
+   * Активные люди точки — для правки состава из меню записи.
+   *
+   * Пусто — правка не предлагается: выбирать не из кого.
+   */
+  staff: { id: string; name: string }[];
+  /**
+   * Общий процент команды. Null — совместная работа у бизнеса выключена,
+   * и собрать из одиночной записи бригаду нечем.
+   */
+  teamPercent: number | null;
 }) {
   const t = useT();
   const [method, setMethod] = useState<string | null>(null);
@@ -155,27 +168,37 @@ export function TodayOperations({
                   {o.time} · {o.serviceName} · {o.paymentLabel}
                 </span>
 
+                {/* Все, кто мыл. Раньше здесь стояло одно имя, и другого
+                    быть не могло; теперь у машины бывает бригада, и
+                    назвать одного из троих значило бы соврать про
+                    двоих. */}
                 <span className="op-card-who">
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ background: o.staffColor }}
-                    aria-hidden
-                  />
-                  <span className="truncate">{o.staffName ?? '—'}</span>
+                  <Crew crew={o.crew} />
                 </span>
 
                 {/* Кому сколько досталось — прямо в карточке, а не под
                     раскрытием: на телефоне место есть, а лишнее нажатие
-                    мокрыми руками стоит дороже строки текста. */}
+                    мокрыми руками стоит дороже строки текста.
+
+                    У совместной работы сумма общая на всех, и рядом
+                    сказано, на скольких: «5 400 ֏ · 45 % · 3 мойщика»
+                    объясняет и число, и почему оно такое. */}
                 <span className="op-card-split num">
                   {t.owner.colShare} {money(o.share)}
                   {o.percent > 0 && ` · ${o.percent}%`}
+                  {o.crew.length > 1 && ` · ${staffCount(o.crew.length, staffRole, t.locale)}`}
                   {' · '}
                   {t.today.toBusiness} {money(o.yours)}
                 </span>
 
                 <span className="op-card-menu">
-                  <OrderMenu orderId={o.id} clientKey={o.clientKey} />
+                  <OrderMenu
+                    orderId={o.id}
+                    clientKey={o.clientKey}
+                    crew={o.crew}
+                    staff={staff}
+                    teamPercent={teamPercent}
+                  />
                 </span>
               </article>
             ))}
@@ -223,6 +246,9 @@ export function TodayOperations({
                     key={o.id}
                     op={o}
                     currency={currency}
+                    staffRole={staffRole}
+                    staff={staff}
+                    teamPercent={teamPercent}
                     open={open === o.id}
                     onToggle={() => setOpen((was) => (was === o.id ? null : o.id))}
                   />
@@ -265,17 +291,24 @@ export function TodayOperations({
 function Line({
   op,
   currency,
+  staffRole,
+  staff,
+  teamPercent,
   open,
   onToggle,
 }: {
   op: Op;
   currency: string;
+  staffRole: string;
+  staff: { id: string; name: string }[];
+  teamPercent: number | null;
   open: boolean;
   onToggle: () => void;
 }) {
   const t = useT();
   const money = (n: number) => formatMoney(n, currency, t.locale);
   const cut = op.price > 0 ? Math.round((op.share / op.price) * 100) : 0;
+  const shared = op.crew.length > 1;
 
   return (
     <>
@@ -307,16 +340,7 @@ function Line({
             «Հովհաննես Մկրտչյան-Սարգսյան» ломал строку целиком. Полное
             имя остаётся подсказкой. */}
         <td>
-          <span className="flex items-center gap-2">
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{ background: op.staffColor }}
-              aria-hidden
-            />
-            <span className="op-cut font-medium" title={op.staffName ?? undefined}>
-              {op.staffName ?? '—'}
-            </span>
-          </span>
+          <Crew crew={op.crew} />
         </td>
         <td style={{ color: 'var(--board-muted)' }}>
           <span className="op-cut" title={op.serviceName}>
@@ -351,7 +375,13 @@ function Line({
             >
               <ChevronRight className="size-4" aria-hidden />
             </button>
-            <OrderMenu orderId={op.id} clientKey={op.clientKey} />
+            <OrderMenu
+              orderId={op.id}
+              clientKey={op.clientKey}
+              crew={op.crew}
+              staff={staff}
+              teamPercent={teamPercent}
+            />
           </span>
         </td>
       </tr>
@@ -362,24 +392,52 @@ function Line({
             <div className="op-split">
               <span className="op-split-head">
                 {t.today.clientPaid} <b className="num">{money(op.price)}</b>
+                {/* Совместная работа названа словом и разобрана числами:
+                    процент команды и общий фонд стоят над списком, а
+                    доли — под ним. Без этой строки «45 %» рядом с
+                    «1 800 ֏» читается как ошибка расчёта. */}
+                {shared && (
+                  <>
+                    {' · '}
+                    {t.crew.title} · {staffCount(op.crew.length, staffRole, t.locale)} ·{' '}
+                    {t.crew.pool} <b className="num">{money(op.share)}</b>
+                  </>
+                )}
               </span>
 
+              {/* Полоса: доля каждого участника и остаток бизнеса.
+                  Сегментов столько, сколько людей, а не два: у бригады из
+                  троих один общий кусок ничего не объясняет. */}
               <span className="op-split-bar" aria-hidden>
-                <span style={{ width: `${cut}%`, background: op.staffColor }} />
+                {op.crew.map((p, i) => (
+                  <span
+                    key={p.staffId ?? `noname-${i}`}
+                    style={{
+                      width: `${op.price > 0 ? (p.earned / op.price) * 100 : 0}%`,
+                      background: p.color,
+                    }}
+                  />
+                ))}
                 <span style={{ width: `${100 - cut}%`, background: 'var(--tone-violet-glow)' }} />
               </span>
 
               <span className="op-split-legend">
-                <span>
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ background: op.staffColor }}
-                    aria-hidden
-                  />
-                  {op.staffName ?? '—'}
-                  <b className="num">{money(op.share)}</b>
-                  {op.percent > 0 && <i className="num">{op.percent}%</i>}
-                </span>
+                {op.crew.map((p, i) => (
+                  <span key={p.staffId ?? `noname-${i}`}>
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: p.color }}
+                      aria-hidden
+                    />
+                    {p.name ?? '—'}
+                    <b className="num">{money(p.earned)}</b>
+                    {/* Ставку показываем только у одиночной записи: у
+                        совместной она общая на всех и уже названа над
+                        списком, а повторённая у каждого имени читается
+                        как «столько получил каждый». */}
+                    {!shared && op.percent > 0 && <i className="num">{op.percent}%</i>}
+                  </span>
+                ))}
                 <span>
                   <span
                     className="size-2 shrink-0 rounded-full"
@@ -390,11 +448,57 @@ function Line({
                   <b className="num">{money(op.yours)}</b>
                 </span>
               </span>
+
+              {/* Кто внёс запись — последней строкой и тише всего.
+                  Спрашивают редко, но когда спрашивают, других способов
+                  узнать нет. У одиночной мойки строки нет: автор и
+                  исполнитель там один человек, и повторять его имя
+                  третий раз незачем. */}
+              {shared && op.authorName && (
+                <span className="op-split-head" style={{ color: 'var(--board-muted)' }}>
+                  {t.crew.author} {op.authorName}
+                </span>
+              )}
             </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * Кто мыл — одной строкой в ширину столбца.
+ *
+ * Точка перед именем — тот же цвет человека, что в списке работающих и во
+ * дворе: в таблице из сорока строк по ней видно, кто мыл, до чтения
+ * имени. У бригады точек несколько, и это читается раньше всех слов —
+ * «здесь работали несколько».
+ *
+ * Имена обрезаются по своему пределу, а не по ширине ячейки: в таблице с
+ * автоматической раскладкой длинное имя растягивает столбец, отбирая
+ * место у чисел справа.
+ */
+function Crew({ crew }: { crew: OpWorker[] }) {
+  if (crew.length === 0) return <span style={{ color: 'var(--board-muted)' }}>—</span>;
+
+  const names = crew.map((p) => p.name ?? '—');
+  return (
+    <span className="flex items-center gap-2">
+      <span className="flex shrink-0 items-center gap-[3px]">
+        {crew.map((p, i) => (
+          <span
+            key={p.staffId ?? `noname-${i}`}
+            className="size-2 rounded-full"
+            style={{ background: p.color }}
+            aria-hidden
+          />
+        ))}
+      </span>
+      <span className="op-cut font-medium" title={names.join(' · ')}>
+        {names.join(' · ')}
+      </span>
+    </span>
   );
 }
 

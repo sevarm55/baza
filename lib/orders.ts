@@ -1,26 +1,43 @@
-import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { priceForTier, tierIndexOf, tiersOf } from './catalog';
+import { crewOf, crewSplit, MAX_CREW } from './crew';
 import { db } from './db';
 import {
   audit,
   clients,
   orderItems,
+  orderShares,
   orders,
   passes,
   services,
+  shifts,
   tenants,
   users,
 } from './db/schema';
 import { formatMoney } from './money';
 import { notifyOwnersInBackground } from './push';
 import { normalizeClientKey } from './client-key';
+import { startOfDay } from './time';
 import { DEFAULT_LOCALE, dict } from './i18n';
 
 export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 
 export type CreateOrderInput = {
   tenantId: string;
+  /** кто вносит запись; он же первый участник работы */
   staffId: string;
+  /**
+   * Кто ещё мыл эту машину, кроме автора записи.
+   *
+   * Пусто или не передано — одиночная мойка, всё как раньше до знака.
+   * Автора сюда класть не нужно: он участник по определению, и требовать
+   * от него отметить самого себя значило бы однажды оставить его без
+   * денег за собственную работу.
+   *
+   * Проверяется здесь, а не в форме: прислать чужой id — вопрос одного
+   * запроса мимо интерфейса.
+   */
+  participantIds?: string[];
   /**
    * Одна услуга. Оставлена ради телефонов со старой версией: в их
    * офлайн-очереди лежат записи этого вида, и они обязаны доехать.
@@ -108,7 +125,17 @@ export async function createOrder(input: CreateOrderInput) {
           and(eq(orders.tenantId, input.tenantId), eq(orders.clientRef, input.clientRef)),
         );
       if (existing) {
-        return { order: existing, client: null, service: null, duplicate: true };
+        /* Состав повторной досылки не пересобираем и не сверяем: доли за
+           эту машину уже лежат в базе с первой попытки, и вторая обязана
+           быть ровно ничем. */
+        return {
+          order: existing,
+          client: null,
+          service: null,
+          duplicate: true,
+          crew: null,
+          shares: null,
+        };
       }
     }
 
@@ -143,6 +170,87 @@ export async function createOrder(input: CreateOrderInput) {
       .where(and(eq(users.id, input.staffId), eq(users.tenantId, input.tenantId)));
     if (!staff) throw new NotFoundError('STAFF_NOT_FOUND');
 
+    /* Бизнес читаем здесь, а не ниже у цены: его часовой пояс задаёт
+       границу суток, а она нужна уже проверке состава. «Сегодня» на
+       мойке в Ереване и на сервере в Германии это разные сутки, и
+       считать её по часам сервера значило бы вечером отвергать
+       настоящую работу, а ночью принимать вчерашнюю. */
+    const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, input.tenantId));
+
+    /* Состав работы. Автор первым и без права его пропустить; остальные
+       приходят снаружи и проверяются здесь по одному.
+
+       Проверка обязана быть на сервере целиком, а не «ещё и на сервере»:
+       список коллег рисует форма, но отправить можно что угодно — id
+       уволенного, id человека с соседней мойки, id из чужого бизнеса.
+       Каждое из трёх означало бы начисление зарплаты тому, кто её не
+       заработал, и увидел бы это владелец в лучшем случае в день
+       расчёта. */
+    const crewIds = crewOf(staff.id, input.participantIds ?? []);
+    if (crewIds.length > MAX_CREW) throw new NotFoundError('CREW_TOO_BIG');
+
+    const team = crewIds.length > 1;
+    let crew = [staff];
+
+    if (team) {
+      const mates = await tx
+        .select()
+        .from(users)
+        .where(
+          and(
+            inArray(users.id, crewIds),
+            /* Свой бизнес и только он. Условие стоит рядом с выборкой, а
+               не проверяется потом по результату: забыть его в проверке
+               можно, а здесь нечего забывать — чужие строки просто не
+               приедут. */
+            eq(users.tenantId, input.tenantId),
+            /* Уволенный в состав не входит. Его карточка ещё жива —
+               людей не удаляют, у них история, — но начислять ему за
+               сегодняшнюю работу не за что. */
+            eq(users.active, true),
+          ),
+        );
+
+      /* Порядок восстанавливаем по списку, а не по тому, как их вернула
+         база: от порядка зависит, кому достанется лишний драм остатка, и
+         он обязан быть тем же, что показала форма. */
+      const picked = crewIds.map((id) => mates.find((m) => m.id === id));
+      if (picked.some((m) => !m)) throw new NotFoundError('CREW_MEMBER_NOT_FOUND');
+      crew = picked as typeof mates;
+
+      /* НА СМЕНЕ, а не просто «числится в бизнесе».
+       *
+       * Правило то же, по которому человек вообще получает право
+       * записывать (`canRecord`): не встал на смену, значит сегодня не
+       * работал. Без него совместная запись стала бы способом начислить
+       * зарплату тому, кого на мойке не было, и заметил бы это владелец
+       * в лучшем случае в день расчёта, а работник, которому долю
+       * разделили с отсутствующим, не заметил бы вовсе.
+       *
+       * Проверка мягкая ровно на один случай, и на тот же, что у автора
+       * записи: годится и закрытая сегодня смена. Телефон копит записи
+       * без связи и досылает их вечером, когда смены уже закрылись сами;
+       * отвергнуть такую досылку значило бы объявить ошибкой настоящую
+       * работу. Вчерашняя смена основанием уже не является.
+       */
+      const dayStart = startOfDay(tenant?.timezone ?? 'UTC');
+      const working = await tx
+        .select({ userId: shifts.userId })
+        .from(shifts)
+        .where(
+          and(
+            eq(shifts.tenantId, input.tenantId),
+            inArray(shifts.userId, crewIds),
+            or(isNull(shifts.closedAt), gte(shifts.openedAt, dayStart)),
+          ),
+        );
+
+      const onShift = new Set(working.map((r) => r.userId));
+      if (crew.some((m) => !onShift.has(m.id))) {
+        throw new NotFoundError('CREW_NOT_ON_SHIFT');
+      }
+    }
+
     const now = new Date();
 
     /* Цену считаем ДО клиента: его итог обязан расти на взятую сумму, а
@@ -151,9 +259,16 @@ export async function createOrder(input: CreateOrderInput) {
     /* Тариф разрешаем по названию и один раз на всю запись: класс машины
        принадлежит машине, а не услуге, и «джип по комплексу, седан по
        химчистке» — это не бизнес-случай, а способ ошибиться. */
-    const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, input.tenantId));
     const tierIndex = tenant ? tierIndexOf(tenant, input.tier) : null;
     const tierName = tierIndex == null ? null : tiersOf(tenant!)[tierIndex];
+
+    /* Совместная мойка без настроенной ставки команды — отказ, а не
+       «посчитаем чем-нибудь». Подставить сюда личный процент автора
+       значило бы, что одна и та же бригада получает разные деньги в
+       зависимости от того, чей телефон оказался под рукой. Форма такую
+       запись и не предложит; отказ ловит запрос мимо неё. */
+    const teamPercent = tenant?.teamPercent ?? null;
+    if (team && teamPercent === null) throw new NotFoundError('TEAM_PERCENT_UNSET');
 
     const listPrice = chosen.reduce((sum, s) => sum + priceForTier(s, tierIndex), 0);
     let price = listPrice;
@@ -218,6 +333,23 @@ export async function createOrder(input: CreateOrderInput) {
       passId = used.id;
     }
 
+    /* Зарплату считаем ПОСЛЕ того, как цена окончательна: списание с
+       абонемента подменяет её номиналом одной мойки внутри него, и
+       посчитанная раньше доля относилась бы к сумме, которой не было.
+
+       Ставка уходит в запись снимком, как цена и название услуги. У
+       одиночной мойки это личный процент человека — ровно как до
+       совместной; у совместной это ставка команды, то есть весь фонд
+       машины. Инвариант «фонд записи = сумма долей» держится в обоих
+       случаях, и всё, что считает зарплату бизнеса по записям, продолжает
+       считать её верно, ничего не зная про участников. */
+    const split = crewSplit({
+      price,
+      people: crew.length,
+      soloPercent: staff.percent,
+      teamPercent,
+    });
+
     const [order] = await tx
       .insert(orders)
       .values({
@@ -229,7 +361,7 @@ export async function createOrder(input: CreateOrderInput) {
         tier: tierName,
         price,
         listPrice,
-        staffPercent: staff.percent,
+        staffPercent: split.percent,
         payment: input.payment,
         passId,
         clientRef: input.clientRef ?? null,
@@ -254,6 +386,20 @@ export async function createOrder(input: CreateOrderInput) {
       })),
     );
 
+    /* Доли участников — той же транзакцией, что запись. Запись без долей
+       это машина, за которую никому не начислено; доли без записи —
+       начисление из ниоткуда. Ни то ни другое не должно пережить сбой
+       посередине. */
+    await tx.insert(orderShares).values(
+      crew.map((person, i) => ({
+        tenantId: input.tenantId,
+        orderId: order.id,
+        staffId: person.id,
+        earned: split.shares[i],
+        sort: i,
+      })),
+    );
+
     await tx.insert(audit).values({
       tenantId: input.tenantId,
       userId: staff.id,
@@ -266,10 +412,15 @@ export async function createOrder(input: CreateOrderInput) {
         price,
         listPrice,
         payment: input.payment,
+        /* Состав пишем в журнал только когда мыли вместе: у одиночной
+           мойки исполнитель и так назван автором записи, и повторять его
+           списком из одного имени значит засорять журнал ровно тем, что
+           в нём и так есть. */
+        ...(team ? { crew: crew.map((p) => p.name), teamPercent: split.percent } : {}),
       },
     });
 
-    return { order, client, service, duplicate: false };
+    return { order, client, service, duplicate: false, crew, shares: split };
   });
 
   /* Уведомление шлём ПОСЛЕ транзакции и в фоне.
@@ -328,9 +479,198 @@ function discountLine(
 }
 
 /**
+ * Изменить состав уже записанной мойки.
+ *
+ * Нужно ровно для одного случая, и он частый: машину мыли втроём, а
+ * записавший отметил двоих. Без правки третий остаётся без денег
+ * навсегда, и единственным выходом была бы отмена записи и повторный
+ * ввод — то есть потеря времени машины, номера и порядка в ленте ради
+ * одной галочки.
+ *
+ * КАКОЙ ПРОЦЕНТ ПРИМЕНИТЬ. Здесь легко молча переписать историю, поэтому
+ * правило узкое:
+ *
+ *   было вместе, стало вместе — ставка НЕ трогается. Она уже лежит
+ *     снимком в записи, и добавление человека делит тот же фонд на
+ *     большее число, а не пересчитывает его по сегодняшней настройке.
+ *     Ровно этого и ждут: 5 000 на двоих превращаются в 5 000 на троих,
+ *     а не в другую сумму, потому что владелец месяц назад правил ставку;
+ *
+ *   было одному, стало вместе — снимка ставки команды у записи нет и
+ *     взяться ему неоткуда, кроме текущей настройки бизнеса;
+ *
+ *   стало одному — работает личная ставка этого человека, как у любой
+ *     одиночной мойки.
+ *
+ * Состав, совпадающий с нынешним, не делает ничего. Это не оптимизация:
+ * пересчёт «на месте» по текущим ставкам был бы способом задним числом
+ * поменять зарплату, ни о чём не спросив.
+ */
+export async function setOrderCrew(params: {
+  tenantId: string;
+  orderId: string;
+  byUserId: string;
+  /**
+   * Весь состав работы, включая того, кто записал. Порядок значим: по
+   * нему раздаётся остаток от деления фонда.
+   *
+   * Автор записи (`orders.staffId`) при этом не трогается никогда: кто
+   * внёс запись — факт прошлого, и правкой состава он не меняется.
+   */
+  participantIds: string[];
+}) {
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, params.orderId), eq(orders.tenantId, params.tenantId)));
+    if (!order) throw new NotFoundError('ORDER_NOT_FOUND');
+    /* Отменённая запись не заработала ничего, и делить в ней нечего.
+       Разрешив правку, мы бы завели начисления, которые нигде не видны:
+       все зарплатные запросы такую запись отбрасывают. */
+    if (order.canceledAt) throw new NotFoundError('ORDER_CANCELED');
+
+    const wanted = crewOf(
+      String(params.participantIds[0] ?? ''),
+      params.participantIds.slice(1),
+    ).filter(Boolean);
+    if (wanted.length === 0) throw new NotFoundError('CREW_REQUIRED');
+    if (wanted.length > MAX_CREW) throw new NotFoundError('CREW_TOO_BIG');
+
+    const mates = await tx
+      .select()
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, wanted),
+          eq(users.tenantId, params.tenantId),
+          eq(users.active, true),
+        ),
+      );
+    const picked = wanted.map((id) => mates.find((m) => m.id === id));
+    if (picked.some((m) => !m)) throw new NotFoundError('CREW_MEMBER_NOT_FOUND');
+    const crew = picked as typeof mates;
+
+    /* На смене В ТОТ ДЕНЬ, а не сегодня.
+     *
+     * Правку состава владелец делает задним числом: «мыли втроём, а
+     * отметили двоих» выясняется вечером или назавтра. Спрашивать при
+     * этом сегодняшнюю смену значило бы запретить исправлять вчерашнее —
+     * то есть оставить человека без денег ровно в том случае, ради
+     * которого правка и заведена.
+     *
+     * Годится любая смена, пересекающаяся с сутками записи: человек мог
+     * выйти до полуночи и уйти после. Тот же отбор, которым история дня
+     * показывает, кто в этот день стоял на мойке (`shiftsOnDay`). */
+    const zone = (await tx.select().from(tenants).where(eq(tenants.id, params.tenantId)))[0]
+      ?.timezone;
+    const dayStart = startOfDay(zone ?? 'UTC', order.createdAt);
+    const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+    const working = await tx
+      .select({ userId: shifts.userId })
+      .from(shifts)
+      .where(
+        and(
+          eq(shifts.tenantId, params.tenantId),
+          inArray(shifts.userId, wanted),
+          lt(shifts.openedAt, dayEnd),
+          or(isNull(shifts.closedAt), gt(shifts.closedAt, dayStart)),
+        ),
+      );
+
+    const onShift = new Set(working.map((r) => r.userId));
+    if (crew.some((m) => !onShift.has(m.id))) {
+      throw new NotFoundError('CREW_NOT_ON_SHIFT');
+    }
+
+    const was = await tx
+      .select()
+      .from(orderShares)
+      .where(eq(orderShares.orderId, order.id))
+      .orderBy(orderShares.sort);
+
+    /* Тот же состав в том же порядке — выходим. Пересчёт здесь означал
+       бы правку прошлой зарплаты по сегодняшним ставкам, ни о чём не
+       спросив; см. рассуждение над функцией. */
+    const same =
+      was.length === crew.length && was.every((s, i) => s.staffId === crew[i].id);
+    if (same) {
+      return {
+        order,
+        changed: false,
+        percent: order.staffPercent,
+        pool: was.reduce((sum, s) => sum + s.earned, 0),
+      };
+    }
+
+    const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, params.tenantId));
+    const teamPercent = tenant?.teamPercent ?? null;
+
+    const percent =
+      crew.length > 1
+        ? was.length > 1
+          ? order.staffPercent
+          : (teamPercent ?? null)
+        : crew[0].percent;
+    if (percent === null) throw new NotFoundError('TEAM_PERCENT_UNSET');
+
+    const split = crewSplit({
+      price: order.price,
+      people: crew.length,
+      soloPercent: percent,
+      teamPercent: percent,
+    });
+
+    /* Начисто, а не правкой строк. Состав меняется целиком — кого-то
+       убрали, кого-то добавили, — и попытка сопоставить старые строки с
+       новыми стоила бы кода ровно для того, чтобы получить тот же
+       результат. Осиротевших начислений после этого не остаётся по
+       построению: старых строк больше нет. */
+    await tx.delete(orderShares).where(eq(orderShares.orderId, order.id));
+    await tx.insert(orderShares).values(
+      crew.map((person, i) => ({
+        tenantId: params.tenantId,
+        orderId: order.id,
+        staffId: person.id,
+        earned: split.shares[i],
+        sort: i,
+      })),
+    );
+
+    const [updated] = await tx
+      .update(orders)
+      .set({ staffPercent: split.percent })
+      .where(eq(orders.id, order.id))
+      .returning();
+
+    await tx.insert(audit).values({
+      tenantId: params.tenantId,
+      userId: params.byUserId,
+      action: 'update',
+      entity: 'order',
+      entityId: order.id,
+      data: {
+        what: 'crew',
+        crew: crew.map((p) => p.name),
+        percent: split.percent,
+        pool: split.pool,
+      },
+    });
+
+    return { order: updated, changed: true, percent: split.percent, pool: split.pool };
+  });
+}
+
+/**
  * Мягкая отмена: запись остаётся в истории и в аудите, но перестаёт
  * попадать в выручку и зарплату. Счётчики клиента откатываются,
  * списанная мойка возвращается в абонемент.
+ *
+ * Доли участников при этом НЕ удаляются, и это важно: отмена — признак
+ * самой записи (`canceledAt`), а все зарплатные запросы ходят к долям
+ * через неё. Стирание строк было бы вторым способом отменять, который
+ * разойдётся с первым, — а пока способ один, совместная мойка исчезает
+ * у всех участников сразу и целиком.
  */
 export async function cancelOrder(params: {
   tenantId: string;

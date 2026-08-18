@@ -2,8 +2,15 @@
 import { requireSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { ensureDb } from '@/lib/db/ready';
-import { getShift, getTenant, getUser, listServices, startOfDay } from '@/lib/queries';
-import { cashInShift, closedShiftToday, currentShift } from '@/lib/shifts';
+import {
+  getShift,
+  getTenant,
+  getUser,
+  listServices,
+  listStaff,
+  startOfDay,
+} from '@/lib/queries';
+import { cashInShift, closedShiftToday, currentShift, whoIsOnShift } from '@/lib/shifts';
 import { hhmm } from '@/lib/time';
 import { listPoints } from '@/lib/accounts';
 import { formatMoney } from '@/lib/money';
@@ -45,13 +52,38 @@ export default async function WorkPage() {
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift, open, closed, points] = await Promise.all([
+  const [services, shift, open, closed, points, staff] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     closedShiftToday(tenant.id, me.id, startOfDay(tenant.timezone)),
     me.accountId ? listPoints(me.accountId) : Promise.resolve([]),
+    /* Коллеги — для отметки «помыли вместе». Приезжают вместе со
+       страницей, а не запросом по нажатию: список нужен ровно в тот
+       момент, когда человек стоит у машины мокрыми руками, и пауза на
+       загрузку там дороже всего.
+
+       Себя убираем здесь, а не в форме: автор записи участник по
+       определению, и галочка напротив собственного имени была бы
+       способом однажды остаться без денег за свою же работу. */
+    listStaff(tenant.id),
   ]);
+
+  /* Кто из коллег сейчас на мойке.
+   *
+   * Отметить участником можно только того, кто встал на смену: не встал —
+   * значит сегодня не работал, и начислять ему за чужую машину не за что.
+   * То же правило проверяет сервер, здесь оно только убирает из списка
+   * имена, по которым всё равно придёт отказ.
+   *
+   * Признак едет вместе с человеком, а не вырезает его из списка: без
+   * коллег вовсе и «все ушли домой» — разные ответы, и форма обязана их
+   * различать. */
+  const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
+  const presentIds = new Set(present.map((p) => p.userId));
+  const mates = staff
+    .filter((s) => s.id !== me.id)
+    .map((s) => ({ id: s.id, name: s.name, onShift: presentIds.has(s.id) }));
 
   /* Сколько наличных на руках с начала смены.
    *
@@ -266,6 +298,14 @@ export default async function WorkPage() {
             unitOne={tenant.unitOne}
             addLabel={`+ ${unitForms(tenant.unitOne, t.locale).acc}`}
             timezone={tenant.timezone}
+            /* Совместная работа. Пусто в `teamPercent` — свойства у
+               бизнеса нет, и выбора «кто мыл» на экране не будет вовсе:
+               управление, которое ничего не меняет, приходится
+               прочитать, чтобы это понять, а читают его сорок раз за
+               смену. */
+            mates={mates}
+            teamPercent={tenant.teamPercent}
+            staffRole={tenant.staffRole}
             recent={shift.orders.map((o) => ({
               id: o.id,
               clientKey: o.clientKey,
@@ -273,6 +313,15 @@ export default async function WorkPage() {
               price: o.price,
               payment: o.payment,
               at: o.createdAt.toISOString(),
+              /* Своя доля и число участников. У одиночной мойки доля
+                 равна прежнему расчёту, а `crew` равен единице — строка
+                 журнала выглядит ровно как выглядела. */
+              earned: o.earned,
+              crew: o.crew,
+              /* Запись сделал смотрящий: от этого зависит, показывать ли
+                 отмену. Чужую совместную мойку он видит, но отменять её
+                 не вправе. */
+              mine: o.staffId === me.id,
             }))}
           />
 

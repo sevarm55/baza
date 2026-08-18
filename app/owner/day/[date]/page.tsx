@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
-import { getFeed, getPeriodStats, getTenant } from '@/lib/queries';
+import { getFeed, getPeriodStats, getTenant, listStaff } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { shiftsOnDay } from '@/lib/shifts';
 import { dayBounds, isDate, localDate } from '@/lib/history';
@@ -54,13 +54,15 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const zone = tenant.timezone;
   const { from, to } = dayBounds(date, zone);
 
-  const [stats, feed, crew, costs] = await Promise.all([
+  const [stats, feed, crew, costs, roster] = await Promise.all([
     getPeriodStats(tenant.id, from, to),
     getFeed(tenant.id, from, 200, to),
     shiftsOnDay(tenant.id, from, to),
     // тот же знаменатель, что у сводки и календаря: длина месяца, в
     // котором стоит этот день
     getPeriodCosts(tenant.id, from, to, daysInMonthOf(zone, from)),
+    // люди точки — для правки состава совместной записи из меню ленты
+    listStaff(tenant.id),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
@@ -75,8 +77,14 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
       id: o.id,
       time: hhmm(o.createdAt, zone),
       clientKey: o.clientKey,
-      staffName: o.staffName,
-      staffColor: personColor(o.staffName),
+      /* Все, кто мыл, с долей каждого — та же форма, что на сводке. */
+      crew: o.crew.map((p) => ({
+        staffId: p.staffId,
+        name: p.name,
+        color: personColor(p.name),
+        earned: p.earned,
+      })),
+      authorName: o.staffName,
       serviceName: o.serviceName,
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
@@ -190,6 +198,8 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         <div className="lg:col-span-8">
           <TodayOperations
             ops={ops}
+            staff={roster.map((s) => ({ id: s.id, name: s.name }))}
+            teamPercent={tenant.teamPercent}
             currency={tenant.currency}
             unitOne={tenant.unitOne}
             staffRole={tenant.staffRole}

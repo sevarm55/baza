@@ -11,6 +11,7 @@ import {
   getRevenueSeries,
   getTenant,
   getUser,
+  listStaff,
   startOfDay,
 } from '@/lib/queries';
 import { getSetup, needsWelcome } from '@/lib/onboarding';
@@ -111,7 +112,7 @@ export default async function TodayPage({
   const w = windowFor(period, tenant.timezone);
   const { byHour, from, to, prevFrom, prevTo } = w;
 
-  const [stats, feed, series, split, costs, prevStats, prevCosts] = await Promise.all([
+  const [stats, feed, series, split, costs, prevStats, prevCosts, roster] = await Promise.all([
     getPeriodStats(tenant.id, from, to),
     // лента ограничена сверху: у «прошлого месяца» она не должна
     // прихватывать записи из текущего
@@ -131,6 +132,9 @@ export default async function TodayPage({
     getPeriodCosts(tenant.id, from, to, w.spread),
     getPeriodStats(tenant.id, prevFrom, prevTo),
     getPeriodCosts(tenant.id, prevFrom, prevTo, w.spread),
+    /* Люди точки — для правки состава совместной записи из меню ленты.
+       Список активных, а не всех: уволенному начислять не за что. */
+    listStaff(tenant.id),
   ]);
 
   /* Кто на смене — «сейчас», без оглядки на выбранный период: человек
@@ -189,8 +193,15 @@ export default async function TodayPage({
       id: o.id,
       time: hhmm(o.createdAt, tenant.timezone),
       clientKey: o.clientKey,
-      staffName: o.staffName,
-      staffColor: personColor(o.staffName),
+      /* Все, кто мыл, с долей каждого. У одиночной мойки в списке один
+         человек, и строка выглядит ровно как выглядела. */
+      crew: o.crew.map((p) => ({
+        staffId: p.staffId,
+        name: p.name,
+        color: personColor(p.name),
+        earned: p.earned,
+      })),
+      authorName: o.staffName,
       serviceName: o.serviceName,
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
@@ -473,6 +484,11 @@ export default async function TodayPage({
 
         <TodayOperations
           ops={ops}
+          /* Люди и общий процент — для правки состава из меню записи.
+             Пусто в `teamPercent` означает, что совместная работа у
+             бизнеса выключена, и пункт правки не показывается. */
+          staff={roster.map((s) => ({ id: s.id, name: s.name }))}
+          teamPercent={tenant.teamPercent}
           currency={tenant.currency}
           unitOne={tenant.unitOne}
           staffRole={tenant.staffRole}
@@ -680,7 +696,7 @@ function buildEvents(
       title: o.clientKey ?? '—',
       note: o.serviceName,
       price: o.price,
-      who: o.staffName,
+      who: o.crew.map((p) => p.name).filter(Boolean).join(' · ') || null,
       share: o.share,
     };
   });

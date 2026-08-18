@@ -59,7 +59,19 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   });
 
   const service = topOf(orders.map((o) => o.serviceName));
-  const staff = topOf(orders.map((o) => o.staffName).filter((n): n is string => Boolean(n)));
+  /* Кто чаще мыл эту машину. Считаем по участникам, а не по
+     авторам записей: совместную мойку записывает один, а работают все,
+     и «чаще всего мыл Арман» по авторству назвало бы того, у кого
+     телефон под рукой. */
+  const staff = topOf(
+    orders.flatMap((o) =>
+      o.crew.length > 0
+        ? o.crew.map((p) => p.name).filter((n): n is string => Boolean(n))
+        : o.staffName
+          ? [o.staffName]
+          : [],
+    ),
+  );
   const payment = topOf(orders.map((o) => paymentLabel(o.payment, t)));
 
   return (
@@ -163,10 +175,10 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                       >
                         <span
                           className="size-1.5 shrink-0 rounded-full"
-                          style={{ background: personColor(o.staffName) }}
+                          style={{ background: personColor(o.crew[0]?.name ?? o.staffName) }}
                           aria-hidden
                         />
-                        {o.staffName ?? '—'} · {paymentLabel(o.payment, t)} ·{' '}
+                        {crewNames(o)} · {paymentLabel(o.payment, t)} ·{' '}
                         {dayMonth(o.createdAt, tenant.timezone)}
                       </span>
                     </span>
@@ -193,10 +205,10 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                         <span className="flex items-center gap-2">
                           <span
                             className="size-2 shrink-0 rounded-full"
-                            style={{ background: personColor(o.staffName) }}
+                            style={{ background: personColor(o.crew[0]?.name ?? o.staffName) }}
                             aria-hidden
                           />
-                          <span className="truncate">{o.staffName ?? '—'}</span>
+                          <span className="truncate">{crewNames(o)}</span>
                         </span>
                       </td>
                       <td>
@@ -244,4 +256,18 @@ function paymentLabel(p: string, t: Dict): string {
   if (p === 'card') return t.payment.card;
   if (p === 'pass') return t.payment.pass;
   return t.payment.transfer;
+}
+
+/**
+ * Кто мыл — одной строкой.
+ *
+ * Все участники, а не автор записи: совместную мойку вносит один
+ * человек, а работают несколько, и назвать одного значило бы соврать про
+ * остальных. У одиночной записи участник ровно один, и строка выглядит
+ * ровно как выглядела.
+ */
+function crewNames(order: { crew: { name: string | null }[]; staffName: string | null }): string {
+  const names = order.crew.map((p) => p.name).filter((n): n is string => Boolean(n));
+  if (names.length > 0) return names.join(' · ');
+  return order.staffName ?? '—';
 }

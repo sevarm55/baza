@@ -1870,6 +1870,489 @@
         }
       }
     },
+    "crew.alone": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այս կետում ուրիշ աշխատակից չկա"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Других сотрудников на этой точке нет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is nobody else at this point"
+          }
+        }
+      }
+    },
+    "crew.author": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրանցել է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записал:"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded by"
+          }
+        }
+      }
+    },
+    "crew.each": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Յուրաքանչյուրին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждому"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each"
+          }
+        }
+      }
+    },
+    "crew.edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Փոխել կազմը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить состав"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change the crew"
+          }
+        }
+      }
+    },
+    "crew.editLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ո՞վ է աշխատել այս մեքենայի վրա"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кто работал над этой машиной"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who worked on this car"
+          }
+        }
+      }
+    },
+    "crew.example": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld%% · %3$@ → %4$@ յուրաքանչյուրին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld%% · %3$@ → по %4$@ каждому"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld%% · %3$@ → %4$@ each"
+          }
+        }
+      }
+    },
+    "crew.joint": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Համատեղ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Совместная"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared"
+          }
+        }
+      }
+    },
+    "crew.lead": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Երբ մեկ մեքենայի վրա աշխատում են մի քանիսով"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда одну машину моют несколько человек"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When several people work on one car"
+          }
+        }
+      }
+    },
+    "crew.needPercent": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թիմի ընդհանուր տոկոսը նշված չէ։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общий процент команды не задан."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The team percent is not set."
+          }
+        }
+      }
+    },
+    "crew.nobodyOnShift": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գործընկերներից ոչ ոք հերթափոխի վրա չէ։ Ընտրել կարելի է միայն նրանց, ովքեր սկսել են իրենց հերթափոխը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Никто из коллег не на смене. Выбрать можно только тех, кто начал свою смену."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None of your colleagues is on shift. Only people who started their shift can be picked."
+          }
+        }
+      }
+    },
+    "crew.off": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Անջատված է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключена"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
+    "crew.offNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նշեք թիմի ընդհանուր տոկոսը, և աշխատակիցները կկարողանան նշել, որ աշխատել են միասին։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задайте общий процент команды — и сотрудники смогут отмечать, что работали вместе."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set the team percent and your staff will be able to mark a job as done together."
+          }
+        }
+      }
+    },
+    "crew.onlyMe": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Միայն ես"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только я"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just me"
+          }
+        }
+      }
+    },
+    "crew.percentHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նշված տոկոսը գործի արժեքից բաժանվում է բոլոր մասնակիցների միջև հավասար։ Սա ամբողջ թիմի տոկոսն է, ոչ թե յուրաքանչյուրինը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указанный процент от стоимости делится поровну между всеми участниками. Это процент на всю команду, а не каждому."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The percent is taken from the price and split equally between everyone involved. It is the percent for the whole team, not for each person."
+          }
+        }
+      }
+    },
+    "crew.percentLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թիմի ընդհանուր տոկոսը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общий процент команды"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Team percent"
+          }
+        }
+      }
+    },
+    "crew.pool": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թիմի աշխատավարձը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зарплата команды"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Team pay"
+          }
+        }
+      }
+    },
+    "crew.teamPercent": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թիմի տոկոսը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Процент команды"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Team percent"
+          }
+        }
+      }
+    },
+    "crew.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Համատեղ աշխատանք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Совместная мойка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared job"
+          }
+        }
+      }
+    },
+    "crew.together": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Միասին գործընկերների հետ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместе с коллегами"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Together with colleagues"
+          }
+        }
+      }
+    },
+    "crew.who": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ո՞վ է աշխատել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кто мыл"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who worked"
+          }
+        }
+      }
+    },
+    "crew.yours": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ձեր վաստակը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш заработок"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You earn"
+          }
+        }
+      }
+    },
     "day.cashInShift": {
       "extractionState": "manual",
       "localizations": {
@@ -2234,6 +2717,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Didn't work (%@)"
+          }
+        }
+      }
+    },
+    "errors.generic": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ինչ-որ բան սխալ գնաց"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что-то пошло не так"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong"
           }
         }
       }
@@ -7266,788 +7772,6 @@
         }
       }
     },
-    "setup.doneHide": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հասկացա"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Понятно"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Got it"
-          }
-        }
-      }
-    },
-    "setup.doneNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin-ը կարգավորված է։ Այսուհետ աշխատանքի տվյալները կհավաքվեն ինքնաբերաբար։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin настроен. Дальше данные по работе собираются сами."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin is configured. From here the numbers collect themselves."
-          }
-        }
-      }
-    },
-    "setup.doneTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ամեն ինչ պատրաստ է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Всё готово"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All set"
-          }
-        }
-      }
-    },
-    "setup.nextControl": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերահսկողություն"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Контроль"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Control"
-          }
-        }
-      }
-    },
-    "setup.nextControlNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ամփոփման էջում երևում է բիզնեսի վիճակը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "На сводке видно состояние бизнеса."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The summary screen shows the state of the business."
-          }
-        }
-      }
-    },
-    "setup.nextMoney": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Փող"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Деньги"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Money"
-          }
-        }
-      }
-    },
-    "setup.nextMoneyNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin-ը հավաքում է հասույթը, աշխատավարձն ու ծախսերը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin собирает выручку, зарплаты и траты."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tetrin collects revenue, payroll and costs."
-          }
-        }
-      }
-    },
-    "setup.nextReports": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերլուծություն"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Аналитика"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analytics"
-          }
-        }
-      }
-    },
-    "setup.nextReportsNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Օրացույցում՝ արդյունքը ընտրած ժամանակահատվածի համար։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В календаре — результат за выбранный период."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The calendar shows the result for the period you pick."
-          }
-        }
-      }
-    },
-    "setup.nextWork": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատանք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Работа"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Work"
-          }
-        }
-      }
-    },
-    "setup.nextWorkNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատակիցները գրանցում են լվացած մեքենաները։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Работники записывают обслуженные машины."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your people log the cars they serve."
-          }
-        }
-      }
-    },
-    "setup.progress": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%2$d-ից %1$d-ը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d из %2$d"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d of %2$d"
-          }
-        }
-      }
-    },
-    "setup.resume": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատանքի սկիզբ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Начало работы"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Getting started"
-          }
-        }
-      }
-    },
-    "setup.resumeNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերադարձնել կարգավորման քայլերը ամփոփման էջ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вернуть шаги настройки на сводку"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring the setup steps back to the summary"
-          }
-        }
-      }
-    },
-    "setup.skip": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բաց թողնել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пропустить"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip"
-          }
-        }
-      }
-    },
-    "setup.stepBusiness": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բիզնեսը ստեղծված է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Бизнес создан"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Business created"
-          }
-        }
-      }
-    },
-    "setup.stepBusinessNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Անվանումը, ծառայությունների ցանկը և դերերը արդեն տեղում են։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Название, список услуг и роли уже на месте."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The name, the price list and the roles are already in place."
-          }
-        }
-      }
-    },
-    "setup.stepFirst": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Գրանցեք առաջին մեքենան"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запишите первую машину"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Log the first car"
-          }
-        }
-      }
-    },
-    "setup.stepFirstCta": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հերթափոխ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "К смене"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To the shift"
-          }
-        }
-      }
-    },
-    "setup.stepFirstNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բացեք հերթափոխը և գրանցեք մեքենան․ մնացածը Tetrin-ը կհաշվի ինքը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Откройте смену и запишите машину, остальное Tetrin посчитает сам."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open a shift and log a car — Tetrin counts the rest itself."
-          }
-        }
-      }
-    },
-    "setup.stepServices": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ստուգեք գները"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверьте цены"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check the prices"
-          }
-        }
-      }
-    },
-    "setup.stepServicesCta": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Գները"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Цены"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prices"
-          }
-        }
-      }
-    },
-    "setup.stepServicesNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ցանկը լրացրել ենք մենք։ Ուղղեք գները ձեր գներով։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Список заполнили мы. Поправьте цены на свои."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "We filled the list in. Change the prices to yours."
-          }
-        }
-      }
-    },
-    "setup.stepStaff": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ավելացրեք աշխատակիցներին"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавьте работников"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add your people"
-          }
-        }
-      }
-    },
-    "setup.stepStaffCta": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատակիցներ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Работники"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "People"
-          }
-        }
-      }
-    },
-    "setup.stepStaffNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Նրանք կմտնեն իրենց հաշիվ, կբացեն հերթափոխ և կգրանցեն մեքենաները։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Они войдут в свой аккаунт, откроют смену и будут записывать машины."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "They sign in to their own account, open a shift and log the cars."
-          }
-        }
-      }
-    },
-    "setup.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատանքի սկիզբ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Начало работы"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Getting started"
-          }
-        }
-      }
-    },
-    "setup.workerCta": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սկսել աշխատանքը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Начать работу"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start working"
-          }
-        }
-      }
-    },
-    "setup.workerLead": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Այստեղ անցնում է ձեր հերթափոխը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Здесь проходит ваша смена."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This is where your shift happens."
-          }
-        }
-      }
-    },
-    "setup.workerNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ամեն գրանցումից հետո վերևում կտեսնեք ձեր վաստակածը։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "После каждой записи наверху видно, сколько вы заработали."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "After every entry you see what you have earned at the top."
-          }
-        }
-      }
-    },
-    "setup.workerOne": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բացեք հերթափոխը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Откройте смену"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open the shift"
-          }
-        }
-      }
-    },
-    "setup.workerThree": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերջում փակեք հերթափոխը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В конце закройте смену"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close the shift when you are done"
-          }
-        }
-      }
-    },
-    "setup.workerTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բարի գալուստ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добро пожаловать"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Welcome"
-          }
-        }
-      }
-    },
-    "setup.workerTwo": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Գրանցեք լվացած մեքենաները"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Записывайте обслуженные машины"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Log the cars you serve"
-          }
-        }
-      }
-    },
     "shift.cashInHand": {
       "extractionState": "manual",
       "localizations": {
@@ -10116,1432 +9840,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Work total"
-          }
-        }
-      }
-    },
-    "auth.changePhone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Փոխել համարը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сменить номер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change number"
-          }
-        }
-      }
-    },
-    "auth.changePhoneNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Համարը ձեր մուտքն է։ Կստուգենք, որ դա դուք եք, ապա կուղարկենք կոդ նոր համարին։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номер — это ваш вход. Проверим, что это вы, и пришлём код на новый номер."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your number is your sign-in. We will check it is you, then send a code to the new number."
-          }
-        }
-      }
-    },
-    "auth.changePhoneProof": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Նախ հաստատեք, որ դա դուք եք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сначала подтвердите, что это вы"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "First confirm it is you"
-          }
-        }
-      }
-    },
-    "auth.changePhoneNew": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Նոր համար"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Новый номер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New number"
-          }
-        }
-      }
-    },
-    "auth.changePhoneDone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Համարը փոխված է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номер изменён"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Number changed"
-          }
-        }
-      }
-    },
-    "auth.changePhoneDoneNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բոլոր մուտքերը փակվեցին։ Մտեք նոր համարով։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все входы закрыты. Войдите с нового номера."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All sessions are closed. Sign in with the new number."
-          }
-        }
-      }
-    },
-    "auth.samePhone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սա ձեր ընթացիկ համարն է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это ваш текущий номер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This is your current number"
-          }
-        }
-      }
-    },
-    "auth.country": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Երկրի կոդ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Код страны"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Country code"
-          }
-        }
-      }
-    },
-    "errors.badPhone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սխալ հեռախոսահամար"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Неверный номер телефона"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Invalid phone number"
-          }
-        }
-      }
-    },
-    "auth.resetSend": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուղարկել կոդը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить код"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send code"
-          }
-        }
-      }
-    },
-    "auth.entryTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вход"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in"
-          }
-        }
-      }
-    },
-    "auth.entrySub": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտքագրեք համարը, կուղարկենք կոդ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Введите номер, пришлём код"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your number and we will send a code"
-          }
-        }
-      }
-    },
-    "auth.entrySend": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Շարունակել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Продолжить"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continue"
-          }
-        }
-      }
-    },
-    "auth.entryPinDoor": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք PIN-ով"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Войти по PIN"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with a PIN"
-          }
-        }
-      }
-    },
-    "auth.entrySmsDoor": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք SMS-ի կոդով"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Войти по коду из SMS"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with an SMS code"
-          }
-        }
-      }
-    },
-    "auth.backToSignIn": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերադառնալ մուտքին"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вернуться ко входу"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back to sign in"
-          }
-        }
-      }
-    },
-    "auth.forgotPin": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մոռացե՞լ եք PIN-ը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Забыли PIN?"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Forgot your PIN?"
-          }
-        }
-      }
-    },
-    "auth.nameTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ինչպե՞ս է կոչվում ձեր ավտոլվացումը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Как называется ваша автомойка?"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What is your car wash called?"
-          }
-        }
-      }
-    },
-    "auth.nameSub": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերջին քայլը. հետո միանգամից աշխատանքի"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний шаг, и сразу к работе"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last step, then straight to work"
-          }
-        }
-      }
-    },
-    "auth.nameCreate": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ստեղծել և սկսել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Создать и начать"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create and start"
-          }
-        }
-      }
-    },
-    "auth.otpTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հաստատեք համարը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подтвердите номер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm your number"
-          }
-        }
-      }
-    },
-    "auth.otpSent": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդն ուղարկեցինք %@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Мы отправили код на %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "We sent a code to %@"
-          }
-        }
-      }
-    },
-    "auth.otpResendIn": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուղարկել կրկին %@-ից"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить повторно через %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send again in %@"
-          }
-        }
-      }
-    },
-    "auth.pinMemo": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Օգտագործեք 6 թիվ, որոնք կհիշեք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Используйте 6 цифр, которые сможете запомнить"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use 6 digits you will remember"
-          }
-        }
-      }
-    },
-    "auth.pinTrivial": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ընտրեք ավելի դժվար PIN"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выберите менее очевидный PIN"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pick a less obvious PIN"
-          }
-        }
-      }
-    },
-    "auth.resetTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN-ի վերականգնում"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Восстановление PIN"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset your PIN"
-          }
-        }
-      }
-    },
-    "auth.resetSub": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտքագրեք համարը, կուղարկենք հաստատման կոդ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Введите номер, пришлём код подтверждения"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your number and we will send a confirmation code"
-          }
-        }
-      }
-    },
-    "auth.resetSave": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Պահպանել նոր PIN-ը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сохранить новый PIN"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save the new PIN"
-          }
-        }
-      }
-    },
-    "auth.resetDone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN-ը փոխված է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN изменён"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN changed"
-          }
-        }
-      }
-    },
-    "auth.resetDoneNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բոլոր մյուս սարքերը դուրս եկան։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все другие устройства вышли."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All other devices have been signed out."
-          }
-        }
-      }
-    },
-    "auth.setPin": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սահմանել PIN"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Задать PIN"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set a PIN"
-          }
-        }
-      }
-    },
-    "auth.verifyPhone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հաստատեք ձեր համարը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подтвердите свой номер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm your number"
-          }
-        }
-      }
-    },
-    "profile.devices": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սարքեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Устройства"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Devices"
-          }
-        }
-      }
-    },
-    "profile.devicesNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Որտեղից է հիմա բացված ձեր մուտքը։ Կողքինը կարող եք փակել։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Откуда сейчас открыт ваш вход. Чужой можно закрыть."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Where your sign-in is open right now. You can close the others."
-          }
-        }
-      }
-    },
-    "profile.devicesOne": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք բացված է միայն այս սարքից։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вход открыт только с этого устройства."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The sign-in is open only on this device."
-          }
-        }
-      }
-    },
-    "profile.deviceThis": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Այս սարքը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это устройство"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This device"
-          }
-        }
-      }
-    },
-    "profile.deviceRevoke": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Փակել մուտքը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Закрыть вход"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close the sign-in"
-          }
-        }
-      }
-    },
-    "profile.deviceApp": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հավելված"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Приложение"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "App"
-          }
-        }
-      }
-    },
-    "profile.deviceWeb": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բրաուզեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Браузер"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browser"
-          }
-        }
-      }
-    },
-    "profile.deviceLastSeen": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "վերջին անգամ %@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "последний раз %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "last seen %@"
-          }
-        }
-      }
-    },
-    "reports.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հաշվետվություն"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отчёт"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Report"
-          }
-        }
-      }
-    },
-    "reports.discounts": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Զեղչեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Скидок"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discounts"
-          }
-        }
-      }
-    },
-    "reports.kept": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ձեզ մնում է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вам остаётся"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You keep"
-          }
-        }
-      }
-    },
-    "reports.red": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մինուսի մեջ եք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы в минусе"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You're in the red"
-          }
-        }
-      }
-    },
-    "reports.whereFrom": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Որտեղից է եկել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Откуда пришло"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Where it came from"
-          }
-        }
-      }
-    },
-    "reports.whereGone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուր է գնացել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Куда ушло"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Where it went"
-          }
-        }
-      }
-    },
-    "settings.pinReset": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Տալ նոր կոդ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выдать новый код"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Issue a new code"
-          }
-        }
-      }
-    },
-    "settings.pinResetNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Աշխատակիցը մոռացել է կոդը՝ տվեք նորը։ Հին կոդով մուտքերը կփակվեն։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сотрудник забыл код — назначьте новый. Входы старым кодом закроются."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The staff member forgot the code — set a new one. Sign-ins with the old code will close."
-          }
-        }
-      }
-    },
-    "settings.pinResetDone": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդը փոխված է։ Հաղորդեք աշխատակցին։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Код изменён. Передайте его сотруднику."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The code is changed. Pass it to the staff member."
-          }
-        }
-      }
-    },
-    "settings.pinWorksElsewhere": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Այս մարդն աշխատում է նաև այլ տեղ։ Կոդը նա փոխում է ինքը՝ իր էջից։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Этот человек работает не только здесь. Код он меняет сам, из своего профиля."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This person works elsewhere too. They change the code themselves, from their own page."
-          }
-        }
-      }
-    },
-    "onboarding.bizName": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բիզնեսի անվանումը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Название бизнеса"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Business name"
-          }
-        }
-      }
-    },
-    "onboarding.ownerName": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ձեր անունը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ваше имя"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your name"
-          }
-        }
-      }
-    },
-    "auth.namePlaceholder": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Օրինակ՝ Արշակունյաց"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Например, Аршакуняц"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "For example, Arshakunyats"
-          }
-        }
-      }
-    },
-    "auth.pinNoneNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Դուք մտնում եք SMS-ի կոդով։ PIN-ը երկրորդ դուռն է՝ երբ SMS-ը չի հասնում։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы входите по коду из SMS. PIN — вторая дверь, когда SMS не идёт."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You sign in with an SMS code. A PIN is a second door for when SMS does not arrive."
-          }
-        }
-      }
-    },
-    "auth.verifyPhoneWhy": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Without a confirmed number your PIN cannot be recovered. Takes half a minute."
-          }
-        }
-      }
-    },
-    "auth.verifyPhoneSend": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուղարկել կոդը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить код"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send code"
-          }
-        }
-      }
-    },
-    "delete.sendCode": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ուղարկել կոդը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить код"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send code"
-          }
-        }
-      }
-    },
-    "delete.codeSent": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կոդն ուղարկեցինք %@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Мы отправили код на %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "We sent a code to %@"
-          }
-        }
-      }
-    },
-    "delete.codeAsk": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ջնջումը հաստատվում է SMS-ի կոդով. PIN դուք չունեք։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Удаление подтверждается кодом из SMS: PIN у вас не задан."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deletion is confirmed with an SMS code: you have no PIN set."
-          }
-        }
-      }
-    },
-    "reports.lead": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ամիսներ իրար կողքի՝ որտեղից է եկել և ուր է գնացել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Месяцы рядом: откуда пришло и куда ушло"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Months side by side: where money came from and where it went"
-          }
-        }
-      }
-    },
-    "today.all": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բոլորը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All"
-          }
-        }
-      }
-    },
-    "auth.entered": {
-      "extractionState": "manual",
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտքագրված է %1$lld %2$lld-ից"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Введено %1$lld из %2$lld"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$lld of %2$lld entered"
           }
         }
       }

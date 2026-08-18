@@ -61,8 +61,17 @@ export async function buildOrdersCsv(
     r.serviceName,
     String(toMajor(r.price, tenant.currency)),
     paymentLabel(r.payment, t),
-    r.staffName ?? '',
+    /* Все, кто мыл, а не один автор записи. У одиночной мойки это то же
+       самое имя, что и раньше; у совместной — весь состав через ту же
+       точку, которой продукт разделяет факты везде. Назвать здесь одного
+       значило бы приписать ему весь фонд машины. */
+    crewNames(r) || (r.staffName ?? ''),
     String(r.staffPercent),
+    /* Начислено ПО ЭТОЙ МАШИНЕ целиком. У совместной это фонд всей
+       команды, а не доля одного: столбец складывают, и сумма по нему
+       обязана давать расход на зарплату, а не его часть. Кому сколько из
+       фонда — вопрос ведомости, и раскладывать его внутри одной строки
+       архива значило бы разложить одну машину на несколько строк. */
     String(toMajor(Math.floor((r.price * r.staffPercent) / 100), tenant.currency)),
     r.canceledAt ? t.common.yes : '',
   ]);
@@ -75,6 +84,14 @@ export async function buildOrdersCsv(
     filename: `bazis-${ymd(new Date(), tenant.timezone)}.csv`,
     rows: rows.length,
   };
+}
+
+/** «Арман · Давид · Карен». Пусто — состава нет, зовём автора записи. */
+function crewNames(row: { crew: { name: string | null }[] }): string {
+  return row.crew
+    .map((p) => p.name)
+    .filter((n): n is string => Boolean(n))
+    .join(' · ');
 }
 
 function escape(value: string): string {

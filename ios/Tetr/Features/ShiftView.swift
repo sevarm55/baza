@@ -553,10 +553,22 @@ struct ShiftView: View {
                                     .accessibilityLabel(paymentLabel(order.payment))
                             }
 
+                            /* Совместная работа названа словом и числом
+                               людей. Без них строка нечитаема: цена
+                               12 000, а заработок 1 800, и почему —
+                               неизвестно. */
                             Text(
-                                order.clientKey == nil
-                                    ? "\(paymentLabel(order.payment)) · \(at(order.createdAt))"
-                                    : "\(order.serviceName) · \(paymentLabel(order.payment)) · \(at(order.createdAt))"
+                                [
+                                    order.clientKey == nil ? nil : order.serviceName,
+                                    paymentLabel(order.payment),
+                                    at(order.createdAt),
+                                    order.shared
+                                        ? L("crew.joint") + " · "
+                                            + Terms.staff(order.crew ?? 1, session.tenant?.staffRole ?? "")
+                                        : nil,
+                                ]
+                                .compactMap { $0 }
+                                .joined(separator: " · ")
                             )
                             .font(.system(size: 12))
                             .monospacedDigit()
@@ -566,10 +578,23 @@ struct ShiftView: View {
 
                         Spacer(minLength: 8)
 
-                        Text(money(order.price, currency))
-                            .font(.system(size: 14, weight: .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(money(order.price, currency))
+                                .font(.system(size: 14, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.onBoard)
+
+                            /* Своя доля — только у совместной. У одиночной
+                               она и так вся наверху экрана, и вторая
+                               строка под ценой повторяла бы одно число
+                               дважды. */
+                            if order.shared, let mine = order.earned {
+                                Text(money(mine, currency))
+                                    .font(.system(size: 12))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Brand.boardMuted)
+                            }
+                        }
 
                         /* Отмена ошибочной записи — здесь же, а не «позвони
                            владельцу». Три точки молчат: из сорока записей

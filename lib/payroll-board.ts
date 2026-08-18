@@ -2,6 +2,7 @@ import {
   getPaidByDay,
   getUnsettledByDay,
   getUnsettledOrderLines,
+  getUnsettledUnitsByDay,
   listPayouts,
 } from './queries';
 
@@ -31,8 +32,18 @@ export type BoardLine = {
   /** «34 AA 555 · Комплекс» — чем запись названа в ленте */
   title: string;
   price: number;
+  /** ставка, применённая ко всей машине: у совместной — процент команды */
   percent: number;
+  /** начислено этому человеку за эту машину */
   earned: number;
+  /**
+   * Сколько человек мыли машину. Один — обычная одиночная мойка.
+   *
+   * Без этого числа строка совместной мойки читается как ошибка: под
+   * машиной за 12 000 стоит «45 %» и «1 800 ֏», и первое со вторым не
+   * сходится, пока не сказано, что фонд делили на троих.
+   */
+  crew: number;
 };
 
 /** Человек внутри рабочего дня. */
@@ -60,7 +71,14 @@ export type BoardDay = {
   /** `YYYY-MM-DD` в часовом поясе бизнеса */
   day: string;
   people: BoardPerson[];
-  /** машин за день — по тем людям, что показаны */
+  /**
+   * Машин за день.
+   *
+   * Именно машин, а не участий: машина, которую мыли втроём, — одна.
+   * Иначе лист зарплат спорил бы со сводкой о том, сколько машин было в
+   * дне, а спор двух экранов об одном числе стоит доверия ко всем
+   * остальным.
+   */
   units: number;
   outstanding: number;
   paid: number;
@@ -110,15 +128,18 @@ export async function getPayrollBoard(
   timezone: string,
   historyLimit = 120,
 ): Promise<PayrollBoard> {
-  const [days, paidDays, lines, payouts] = await Promise.all([
+  const [days, paidDays, lines, payouts, unitsPerDay] = await Promise.all([
     getUnsettledByDay(tenantId, timezone),
     getPaidByDay(tenantId),
     getUnsettledOrderLines(tenantId, timezone),
     listPayouts(tenantId, historyLimit),
+    /* Машины дня считаются отдельно и по машинам, а не сложением
+       участий: у совместной работы строк столько, сколько людей, и
+       сумма назвала бы одну машину тремя. */
+    getUnsettledUnitsByDay(tenantId, timezone),
   ]);
 
   const paidBy = new Map(paidDays.map((p) => [`${p.staffId}|${p.day}`, p]));
-  const unitsBy = new Map(days.map((d) => [`${d.staffId}|${d.day}`, d.count]));
 
   const linesBy = new Map<string, BoardLine[]>();
   for (const line of lines) {
@@ -129,6 +150,7 @@ export async function getPayrollBoard(
       price: line.price,
       percent: line.percent,
       earned: line.earned,
+      crew: line.crew,
     };
     const bucket = linesBy.get(key);
     if (bucket) bucket.push(entry);
@@ -178,7 +200,7 @@ export async function getPayrollBoard(
       return {
         day,
         people,
-        units: people.reduce((sum, p) => sum + p.count, 0),
+        units: unitsPerDay.get(day) ?? people.reduce((sum, p) => sum + p.count, 0),
         outstanding: people.reduce((sum, p) => sum + Math.max(0, p.earned), 0),
         paid: people.reduce((sum, p) => sum + p.paid, 0),
       };
@@ -219,10 +241,13 @@ export async function getPayrollBoard(
 
     /* Сколько машин было в тот день, продукт помнит только пока день не
        ушёл за черту последнего общего расчёта. Дальше честнее промолчать,
-       чем показать число, которого не знаешь. */
-    const units = p.day ? unitsBy.get(`${p.staffId}|${p.day}`) : undefined;
-    if (units === undefined) payment.units = null;
-    else if (payment.units !== null) payment.units += units;
+       чем показать число, которого не знаешь.
+
+       Ставится один раз на выдачу, а не складывается по её строкам.
+       Складывать нельзя с появлением совместной работы: расчёт с тремя
+       людьми за один день прибавил бы одну и ту же машину трижды. */
+    const units = p.day ? unitsPerDay.get(p.day) : undefined;
+    payment.units = units ?? null;
   }
 
   const outstanding = board.reduce((sum, d) => sum + d.outstanding, 0);
@@ -251,7 +276,7 @@ export async function getPayrollBoard(
         0,
       ),
       settled,
-      units: days.reduce((sum, d) => sum + d.count, 0),
+      units: board.reduce((sum, d) => sum + d.units, 0),
     },
     lastPaidAt: payouts[0]?.paidAt ?? null,
   };

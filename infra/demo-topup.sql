@@ -76,6 +76,19 @@ join lateral (
   order by id offset ((p.hour * 3)::int % 10) limit 1
 ) c on true;
 
+-- Доли участников по дописанным записям.
+--
+-- Каждая здесь одиночная — мыл один человек, — и доля у неё ровно одна,
+-- равная той же формуле, по которой продукт считал зарплату до появления
+-- совместной мойки. Без этих строк начисленное не увидит ни ведомость,
+-- ни экран смены: они ходят к деньгам через `order_shares`, а не через
+-- `orders.staff_id`.
+insert into order_shares (tenant_id, order_id, staff_id, earned, sort)
+select o.tenant_id, o.id, o.staff_id, floor(o.price * o.staff_percent / 100.0)::int, 0
+from orders o
+where o.tenant_id = (select id from tenants where name = 'Tetrin Դեմո')
+  and not exists (select 1 from order_shares s where s.order_id = o.id);
+
 -- Смена на сегодня: без неё на «Ամփոփում» нет зелёной точки «на мойке»,
 -- а это один из разделов, ради которых продукт и открывают.
 --

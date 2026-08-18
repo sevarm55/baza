@@ -553,7 +553,15 @@ struct PayrollView: View {
                                 .foregroundStyle(Brand.boardMuted)
                                 .lineLimit(1)
                             Spacer(minLength: 6)
-                            Text("\(money(line.price, currency)) × \(line.percent)%")
+                            /* Совместная работа дописывает делитель. Без
+                               него строка «12 000 ֏ × 45 % → 1 800 ֏»
+                               врёт на глазах: сорок пять процентов от
+                               двенадцати тысяч это пять четыреста.
+                               Деление на число участников и есть
+                               недостающее звено — процент здесь общий на
+                               команду, а получает человек свою часть
+                               фонда. */
+                            Text(line.formula(money(line.price, currency)))
                                 .foregroundStyle(Brand.boardMuted.opacity(0.85))
                                 .lineLimit(1)
                             Text(money(line.earned, currency))

@@ -53,10 +53,12 @@ export async function GET(request: Request) {
         id: o.id,
         clientKey: o.clientKey,
         serviceName: o.serviceName,
+        // кто внёс запись; кто над ней работал — в `crew`
         staffName: o.staffName,
-        // снимок процента из самой записи: приложение считает долю
-        // исполнителя по нему, а не по текущей ставке человека
+        // ставка на всю запись: у совместной мойки это процент команды
         staffPercent: o.staffPercent,
+        // состав работы и доля каждого; у одиночной мойки один человек
+        crew: o.crew,
         price: o.price,
         // прайс рядом со взятым — только когда взяли меньше
         listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,

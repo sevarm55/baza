@@ -1,10 +1,11 @@
-import { and, desc, eq, gt, gte, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { db } from './db';
 import { compactClientKey } from './client-key';
 import {
   accounts,
   clients,
   orderItems,
+  orderShares,
   orders,
   payouts,
   services,
@@ -195,7 +196,34 @@ export { startOfDay, startOfDaysAgo, startOfMonth, startOfPrevMonth } from './ti
 const notCanceled = isNull(orders.canceledAt);
 
 /**
+ * Сколько человек мыли эту машину.
+ *
+ * Подзапросом, а не соединением с группировкой: соединение пришлось бы
+ * тащить через каждый запрос, где нужен один этот признак, и оно
+ * размножило бы строки ленты по числу участников. Считается по индексу
+ * `order_shares_order_idx`.
+ *
+ * Один — обычная одиночная мойка, и так стоит у всей истории до
+ * появления совместной: перенос завёл каждой старой записи ровно одного
+ * участника (см. миграцию 0024).
+ */
+const crewSize = sql<number>`(
+  select count(*) from ${orderShares} where ${orderShares.orderId} = ${orders.id}
+)::int`;
+
+/**
  * Смена конкретного сотрудника: то, что он видит у себя на экране.
+ *
+ * ИДЁТ ОТ ДОЛЕЙ, А НЕ ОТ АВТОРСТВА ЗАПИСИ. Раньше смена была «мои
+ * записи»: `orders.staff_id = я`. С совместной мойкой это перестало быть
+ * ответом — машину, которую записал Давид, а мыли втроём, Арман обязан
+ * видеть у себя, и видеть в ней СВОЮ долю, а не весь фонд. Поэтому
+ * отбор идёт по строке в `order_shares`: она и решает, чья это работа и
+ * сколько за неё причитается.
+ *
+ * Одиночная мойка при этом не меняется ни на драм: у неё ровно один
+ * участник — тот, кто записал, — и его доля равна тому, что считалось
+ * формулой раньше.
  *
  * Номер машины приезжает вместе с записью, а не отдельным запросом на
  * строку. В журнале смены он важнее названия услуги: мойщик ищет там не
@@ -205,8 +233,15 @@ const notCanceled = isNull(orders.canceledAt);
  */
 export async function getShift(tenantId: string, staffId: string, from: Date) {
   const found = await db
-    .select({ order: orders, clientKey: clients.key })
-    .from(orders)
+    .select({
+      order: orders,
+      clientKey: clients.key,
+      /** доля именно этого человека в этой машине */
+      earned: orderShares.earned,
+      crew: crewSize,
+    })
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
     /* Внешним соединением: клиента могли удалить, и запись при этом
        остаётся — `orders.client_id` тогда null. Внутреннее соединение
        молча выкинуло бы такую машину из смены и из заработка. */
@@ -214,16 +249,27 @@ export async function getShift(tenantId: string, staffId: string, from: Date) {
     .where(
       and(
         eq(orders.tenantId, tenantId),
-        eq(orders.staffId, staffId),
+        eq(orderShares.staffId, staffId),
         gte(orders.createdAt, from),
         notCanceled,
       ),
     )
     .orderBy(desc(orders.createdAt));
 
-  const rows = found.map((r) => ({ ...r.order, clientKey: r.clientKey }));
+  const rows = found.map((r) => ({
+    ...r.order,
+    clientKey: r.clientKey,
+    /** сколько причитается смотрящему за эту машину */
+    earned: r.earned,
+    /** сколько человек её мыли; 1 — обычная одиночная мойка */
+    crew: r.crew,
+  }));
+  /* «Сумма работ» — цена машин, в которых человек участвовал. У
+     совместной это полная цена, а не его доля от неё: работал он над
+     всей машиной, а делится потом заработок. Выручкой бизнеса это число
+     не является и нигде так не называется. */
   const revenue = rows.reduce((s, o) => s + o.price, 0);
-  const earned = rows.reduce((s, o) => s + Math.floor((o.price * o.staffPercent) / 100), 0);
+  const earned = rows.reduce((s, o) => s + o.earned, 0);
   return { orders: rows, count: rows.length, revenue, earned };
 }
 
@@ -261,20 +307,34 @@ export async function getPeriodStats(tenantId: string, from: Date, to?: Date) {
     .from(orders)
     .where(where);
 
+  /* Разбивка по людям идёт от ДОЛЕЙ, а не от авторства записи.
+     Совместную мойку видят у себя все, кто в ней участвовал, и каждый
+     видит свою долю, а не весь фонд.
+
+     На число машин бизнеса это не влияет: `count` выше считается по
+     самим записям, и машина, которую мыли втроём, остаётся одной. Здесь
+     же `count` означает другое — в скольких машинах человек участвовал,
+     и совместная считается участием каждому. Два разных вопроса, и
+     складывать одно с другим нельзя ни на одном экране.
+
+     Сумма `earned` по всем людям при этом ровно та же, что и раньше:
+     доли одной машины складываются в её фонд (см. инвариант в схеме),
+     поэтому зарплата бизнеса за период не меняется от того, вдвоём её
+     мыли или по очереди. */
   const byStaff = await db
     .select({
-      staffId: orders.staffId,
+      staffId: orderShares.staffId,
       name: users.name,
       percent: users.percent,
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
-      // зарплата считается по снимку процента в каждой записи, не по текущему
-      earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+      earned: sql<number>`coalesce(sum(${orderShares.earned}), 0)::int`,
     })
-    .from(orders)
-    .leftJoin(users, eq(users.id, orders.staffId))
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
+    .leftJoin(users, eq(users.id, orderShares.staffId))
     .where(where)
-    .groupBy(orders.staffId, users.name, users.percent)
+    .groupBy(orderShares.staffId, users.name, users.percent)
     .orderBy(sql`2 desc`);
 
   const passSales = await getPassSales(tenantId, from, to);
@@ -380,8 +440,44 @@ export async function getPaymentSplit(tenantId: string, from: Date, to?: Date) {
   return rows;
 }
 
+/** Кто мыл — по каждой из перечисленных машин. */
+export type FeedCrew = { staffId: string | null; name: string | null; earned: number };
+
+/**
+ * Состав работы по списку записей — одним запросом на весь список.
+ *
+ * Отдельно от самой ленты, а не соединением внутри неё: участников у
+ * машины бывает несколько, и соединение размножило бы строку ленты по
+ * их числу — сорок записей превратились бы в шестьдесят, а суммы под
+ * столбцами перестали бы сходиться.
+ */
+async function crewByOrder(orderIds: string[]): Promise<Map<string, FeedCrew[]>> {
+  const out = new Map<string, FeedCrew[]>();
+  if (orderIds.length === 0) return out;
+
+  const rows = await db
+    .select({
+      orderId: orderShares.orderId,
+      staffId: orderShares.staffId,
+      name: users.name,
+      earned: orderShares.earned,
+    })
+    .from(orderShares)
+    .leftJoin(users, eq(users.id, orderShares.staffId))
+    .where(inArray(orderShares.orderId, orderIds))
+    .orderBy(orderShares.sort);
+
+  for (const r of rows) {
+    const bucket = out.get(r.orderId);
+    const entry = { staffId: r.staffId, name: r.name, earned: r.earned };
+    if (bucket) bucket.push(entry);
+    else out.set(r.orderId, [entry]);
+  }
+  return out;
+}
+
 export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Date) {
-  return db
+  const rows = await db
     .select({
       id: orders.id,
       createdAt: orders.createdAt,
@@ -399,6 +495,9 @@ export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Da
       clientKey: clients.key,
     })
     .from(orders)
+    /* Автор записи. Остаётся здесь и остаётся под прежним именем: у
+       одиночной мойки это исполнитель, у совместной — тот, кто внёс
+       запись. Кто РАБОТАЛ, отвечает `crew` ниже. */
     .leftJoin(users, eq(users.id, orders.staffId))
     .leftJoin(clients, eq(clients.id, orders.clientId))
     .where(
@@ -412,6 +511,11 @@ export async function getFeed(tenantId: string, from: Date, limit = 100, to?: Da
     )
     .orderBy(desc(orders.createdAt))
     .limit(limit);
+
+  /* Состав приезжает вместе с лентой, а не запросом на строку: владелец
+     видит машину и людей рядом, а не одного человека и три точки. */
+  const crew = await crewByOrder(rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, crew: crew.get(r.id) ?? [] }));
 }
 
 /* --------------------------- зарплаты ---------------------------- *
@@ -484,8 +588,12 @@ export type PayrollOrderLine = {
   serviceName: string;
   clientKey: string | null;
   price: number;
+  /** ставка, применённая ко всей машине: у совместной — процент команды */
   percent: number;
+  /** начислено этому человеку за эту машину */
   earned: number;
+  /** сколько человек её мыли; 1 — обычная одиночная мойка */
+  crew: number;
 };
 
 /**
@@ -511,13 +619,17 @@ export async function getUnsettledByDay(
   /* Заработанное по дням — только то, что не закрыто старой чертой.
      Черта — самая поздняя выплата без дня: такие строки закрывали
      отрезок целиком, и разбирать их обратно нечем. */
+  /* Считаем по долям, а не по авторству записи: у совместной мойки
+     получателей несколько, и каждому причитается своя доля, а не весь
+     фонд машины. Одиночная мойка при этом не меняется ни на драм — у
+     неё ровно одна доля, равная прежней формуле. */
   const earned = await db
     .select({
-      staffId: orders.staffId,
+      staffId: orderShares.staffId,
       day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
-      earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+      earned: sql<number>`coalesce(sum(${orderShares.earned}), 0)::int`,
       pctFrom: sql<number>`min(${orders.staffPercent})::int`,
       pctTo: sql<number>`max(${orders.staffPercent})::int`,
       /* Имя последним в списке нарочно: группировка по дню идёт по
@@ -525,8 +637,9 @@ export async function getUnsettledByDay(
          счёт. */
       name: users.name,
     })
-    .from(orders)
-    .leftJoin(users, eq(users.id, orders.staffId))
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
+    .leftJoin(users, eq(users.id, orderShares.staffId))
     .where(
       and(
         eq(orders.tenantId, tenantId),
@@ -534,12 +647,12 @@ export async function getUnsettledByDay(
         lt(orders.createdAt, until),
         sql`${orders.createdAt} > coalesce(
           (select max(p.period_to) from payouts p
-            where p.staff_id = ${orders.staffId} and p.day is null),
+            where p.staff_id = ${orderShares.staffId} and p.day is null),
           to_timestamp(0)
         )`,
       ),
     )
-    .groupBy(orders.staffId, sql`2`, users.name);
+    .groupBy(orderShares.staffId, sql`2`, users.name);
 
   /* Выплаченное по тем же дням. Их может быть несколько на один день:
      владелец выдал часть днём и остаток вечером — это одна строка дня и
@@ -566,6 +679,53 @@ export async function getUnsettledByDay(
       earned: e.earned - (paidBy.get(`${e.staffId}|${e.day}`) ?? 0),
     }))
     .sort((a, b) => (a.day < b.day ? 1 : -1));
+}
+
+/**
+ * Сколько МАШИН в каждом незакрытом дне.
+ *
+ * Отдельным запросом, а не сложением `count` по людям. Разница появилась
+ * вместе с совместной работой: у машины, которую мыли втроём, три
+ * строки — по одной на участника, — и сумма назвала бы её тремя
+ * машинами. Лист зарплат начал бы спорить со сводкой о том, сколько
+ * машин было в дне, а спор двух экранов об одном числе стоит доверия ко
+ * всем остальным.
+ *
+ * Отбор слово в слово тот же, что у `getUnsettledByDay`: считаем машины
+ * ровно тех строк, из которых сложились суммы дня.
+ */
+export async function getUnsettledUnitsByDay(
+  tenantId: string,
+  timezone: string,
+  until: Date = new Date(),
+): Promise<Map<string, number>> {
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
+      units: sql<number>`count(distinct ${orders.id})::int`,
+    })
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        notCanceled,
+        lt(orders.createdAt, until),
+        /* Только те машины, за которые кому-то причитается.
+           Нулевые доли — это владелец, моющий сам по нулевой ставке:
+           строки такого человека лист не показывает вовсе, и его машины
+           в счётчике дня были бы числом без единой строки под ним. */
+        gt(orderShares.earned, 0),
+        sql`${orders.createdAt} > coalesce(
+          (select max(p.period_to) from payouts p
+            where p.staff_id = ${orderShares.staffId} and p.day is null),
+          to_timestamp(0)
+        )`,
+      ),
+    )
+    .groupBy(sql`1`);
+
+  return new Map(rows.map((r) => [r.day, r.units]));
 }
 
 /**
@@ -618,15 +778,23 @@ export async function getUnsettledOrderLines(
   return db
     .select({
       id: orders.id,
-      staffId: orders.staffId,
+      staffId: orderShares.staffId,
       day: sql<string>`to_char(date_trunc('day', ${orders.createdAt} at time zone ${timezone}), 'YYYY-MM-DD')`,
       serviceName: orders.serviceName,
       clientKey: clients.key,
       price: orders.price,
       percent: orders.staffPercent,
-      earned: sql<number>`floor(${orders.price} * ${orders.staffPercent} / 100.0)::int`,
+      /* Доля этого человека, а не фонд машины. У одиночной мойки они
+         совпадают, у совместной — нет, и показать здесь фонд значило бы
+         объяснить дневную сумму слагаемыми, которые в неё не входят. */
+      earned: orderShares.earned,
+      /* Сколько человек мыли. Нужно строке разложения: «1 800 ֏» под
+         машиной за 12 000 читается как ошибка ставки, пока не сказано,
+         что мыли втроём. */
+      crew: crewSize,
     })
-    .from(orders)
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
     .leftJoin(clients, eq(clients.id, orders.clientId))
     .where(
       and(
@@ -635,7 +803,7 @@ export async function getUnsettledOrderLines(
         lt(orders.createdAt, until),
         sql`${orders.createdAt} > coalesce(
           (select max(p.period_to) from payouts p
-            where p.staff_id = ${orders.staffId} and p.day is null),
+            where p.staff_id = ${orderShares.staffId} and p.day is null),
           to_timestamp(0)
         )`,
       ),
@@ -655,29 +823,30 @@ export async function getUnsettledPayroll(
 ): Promise<PayrollRow[]> {
   return db
     .select({
-      staffId: orders.staffId,
+      staffId: orderShares.staffId,
       name: users.name,
       percent: users.percent,
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.price}), 0)::int`,
-      earned: sql<number>`coalesce(sum(floor(${orders.price} * ${orders.staffPercent} / 100.0)), 0)::int`,
+      earned: sql<number>`coalesce(sum(${orderShares.earned}), 0)::int`,
       pctFrom: sql<number>`min(${orders.staffPercent})::int`,
       pctTo: sql<number>`max(${orders.staffPercent})::int`,
     })
-    .from(orders)
-    .leftJoin(users, eq(users.id, orders.staffId))
+    .from(orderShares)
+    .innerJoin(orders, eq(orders.id, orderShares.orderId))
+    .leftJoin(users, eq(users.id, orderShares.staffId))
     .where(
       and(
         eq(orders.tenantId, tenantId),
         notCanceled,
         lt(orders.createdAt, until),
         sql`${orders.createdAt} > coalesce(
-          (select max(p.period_to) from payouts p where p.staff_id = ${orders.staffId}),
+          (select max(p.period_to) from payouts p where p.staff_id = ${orderShares.staffId}),
           to_timestamp(0)
         )`,
       ),
     )
-    .groupBy(orders.staffId, users.name, users.percent)
+    .groupBy(orderShares.staffId, users.name, users.percent)
     .orderBy(desc(sql`3`));
 }
 
@@ -712,8 +881,9 @@ const realClient = gt(clients.visits, 0);
 
 /** Полная выгрузка за период, включая отменённые: это архив, а не отчёт. */
 export async function exportOrders(tenantId: string, from: Date, to?: Date) {
-  return db
+  const rows = await db
     .select({
+      id: orders.id,
       createdAt: orders.createdAt,
       clientKey: clients.key,
       serviceName: orders.serviceName,
@@ -734,6 +904,13 @@ export async function exportOrders(tenantId: string, from: Date, to?: Date) {
       ),
     )
     .orderBy(orders.createdAt);
+
+  /* Состав работы едет в архив вместе с записью. Иначе выгрузка
+     совместной мойки называла бы одного человека и приписывала ему весь
+     фонд машины — а это ровно тот вид расхождения, ради устранения
+     которого файл и забирают. */
+  const crew = await crewByOrder(rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, crew: crew.get(r.id) ?? [] }));
 }
 
 /**
@@ -874,7 +1051,16 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
     .orderBy(desc(orders.createdAt))
     .limit(limit);
 
-  return { client, orders: rows };
+  /* Кто мыл эту машину в тот раз. Владелец читает историю клиента
+     именно ради этого вопроса чаще, чем ради сумм: «в прошлый раз
+     поцарапали — кто работал». Автор записи на него не отвечает, когда
+     мыли вдвоём. */
+  const crew = await crewByOrder(rows.map((r) => r.id));
+
+  return {
+    client,
+    orders: rows.map((r) => ({ ...r, crew: crew.get(r.id) ?? [] })),
+  };
 }
 
 /**

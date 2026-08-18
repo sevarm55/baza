@@ -503,6 +503,17 @@ export const IOS_ONLY: Record<string, Row> = {
   /* Функции веб-словаря: значением там не строка, а сборка строки, и
      вытащить её общим обходом нельзя — форма записана здесь. */
   'work.since': { hy: '%@-ից', ru: 'с %@', en: 'since %@' },
+  /* --- совместная работа: пример с числами ---
+
+     В веб-словаре это функция, а функции в строковый каталог не
+     переносятся: там формат, а не код. Слова те же, что на сайте, —
+     расходиться им нельзя, за этим следит общий глоссарий выше. */
+  'crew.example': {
+    hy: '%1$@ · %2$lld%% · %3$@ → %4$@ յուրաքանչյուրին',
+    ru: '%1$@ · %2$lld%% · %3$@ → по %4$@ каждому',
+    en: '%1$@ · %2$lld%% · %3$@ → %4$@ each',
+  },
+
   'work.addFor': { hy: 'Ավելացնել %1$@ · %2$@', ru: 'Добавить %1$@ · %2$@', en: 'Add %1$@ · %2$@' },
 
   /* --- язык --- */
@@ -637,6 +648,12 @@ export const SHARED_KEYS: string[] = [
   'work.endTitle', 'work.endStay', 'work.signOutOpenTitle', 'work.emptyOpen',
   'work.emptyOpenNote', 'work.emptyOff', 'work.emptyOffNote', 'work.tier',
   'work.toPay', 'work.saved', 'work.revokeTitle', 'work.revokeKeep',
+  'crew.title', 'crew.lead', 'crew.percentLabel', 'crew.percentHint',
+  'crew.off', 'crew.offNote', 'crew.who', 'crew.onlyMe',
+  'crew.together', 'crew.alone', 'crew.nobodyOnShift', 'crew.pool',
+  'crew.each',
+  'crew.yours', 'crew.teamPercent', 'crew.joint', 'crew.author',
+  'crew.needPercent', 'crew.edit', 'crew.editLead', 'errors.generic',
   'work.revoke', 'payroll.tabHistory', 'payroll.unpaid', 'payroll.paid',
   'payroll.selectAll', 'payroll.confirmTitle', 'payroll.confirm', 'payroll.failed',
   'payroll.dayToPay', 'payroll.dayAllPaid', 'payroll.dayEmpty', 'payroll.hidePaidDays',

@@ -21,6 +21,8 @@ struct StaffView: View {
     @State private var staff: [API.StaffMember] = []
     @State private var editing: API.StaffMember?
     @State private var adding = false
+    /// Открыта настройка общего процента команды.
+    @State private var teamOpen = false
 
     private let gap: CGFloat = 10
 
@@ -57,6 +59,13 @@ struct StaffView: View {
 
                 separator
                 addRow
+
+                /* Совместная работа — строкой в том же списке, а не
+                   отдельным экраном. Свойство трогают раз в год, но
+                   искать его человек будет там же, где ставки: это
+                   условие оплаты труда, и место ему среди людей. */
+                separator
+                teamRow
             }
             .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
             .overlay {
@@ -77,6 +86,11 @@ struct StaffView: View {
         .sheet(isPresented: $adding) {
             StaffEditor(person: nil) { await reload() }
                 .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $teamOpen) {
+            TeamWashEditor()
+                .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
         .task { await reload() }
@@ -230,6 +244,49 @@ struct StaffView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Brand.grape)
                 Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+    }
+
+    /**
+     * Общий процент команды за совместную работу.
+     *
+     * Состояние стоит прямо на строке: свойство редкое, и открывать окно
+     * только чтобы узнать, включено ли оно, — лишний путь на экране, куда
+     * заходят за другим.
+     */
+    private var teamRow: some View {
+        Button {
+            teamOpen = true
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
+                    .frame(width: 42, height: 42)
+                    .background(Brand.grape.opacity(0.10), in: .circle)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("crew.title"))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                    Text(L("crew.lead"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(session.teamPercent.map { "\($0)%" } ?? L("crew.off"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(session.teamPercent == nil ? Brand.boardMuted : Brand.onBoard)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -743,6 +800,185 @@ struct StaffEditor: View {
             try await APIClient.shared.raw("staff/\(person.id)", method: "DELETE", token: token)
         }
         await onSave()
+        dismiss()
+    }
+}
+
+/**
+ * Общий процент команды за совместную работу.
+ *
+ * ЧТО ЗДЕСЬ ГЛАВНОЕ. Не поле ввода, а пример под ним. Число «50» само по
+ * себе двусмысленно ровно в том месте, где ошибка стоит дороже всего:
+ * владелец, решивший, что ставит 50 % каждому из троих, поставит 17 и
+ * будет платить втрое меньше, чем собирался; понявший наоборот — втрое
+ * больше. Определение эту разницу объясняет, но определения пролистывают,
+ * а пример с числами читают. Поэтому пример живой: он пересчитывается,
+ * пока человек набирает процент, и показывает ровно то, что произойдёт.
+ *
+ * Пустое поле выключает свойство: мойщику совместная работа перестаёт
+ * предлагаться. Ноль этого НЕ делает — ноль означает «мойте вместе,
+ * доплаты нет», и это настоящий, хоть и редкий, выбор владельца.
+ *
+ * Считает всё `Crew` — тот же код, которым доли посчитает экран записи, и
+ * то же правило, что на сервере. Своя формула здесь разошлась бы с
+ * настоящей на первом же остатке от деления.
+ */
+struct TeamWashEditor: View {
+    @EnvironmentObject private var session: Session
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var text = ""
+    @State private var busy = false
+    @State private var error: String?
+
+    /// Числа примера. Круглые нарочно: пример объясняет правило, а не
+    /// показывает случай из жизни.
+    private let examplePrice = 10_000
+    private let examplePeople = 2
+
+    private var currency: String { session.tenant?.currency ?? "AMD" }
+
+    /// Пусто — выключить свойство. Ноль — настоящий ноль.
+    private var asked: Int? {
+        let digits = text.filter(\.isNumber)
+        guard !digits.isEmpty, let n = Int(digits) else { return nil }
+        return min(100, n)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Brand.boardMuted)
+                        .frame(width: 38, height: 38)
+                        .background(Brand.boardInk.opacity(0.07), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("common.close"))
+
+                Spacer()
+
+                Text(L("crew.title"))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+
+                Spacer()
+
+                Color.clear.frame(width: 38, height: 38)
+            }
+            .padding(.bottom, 10)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L("crew.percentLabel"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+
+                HStack(spacing: 8) {
+                    TextField(L("crew.off"), text: $text)
+                        .keyboardType(.numberPad)
+                        .font(.system(size: 17, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                        .multilineTextAlignment(.trailing)
+                        .onChange(of: text) { _, v in
+                            let clean = String(v.filter(\.isNumber).prefix(3))
+                            let capped = Int(clean).map { String(min(100, $0)) } ?? clean
+                            if capped != v { text = capped }
+                        }
+                    Text("%")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+
+                Text(L("crew.percentHint"))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Brand.boardMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                /* Что произойдёт после сохранения — до нажатия, числами.
+                   Здесь и разрешается двусмысленность процента: видно, что
+                   пятьдесят на двоих дают по четверти цены каждому. */
+                Text(example)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(asked == nil ? Brand.boardMuted : Brand.goodOnBoard)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let error {
+                    Text(error)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.badOnBoard)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+
+            Spacer(minLength: 12)
+
+            Button {
+                Task { await save() }
+            } label: {
+                Text(L("common.save"))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.onLime)
+                    .loading(busy, tint: Brand.onLime, size: 20)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Brand.lime, in: .rect(cornerRadius: 22))
+            }
+            .buttonStyle(.press)
+            .disabled(busy)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Brand.board.ignoresSafeArea())
+        .onAppear { text = session.teamPercent.map(String.init) ?? "" }
+    }
+
+    private var example: String {
+        guard let percent = asked else { return L("crew.offNote") }
+        let each = Crew.shares(price: examplePrice, percent: percent, people: examplePeople).first ?? 0
+        return L(
+            "crew.example",
+            money(examplePrice, currency),
+            percent,
+            Terms.staff(examplePeople, session.tenant?.staffRole ?? ""),
+            money(each, currency)
+        )
+    }
+
+    private func save() async {
+        busy = true
+        error = nil
+        defer { busy = false }
+
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "team",
+                    method: "PUT",
+                    /* Пусто и ноль — разные ответы, и `NSNull` отличает
+                       первое от второго: «выключить» против «мойте вместе
+                       бесплатно». */
+                    body: ["percent": asked as Any? ?? NSNull()],
+                    token: token
+                )
+            }
+        } catch {
+            self.error = L("errors.generic")
+            return
+        }
+
+        /* Перечитываем bootstrap: от этого числа зависит, покажет ли экран
+           записи выбор «кто мыл», и узнать об этом он должен сразу. */
+        try? await session.loadBootstrap()
         dismiss()
     }
 }

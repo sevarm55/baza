@@ -79,7 +79,19 @@ export function ClientSheet({
   const lost = c ? c.daysSince > lostAfter : false;
 
   const service = topOf(orders.map((o) => o.serviceName));
-  const staff = topOf(orders.map((o) => o.staffName).filter((n): n is string => Boolean(n)));
+  /* Кто чаще мыл эту машину. Считаем по участникам, а не по
+     авторам записей: совместную мойку записывает один, а работают все,
+     и «чаще всего мыл Арман» по авторству назвало бы того, у кого
+     телефон под рукой. */
+  const staff = topOf(
+    orders.flatMap((o) =>
+      o.crew.length > 0
+        ? o.crew.map((p) => p.name).filter((n): n is string => Boolean(n))
+        : o.staffName
+          ? [o.staffName]
+          : [],
+    ),
+  );
   const payment = topOf(orders.map((o) => paymentLabel(o.payment, t)));
 
   return (
@@ -187,10 +199,10 @@ export function ClientSheet({
                   >
                     <span
                       className="size-1.5 shrink-0 rounded-full"
-                      style={{ background: personColor(o.staffName) }}
+                      style={{ background: personColor(o.crew[0]?.name ?? o.staffName) }}
                       aria-hidden
                     />
-                    {o.staffName ?? '—'} · {paymentLabel(o.payment, t)} · {o.day} {o.time}
+                    {crewNames(o)} · {paymentLabel(o.payment, t)} · {o.day} {o.time}
                   </span>
                 </span>
                 <span className="num shrink-0 text-[14px] font-semibold">
@@ -356,4 +368,18 @@ function paymentLabel(p: string, t: Dict): string {
   if (p === 'card') return t.payment.card;
   if (p === 'pass') return t.payment.pass;
   return t.payment.transfer;
+}
+
+/**
+ * Кто мыл — одной строкой.
+ *
+ * Все участники, а не автор записи: совместную мойку вносит один
+ * человек, а работают несколько, и назвать одного значило бы соврать про
+ * остальных. У одиночной записи участник ровно один, и строка выглядит
+ * ровно как выглядела.
+ */
+function crewNames(order: { crew: { name: string | null }[]; staffName: string | null }): string {
+  const names = order.crew.map((p) => p.name).filter((n): n is string => Boolean(n));
+  if (names.length > 0) return names.join(' · ');
+  return order.staffName ?? '—';
 }

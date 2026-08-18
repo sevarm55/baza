@@ -562,6 +562,40 @@ export const en: Dict = {
       `Been here ${visits} ${pl(visits, 'time', 'times')} · last ${ago} · ${total} in total`,
   },
 
+  crew: {
+    title: 'Shared job',
+    lead: 'When several people work on one car',
+
+    percentLabel: 'Team percent',
+    percentHint:
+      'The percent is taken from the price and split equally between everyone involved. It is the percent for the whole team, not for each person.',
+    example: (price: string, percent: number, people: string, each: string) =>
+      `${price} · ${percent}% · ${people} → ${each} each`,
+
+    off: 'Off',
+    offNote:
+      'Set the team percent and your staff will be able to mark a job as done together.',
+    on: (percent: number) => `${percent}% for the whole team`,
+
+    who: 'Who worked',
+    onlyMe: 'Just me',
+    together: 'Together with colleagues',
+    alone: 'There is nobody else at this point',
+    nobodyOnShift: 'None of your colleagues is on shift. Only people who started their shift can be picked.',
+
+    pool: 'Team pay',
+    each: 'Each',
+    yours: 'You earn',
+    teamPercent: 'Team percent',
+    joint: 'Shared',
+
+    needPercent: 'The team percent is not set.',
+
+    author: 'Recorded by',
+    edit: 'Change the crew',
+    editLead: 'Who worked on this car',
+  },
+
   payroll: {
     tabDue: 'Due',
     tabHistory: 'History',

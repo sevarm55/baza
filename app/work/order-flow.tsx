@@ -31,8 +31,23 @@ import {
   type QueuedOrder,
 } from '@/lib/offline';
 import type { Payment } from '@/lib/orders';
+import { crewSplit, MAX_CREW } from '@/lib/crew';
+import { personColor } from '@/lib/person-color';
 import { hhmm } from '@/lib/time';
+import { staffCount } from '@/lib/i18n/terms';
 import { normalizeClientKey } from '@/lib/client-key';
+
+/**
+ * Коллега в списке «помыли вместе».
+ *
+ * `onShift` решает, показывать его вообще: отметить участником можно
+ * только того, кто встал на смену. Не встал — значит сегодня не работал,
+ * и начислять ему за чужую машину не за что.
+ *
+ * Признак, а не готовый отфильтрованный список: «коллег нет вовсе» и
+ * «все ушли домой» — разные ответы, и форма обязана их различать.
+ */
+type Mate = { id: string; name: string; onShift: boolean };
 
 type Service = {
   id: string;
@@ -49,6 +64,19 @@ type Recent = {
   price: number;
   payment: string;
   at: string;
+  /** сколько причитается смотрящему за эту машину */
+  earned: number;
+  /** сколько человек её мыли; 1 — обычная одиночная мойка */
+  crew: number;
+  /**
+   * Запись сделал смотрящий.
+   *
+   * От этого зависит, показывать ли отмену. Совместную мойку человек
+   * видит у себя и тогда, когда её записал коллега, — но отменять чужую
+   * запись он не вправе, и сервер её не отменит. Кнопка, которая всегда
+   * отвечает отказом, хуже отсутствующей.
+   */
+  mine: boolean;
 };
 type ActivePass = {
   id: string;
@@ -128,6 +156,9 @@ export function OrderFlow({
   recent,
   timezone,
   shiftOpen,
+  mates,
+  teamPercent,
+  staffRole,
 }: {
   canWrite: boolean;
   services: Service[];
@@ -149,6 +180,22 @@ export function OrderFlow({
   timezone: string;
   /** смена открыта: пусто здесь означает разное до неё и внутри неё */
   shiftOpen: boolean;
+  /**
+   * Коллеги — без себя, с признаком «на смене».
+   *
+   * Себя из списка убирает страница, а не форма: автор записи участник
+   * по определению, и галочка напротив собственного имени была бы
+   * способом однажды остаться без денег за свою же работу.
+   */
+  mates: Mate[];
+  /**
+   * Общий процент команды. Null — свойства у бизнеса нет, и весь выбор
+   * «кто мыл» не показывается вовсе: управление, которое ничего не
+   * меняет, приходится прочитать, чтобы это понять.
+   */
+  teamPercent: number | null;
+  /** «мойщик» — слово ниши, им считаем людей: «3 мойщика» */
+  staffRole: string;
 }) {
   const t = useT();
   const [wanted, setStep] = useState<Step>('home');
@@ -169,6 +216,18 @@ export function OrderFlow({
   /** Скидка: развёрнута ли строка и что в ней набрано. */
   const [showDiscount, setShowDiscount] = useState(false);
   const [discountText, setDiscountText] = useState('');
+  /**
+   * Отмеченные коллеги.
+   *
+   * Пусто — мыл один, и это состояние по умолчанию: девять записей из
+   * десяти одиночные, и платить за десятую лишним касанием должны они, а
+   * не наоборот.
+   */
+  const [helpers, setHelpers] = useState<string[]>([]);
+  /* Переключатель отдельно от списка отмеченных: человек выбирает
+     «вместе с коллегами» раньше, чем успевает кого-то отметить, и до
+     первой галочки экран обязан показывать выбор, а не молчать. */
+  const [together, setTogether] = useState(false);
   const [known, setKnown] = useState<Known | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -228,6 +287,36 @@ export function OrderFlow({
     showDiscount && Number.isFinite(typed) ? Math.max(0, Math.min(typed, listTotal)) : listTotal;
   const discounted = charged < listTotal;
 
+  /* Совместная работа предлагается, только когда её есть с кем делать и
+     когда владелец назначил общий процент. Иначе выбор «кто мыл» — это
+     управление, которое ничего не меняет: его придётся прочитать, чтобы
+     это понять, а читают его сорок раз за смену. */
+  const canShare = teamPercent !== null && mates.length > 0;
+  /* Выбирать можно только тех, кто на смене. Остальные в списке не
+     стоят: сервер такую запись всё равно не примет, и показывать имя,
+     по которому придёт отказ, значит обещать несуществующее. */
+  const working = mates.filter((m) => m.onShift);
+  /* Отмеченные, которых уже нет среди работающих, в расчёт не идут:
+     коллега мог закрыть смену, пока форма открыта. Считаем по тому, что
+     видно. */
+  const crewIds =
+    canShare && together ? helpers.filter((id) => working.some((m) => m.id === id)) : [];
+  const crewSize = crewIds.length + 1;
+
+  /* Будущая зарплата — тем же кодом, которым её посчитает сервер
+     (`lib/crew.ts`). Не «примерно», а до драма, включая остаток от
+     деления: мойщик видит на экране ровно то число, которое вечером
+     окажется в ведомости, и спорить будет не с чем. */
+  const split = crewSplit({
+    price: charged,
+    people: crewSize,
+    /* Личная ставка сюда не приезжает и не нужна: при одном участнике
+       блок не показывается вовсе — своя доля уже стоит на экране смены
+       крупным числом. */
+    soloPercent: 0,
+    teamPercent,
+  });
+
   useEffect(() => () => {
     if (savedTimer.current) clearTimeout(savedTimer.current);
   }, []);
@@ -251,6 +340,11 @@ export function OrderFlow({
           price:
             item.listPrice !== undefined && item.price < item.listPrice ? item.price : undefined,
           tier: item.tier,
+          /* Состав едет вместе с записью. Уволенного за это время
+             сервер отвергнет, и запись повиснет в очереди с причиной —
+             ровно как запись с удалённой услугой; решает дальше
+             человек. */
+          participantIds: item.participantIds,
           clientRef: item.ref,
         });
       }).then((sent) => {
@@ -298,6 +392,12 @@ export function OrderFlow({
     setKnown(null);
     setShowDiscount(false);
     setDiscountText('');
+    /* Состав сбрасывается вместе со всем остальным. Соблазн оставить его
+       «до конца смены» есть — бригада за день не меняется, — но цена
+       ошибки несимметрична: забытая галочка запишет коллеге чужую машину
+       и уполовинит заработок тому, кто мыл её один. */
+    setTogether(false);
+    setHelpers([]);
     setError(null);
   }
 
@@ -339,6 +439,7 @@ export function OrderFlow({
          связи, владелец мог переставить классы местами, и номер указал бы
          на соседний. Слово либо совпадёт, либо цена будет базовой. */
       tier: tier === null ? undefined : tiers[tier],
+      participantIds: crewIds.length > 0 ? crewIds : undefined,
       at: stamp(),
     };
 
@@ -360,6 +461,7 @@ export function OrderFlow({
           passId: item.passId,
           price: discounted ? item.price : undefined,
           tier: item.tier,
+          participantIds: item.participantIds,
           clientRef: item.ref,
         });
         succeed();
@@ -475,9 +577,18 @@ export function OrderFlow({
                записей за смену «Комплекс» встречается двадцать раз, а
                номер один: искать свою ошибку по названию услуги — это
                читать список целиком. */
-            const detail = [o.serviceName, paymentLabel(o.payment, t), hhmm(o.at, timezone)].join(
-              ' · ',
-            );
+            const shared = o.crew > 1;
+            const detail = [
+              o.serviceName,
+              paymentLabel(o.payment, t),
+              hhmm(o.at, timezone),
+              /* Совместная — словом и числом людей. Без этого строка
+                 нечитаема: цена 12 000, а заработок 1 800, и почему,
+                 неизвестно. */
+              shared ? `${t.crew.joint} · ${staffCount(o.crew, staffRole, t.locale)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ');
             return (
               <Row key={o.id}>
                 <span className="min-w-0 flex-1">
@@ -491,17 +602,36 @@ export function OrderFlow({
                     {o.clientKey ? detail : `${paymentLabel(o.payment, t)} · ${hhmm(o.at, timezone)}`}
                   </span>
                 </span>
-                <span className="num shrink-0 text-[14px] font-semibold">
-                  {formatMoney(o.price, currency, t.locale)}
+                <span className="shrink-0 text-end">
+                  <span className="num block text-[14px] font-semibold">
+                    {formatMoney(o.price, currency, t.locale)}
+                  </span>
+                  {/* Своя доля — только у совместной. У одиночной она
+                      и так вся сверху, и вторая строка под ценой
+                      повторяла бы одно число дважды. */}
+                  {shared && (
+                    <span className="num block text-[12px]" style={{ color: 'var(--board-muted)' }}>
+                      {formatMoney(o.earned, currency, t.locale)}
+                    </span>
+                  )}
                 </span>
                 {/* Ошибся номером или услугой — исправляет сам, не бегая
                     к владельцу. Стоит последним и тихо: отменять
-                    приходится одну запись из сорока. */}
-                <RevokeOrder
-                  orderId={o.id}
-                  title={o.clientKey ?? o.serviceName}
-                  detail={`${o.serviceName} · ${formatMoney(o.price, currency, t.locale)}`}
-                />
+                    приходится одну запись из сорока.
+
+                    Только свою. Совместную мойку человек видит у себя и
+                    тогда, когда её записал коллега, — но отменять чужую
+                    запись он не вправе, и сервер её не отменит. Кнопка,
+                    которая всегда отвечает отказом, хуже отсутствующей:
+                    к владельцу за отменой человек пойдёт в обоих
+                    случаях, но во втором сначала потратит время. */}
+                {o.mine && (
+                  <RevokeOrder
+                    orderId={o.id}
+                    title={o.clientKey ?? o.serviceName}
+                    detail={`${o.serviceName} · ${formatMoney(o.price, currency, t.locale)}`}
+                  />
+                )}
               </Row>
             );
           })
@@ -707,6 +837,130 @@ export function OrderFlow({
               >
                 {t.work.giveDiscount}
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Кто мыл.
+
+            Стоит между услугами и оплатой, потому что там же стоит в
+            работе: машину приняли, решили что с ней делают, посмотрели
+            кто взялся, взяли деньги. Выше оплаты ещё и потому, что
+            меняет сумму зарплаты, а не сумму счёта: цифры под ним
+            обязаны быть посчитаны до того, как палец уйдёт к последней
+            кнопке.
+
+            «Только я» — состояние по умолчанию, и это не мелочь: девять
+            записей из десяти одиночные, и лишнее касание на них стоило
+            бы сорок касаний за смену ради одного случая. Второй вариант
+            открывает список коллег и ничего не меняет, пока в нём
+            никого не отметили.
+
+            Блока нет вовсе у бизнеса без общего процента и у точки, где
+            человек один: и то и другое означает, что мыть вместе не с
+            кем или не по чем, а управление, которое ничего не меняет,
+            приходится прочитать, чтобы это понять. */}
+        {canShare && (
+          <div className="mt-4">
+            <div className="label mb-2">{t.crew.who}</div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="pick"
+                data-on={together ? undefined : ''}
+                aria-pressed={!together}
+                onClick={() => {
+                  setTogether(false);
+                  /* Отметки снимаем сразу. Оставленные «на потом» они не
+                     видны — список свёрнут, — а уходят на сервер и делят
+                     деньги молча. */
+                  setHelpers([]);
+                }}
+              >
+                <span className="pick-name">{t.crew.onlyMe}</span>
+              </button>
+              <button
+                type="button"
+                className="pick"
+                data-on={together ? '' : undefined}
+                aria-pressed={together}
+                onClick={() => setTogether(true)}
+              >
+                <span className="pick-name">{t.crew.together}</span>
+              </button>
+            </div>
+
+            {together && (
+              <div className="mt-2.5">
+                <div className="flex flex-wrap gap-2">
+                  {working.map((m) => {
+                    const on = crewIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="pick"
+                        data-on={on ? '' : undefined}
+                        aria-pressed={on}
+                        /* Потолок стоит и здесь, и на сервере. Здесь —
+                           чтобы отказ не прилетал после нажатия
+                           «добавить», когда набирать заново придётся
+                           всё. */
+                        disabled={!on && crewSize >= MAX_CREW}
+                        onClick={() =>
+                          setHelpers((cur) =>
+                            on ? cur.filter((id) => id !== m.id) : [...cur, m.id],
+                          )
+                        }
+                      >
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ background: personColor(m.name) }}
+                          aria-hidden
+                        />
+                        <span className="pick-name">{m.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Что получится — числами и до нажатия.
+
+                    Это главное место всей затеи. Мойщик должен увидеть
+                    СВОЮ долю раньше, чем согласится на совместную
+                    запись, иначе вечером он узнает её из ведомости и
+                    решит, что его обсчитали. Числа те же, что посчитает
+                    сервер: общий код в `lib/crew.ts`.
+
+                    Пока никого не отметили, стоит подсказка, а не
+                    расчёт: «фонд 5 000, каждому 5 000» на одном
+                    участнике — это не подсчёт, а способ запутать. */}
+                {working.length === 0 ? (
+                  /* Коллеги в бизнесе есть, но все вне смены. Молчать
+                     здесь нельзя: пустой список читается как поломка, а
+                     причина у него рабочая и поправимая — человеку надо
+                     встать на смену на своём телефоне. */
+                  <p className="hint-warn">{t.crew.nobodyOnShift}</p>
+                ) : (
+                  <div className="hint-good mt-2.5">
+                    {crewIds.length === 0 ? (
+                      t.crew.percentHint
+                    ) : (
+                      <>
+                        <b>{staffCount(crewSize, staffRole, t.locale)}</b>
+                        {' · '}
+                        {t.crew.teamPercent} {split.percent}%
+                        <br />
+                        {t.crew.pool} <b className="num">{formatMoney(split.pool, currency)}</b>
+                        {' · '}
+                        {t.crew.yours}{' '}
+                        <b className="num">{formatMoney(split.shares[0] ?? 0, currency)}</b>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

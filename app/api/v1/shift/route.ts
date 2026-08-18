@@ -55,6 +55,13 @@ export async function GET(request: Request) {
         serviceName: o.serviceName,
         price: o.price,
         payment: o.payment,
+        /* Сколько причитается СМОТРЯЩЕМУ за эту машину и сколько человек
+           её мыли. У одиночной мойки `crew` равен единице, и заработок
+           тот же, что считался всегда; у совместной без этих двух чисел
+           строка нечитаема — цена 12 000, а заработок 1 800, и почему,
+           неизвестно. */
+        earned: o.earned,
+        crew: o.crew,
         createdAt: o.createdAt,
       })),
     });

@@ -29,6 +29,19 @@ final class Session: ObservableObject {
     @Published private(set) var access: API.Access?
     @Published private(set) var services: [API.Service] = []
     /**
+     * Совместная работа: одну машину моют вдвоём-втроём.
+     *
+     * `percent` — ставка на ВСЮ команду, а не каждому: цена × процент даёт
+     * фонд, фонд делится поровну. Пусто — свойство у бизнеса выключено, и
+     * экран записи не показывает ни одного нового пикселя.
+     *
+     * Список коллег приезжает с bootstrap, а не отдельным запросом: его
+     * спрашивают в момент записи машины, во дворе, где связи может не
+     * быть, — пауза там дороже всего.
+     */
+    @Published private(set) var teamPercent: Int?
+    @Published private(set) var mates: [API.CrewMate] = []
+    /**
      * Читал ли человек приветствие первого входа и убрал ли он
      * «Начало работы».
      *
@@ -769,6 +782,12 @@ final class Session: ObservableObject {
         access = boot.access
         services = boot.services
         points = boot.points ?? []
+        teamPercent = boot.crew?.percent
+        /* Себя из списка убираем здесь, а не на экране: автор записи
+           участник по определению, и галочка напротив собственного имени
+           была бы способом однажды остаться без денег за свою же
+           работу. */
+        mates = (boot.crew?.members ?? []).filter { $0.id != boot.me.id }
         welcomeSeen = boot.me.welcomeSeen ?? true
         setupHidden = boot.me.setupHidden ?? false
     }

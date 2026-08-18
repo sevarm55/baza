@@ -174,8 +174,17 @@ export function StaffRow({
               {lines.map((line) => (
                 <div key={line.id} className="pay-line">
                   <span className="truncate">{line.title}</span>
+                  {/* Совместная мойка дописывает делитель.
+
+                      Без него строка «12 000 ֏ × 45 % → 1 800 ֏» врёт
+                      на глазах: сорок пять процентов от двенадцати тысяч
+                      это пять четыреста, а не тысяча восемьсот. Деление
+                      на число участников и есть недостающее звено —
+                      процент здесь общий на команду, а получает человек
+                      свою часть фонда. */}
                   <span className="whitespace-nowrap">
                     {money(line.price)} × {line.percent}%
+                    {line.crew > 1 && ` ÷ ${line.crew}`}
                   </span>
                   <b>{money(line.earned)}</b>
                 </div>

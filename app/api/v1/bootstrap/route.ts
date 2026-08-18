@@ -1,6 +1,7 @@
 import { ensureDb } from '@/lib/db/ready';
 import { tiersOf } from '@/lib/catalog';
-import { listServices } from '@/lib/queries';
+import { listServices, listStaff, startOfDay } from '@/lib/queries';
+import { whoIsOnShift } from '@/lib/shifts';
 import { listPoints } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
 import { passesEnabled } from '@/lib/features';
@@ -29,7 +30,25 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { anyPlan: true });
     if (denied(ctx)) return ctx;
 
-    const services = await listServices(ctx.tenant.id);
+    /* Коллеги приезжают вместе с услугами и по той же причине: их
+       спрашивают в момент записи машины, во дворе, где связи может не
+       быть. Отдельный запрос за списком людей ровно тогда, когда мойщик
+       уже держит телефон мокрыми руками, — это пауза на самом частом
+       действии продукта.
+
+       Только имя и id. Ни телефона, ни ставки, ни долга: мойщику нужно
+       отметить, с кем он работал, а не изучать чужие условия. */
+    const [services, staff, present] = await Promise.all([
+      listServices(ctx.tenant.id),
+      listStaff(ctx.tenant.id),
+      /* Кто сейчас на мойке. Отметить участником можно только его: не
+         встал на смену — значит сегодня не работал. То же правило
+         проверяет запись, здесь оно только убирает из списка имена, по
+         которым всё равно придёт отказ. */
+      whoIsOnShift(ctx.tenant.id, startOfDay(ctx.tenant.timezone)),
+    ]);
+
+    const onShift = new Set(present.map((p) => p.userId));
 
     return ok({
       tenant: {
@@ -52,6 +71,28 @@ export async function GET(request: Request) {
            не знает и знать не должен. */
         tierLabel: ctx.tenant.tierLabel,
         tiers: tiersOf(ctx.tenant),
+      },
+      /* Совместная работа: одну машину моют вдвоём-втроём.
+       *
+       * `percent` — ставка на ВСЮ команду, а не каждому: цена × процент
+       * даёт фонд, фонд делится поровну. Null означает, что свойство у
+       * бизнеса не включено, и приложение не показывает ни одного нового
+       * пикселя — ровно как с тарифами.
+       *
+       * `members` — активные люди точки, включая смотрящего: убирать
+       * себя из списка обязан тот, кто его рисует, а не тот, кто отдаёт,
+       * иначе «кроме меня» пришлось бы считать по двум полям. */
+      crew: {
+        percent: ctx.tenant.teamPercent,
+        /* Признак смены, а не отфильтрованный список: «коллег нет вовсе»
+           и «все ушли домой» — разные ответы, и экран записи обязан их
+           различать. Список при этом переживает потерю связи: он лежит в
+           кэше bootstrap, а смены открывают утром и закрывают вечером. */
+        members: staff.map((u) => ({
+          id: u.id,
+          name: u.name,
+          onShift: onShift.has(u.id),
+        })),
       },
       me: {
         id: ctx.user.id,

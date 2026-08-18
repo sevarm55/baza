@@ -30,7 +30,7 @@ import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness } from '@/lib/tenant';
 import { revokeDevice } from '@/lib/devices';
 import { changePin, ProfileError, saveProfile } from '@/lib/profile';
-import { createOrder, cancelOrder, type Payment } from '@/lib/orders';
+import { createOrder, cancelOrder, setOrderCrew, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
 import {
@@ -528,6 +528,80 @@ export async function resetStaffPinAction(
   return { ok: true };
 }
 
+/**
+ * Общий процент команды за совместную мойку.
+ *
+ * Пустое поле выключает свойство: мойщику совместная мойка перестаёт
+ * предлагаться, и сервер её не принимает. Уже записанные при этом не
+ * пересчитываются — ни одна: применённая ставка и посчитанные доли лежат
+ * снимками в самой записи (см. `saveTeamPercent`).
+ */
+export async function saveTeamPercentAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireOwner();
+  await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
+
+  const raw = String(formData.get('percent') ?? '').trim();
+  /* Пусто — выключить, а не ноль. Ноль означал бы «мойте вместе
+     бесплатно», и это настоящий, хоть и странный, выбор владельца;
+     пустое поле означает «такого у нас не бывает». Путать их нельзя. */
+  const percent = raw === '' ? null : Number(raw);
+
+  try {
+    await catalog.saveTeamPercent({ tenantId: session.tid, percent });
+  } catch {
+    return { error: t.errors.badPercent };
+  }
+
+  revalidatePath('/owner/staff');
+  revalidatePath('/work');
+  return { ok: true };
+}
+
+/**
+ * Правка состава уже записанной мойки.
+ *
+ * Нужна ровно для одного случая, и он частый: мыли втроём, а отметили
+ * двоих. Без правки третий остаётся без денег, а единственным выходом
+ * была бы отмена записи и повторный ввод — то есть потеря номера, услуги
+ * и порядка в ленте ради одной галочки.
+ *
+ * Правит владелец: состав — это чужая зарплата, и менять её должен тот,
+ * кто за неё платит. Как пересчитывается фонд и почему прошлая ставка не
+ * трогается — в `setOrderCrew`.
+ */
+export async function saveOrderCrew(
+  orderId: string,
+  participantIds: string[],
+): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireOwner();
+  await ensureDb();
+  const denied = await writeBlocked(session.tid, t);
+  if (denied) return denied;
+
+  try {
+    await setOrderCrew({
+      tenantId: session.tid,
+      orderId,
+      byUserId: session.uid,
+      participantIds,
+    });
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : '';
+    if (reason === 'TEAM_PERCENT_UNSET') return { error: t.crew.needPercent };
+    return { error: t.errors.generic };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
 export async function archiveStaff(formData: FormData): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
@@ -983,7 +1057,11 @@ export async function clientHistory(key: string) {
          владелец должен видеть, сколько всего простил. */
       listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
       payment: o.payment,
+      /* Кто внёс запись и кто над ней работал. У одиночной мойки это
+         один человек, у совместной — разные ответы, и карточку клиента
+         открывают ради второго: «в прошлый раз поцарапали, кто мыл». */
       staffName: o.staffName,
+      crew: o.crew.map((p) => ({ name: p.name })),
       day: dayMonth(o.createdAt, tenant.timezone),
       time: hhmm(o.createdAt, tenant.timezone),
     })),
@@ -1092,6 +1170,18 @@ export async function addOrder(input: {
    * правилом живёт запись с телефона.
    */
   tier?: string;
+  /**
+   * Кто ещё мыл эту машину, кроме того, кто записывает.
+   *
+   * Пусто — одиночная мойка, всё как раньше. Себя в список класть не
+   * надо: автор записи участник по определению, и требовать от него
+   * галочку напротив собственного имени значит однажды оставить его без
+   * денег за свою же работу.
+   *
+   * Проверяет состав сервер (`createOrder`): форма рисует только своих
+   * активных коллег, но отправить можно что угодно.
+   */
+  participantIds?: string[];
   /** ref из офлайн-очереди: повторная досылка не создаст вторую запись */
   clientRef?: string;
 }): Promise<void> {
@@ -1114,6 +1204,7 @@ export async function addOrder(input: {
   await createOrder({
     tenantId: session.tid,
     staffId: session.uid,
+    participantIds: input.participantIds?.length ? input.participantIds : undefined,
     serviceId: input.serviceId,
     serviceIds: input.serviceIds?.length ? input.serviceIds : undefined,
     clientKey: input.clientKey,
