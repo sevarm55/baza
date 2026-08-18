@@ -26,6 +26,10 @@ struct ProfileView: View {
     @State private var myName = ""
     @State private var saving = false
     @State private var saved = false
+    /// Сохранение оборвалось. Отдельным состоянием, а не отсутствием
+    /// `saved`: «ещё не жали» и «нажали, не вышло» — разные вещи, и
+    /// второе обязано сказать о себе вслух.
+    @State private var saveFailed = false
 
     @State private var changingPin = false
     @State private var verifyingPhone = false
@@ -49,6 +53,12 @@ struct ProfileView: View {
                 if let access = session.access { accessTile(access) }
                 fields
                 if changed || saved { saveRow }
+                if saveFailed {
+                    Text(L("common.failed"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.warnOnBoard)
+                        .padding(.horizontal, 6)
+                }
                 language
                 switches
                 actions
@@ -488,13 +498,26 @@ struct ProfileView: View {
         saving = true
         defer { saving = false }
         saved = false
+        saveFailed = false
 
-        try? await session.saveProfile(
-            name: myName == (session.me?.name ?? "") ? nil : myName,
-            businessName: isOwner && businessName != (session.tenant?.name ?? "")
-                ? businessName : nil
-        )
-        saved = true
+        /*
+         * Галочка только после удачи.
+         *
+         * Раньше `saved` вставало после любой попытки, включая
+         * оборвавшуюся: человек видел «Сохранено», уходил с экрана, и имя
+         * оставалось прежним. Это хуже молчания — молчание заставляет
+         * проверить, а ложное подтверждение отменяет саму мысль проверять.
+         */
+        do {
+            try await session.saveProfile(
+                name: myName == (session.me?.name ?? "") ? nil : myName,
+                businessName: isOwner && businessName != (session.tenant?.name ?? "")
+                    ? businessName : nil
+            )
+            saved = true
+        } catch {
+            saveFailed = true
+        }
     }
 
     private func saveNotify(_ on: Bool) async {
