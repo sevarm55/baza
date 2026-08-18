@@ -30,6 +30,8 @@ struct HandoverView: View {
 
     @State private var amount = ""
 
+    @FocusState private var typingAmount: Bool
+
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var entered: Int? { Int(amount) }
     private var diff: Int { (entered ?? expected) - expected }
@@ -81,9 +83,14 @@ struct HandoverView: View {
                     LabeledContent(L("handover.declaring")) {
                         TextField("", text: $amount)
                             .keyboardType(.numberPad)
+                            .focused($typingAmount)
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                     }
+                    // строка целиком: попадать в пустое поле у правого края
+                    // мокрыми руками почти невозможно
+                    .contentShape(.rect)
+                    .onTapGesture { typingAmount = true }
                 } footer: {
                     /* Расхождение показываем сразу, а не после отправки:
                        чаще всего это опечатка, и увидеть её надо до того,

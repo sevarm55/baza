@@ -46,6 +46,8 @@ struct OrderFlowView: View {
     /// Выбранный тариф — номером в списке бизнеса. `nil`, когда тарифов
     /// нет вовсе.
     @State private var tier: Int?
+
+    @FocusState private var typingDiscount: Bool
     @Namespace private var glass
 
     /// Тарифы бизнеса. Пусто — ряда классов на экране не будет.
@@ -399,6 +401,7 @@ struct OrderFlowView: View {
 
                 TextField(String(listTotal), text: $discountText)
                     .keyboardType(.numberPad)
+                    .focused($typingDiscount)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
                     .font(.system(size: 16, weight: .semibold))
@@ -414,6 +417,9 @@ struct OrderFlowView: View {
             }
             .padding(14)
             .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+            // касание принимает вся коробка, а не только набранные цифры
+            .contentShape(.rect)
+            .onTapGesture { typingDiscount = true }
             .padding(.top, 12)
         } else if !chosen.isEmpty {
             Button(L("order.giveDiscount")) { showDiscount = true }

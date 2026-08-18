@@ -150,18 +150,11 @@ struct ProfileView: View {
     }
 
     private func field(_ title: String, _ value: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 14))
-                .foregroundStyle(Brand.boardMuted)
-            Spacer(minLength: 8)
+        FieldBox(title) {
             TextField("", text: value)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
-                .multilineTextAlignment(.trailing)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
     }
 
     /// Кнопка сохранения есть только когда есть что сохранять. В системной
@@ -346,20 +339,22 @@ struct ProfileView: View {
                забрать её нужно ДО того, как закрылась дверь. */
             if isOwner { exportRow }
 
-            action(L("auth.signOut"), "", icon: "power", danger: false) {
-                Task { await session.signOut() }
-            }
-
             if isOwner {
-                /* Отдельно и в самом низу, с воздухом сверху: «выйти» и
-                   «стереть всё» не должны стоять двумя соседними строчками,
-                   где промах пальцем стоит бизнеса. */
+                /* С воздухом сверху: «стереть всё» не должно стоять
+                   соседней строчкой ни к чему, где промах пальцем стоит
+                   бизнеса. */
                 action(L("billing.wallDelete"), L("profile.deleteNote"),
                        icon: "trash", danger: true) {
                     deleting = true
                 }
                 .padding(.top, 14)
             }
+
+            /* Выхода здесь больше нет: он переехал на карту разделов, в
+               самый низ. Причина простая — до профиля за ним нужно было
+               заходить, а это два нажатия ради того, чем пользуются с
+               чужого телефона и в спешке. Здесь остаётся то, что про
+               учётку: код, номер, устройства, копия данных, удаление. */
         }
         .padding(.top, 4)
     }

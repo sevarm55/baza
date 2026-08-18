@@ -244,31 +244,73 @@ struct OwnerView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /** Три источника результата, без повторения самого результата.
-
-        Главное число уже стоит сверху. Повторять его ещё раз после `=` —
-        значит заставлять человека дважды прочитать один и тот же ответ.
-        Здесь остаётся только происхождение суммы: что вошло и что вышло. */
+    /**
+     * Из чего вышел результат — одной полосой, а не тремя колонками.
+     *
+     * Колонки были ошибкой композиции: следом за ними шла вторая такая же
+     * тройка — машины, средний чек, люди на смене, — и две одинаковые
+     * полоски подряд читались одним длинным блоком ни о чём. Отличить их
+     * можно было, только прочитав подписи, то есть глаз не работал вовсе.
+     *
+     * Полоса отвечает на вопрос, которого у колонок не было: КАКОЙ ДОЛЕЙ.
+     * Из каждых двадцати двух с половиной тысяч владельцу осталось четыре,
+     * и это видно длиной куска, без чтения цифр. Ровно так же устроен
+     * разрез по способам оплаты ниже: одна фигура, один язык.
+     *
+     * Сумма кусков равна выручке всегда: прибыль это она минус зарплаты
+     * минус расходы, других слагаемых у неё нет.
+     */
     @ViewBuilder
     private func breakdown(_ s: API.Summary) -> some View {
-        if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
-            HStack(spacing: 0) {
-                moneySource(L("summary.paidIn"), amount: s.stats.revenue, sign: "+", ink: Brand.mintInk)
-                sourceDivider
-                moneySource(L("summary.toStaff"), amount: s.stats.payroll, sign: "−", ink: Brand.lavenderInk)
-                sourceDivider
-                moneySource(L("expenses.title"), amount: s.costs.total, sign: "−", ink: Brand.sandInk)
+        /* В минус полоса не уходит: отрицательного куска не бывает. Когда
+           день ушёл в убыток, владельцу не осталось ничего, и полоса честно
+           состоит из одних расходов — а знак минуса уже стоит в главном
+           числе над ней. */
+        let mine = max(0, s.profit)
+        /* Три краски, а не серые оттенки.
+
+           Серым эта полоса была ровно один заход: цвета конфликтовали с
+           разрезом по способам оплаты, где те же мята, лаванда и песок
+           значат наличные, карту и перевод. Конфликт снялся сам — разрез
+           оплат ушёл из сегодняшнего дня, — и красить деньги в серое
+           больше незачем. Серая полоса честная, но неживая, а этот экран
+           открывают по десять раз в день.
+
+           Грейп у доли владельца: это марка, и главный кусок полосы должен
+           быть ею. Лаванда у зарплат, песок у расходов — те же цвета, что
+           стояли под колонками до перестройки, и тот же за ними смысл. */
+        let parts = [
+            Share(id: "mine", label: L("common.you"), ink: Brand.grapeFill, amount: mine),
+            Share(id: "staff", label: L("summary.toStaff"), ink: Brand.lavenderInk, amount: s.stats.payroll),
+            Share(id: "costs", label: L("expenses.title"), ink: Brand.sandInk, amount: s.costs.total),
+        ].filter { $0.amount > 0 }
+        let total = parts.reduce(0) { $0 + $1.amount }
+
+        if total > 0 {
+            VStack(alignment: .leading, spacing: 7) {
+                /* Сколько всего пришло. Без этой строки полоса показывала
+                   доли неизвестно от чего: главное число называет остаток,
+                   а целое, из которого он вышел, на экране не звучало
+                   нигде. */
+                HStack(spacing: 6) {
+                    Text(L("summary.paidIn"))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text(money(s.stats.revenue, currency))
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                    Spacer(minLength: 0)
+                }
+
+                splitBar(parts, total: total, height: 12)
+                splitLegend(parts)
             }
-            .padding(.vertical, 10)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 19))
-            .overlay {
-                RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-            .padding(.top, 10)
+            .padding(.top, 16)
             .frame(maxWidth: 360)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(
                 L(
                     "summary.voiceover",
@@ -280,27 +322,61 @@ struct OwnerView: View {
         }
     }
 
-    private func moneySource(_ title: String, amount: Int, sign: String, ink: Color) -> some View {
-        VStack(spacing: 3) {
-            Text("\(sign) \(money(amount, currency))")
-                .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-            Text(title)
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-        }
-        .frame(maxWidth: .infinity)
+    /// Кусок разреза: имя, цвет и деньги.
+    private struct Share: Identifiable {
+        let id: String
+        let label: String
+        let ink: Color
+        let amount: Int
     }
 
-    private var sourceDivider: some View {
-        Rectangle()
-            .fill(Brand.boardInk.opacity(0.09))
-            .frame(width: 1, height: 31)
+    /**
+     * Полоса, разрезанная по долям.
+     *
+     * Один орган на два разреза экрана — деньги дня и способы оплаты.
+     * Второй копией он разъехался бы с первой на первой же правке, а
+     * читаются они одинаково именно потому, что это одна фигура.
+     */
+    private func splitBar(_ parts: [Share], total: Int, height: CGFloat) -> some View {
+        GeometryReader { proxy in
+            let gaps = CGFloat(max(0, parts.count - 1)) * 2
+            let free = max(0, proxy.size.width - gaps)
+            HStack(spacing: 2) {
+                ForEach(parts) { part in
+                    RoundedRectangle(cornerRadius: height / 3, style: .continuous)
+                        .fill(part.ink)
+                        /* Не тоньше четырёх точек: кусок нулевой ширины
+                           читается как отсутствие статьи, а она есть. */
+                        .frame(width: max(4, free * CGFloat(part.amount) / CGFloat(max(total, 1))))
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(height: height)
+    }
+
+    /// Подписи к полосе — одной строкой, а не колонками: колонка под
+    /// полосой это опять тройка блоков, от которой мы и ушли.
+    private func splitLegend(_ parts: [Share]) -> some View {
+        HStack(spacing: 11) {
+            ForEach(parts) { part in
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(part.ink)
+                        .frame(width: 6, height: 6)
+                    Text(part.label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text(money(part.amount, currency))
+                        .font(.system(size: 11, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
     }
 
     /// Число без валюты — для строки вычитания.
@@ -369,7 +445,12 @@ struct OwnerView: View {
      */
     @ViewBuilder
     private var crewChip: some View {
-        if let present = summary?.onShift, !present.isEmpty {
+        /* Себя владелец в плашке не видит: он и так знает, что он здесь.
+           Плашка отвечает на вопрос «кто у меня сейчас на площадке», а
+           собственное имя в этом ответе только занимает место — на узком
+           экране из-за него не помещался тот, ради кого её и открывают. */
+        let present = (summary?.onShift ?? []).filter { $0.userId != session.me?.id }
+        if !present.isEmpty {
             NavigationLink {
                 StaffView().navigationTitle(Terms.staff(session.tenant?.staffRole ?? "").many)
             } label: {
@@ -431,12 +512,17 @@ struct OwnerView: View {
                За месяц он остаётся: там тридцать точек, и форма месяца —
                настоящий ответ, которого больше нигде нет. */
             todaySnapshot(s)
-            /* Порядок тот же, что в кабинете: что сейчас → кто работает →
-               чем платили → что именно было. Два экрана одного продукта
-               обязаны отвечать в одной последовательности, иначе владелец
-               каждый раз заново ищет, где что. */
             crewBoard(s)
-            paymentBreakdown(s)
+            /* Разреза по способам оплаты в сегодняшнем дне нет.
+
+               За день на него отвечает сам журнал: пять строк, и в каждой
+               написано, чем платили, — а над ними стоит фильтр по способу,
+               которым наличные и отбирают при пересчёте ящика. Отдельный
+               разрез повторял те же деньги третий раз и занимал экран
+               между «кто работает» и «что было».
+
+               За месяц он остаётся: тридцать дней по строкам не сложить, и
+               доля наличных за период — ответ, которого больше нигде нет. */
             journal(s.feed)
         } else {
             chart(s.series)
@@ -586,9 +672,19 @@ struct OwnerView: View {
                 )
             }
 
-        return out.sorted { a, b in
-            a.present == b.present ? a.earned > b.earned : a.present
-        }
+        /* Владелец сам себя в этом списке не видит, пока ничего не намыл.
+
+           Он и так знает, что он на площадке; строка «Севак · 0 машин ·
+           0 ֏» отвечала на вопрос, которого он не задавал, и рядом с
+           настоящим работником читалась так, будто он весь день
+           простоял. Как только он запишет машину, строка появляется:
+           тогда это уже работа, и она обязана быть видна. */
+        let me = session.me?.id
+        return out
+            .filter { !($0.id == me && $0.count == 0) }
+            .sorted { a, b in
+                a.present == b.present ? a.earned > b.earned : a.present
+            }
     }
 
     /**
@@ -604,10 +700,15 @@ struct OwnerView: View {
      * драмы дважды.
      */
     private func todaySnapshot(_ s: API.Summary) -> some View {
+        /* Среднего чека здесь больше нет.
+
+           За день он считается по трём-пяти записям и прыгает от одной
+           дорогой мойки; решения по нему в этот день не принимают, а
+           стоял он третьим числом в ряду и требовал объяснения. Средний
+           чек — вопрос месяца, там он и остался: в сетке показателей за
+           период и в отчёте, где рядом есть с чем сравнить. */
         HStack(spacing: 0) {
             snapshotValue(L("summary.served"), "\(s.stats.count)")
-            snapshotDivider
-            snapshotValue(L("owner.avgCheck"), money(s.stats.avgCheck, currency))
             snapshotDivider
             snapshotValue(L("owner.onShift"), "\(s.onShift.count)")
         }
@@ -760,8 +861,27 @@ struct OwnerView: View {
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
             } else {
-                ForEach(parts) { part in
-                    paymentRow(part, of: total)
+                /* Полоса одна на все способы, а не по одной под каждым.
+                   Три полосы разной длины друг под другом сравниваются
+                   плохо: глаз меряет их от общего левого края, а доля
+                   читается от целого. Здесь целое и есть полоса. */
+                splitBar(
+                    parts.map {
+                        Share(
+                            id: $0.payment,
+                            label: paymentLabel($0.payment),
+                            ink: paymentInk($0.payment),
+                            amount: $0.revenue
+                        )
+                    },
+                    total: total,
+                    height: 10
+                )
+
+                VStack(spacing: 9) {
+                    ForEach(parts) { part in
+                        paymentRow(part, of: total)
+                    }
                 }
             }
         }
@@ -775,51 +895,36 @@ struct OwnerView: View {
     }
 
     /**
-     * Способ оплаты строкой с полосой под ней.
+     * Способ оплаты строкой: точка, имя, деньги, доля.
      *
-     * Была одна общая лента из сегментов и легенда сбоку — то есть чтение
-     * в два приёма: найти цвет, найти его в списке. Полоса длиной в свою
-     * долю отвечает сразу, а сумма и процент стоят в той же строке.
+     * Собственной полосы у строки больше нет — долю показывает общая
+     * полоса над списком. Строка отвечает на второй вопрос, «сколько
+     * именно», и цифра для него точнее любой длины.
      */
     private func paymentRow(_ part: API.SplitSegment, of total: Int) -> some View {
         let share = total > 0 ? Int((Double(part.revenue) / Double(total) * 100).rounded()) : 0
 
-        return VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(paymentInk(part.payment))
-                    .frame(width: 6, height: 6)
-                Text(paymentLabel(part.payment))
-                    .font(.system(size: 13))
-                    .foregroundStyle(Brand.boardMuted)
-                    .lineLimit(1)
+        return HStack(spacing: 7) {
+            Circle()
+                .fill(paymentInk(part.payment))
+                .frame(width: 7, height: 7)
+            Text(paymentLabel(part.payment))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 8)
 
-                Text(money(part.revenue, currency))
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
-                Text("\(share)%")
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, alignment: .trailing)
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(Brand.boardInk.opacity(0.08))
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(paymentInk(part.payment))
-                        // не меньше двух процентов: нулевой ширины полоса
-                        // читается как отсутствие способа, а он есть
-                        .frame(width: max(proxy.size.width * CGFloat(max(share, 2)) / 100, 4))
-                }
-            }
-            .frame(height: 6)
+            Text(money(part.revenue, currency))
+                .font(.system(size: 13.5, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+            Text("\(share)%")
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
+                .frame(width: 38, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -1039,33 +1144,45 @@ struct OwnerView: View {
                кузов, а другое химчистка. Способ оплаты словом, а не значком:
                значок карты и значок перевода на 10 точках различаются только
                если знать, что они разные. */
-            HStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(at(item.createdAt))
                     .monospacedDigit()
                 Text("·")
                     .foregroundStyle(Brand.boardMuted.opacity(0.6))
                 Text(item.serviceName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text("·")
                     .foregroundStyle(Brand.boardMuted.opacity(0.6))
                 Text(paymentLabel(item.payment).lowercased())
+                    .lineLimit(1)
+
+                Spacer(minLength: 10)
+
+                /* Что осталось мойке — под общей суммой и в её колонке.
+                   Раньше оба разбора стояли одной строкой внизу, и в ней
+                   встречались два числа подряд: «Доля 4 800 ֏ · Бизнесу
+                   7 200 ֏». Два числа в строке всегда читаются как одно
+                   выражение, и владелец каждый раз соображал, какое из них
+                   его. Теперь в каждой строке ровно одно число, и все три
+                   стоят колонкой у правого края: сколько взяли, сколько
+                   осталось мойке, сколько ушло человеку. Сверху вниз,
+                   от большего к меньшему. */
+                Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
             }
             .font(.system(size: 12))
             .foregroundStyle(Brand.boardMuted)
-            .lineLimit(1)
-            .truncationMode(.tail)
 
-            /* Кто помыл и как разошлись деньги — одной строкой, теми же
-               словами, что в кабинете.
+            /* Кто помыл — и сколько ему за это.
 
-               Раньше здесь стояло только «նրան 2 500 ֏»: сколько ушло
-               человеку, было видно, а сколько осталось мойке — нет, и
-               владелец вычитал в уме на каждой строке. Это и есть главная
-               арифметика продукта, и показывать из неё половину значит
-               оставлять вопрос открытым.
-
-               При нулевой ставке строки долей нет вовсе: у владельца,
-               который записывает сам, процента нет, и «ему 0 ֏» в каждой
-               записи — шум. */
+               Доля стоит в той же строке, что и имя, а не рядом с долей
+               мойки: это деньги одного человека, и читаются они вместе с
+               ним. При нулевой ставке строки долей нет вовсе: у
+               владельца, который записывает сам, процента нет, и «ему
+               0 ֏» в каждой записи — шум. */
             HStack(spacing: 6) {
                 Circle()
                     .fill(Brand.person(who))
@@ -1075,20 +1192,15 @@ struct OwnerView: View {
                     .foregroundStyle(Brand.person(who))
                     .lineLimit(1)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 10)
 
                 if (item.staffPercent ?? 0) > 0 {
                     Text(L("summary.share", money(item.earned, currency)))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
-                    Text("·")
-                        .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                        .layoutPriority(1)
                 }
-                Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .lineLimit(1)
             }
             .font(.system(size: 12))
             .padding(.top, 1)

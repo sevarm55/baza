@@ -16,12 +16,22 @@ import SwiftUI
 struct MoreView: View {
     @EnvironmentObject private var session: Session
 
+    /// Выручка по дням ленты. Ключ — дата в том же виде, в каком её
+    /// присылает сервер.
+    @State private var week: [String: API.MonthDay] = [:]
+    /// День, который открыт листом. Сама лента при этом остаётся на месте.
+    @State private var picked: String?
+
+    /// Сколько дней в ленте. Семь — это ровно неделя, и в ней всегда есть
+    /// и суббота, и вторник: у мойки разница между ними в разы.
+    private let strip = 7
+
     /* Шкала скруглений одна на весь экран, а не своя у каждого блока:
        крупный контекстный блок, карточки и коробки списков. Три значения,
        и ни одного случайного. */
-    private let rHero: CGFloat = 28
-    private let rCard: CGFloat = 24
+    private let rCard: CGFloat = 26
     private let rGroup: CGFloat = 22
+    private let rDay: CGFloat = 12
 
     var body: some View {
         ScrollView {
@@ -41,6 +51,8 @@ struct MoreView: View {
                     businessGroup
                     accountGroup
                 }
+
+                signOutRow
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -48,6 +60,10 @@ struct MoreView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        .sheet(item: $picked) { date in
+            DayView(date: date).environmentObject(session)
+        }
+        .task { await loadWeek() }
     }
 
     // ══════════════════════════ шапка ══════════════════════════
@@ -73,79 +89,170 @@ struct MoreView: View {
         .padding(.horizontal, 4)
     }
 
-    /// Сколько точек и сколько из них ждут денег: то, ради чего сюда
-    /// заходят, видно ещё до нажатия.
-    private var points: String {
-        let all = session.points.count
-        let closed = session.points.filter { !$0.canRead }.count
-        return closed == 0
-            ? L("more.pointsAllOpen", all)
-            : L("more.pointsSomeClosed", all, closed)
-    }
-
     // ══════════════════════════ контекстный блок ══════════════════════════
 
     /**
-     * История бизнеса: единственный крупный блок экрана.
+     * История бизнеса, и сразу последняя неделя её.
      *
-     * Он один такой намеренно. Если крупных блоков два, приоритета нет ни у
-     * одного, и глазу приходится читать оба заголовка, чтобы выбрать. Здесь
-     * же первым читается слово, а не картинка: календарь ушёл в подложку
-     * восемью процентами лавандовых чернил и держит правый нижний угол, где
-     * текста нет вовсе.
+     * Раньше здесь была лавандовая заливка, крупная подпись и декоративный
+     * календарь в углу — то есть карточка обещала календарь, а показывала
+     * рисунок календаря. Теперь она показывает сам календарь: семь клеток,
+     * сегодня и шесть дней назад, залитых по величине выручки. Тот же приём,
+     * что на экране месяца, и та же шкала: глаз сравнивает светлоту без
+     * измерения, и форма недели читается раньше, чем прочитано слово.
      *
-     * Высота блока задана содержанием, а не числом: раньше в фиксированных
-     * ста сорока восьми точках нижняя треть пустовала.
+     * Заливки у карточки больше нет, белая бумага как у списков. Цвет
+     * остался ровно там, где он несёт число, — внутри клеток. Пустой день
+     * бумажный, лучший день сиреневый; это не украшение, это данные.
+     *
+     * Нажатий два разных, и они не перепутаются: заголовок ведёт в месяц,
+     * клетка открывает свой день листом поверх. Поэтому карточка не одна
+     * большая ссылка, как была: внутри ссылки нельзя нажать что-то ещё.
      */
     private var calendarCard: some View {
-        NavigationLink {
-            CalendarView().toolbar(.hidden, for: .navigationBar)
+        VStack(alignment: .leading, spacing: 12) {
+            NavigationLink {
+                CalendarView().toolbar(.hidden, for: .navigationBar)
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("365")
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .tracking(1.4)
+                            .foregroundStyle(Brand.boardMuted)
+                        Text(L("calendar.title"))
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Brand.grape)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.press)
+
+            dayStrip
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: rCard, style: .continuous))
+        .overlay { edge(rCard) }
+    }
+
+    /**
+     * Лента последних дней.
+     *
+     * Даты считаются на телефоне и стоят на месте сразу, ещё до ответа
+     * сервера: иначе карточка при каждом открытии экрана меняла бы высоту,
+     * а по пустому месту не нажать. Выручка приезжает следом и только
+     * подкрашивает уже нарисованные клетки.
+     */
+    private var dayStrip: some View {
+        let dates = Self.lastDates(strip)
+        // потолок шкалы — лучший день недели, а не месяца: неделя из
+        // одинаково бледных клеток не говорит ничего
+        let peak = max(1, dates.compactMap { week[$0]?.revenue }.max() ?? 1)
+
+        return HStack(spacing: 5) {
+            ForEach(dates, id: \.self) { date in
+                dayCell(date, peak: peak)
+            }
+        }
+    }
+
+    private func dayCell(_ date: String, peak: Int) -> some View {
+        let revenue = week[date]?.revenue ?? 0
+        let share = min(1, Double(revenue) / Double(peak))
+        /* Та же кривая и тот же приглушённый верх, что на экране месяца:
+           клетка остаётся светлой при любой выручке, чтобы лучший день не
+           читался ошибкой или выделением. */
+        let heat = revenue > 0 ? 0.05 + 0.19 * sqrt(share) : 0
+        let isToday = date == CalendarView.today()
+
+        return Button {
+            picked = date
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("365")
-                        .font(.system(size: 11, weight: .black, design: .rounded))
-                        .tracking(1.4)
-                        .foregroundStyle(Brand.lavenderInk.opacity(0.75))
-                    Text(L("calendar.title"))
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(Brand.onBoard)
-                    Text(L("calendar.lead"))
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                /* Стрелка без плашки под ней: нажимается всё равно вся
-                   карточка, и задача знака не позвать, а показать, что
-                   карточка ведёт куда-то. Плашка делала из него кнопку,
-                   которой он не является. */
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.lavenderInk)
-                    .padding(.top, 2)
+            VStack(spacing: 2) {
+                Text(Self.weekdayShort(date))
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+                Text(String(Int(date.suffix(2)) ?? 0))
+                    .font(.system(size: 15, weight: revenue > 0 ? .bold : .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(revenue > 0 ? Brand.onBoard : Brand.boardMuted)
+                /* Сколько машин. Число мельче суммы намеренно: заливка уже
+                   сказала про деньги, а это ответ на другой вопрос — много
+                   ли было работы. */
+                Text(week[date].map { $0.count > 0 ? "\($0.count)" : " " } ?? " ")
+                    .font(.system(size: 9, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
-            .background {
-                ZStack {
-                    Brand.lavenderCard
-                    Image(systemName: "calendar")
-                        .font(.system(size: 108, weight: .semibold))
-                        .foregroundStyle(Brand.lavenderInk.opacity(0.085))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        /* Уведён за правый нижний угол настолько, чтобы под
-                           описанием оставалась чистая бумага: подложка,
-                           начинающаяся под строкой текста, читается не
-                           украшением, а грязью на ней. */
-                        .offset(x: 46, y: 44)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(Brand.grapeFill.opacity(heat), in: .rect(cornerRadius: rDay, style: .continuous))
+            .overlay {
+                /* Сегодня обведено, а не залито: заливка здесь занята
+                   выручкой, и второй смысл на неё не повесить. */
+                if isToday {
+                    RoundedRectangle(cornerRadius: rDay, style: .continuous)
+                        .strokeBorder(Brand.onBoard.opacity(0.32), lineWidth: 1.2)
+                } else {
+                    RoundedRectangle(cornerRadius: rDay, style: .continuous)
+                        .strokeBorder(Brand.boardInk.opacity(0.06), lineWidth: 0.8)
                 }
             }
-            .clipShape(.rect(cornerRadius: rHero, style: .continuous))
         }
         .buttonStyle(.press)
+        .accessibilityLabel(LocalDate.fromYMD(date).map { LocalDate.longDay($0) } ?? date)
+    }
+
+    /// Последние `n` дат, сегодня последней.
+    private static func lastDates(_ n: Int) -> [String] {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let cal = Calendar.current
+        return (0..<n).reversed().compactMap { back in
+            cal.date(byAdding: .day, value: -back, to: Date()).map { f.string(from: $0) }
+        }
+    }
+
+    /// Короткое имя дня недели на языке интерфейса.
+    private static func weekdayShort(_ ymd: String) -> String {
+        guard let date = LocalDate.fromYMD(ymd) else { return "" }
+        let names = LocalDate.shortWeekdays
+        guard names.count == 7 else { return "" }
+        // у системы 1 — воскресенье, у продукта неделя начинается с понедельника
+        let index = (Calendar.current.component(.weekday, from: date) + 5) % 7
+        return names[index]
+    }
+
+    /**
+     * Выручка за ленту.
+     *
+     * Сервер отдаёт календарь месяцами, а лента в начале месяца заходит в
+     * предыдущий — тогда запросов два. Дальше первой недели это никогда не
+     * второй запрос впустую: условие ровно по дате, а не «на всякий
+     * случай».
+     */
+    private func loadWeek() async {
+        let dates = Self.lastDates(strip)
+        var months = [CalendarView.currentMonth()]
+        if let first = dates.first, first.prefix(7) != months[0] {
+            months.append(String(first.prefix(7)))
+        }
+
+        var loaded: [String: API.MonthDay] = [:]
+        for month in months {
+            let data: API.Month? = try? await session.authed { token in
+                try await APIClient.shared.send("calendar?month=\(month)", token: token, as: API.Month.self)
+            }
+            for day in data?.days ?? [] { loaded[day.date] = day }
+        }
+        guard !loaded.isEmpty else { return }
+        week = loaded
     }
 
     // ══════════════════════════ сгруппированные списки ══════════════════════════
@@ -162,7 +269,7 @@ struct MoreView: View {
         groupCard {
             navRow(
                 symbol: "person.2.fill", tint: Brand.mintInk,
-                title: L("owner.tabClients"), note: L("more.clientsLead")
+                title: L("owner.tabClients"), note: nil
             ) {
                 ClientsView().navigationTitle(L("owner.tabClients"))
             }
@@ -183,7 +290,7 @@ struct MoreView: View {
             separator
             navRow(
                 symbol: "chart.bar.doc.horizontal.fill", tint: Brand.grape,
-                title: L("reports.title"), note: L("reports.lead")
+                title: L("reports.title"), note: nil
             ) {
                 ReportView().navigationTitle(L("reports.title"))
             }
@@ -201,7 +308,7 @@ struct MoreView: View {
         groupCard {
             navRow(
                 symbol: "person.3.fill", tint: Brand.mintInk,
-                title: L("more.team"), note: L("more.teamLead")
+                title: L("more.team"), note: nil
             ) {
                 StaffView().navigationTitle(L("more.team"))
             }
@@ -212,7 +319,7 @@ struct MoreView: View {
                 separator
                 navRow(
                     symbol: "building.2.fill", tint: Brand.lavenderInk,
-                    title: L("more.points"), note: points
+                    title: L("more.points"), note: nil
                 ) {
                     PointsView().navigationTitle(L("points.title"))
                 }
@@ -248,12 +355,43 @@ struct MoreView: View {
                 } label: {
                     rowFace(
                         symbol: "list.bullet.rectangle.fill", tint: Brand.mintInk,
-                        title: L("setup.resume"), note: L("setup.resumeNote"),
+                        title: L("setup.resume"), note: nil,
                         trailing: "arrow.uturn.backward"
                     )
                 }
                 .buttonStyle(.press)
             }
+        }
+    }
+
+    /**
+     * Выход.
+     *
+     * Единственное действие на экране, где всё остальное — места, куда
+     * переходят. Поэтому оно стоит последним и за отбивкой, а не строкой
+     * среди разделов.
+     *
+     * Переехало сюда из профиля. Там за ним нужно было сначала зайти, а
+     * выходят обычно не задумчиво: с чужого телефона, перед тем как
+     * отдать аппарат, в конце смены. Два нажатия ради этого — на одно
+     * больше, чем нужно.
+     *
+     * Знак приглушённый, а не цветной: цвет на этом экране означает
+     * раздел, и красить им действие значит обещать ещё одно место.
+     * Красным он тоже быть не может — красный в продукте значит ровно
+     * «удалить», и путать эти два сигнала нельзя.
+     */
+    private var signOutRow: some View {
+        groupCard {
+            Button {
+                Task { await session.signOut() }
+            } label: {
+                rowFace(
+                    symbol: "power", tint: Brand.boardMuted,
+                    title: L("auth.signOut"), note: nil, trailing: nil
+                )
+            }
+            .buttonStyle(.press)
         }
     }
 
@@ -294,7 +432,10 @@ struct MoreView: View {
      * Лицо строки списка.
      *
      * Значок без плашки под ним: плашка это ещё один прямоугольник, а их на
-     * экране и так восемь штук, по одному на строку. Цвет раздела при этом
+     * экране и так восемь штук, по одному на строку. Вторая строка сейчас
+     * не приходит ни одной строке — смотрим, как список читается одними
+     * заголовками, — но поддержку её оставляем: это свойство строки
+     * настроек, а не временная надобность. Цвет раздела при этом
      * остаётся — он просто перешёл с заливки на сам знак, и в столбце из
      * четырёх строк по нему находят нужную раньше, чем прочитано слово.
      *
@@ -307,7 +448,7 @@ struct MoreView: View {
         tint: Color,
         title: String,
         note: String?,
-        trailing: String = "chevron.right"
+        trailing: String? = "chevron.right"
     ) -> some View {
         HStack(spacing: 13) {
             Image(systemName: symbol)
@@ -332,9 +473,11 @@ struct MoreView: View {
 
             Spacer(minLength: 4)
 
-            Image(systemName: trailing)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
+            if let trailing {
+                Image(systemName: trailing)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)

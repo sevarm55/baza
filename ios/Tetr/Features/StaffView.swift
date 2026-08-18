@@ -42,14 +42,28 @@ struct StaffView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: gap) {
-                ForEach(ordered) { person in
-                    card(person)
+            /* Одна коробка на весь список, а не карточка на человека.
+               Плитка под каждым была ошибкой ровно в том, в чём ошибаются
+               все дашборды: цвет шёл сплошной заливкой, и два человека
+               подряд читались двумя одинаковыми фиолетовыми кирпичами, а
+               не двумя разными людьми. Цвет человека остался, но ушёл туда,
+               где он и работает опознавательным знаком, — в кружок с
+               буквой. Всё остальное чернила по бумаге. */
+            VStack(spacing: 0) {
+                ForEach(Array(ordered.enumerated()), id: \.element.id) { index, person in
+                    if index > 0 { separator }
+                    row(person)
                 }
 
-                addButton
+                separator
+                addRow
             }
-            .padding(.horizontal, 12)
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -57,17 +71,41 @@ struct StaffView: View {
         .background(Brand.board.ignoresSafeArea())
         .sheet(item: $editing) { person in
             StaffEditor(person: person) { await reload() }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $adding) {
             StaffEditor(person: nil) { await reload() }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .task { await reload() }
         .refreshable { await reload() }
     }
 
-    private func card(_ person: API.StaffMember) -> some View {
+    private var separator: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(height: 0.7)
+            .padding(.leading, 70)
+    }
+
+    /**
+     * Строка человека.
+     *
+     * Слева кружок его цветом — единственное цветное пятно на экране, и
+     * потому опознаётся мгновенно. Справа процент: это условие сделки, оно
+     * у каждого своё и ради него сюда заходят. Между ними одна приглушённая
+     * строка фактов, разделённых точкой, а не тире.
+     *
+     * «Сколько должен» набрано чернилами, а не серым, и стоит под
+     * процентом: это единственное число на экране, по которому что-то
+     * делают руками, и оно не должно тонуть среди справочных.
+     */
+    private func row(_ person: API.StaffMember) -> some View {
         let tone = Brand.personTone(person.name)
         let owner = person.role == "owner"
+        let currency = session.tenant?.currency ?? "AMD"
 
         return Button {
             // себя владелец не правит и не отключает — открывать редактор
@@ -75,125 +113,130 @@ struct StaffView: View {
             if !person.isMe { editing = person }
         } label: {
             HStack(spacing: 14) {
-                Text(String(person.name.prefix(1)))
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.22), in: .circle)
+                ZStack(alignment: .bottomTrailing) {
+                    Text(String(person.name.prefix(1)))
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(tone.base, in: .circle)
+
+                    /* Стоит ли он на мойке прямо сейчас. Точкой, а не
+                       словом: это состояние, а не звание, и общий язык
+                       «онлайн» читается без подписи. Кайма цвета бумаги
+                       отделяет её от кружка, иначе на тёмном пятне зелёное
+                       сливается. */
+                    if person.onShift == true {
+                        Circle()
+                            .fill(Brand.goodOnBoard)
+                            .frame(width: 11, height: 11)
+                            .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 2))
+                            .offset(x: 1, y: 1)
+                            .accessibilityLabel(L("staff.onShift"))
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(person.name)
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
                         if person.isMe {
                             Text(L("common.you"))
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.85))
-                                .padding(.horizontal, 7)
+                                .foregroundStyle(Brand.boardMuted)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(.white.opacity(0.2), in: .capsule)
-                        }
-                        /* Стоит ли он на мойке прямо сейчас. Этого на
-                           экране не было вовсе: «кто работает» узнавали
-                           на сводке, а вернувшись сюда, уже не помнили.
-                           Метка, а не зелёная точка: плитка сама цветная,
-                           и точка на ней читалась бы украшением. */
-                        if person.onShift == true {
-                            Text(L("staff.onShift"))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(.white.opacity(0.28), in: .capsule)
+                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6))
                         }
                     }
-                    Text(person.phone)
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.72))
 
-                    /* Что человек сделал за месяц. Без этого экран
-                       отвечал «кто заведён» и молчал о том, ради чего
-                       этих людей держат: за числами приходилось уходить
-                       в сводку и в зарплаты. Месяц, а не день: за один
-                       день «чего стоит человек» не видно. */
+                    /* Работа за месяц отдельной строкой от телефона: одной
+                       они не помещались и обрывались на середине суммы, а
+                       обрезанные деньги хуже, чем никаких. */
                     if let cars = person.cars, let earned = person.earned, cars > 0 {
-                        Text("\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, session.tenant?.currency ?? "AMD"))")
-                            .font(.system(size: 12, weight: .semibold))
+                        Text("\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, currency))")
+                            .font(.system(size: 12.5))
                             .monospacedDigit()
-                            .foregroundStyle(.white.opacity(0.9))
-                            .padding(.top, 2)
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
 
-                    /* Сколько ему сейчас должны. Считает лист зарплат —
-                       тот же, которым живут сами зарплаты, — а называется
-                       здесь потому, что вопрос «сколько я ему должен»
-                       задают, глядя на человека, а не на ведомость. */
-                    if let due = person.due, due > 0 {
-                        Text(L("staff.due", money(due, session.tenant?.currency ?? "AMD")))
-                            .font(.system(size: 12, weight: .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
+                    Text(person.phone)
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted.opacity(0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
 
                 Spacer(minLength: 8)
 
-                /* Процент — крупно и с подписью. Владельцу вместо него
-                   слово: у него ставка обычно нулевая, и «0 %» рядом с
-                   именем читается как ошибка, а не как «долю не берёт». */
-                if owner {
-                    Text(L("roles.owner"))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.trailing)
-                } else {
-                    VStack(alignment: .trailing, spacing: 0) {
+                VStack(alignment: .trailing, spacing: 1) {
+                    /* Владельцу вместо ставки слово: у него доля обычно
+                       нулевая, и «0 %» рядом с именем читается ошибкой, а
+                       не «долю не берёт». */
+                    if owner {
+                        Text(L("roles.owner"))
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(Brand.boardMuted)
+                    } else {
                         Text("\(person.percent)%")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Brand.onBoard)
                         Text(L("staff.perRecord"))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(Brand.boardMuted)
+                    }
+
+                    if let due = person.due, due > 0 {
+                        Text(L("staff.due", money(due, currency)))
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                            .padding(.top, 3)
                     }
                 }
             }
-            .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 16)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.press)
         .disabled(person.isMe)
         .accessibilityElement(children: .combine)
     }
 
-    /// Добавление — строкой в самом списке, а не плюсиком в панели.
+    /// Добавление — последней строкой того же списка, а не отдельной
+    /// плашкой под ним.
     ///
     /// Плюсик в углу панели ищут глазами; строка стоит там, где список
     /// кончается, то есть ровно там, куда смотрит человек, не нашедший
     /// нужного имени.
-    private var addButton: some View {
+    private var addRow: some View {
         Button {
             adding = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 Image(systemName: "plus")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Brand.grape)
-                    .frame(width: 44, height: 44)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+                    .frame(width: 42, height: 42)
+                    .background(Brand.grape.opacity(0.10), in: .circle)
                 Text(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
                 Spacer(minLength: 0)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 24))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.press)
-        .padding(.top, 4)
     }
 
     private func reload() async {
@@ -383,19 +426,12 @@ struct StaffEditor: View {
         placeholder: String,
         keyboard: UIKeyboardType = .default
     ) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 14))
-                .foregroundStyle(Brand.boardMuted)
-            Spacer(minLength: 8)
+        FieldBox(title) {
             TextField(placeholder, text: text)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Brand.onBoard)
                 .keyboardType(keyboard)
-                .multilineTextAlignment(.trailing)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
     }
 
     /**

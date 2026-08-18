@@ -21,6 +21,8 @@ struct ClientsView: View {
     @State private var clients: [API.Client] = []
     @State private var loaded = false
     @State private var query = ""
+
+    @FocusState private var typingQuery: Bool
     @State private var sort: Sort = .recent
     @State private var opened: API.Client?
     @State private var group: ClientGroupView.Group?
@@ -154,6 +156,7 @@ struct ClientsView: View {
                    машины», а поиск шёл ещё по имени и телефону — и имя,
                    вписанное вчера, искали номером и не находили. */
                 TextField(L("owner.clientsSearch"), text: $query)
+                    .focused($typingQuery)
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.onBoard)
                     .autocorrectionDisabled()
@@ -174,6 +177,9 @@ struct ClientsView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
             .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 12))
+            // по всей строке поиска, а не по буквам подсказки
+            .contentShape(.rect)
+            .onTapGesture { typingQuery = true }
 
             /* Порядок — прокруткой вбок: три слова по-армянски в строку
                не помещаются, а перенос превратил бы переключатель в

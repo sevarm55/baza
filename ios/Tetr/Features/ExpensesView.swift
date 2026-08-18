@@ -737,21 +737,17 @@ struct ExpenseEditor: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 18)
             .padding(.bottom, 14)
+            // по всей полосе, а не по трём цифрам в её середине
+            .contentShape(.rect)
+            .onTapGesture { typingAmount = true }
 
             Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
 
-            HStack(spacing: 12) {
-                Text(L("expenses.category"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Brand.boardMuted)
-                Spacer(minLength: 8)
+            FieldBox(L("expenses.category")) {
                 TextField(L("expenses.categoryPlaceholder"), text: $category)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
-                    .multilineTextAlignment(.trailing)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 15)
         }
         .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
     }

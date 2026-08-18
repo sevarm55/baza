@@ -31,6 +31,9 @@ struct ClientHistoryView: View {
     /// сравнивают давность последнего.
     @State private var firstSeen: Date?
     @State private var editing = false
+
+    @FocusState private var typingName: Bool
+    @FocusState private var typingPhone: Bool
     @State private var saving = false
 
     var body: some View {
@@ -203,9 +206,13 @@ struct ClientHistoryView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.onBoard)
+                    .focused($typingName)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
                     .background(Brand.boardSurface, in: .rect(cornerRadius: 10))
+                    // касание принимает вся коробка, а не только буквы
+                    .contentShape(.rect)
+                    .onTapGesture { typingName = true }
 
                 TextField("+374 77 123 456", text: $phone)
                     .textFieldStyle(.plain)
@@ -213,8 +220,11 @@ struct ClientHistoryView: View {
                     .monospacedDigit()
                     .keyboardType(.phonePad)
                     .foregroundStyle(Brand.onBoard)
+                    .focused($typingPhone)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
+                    .contentShape(.rect)
+                    .onTapGesture { typingPhone = true }
                     /* Светлее карточки, а не того же тона: на общей
                        серой подложке поле пропадало, и человек не
                        понимал, есть там ввод или нет. */

@@ -332,6 +332,73 @@ struct LimeButton: ButtonStyle {
 }
 
 /**
+ * Поле ввода, по которому попадают всей строкой.
+ *
+ * SwiftUI отдаёт `TextField` ровно ту площадь, которую занимает набранный
+ * текст: у пустого поля это несколько точек возле каретки, и промахнуться
+ * мимо них проще, чем попасть. Подпись, поля вокруг, левая половина строки
+ * касание не принимали вовсе — человек тыкал в коробку и не понимал, почему
+ * клавиатура не появляется.
+ *
+ * Здесь коробка сама ловит касание и ставит фокус руками. Цель размером во
+ * всю строку, то есть больше сорока четырёх точек по высоте, как и требует
+ * система от любого нажимаемого места.
+ *
+ * Подпись сверху, а не слева, и набор идёт влево: у всех полей продукта
+ * один левый край, и каретка не ищется заново на каждой строке.
+ *
+ * Заведено здесь, а не в каждом экране, потому что полей в продукте
+ * дюжина: услуга, класс, работник, номер, процент, название бизнеса. Шесть
+ * копий одного приёма разъезжаются на первой же правке.
+ */
+struct FieldBox<Content: View>: View {
+    let title: String
+    /// Заливка коробки. Обычно серая подложка карточки; в сгруппированных
+    /// списках её берёт на себя сама коробка списка.
+    var fill: Color? = nil
+    var radius: CGFloat = 22
+    @ViewBuilder var content: () -> Content
+
+    @FocusState private var focused: Bool
+
+    init(
+        _ title: String,
+        fill: Color? = nil,
+        radius: CGFloat = 22,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.fill = fill
+        self.radius = radius
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 12))
+                .foregroundStyle(Brand.boardMuted)
+            content()
+                /* Фокус привязан к самому полю: модификатор ставится на то,
+                   что пришло в замыкании, а туда всегда приходит поле. */
+                .focused($focused)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background {
+            if let fill {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill)
+            }
+        }
+        /* Без этого касание принимают только буквы: у прозрачной коробки
+           площади для нажатия нет. */
+        .contentShape(.rect)
+        .onTapGesture { focused = true }
+    }
+}
+
+/**
  * Цвет человека.
  *
  * Один и тот же работник всегда одного цвета — в ленте, в списке на

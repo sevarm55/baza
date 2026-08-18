@@ -59,16 +59,25 @@ struct ServicesView: View {
         /* Полоска захвата видима нарочно: лист и раньше закрывался
            смахиванием, но без неё об этом никто не догадывался и искал
            кнопку. */
+        /* Половина экрана, а не весь.
+           Правка цены — это одно число, и лист во весь рост под неё
+           закрывал прайс целиком: человек переставал видеть, относительно
+           чего он эту цену ставит. На половине список остаётся на виду, а
+           кому мало — тянет лист вверх, вторая высота на месте. */
         .sheet(item: $editing) { service in
             ServiceEditor(service: service, currency: currency) { await reload() }
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $adding) {
             ServiceEditor(service: nil, currency: currency) { await reload() }
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $editingTiers) {
             TierEditor { await reload() }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .task { await reload() }
         .refreshable { await reload() }
@@ -86,43 +95,52 @@ struct ServicesView: View {
         return low == high ? money(low, currency) : "\(money(low, currency)) — \(money(high, currency))"
     }
 
-    /// Обложка прайса: это один документ, а не набор случайных настроек.
+    /**
+     * Обложка прайса.
+     *
+     * Была плашка грейпом во всю ширину: белый текст, лаймовая надпись,
+     * сумма справа. Она весила больше самого прайса, хотя говорит одно
+     * число, и первым на экране читалась заливка, а не цены.
+     *
+     * Теперь это бумага, как и всё под ней. Работает разница размеров, а
+     * не разница цвета: средний чек набран крупно и чернилами, число услуг
+     * стоит рядом мелким и приглушённым. Имя раздела ушло совсем — оно уже
+     * написано в панели сверху, и повторять его значило бы отдать
+     * заголовку треть первого экрана.
+     */
     private var reading: some View {
         let avg = services.isEmpty ? 0 : services.reduce(0) { $0 + $1.price } / services.count
 
         return HStack(alignment: .bottom, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(L("services.header"))
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(1.5)
-                    .foregroundStyle(Brand.lime)
-                Text(L("settings.tabServices"))
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(L("services.count", services.count))
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.58))
-            }
-
-            Spacer(minLength: 0)
-
-            VStack(alignment: .trailing, spacing: 3) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(L("services.avgPrice"))
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.58))
+                    .font(.system(size: 10.5, weight: .black, design: .rounded))
+                    .tracking(1.3)
+                    .foregroundStyle(Brand.boardMuted)
                 Text(money(avg, currency))
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
+                    // сумма меняется цифрами на месте, а не подменой строки
                     .contentTransition(.numericText(value: Double(avg)))
             }
+
+            Spacer(minLength: 8)
+
+            Text(L("services.count", services.count))
+                .font(.system(size: 12.5))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 136, alignment: .bottomLeading)
-        .background(Brand.grapeDeep, in: .rect(cornerRadius: 26))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
     }
 
     /**
@@ -294,19 +312,11 @@ struct ServiceEditor: View {
                    услуга, то ли прайс на что-то уже существующее. */
                 caption(L("services.nameField"))
 
-                HStack(spacing: 12) {
-                    Text(L("owner.clientName"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
+                FieldBox(L("owner.clientName"), fill: Brand.boardInk.opacity(0.07)) {
                     TextField(L("services.namePlaceholder"), text: $name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
-                        .multilineTextAlignment(.trailing)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 15)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
 
                 caption(tiers.isEmpty ? L("services.priceTitle") : L("services.priceByTier"))
 
@@ -327,29 +337,28 @@ struct ServiceEditor: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
+                        // по карточке целиком, а не по трём цифрам в её середине
+                        .contentShape(.rect)
+                        .onTapGesture { typingPrice = true }
                     } else {
                         /* По строке на класс. Крупного поля здесь нет
                            намеренно: когда цен три, ни одна из них не
                            главная, и выделять первую значило бы врать. */
                         ForEach(Array(tiers.enumerated()), id: \.offset) { i, tierName in
-                            HStack(spacing: 12) {
-                                Text(tierName)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Brand.onBoard)
-                                Spacer(minLength: 8)
-                                TextField("0", text: binding(for: i))
-                                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(Brand.onBoard)
-                                    .keyboardType(.numberPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .fixedSize()
-                                Text(currency == "AMD" ? "֏" : currency)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Brand.boardMuted)
+                            FieldBox(tierName) {
+                                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                    TextField("0", text: binding(for: i))
+                                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundStyle(Brand.onBoard)
+                                        .keyboardType(.numberPad)
+                                        .fixedSize()
+                                    Text(currency == "AMD" ? "֏" : currency)
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(Brand.boardMuted)
+                                    Spacer(minLength: 0)
+                                }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
 
                             if i < tiers.count - 1 {
                                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
@@ -501,6 +510,16 @@ struct ServiceEditor: View {
         _ = try? await session.authed { token in
             try await APIClient.shared.raw("services", method: "POST", body: payload, token: token)
         }
+
+        /* Прайс живёт в двух местах: на этом экране, чтобы его править, и в
+           сессии, откуда его берёт экран записи. Обновлялось только первое —
+           и цена, поставленная минуту назад, на записи оставалась прежней до
+           перезапуска приложения. Хуже того, у услуги, заведённой до того как
+           появились классы, в сессии не было `tierPrices` вовсе: переключение
+           «седан / джип» на записи не меняло сумму никак, и это выглядело не
+           устаревшими данными, а сломанными классами. */
+        try? await session.loadBootstrap()
+
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         await onSave()
         dismiss()
@@ -518,6 +537,9 @@ struct ServiceEditor: View {
                 token: token
             )
         }
+        // и убранная услуга должна исчезнуть с экрана записи, а не остаться
+        // там до перезапуска
+        try? await session.loadBootstrap()
         await onSave()
         dismiss()
     }
@@ -563,19 +585,11 @@ struct TierEditor: View {
             VStack(spacing: 10) {
                 header
 
-                HStack(spacing: 12) {
-                    Text(L("services.tierNameField"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
+                FieldBox(L("services.tierNameField"), fill: Brand.boardInk.opacity(0.07)) {
                     TextField(L("work.tier"), text: $label)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
-                        .multilineTextAlignment(.trailing)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 15)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
 
                 VStack(spacing: 0) {
                     ForEach(names.indices, id: \.self) { i in
