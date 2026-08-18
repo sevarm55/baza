@@ -162,6 +162,13 @@
       "when": 1786622029005,
       "tag": "0022_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787057323083,
+      "tag": "0023_push_platform",
+      "breakpoints": true
     }
   ]
 }

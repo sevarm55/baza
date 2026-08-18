@@ -25,8 +25,32 @@ const KEY_ID = process.env.APNS_KEY_ID;
 const TEAM_ID = process.env.APNS_TEAM_ID;
 const TOPIC = process.env.APNS_TOPIC ?? 'com.sevarm.tetr';
 
-export function pushEnabled(): boolean {
+const FCM_PROJECT = process.env.FCM_PROJECT_ID;
+const FCM_EMAIL = process.env.FCM_CLIENT_EMAIL;
+const FCM_KEY = process.env.FCM_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+/** Куда несём токен. Хранится в `push_tokens.platform`. */
+type Platform = 'apns' | 'fcm';
+
+function apnsEnabled(): boolean {
   return Boolean(KEY && KEY_ID && TEAM_ID);
+}
+
+function fcmEnabled(): boolean {
+  return Boolean(FCM_PROJECT && FCM_EMAIL && FCM_KEY);
+}
+
+/**
+ * Настроена ли доставка хоть куда-нибудь.
+ *
+ * Раньше этот вопрос значил «настроен ли APNs», потому что другой
+ * доставки не было. Теперь платформы две, и общее «да» здесь означает
+ * только «есть смысл идти в базу за токенами» — годность каждой ветки
+ * проверяется отдельно, уже при отправке. Иначе отсутствие ключей
+ * Firebase глушило бы и эппловские уведомления, которые работают.
+ */
+export function pushEnabled(): boolean {
+  return apnsEnabled() || fcmEnabled();
 }
 
 /**
@@ -51,6 +75,48 @@ async function providerToken(): Promise<string> {
 
   cached = { token, madeAt: now };
   return token;
+}
+
+/**
+ * Токен доступа к FCM.
+ *
+ * Google, в отличие от Apple, не принимает самоподписанный JWT напрямую:
+ * им сначала меняются на access token в `oauth2.googleapis.com`, и живёт
+ * тот час. Держим свой до без пяти минут часа — обновлять чаще незачем, а
+ * опоздать значит получить 401 на живом ключе.
+ */
+let googleCached: { token: string; until: number } | null = null;
+
+async function googleToken(): Promise<string> {
+  const now = Date.now();
+  if (googleCached && now < googleCached.until) return googleCached.token;
+
+  const key = await importPKCS8(FCM_KEY!, 'RS256');
+  const assertion = await new SignJWT({ scope: 'https://www.googleapis.com/auth/firebase.messaging' })
+    .setProtectedHeader({ alg: 'RS256' })
+    .setIssuer(FCM_EMAIL!)
+    .setSubject(FCM_EMAIL!)
+    .setAudience('https://oauth2.googleapis.com/token')
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(key);
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+
+  const data = (await response.json()) as { access_token?: string; error_description?: string };
+  if (!response.ok || !data.access_token) {
+    throw new Error(`FCM auth ${response.status} ${data.error_description ?? ''}`);
+  }
+
+  googleCached = { token: data.access_token, until: now + 55 * 60_000 };
+  return data.access_token;
 }
 
 type Note = {
@@ -115,24 +181,118 @@ function sendOne(host: string, jwt: string, token: string, note: Note): Promise<
 }
 
 /**
+ * Один запрос в FCM HTTP v1.
+ *
+ * Уведомление собирается в `notification`, а не в `data`: с `data`
+ * доставку рисует само приложение, и в убитом состоянии рисовать её
+ * некому — уведомление просто не появится. С `notification` его показывает
+ * система, как это и делает Apple.
+ *
+ * Канал назван здесь же. Без него Android кладёт уведомление в канал по
+ * умолчанию, а у нас их два — записи и смена, — и человек, выключивший
+ * один, выключил бы оба.
+ */
+async function sendOneFcm(jwt: string, token: string, note: Note): Promise<Delivery> {
+  try {
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${jwt}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: {
+            token,
+            notification: { title: note.title, body: note.body },
+            android: {
+              priority: 'HIGH',
+              notification: {
+                /* Ровно то же имя, что заводит приложение
+                   (`notif_channel_orders_id`). Не совпало — Android кладёт
+                   уведомление в канал по умолчанию, и настройка «не
+                   звенеть», сделанная человеком, перестаёт действовать. */
+                channel_id: 'tetrin.orders',
+                /* Склейка в одну ветку — та же, что `thread-id` у Apple:
+                   сорок машин не должны стать сорока стопками. */
+                tag: note.thread,
+              },
+            },
+          },
+        }),
+      },
+    );
+
+    if (response.ok) return { token, status: 200 };
+
+    const data = (await response.json().catch(() => null)) as {
+      error?: { status?: string; message?: string };
+    } | null;
+    return {
+      token,
+      status: response.status,
+      reason: data?.error?.status ?? data?.error?.message,
+    };
+  } catch {
+    return { token, status: 0, reason: 'NETWORK' };
+  }
+}
+
+/**
  * Отправить уведомление людям по их токенам.
  *
- * Мёртвые токены удаляем сразу: Apple отвечает 410 Unregistered, когда
- * приложение снесли, и BadDeviceToken — когда токен из другого контура.
- * Не убирать их значит копить мусор и каждый раз ходить в Apple впустую.
+ * Мёртвые токены удаляем сразу. У Apple это 410 Unregistered, когда
+ * приложение снесли, и BadDeviceToken — когда токен из другого контура. У
+ * Google — 404 UNREGISTERED и 400 INVALID_ARGUMENT на испорченном токене.
+ * Не убирать их значит копить мусор и каждый раз ходить впустую.
+ *
+ * Ветка, для которой нет ключей, молча пропускается, а не роняет вторую:
+ * пока Firebase не настроен, iPhone обязаны получать уведомления как
+ * прежде. Строки при этом не трогаем — токены живые, доставка временно
+ * невозможна, и удалять их было бы потерей.
  */
-async function deliver(rows: { token: string; sandbox: boolean }[], note: Note) {
-  if (!pushEnabled() || rows.length === 0) return;
+async function deliver(rows: { token: string; sandbox: boolean; platform: string }[], note: Note) {
+  if (rows.length === 0) return;
 
-  const jwt = await providerToken();
-  const results = await Promise.all(
-    rows.map((r) =>
-      sendOne(r.sandbox ? 'api.sandbox.push.apple.com' : 'api.push.apple.com', jwt, r.token, note),
-    ),
-  );
+  const apple = rows.filter((r) => r.platform !== 'fcm');
+  const google = rows.filter((r) => r.platform === 'fcm');
+
+  const results: Delivery[] = [];
+
+  if (apple.length > 0 && apnsEnabled()) {
+    const jwt = await providerToken();
+    results.push(
+      ...(await Promise.all(
+        apple.map((r) =>
+          sendOne(
+            r.sandbox ? 'api.sandbox.push.apple.com' : 'api.push.apple.com',
+            jwt,
+            r.token,
+            note,
+          ),
+        ),
+      )),
+    );
+  }
+
+  if (google.length > 0 && fcmEnabled()) {
+    /* Токен доступа берём один на всю пачку: он общий для проекта, и
+       запрашивать его на каждое устройство значило бы ходить в Google
+       вдвое чаще, чем нужно. */
+    const jwt = await googleToken();
+    results.push(...(await Promise.all(google.map((r) => sendOneFcm(jwt, r.token, note)))));
+  }
 
   const dead = results
-    .filter((r) => r.status === 410 || r.reason === 'BadDeviceToken' || r.reason === 'Unregistered')
+    .filter(
+      (r) =>
+        r.status === 410 ||
+        r.reason === 'BadDeviceToken' ||
+        r.reason === 'Unregistered' ||
+        r.reason === 'UNREGISTERED' ||
+        r.reason === 'INVALID_ARGUMENT',
+    )
     .map((r) => r.token);
 
   if (dead.length > 0) {
@@ -162,7 +322,11 @@ export async function notifyOwners(
   if (!pushEnabled()) return;
 
   const rows = await db
-    .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
+    .select({
+      token: pushTokens.token,
+      sandbox: pushTokens.sandbox,
+      platform: pushTokens.platform,
+    })
     .from(pushTokens)
     .innerJoin(users, eq(users.id, pushTokens.userId))
     .where(
@@ -194,7 +358,11 @@ export async function notifyUser(tenantId: string, userId: string, actorId: stri
   if (!pushEnabled() || userId === actorId) return;
 
   const rows = await db
-    .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
+    .select({
+      token: pushTokens.token,
+      sandbox: pushTokens.sandbox,
+      platform: pushTokens.platform,
+    })
     .from(pushTokens)
     .innerJoin(users, eq(users.id, pushTokens.userId))
     .where(
@@ -244,7 +412,11 @@ export async function notifyPlatform(note: Note) {
   /* Номер ищем у человека, а не в копии на участии: копия доживает свой
      век и однажды исчезнет. */
   const rows = await db
-    .select({ token: pushTokens.token, sandbox: pushTokens.sandbox })
+    .select({
+      token: pushTokens.token,
+      sandbox: pushTokens.sandbox,
+      platform: pushTokens.platform,
+    })
     .from(pushTokens)
     .innerJoin(users, eq(users.id, pushTokens.userId))
     .innerJoin(accounts, eq(accounts.id, users.accountId))
@@ -282,6 +454,9 @@ export async function rememberToken(input: {
   accountId: string;
   token: string;
   sandbox: boolean;
+  /* Откуда пришёл токен. Умолчание — Apple: так ведут себя все клиенты,
+     выпущенные до Android, и старая сборка iOS, которая поля не шлёт. */
+  platform?: Platform;
 }) {
   /* Телефон мог перейти к другому человеку — тогда все чужие строки с
      этим токеном надо снять, иначе прежний владелец продолжит получать
@@ -307,10 +482,16 @@ export async function rememberToken(input: {
       userId: input.userId,
       token: input.token,
       sandbox: input.sandbox,
+      platform: input.platform ?? 'apns',
     })
     .onConflictDoUpdate({
       target: [pushTokens.token, pushTokens.userId],
-      set: { tenantId: input.tenantId, sandbox: input.sandbox, seenAt: new Date() },
+      set: {
+        tenantId: input.tenantId,
+        sandbox: input.sandbox,
+        platform: input.platform ?? 'apns',
+        seenAt: new Date(),
+      },
     });
 }
 

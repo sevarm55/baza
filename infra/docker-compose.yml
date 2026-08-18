@@ -59,6 +59,14 @@ services:
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
       APNS_TOPIC: ${APNS_TOPIC:-com.sevarm.tetr}
+      # То же для Android. Три поля из ключа сервисного аккаунта Firebase
+      # (Project settings → Service accounts → Generate new private key).
+      # Приватный ключ переносится так же, как APNS_KEY: переносы строк
+      # записываются в .env как \n. Пусто — уведомления уходят только на
+      # iPhone, эппловская доставка от этого не страдает.
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_CLIENT_EMAIL: ${FCM_CLIENT_EMAIL:-}
+      FCM_PRIVATE_KEY: ${FCM_PRIVATE_KEY:-}
       # Секрет для задач по расписанию. Пусто — маршрут отвечает 404, то
       # есть его как будто нет.
       CRON_SECRET: ${CRON_SECRET:-}

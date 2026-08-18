@@ -839,6 +839,18 @@ export const pushTokens = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     token: text('token').notNull(),
     sandbox: boolean('sandbox').notNull().default(false),
+    /* Куда нести этот токен: 'apns' или 'fcm'.
+
+       По умолчанию 'apns', и это не вкусовщина, а условие безопасности
+       правки: до появления Android все строки были эппловскими, и
+       умолчание оставляет их ровно такими, какими они были. Иначе
+       миграция молча обнулила бы платформу у живых iPhone и выключила
+       им уведомления.
+
+       Строкой, а не булевым «androidLi»: платформ не две навсегда, и
+       поле, которое придётся переименовывать при третьей, лучше сразу
+       называть тем, что оно значит. */
+    platform: text('platform').notNull().default('apns'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
