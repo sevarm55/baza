@@ -828,3 +828,25 @@ func paymentLabel(_ key: String) -> String {
     default: return key
     }
 }
+
+/**
+ * Цвет способа оплаты.
+ *
+ * Лежит рядом с его названием и знаком, а не в экране, потому что
+ * разрезов по оплате в продукте два: сводка за месяц и отчёт. Пока цвет
+ * жил приватным методом одного из них, второй красил наличные заново —
+ * и первая же правка палитры развела бы два ответа на один вопрос.
+ *
+ * Мята наличным, лаванда карте, песок переводу: те же спокойные краски,
+ * что держат смысл на остальных экранах. Абонемент грейпом — это марка,
+ * и он единственный не деньги, а право.
+ */
+func paymentInk(_ key: String) -> Color {
+    switch key {
+    case "cash": return Brand.mintInk
+    case "card": return Brand.lavenderInk
+    case "transfer": return Brand.sandInk
+    case "pass": return Brand.grape
+    default: return Brand.boardMuted
+    }
+}

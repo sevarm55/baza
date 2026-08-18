@@ -11086,6 +11086,52 @@
         }
       }
     },
+    "reports.kept": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ձեզ մնում է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вам остаётся"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You keep"
+          }
+        }
+      }
+    },
+    "reports.red": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մինուսի մեջ եք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы в минусе"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're in the red"
+          }
+        }
+      }
+    },
     "reports.whereFrom": {
       "extractionState": "manual",
       "localizations": {

@@ -895,16 +895,6 @@ struct OwnerView: View {
         )
     }
 
-    private func paymentInk(_ key: String) -> Color {
-        switch key {
-        case "cash": return Brand.mintInk
-        case "card": return Brand.lavenderInk
-        case "transfer": return Brand.sandInk
-        case "pass": return Brand.grape
-        default: return Brand.boardMuted
-        }
-    }
-
     /// Рабочий показатель: тихая поверхность и маленький функциональный
     /// знак вместо огромной декоративной пиктограммы.
     private func softMetric(
