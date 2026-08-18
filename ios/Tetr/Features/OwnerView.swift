@@ -554,8 +554,8 @@ struct OwnerView: View {
     private func crewBoard(_ s: API.Summary) -> some View {
         let lines = crew(s)
         if !lines.isEmpty {
-            VStack(spacing: 0) {
-                HStack {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 6) {
                     Text(L("today.working"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
@@ -565,70 +565,90 @@ struct OwnerView: View {
                         .foregroundStyle(Brand.boardMuted.opacity(0.7))
                     Spacer()
                 }
-                .padding(.horizontal, 6)
-                .padding(.top, 14)
-                .padding(.bottom, 4)
+                .padding(.horizontal, 4)
 
-                ForEach(lines) { line in
-                    crewRow(line)
-                    if line.id != lines.last?.id {
-                        Divider().overlay(Brand.boardInk.opacity(0.07))
+                /* Лента, а не список строк.
+
+                   Строки в белой коробке отвечали верно, но выглядели
+                   таблицей: имя, число, сумма — и так у каждого. Люди в
+                   этом продукте везде показаны кружком своего цвета: в
+                   ленте записей, в команде, на зарплатах. Здесь было
+                   единственное место, где они оставались безымянными
+                   строками.
+
+                   Карточка на человека даёт лицо и заработок одним
+                   предметом, а лента вбок держит любое их число: на мойке
+                   их двое, у автосервиса бывает шестеро, и вертикальный
+                   список из шести отодвинул бы журнал за нижний край. */
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 9) {
+                        ForEach(lines) { line in
+                            crewTile(line)
+                        }
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                 }
+                .scrollClipDisabled()
             }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 4)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-            .padding(.top, 10)
+            .padding(.top, 14)
         }
     }
 
-    private func crewRow(_ line: CrewLine) -> some View {
-        HStack(spacing: 9) {
-            /* Точка — состояние, а не опознавательный знак человека:
-               зелёная значит «сейчас здесь». Цвет человека в этом списке
-               не нужен — имена стоят по одному, различать их нечем. */
-            Circle()
-                .fill(line.present ? Brand.goodOnBoard : Color.clear)
-                .frame(width: 7, height: 7)
-                .overlay {
-                    if !line.present {
-                        Circle().strokeBorder(Brand.boardInk.opacity(0.28), lineWidth: 1.5)
-                    }
+    private func crewTile(_ line: CrewLine) -> some View {
+        let tone = Brand.personTone(line.name)
+
+        return VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomTrailing) {
+                Text(String(line.name.prefix(1)))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(line.present ? tone.base : Brand.boardInk.opacity(0.18), in: .circle)
+
+                /* Зелёная точка значит «сейчас здесь». Кайма цвета
+                   карточки отделяет её от кружка: на тёмном пятне зелёное
+                   без каймы сливается. */
+                if line.present {
+                    Circle()
+                        .fill(Brand.goodOnBoard)
+                        .frame(width: 11, height: 11)
+                        .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 2))
+                        .offset(x: 1, y: 1)
                 }
+            }
 
             Text(line.name)
-                .font(.system(size: 14.5, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(line.present ? Brand.onBoard : Brand.boardMuted)
                 .lineLimit(1)
-
-            Spacer(minLength: 8)
-
-            Text(Terms.units(line.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
-                .font(.system(size: 12.5))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.top, 10)
 
             Text(money(line.earned, currency))
-                .font(.system(size: 14.5, weight: .semibold))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.top, 1)
+
+            Text(Terms.units(line.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
+                .font(.system(size: 11.5))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 10)
+        .padding(13)
+        .frame(width: 148, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(line.name)\(line.present ? ", հերթափոխին" : ""), \(line.count), \(money(line.earned, currency))"
-        )
     }
 
-    /// Человек в сегодняшнем дне: на смене или уже отработавший.
     private struct CrewLine: Identifiable {
         let id: String
         let name: String
@@ -1106,107 +1126,110 @@ struct OwnerView: View {
         .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 
+    /**
+     * Строка журнала: кружок слева, деньги колонкой справа.
+     *
+     * Так устроены ленты операций в банковских приложениях, и причина в
+     * том, как их читают: список не читают, его просматривают. Кружок
+     * слева опознаётся раньше слова, а деньги, стоящие всегда у правого
+     * края на одной и той же высоте, сравниваются между строками без
+     * чтения.
+     *
+     * Кружок заменил и точку с именем: писать имя словом больше не нужно,
+     * цвет человека один и тот же в команде, в зарплатах и здесь.
+     *
+     * Три строки слева, три справа, на одной высоте: номер против суммы,
+     * услуга против доли мойки, время против доли человека. Время внизу, в
+     * самом тихом месте строки: на вопрос «что было» оно отвечает
+     * последним.
+     */
     private func journalRow(_ item: API.FeedItem) -> some View {
         let who = item.staffName ?? "—"
-        return VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(item.clientKey ?? "—")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
-                if newestFeedID == item.id {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Brand.goodOnBoard)
-                        .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
-                        .transition(.opacity)
-                }
-                Spacer(minLength: 8)
-                /* Скидка: зачёркнутый прайс рядом со взятым. Без него
-                   «6 500» не отличить от обычной цены, и о скидке
-                   владелец не узнаёт вовсе — до сих пор она была видна
-                   только в уведомлении в момент записи. */
-                if let list = item.listPrice, list > item.price {
-                    Text(money(list, currency))
+        let tone = Brand.personTone(who)
+
+        return HStack(alignment: .top, spacing: 12) {
+            Text(String(who.prefix(1)))
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(tone.base, in: .circle)
+                .padding(.top, 1)
+
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 7) {
+                        Text(item.clientKey ?? "—")
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+                        if newestFeedID == item.id {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Brand.goodOnBoard)
+                                .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
+                                .transition(.opacity)
+                        }
+                    }
+
+                    /* Услуга — потому что без неё цена необъяснима: 2 500 и
+                       12 000 в соседних строках выглядят ошибкой, пока не
+                       видно, что одно это кузов, а другое химчистка. Способ
+                       оплаты словом, а не значком: значок карты и значок
+                       перевода на десяти точках различаются только если
+                       знать, что они разные. */
+                    Text("\(item.serviceName) · \(paymentLabel(item.payment).lowercased())")
                         .font(.system(size: 12))
-                        .monospacedDigit()
-                        .strikethrough()
                         .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Text(at(item.createdAt))
+                        .font(.system(size: 11.5))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted.opacity(0.75))
                 }
-                Text(money(item.price, currency))
-                    .font(.system(size: 15, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-            }
 
-            /* Услуга — потому что без неё цена необъяснима: 2 500 и 12 000 в
-               соседних строках выглядят ошибкой, пока не видно, что одно это
-               кузов, а другое химчистка. Способ оплаты словом, а не значком:
-               значок карты и значок перевода на 10 точках различаются только
-               если знать, что они разные. */
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(at(item.createdAt))
-                    .monospacedDigit()
-                Text("·")
-                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
-                Text(item.serviceName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text("·")
-                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
-                Text(paymentLabel(item.payment).lowercased())
-                    .lineLimit(1)
+                Spacer(minLength: 4)
 
-                Spacer(minLength: 10)
+                VStack(alignment: .trailing, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        /* Скидка: зачёркнутый прайс рядом со взятым. Без
+                           него «6 500» не отличить от обычной цены, и о
+                           скидке владелец не узнаёт вовсе. */
+                        if let list = item.listPrice, list > item.price {
+                            Text(money(list, currency))
+                                .font(.system(size: 12))
+                                .monospacedDigit()
+                                .strikethrough()
+                                .foregroundStyle(Brand.boardMuted)
+                        }
+                        Text(money(item.price, currency))
+                            .font(.system(size: 15, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                    }
 
-                /* Что осталось мойке — под общей суммой и в её колонке.
-                   Раньше оба разбора стояли одной строкой внизу, и в ней
-                   встречались два числа подряд: «Доля 4 800 ֏ · Бизнесу
-                   7 200 ֏». Два числа в строке всегда читаются как одно
-                   выражение, и владелец каждый раз соображал, какое из них
-                   его. Теперь в каждой строке ровно одно число, и все три
-                   стоят колонкой у правого края: сколько взяли, сколько
-                   осталось мойке, сколько ушло человеку. Сверху вниз,
-                   от большего к меньшему. */
-                Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .layoutPriority(1)
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(Brand.boardMuted)
-
-            /* Кто помыл — и сколько ему за это.
-
-               Доля стоит в той же строке, что и имя, а не рядом с долей
-               мойки: это деньги одного человека, и читаются они вместе с
-               ним. При нулевой ставке строки долей нет вовсе: у
-               владельца, который записывает сам, процента нет, и «ему
-               0 ֏» в каждой записи — шум. */
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Brand.person(who))
-                    .frame(width: 6, height: 6)
-                Text(who)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Brand.person(who))
-                    .lineLimit(1)
-
-                Spacer(minLength: 10)
-
-                if (item.staffPercent ?? 0) > 0 {
-                    Text(L("summary.share", money(item.earned, currency)))
+                    Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
-                        .layoutPriority(1)
+
+                    /* При нулевой ставке строки долей нет вовсе: у
+                       владельца, который записывает сам, процента нет, и
+                       «ему 0 ֏» в каждой записи — шум. */
+                    if (item.staffPercent ?? 0) > 0 {
+                        Text(L("summary.share", money(item.earned, currency)))
+                            .font(.system(size: 11.5))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted.opacity(0.75))
+                            .lineLimit(1)
+                    }
                 }
             }
-            .font(.system(size: 12))
-            .padding(.top, 1)
         }
         .padding(.horizontal, 4)
-        .padding(.vertical, 11)
+        .padding(.vertical, 10)
         .background(
             newestFeedID == item.id ? Brand.lime.opacity(0.1) : Color.clear,
             in: .rect(cornerRadius: 12)
@@ -1217,18 +1240,12 @@ struct OwnerView: View {
                 : .move(edge: .top).combined(with: .opacity)
         )
         .contentShape(.rect)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(who), \(item.clientKey ?? "")")
-        // Отмена мягкая: запись остаётся в истории и в аудите, но перестаёт
-        // попадать в выручку и зарплату. Поэтому и спрашиваем — вернуть её
-        // обратно нельзя.
         .contextMenu {
             Button(L("work.revoke"), role: .destructive) {
                 cancelling = item
             }
         }
     }
-
     private func problem(_ text: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")

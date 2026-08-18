@@ -95,19 +95,6 @@ struct ShiftView: View {
            попадать в выручку и в заработок, и заработок за день
            пересчитается на глазах. Поэтому и слово «отменить», а не
            «удалить»: то же самое видит владелец. */
-        .confirmationDialog(
-            L("work.revokeTitle"),
-            isPresented: .init(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
-            titleVisibility: .visible,
-            presenting: revoking
-        ) { order in
-            Button(L("work.revoke"), role: .destructive) {
-                Task { await revoke(order) }
-            }
-            Button(L("work.revokeKeep"), role: .cancel) {}
-        } message: { order in
-            Text(L("shift.revokeBody", order.clientKey ?? order.serviceName, order.serviceName, money(order.price, currency)))
-        }
         .sheet(isPresented: $welcoming) {
             WorkerWelcomeSheet { welcoming = false }
         }
@@ -342,122 +329,124 @@ struct ShiftView: View {
         return minutes < 60 ? L("shift.lastedMinutes", minutes) : L("shift.lastedHours", minutes / 60, minutes % 60)
     }
 
-    // ══════════════════════════ сетка плиток ══════════════════════════
+    // ══════════════════════════ показатели смены ══════════════════════════
 
     /**
-     * Плитки смены. Ни одна не повторяет цифру наверху.
+     * Показатели смены: тонкая строка и одна тёплая.
      *
-     * Когда мойщик берёт процент, наверху стоит его заработок — значит
-     * широкая плитка показывает выручку смены и кольцом его долю в ней.
-     * Когда процента нет (владелец моет сам), наверху уже стоит выручка, и
-     * широкой становится другая: наличные на руках.
+     * Была мозаика из трёх цветных плиток — лавандовой во всю высоту, мятной
+     * и песочной рядом. Она читалась приборной панелью, а не сменой: три
+     * заливки одинаковой силы спорили и между собой, и с числом над ними, и
+     * первым на экране читался цвет, а не деньги.
      *
-     * Наличные — та цифра, ради которой экран открывают во второй раз за
-     * смену: столько с него спросят при закрытии, и лучше увидеть её
-     * заранее, чем узнать в момент сдачи.
+     * Сейчас числа стоят строкой на полотне, без коробок вокруг каждого, —
+     * тем же приёмом, что показатели дня в сводке. Экран продукта не должен
+     * разговаривать в двух разных манерах.
+     *
+     * Средний чек убран. За смену он считается по трём-пяти записям и
+     * прыгает от одной дорогой мойки, а решает по нему не мойщик и не в
+     * этот день; у владельца его убрали из сегодняшнего дня по той же
+     * причине.
+     *
+     * Наличные вынесены из строки отдельной тёплой полосой. Это
+     * единственное число экрана, которое превращается в действие: столько
+     * с человека спросят при закрытии смены. Тёплая бумага и есть то, чем
+     * в этом продукте помечено действие, а не место.
      */
     private var grid: some View {
         let count = shift?.count ?? 0
         let cash = shift?.cashSoFar ?? 0
         let revenue = shift?.revenue ?? 0
-        let percent = shift?.percent ?? 0
 
-        return HStack(spacing: gap) {
-            /* Подпись называет, ЧЬИ это деньги. «Выручка смены» стояло и
-               здесь, и в кабинете владельца, а рядом — заработок мойщика:
-               два похожих числа, и какое из них твоё, приходилось решать.
-               Теперь это «сумма работ», и доля названа долей. Те же слова
-               в вебе. */
-            shiftPrimary(
-                title: takesShare ? L("work.worksTotal") : L("shift.cashInHand"),
-                value: money(takesShare ? revenue : cash, currency),
-                note: takesShare ? L("shift.yourShare", percent) : L("shift.toHandOver"),
-                background: Brand.lavenderCard,
-                ink: Brand.lavenderInk,
-                animate: Double(takesShare ? revenue : cash)
-            )
-
-            VStack(spacing: gap) {
-                shiftSmall(
-                    // подпись над числом — множественное: «машины», не «машина»
-                    title: unitLabel(count),
-                    value: "\(count)",
-                    background: Brand.mintCard,
-                    ink: Brand.mintInk,
-                    animate: Double(count)
-                )
-                shiftSmall(
-                    title: takesShare ? L("payment.cash") : L("owner.avgCheck"),
-                    value: takesShare
-                        ? money(cash, currency)
-                        : money(count > 0 ? revenue / count : 0, currency),
-                    background: Brand.sandCard,
-                    ink: Brand.sandInk,
-                    animate: Double(takesShare ? cash : (count > 0 ? revenue / count : 0))
+        return VStack(spacing: gap) {
+            HStack(spacing: 0) {
+                shiftValue(unitLabel(count), "\(count)", animate: Double(count))
+                shiftDivider
+                /* Подпись называет, ЧЬИ это деньги. «Выручка смены» стояло
+                   и здесь, и в кабинете владельца, а рядом — заработок
+                   мойщика: два похожих числа, и какое из них твоё,
+                   приходилось решать. Теперь это «сумма работ», а доля
+                   названа долей. Те же слова в вебе. */
+                shiftValue(
+                    takesShare ? L("work.worksTotal") : L("shift.yourShare", shift?.percent ?? 0),
+                    money(revenue, currency),
+                    animate: Double(revenue)
                 )
             }
+            .padding(.vertical, 12)
+
+            cashRow(cash)
         }
     }
 
-    private func shiftPrimary(
-        title: String,
-        value: String,
-        note: String,
-        background: Color,
-        ink: Color,
-        animate: Double
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Image(systemName: "wallet.bifold.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .frame(width: 34, height: 34)
-                .background(ink.opacity(0.1), in: .rect(cornerRadius: 11))
-            Spacer()
-            Text(title)
-                .font(.system(size: 11.5, weight: .medium))
+    private func shiftValue(_ title: String, _ value: String, animate: Double) -> some View {
+        VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .contentTransition(.numericText(value: animate))
-            Text(note)
-                .font(.system(size: 10.5))
-                .opacity(0.68)
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .foregroundStyle(ink)
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 176, alignment: .leading)
-        .background(background, in: .rect(cornerRadius: 22))
+        .frame(maxWidth: .infinity)
     }
 
-    private func shiftSmall(
-        title: String,
-        value: String,
-        background: Color,
-        ink: Color,
-        animate: Double
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 11.5))
-                .foregroundStyle(ink.opacity(0.72))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Spacer(minLength: 6)
-            Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+    private var shiftDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.1))
+            .frame(width: 1, height: 34)
+    }
+
+    /**
+     * Сколько наличных на руках и что с ними будет.
+     *
+     * Графит, а не кремовая бумага. Кремовая была слишком близка к самому
+     * полотну: полоса растворялась в нём и переставала быть отдельным
+     * предметом, хотя это единственное число экрана, которое превращается
+     * в действие — столько с человека спросят при закрытии смены.
+     *
+     * Тёмная плашка решает это без нового цвета в палитре: она уже стоит
+     * на сводке под именами тех, кто на площадке. И только на тёмном в
+     * этом продукте можно пустить лайм — по светлому он даёт контраст 1.06
+     * и не виден вовсе. Сумма лаймом, поэтому её видно раньше подписи.
+     */
+    private func cashRow(_ cash: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "banknote.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Brand.lime)
+                .frame(width: 38, height: 38)
+                .background(.white.opacity(0.10), in: .rect(cornerRadius: 13, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L("shift.cashInHand"))
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(L("shift.toHandOver"))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            Spacer(minLength: 8)
+
+            Text(money(cash, currency))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(ink)
+                .foregroundStyle(Brand.lime)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                .contentTransition(.numericText(value: animate))
+                .contentTransition(.numericText(value: Double(cash)))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 83, alignment: .topLeading)
-        .background(background, in: .rect(cornerRadius: 19))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Tone.slate.base, in: .rect(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 
@@ -597,6 +586,30 @@ struct ShiftView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(L("shift.rowActions", order.clientKey ?? order.serviceName))
+                        /* Вопрос висит на самой кнопке, а не на списке.
+
+                           Раньше он стоял на всей прокрутке, и система, не
+                           зная, от чего его вести, привязывала к её началу:
+                           нажимаешь три точки у третьей записи, а окно
+                           выезжает вверху экрана и стрелкой указывает не
+                           туда. Условие тоже стало пооcтрочным — иначе
+                           каждая строка считала бы, что спрашивают у неё. */
+                        .confirmationDialog(
+                            L("work.revokeTitle"),
+                            isPresented: .init(
+                                get: { revoking?.id == order.id },
+                                set: { if !$0 { revoking = nil } }
+                            ),
+                            titleVisibility: .visible,
+                            presenting: order
+                        ) { order in
+                            Button(L("work.revoke"), role: .destructive) {
+                                Task { await revoke(order) }
+                            }
+                            Button(L("work.revokeKeep"), role: .cancel) {}
+                        } message: { order in
+                            Text(L("shift.revokeBody", order.clientKey ?? order.serviceName, order.serviceName, money(order.price, currency)))
+                        }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 9)

@@ -71,7 +71,6 @@ struct PayrollView: View {
                     problem(failure)
                 } else if let board = payroll?.board {
                     hero(board)
-                    metrics(board)
                     tabs(board)
 
                     if tab == .due {
@@ -116,89 +115,121 @@ struct PayrollView: View {
     // ══════════════════════════ показания ══════════════════════════
 
     /**
-     * Сколько всего раздать.
+     * Сколько всего раздать — и кому.
      *
-     * Плита остаётся плитой продукта — фирменный грейп с уходом в
-     * глубину и знаком банкноты в углу: это язык приложения, и менять
-     * его ради единообразия с вебом незачем. Меняется то, что на ней
-     * написано: раньше «с последней выплаты», теперь итог по дням,
-     * который сходится со строками ниже.
+     * Грейповой плиты здесь больше нет: она была самой яркой вещью на
+     * экране, но говорила ровно одно число, а следом шла белая полоска из
+     * трёх показателей, где первым стояло начисление — та же самая сумма
+     * второй раз подряд.
+     *
+     * И голое число по центру тоже не годится: ровно так начинается
+     * сводка, и два разных экрана открывались бы одинаково. Разница между
+     * ними существенная. Сводка отвечает «сколько получилось» — это
+     * показание прибора, и место ему по оси. Зарплаты отвечают «кому
+     * раздать» — это список людей, и начинаться он должен с людей.
+     *
+     * Поэтому наверху стопка кружков: те, кому сейчас должны, каждый
+     * своим цветом — тем же, каким его имя набрано в ленте, в команде и
+     * в строке ниже. Кружки перекрывают друг друга, как принято
+     * показывать группу, и при пятерых и больше последним встаёт счётчик
+     * остатка. Блок прижат влево, а не выровнен по центру: асимметрия и
+     * есть то, чем этот экран отличается от сводки с первого взгляда.
      */
     private func hero(_ board: API.PayrollBoard) -> some View {
         let total = board.totals.outstanding
+        let owed = owedPeople(board)
 
-        return ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [Brand.grapeFill, Brand.grapeMid],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+        var parts: [String] = []
+        if total > 0 { parts.append(Terms.staff(board.totals.owedTo, staffRole)) }
+        parts.append("\(board.totals.units) \(Terms.unitWord(board.totals.units, unitOne))")
+        if board.totals.settled > 0 {
+            parts.append("\(L("owner.payrollAccrued")) \(money(board.totals.accrued, currency))")
+            parts.append("\(L("payroll.paid")) \(money(board.totals.settled, currency))")
+        }
 
-            Image(systemName: "banknote.fill")
-                .font(.system(size: 108, weight: .black))
-                .foregroundStyle(.white.opacity(0.055))
-                .offset(x: 220, y: 30)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(L("payroll.dueHeader"))
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(1.35)
-                    .foregroundStyle(Brand.lime)
-
-                Text(money(total, currency))
-                    .font(.system(size: 43, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.42)
-                    .contentTransition(.numericText(value: Double(total)))
-
-                Text(total > 0 ? Terms.staff(board.totals.owedTo, staffRole) : L("payroll.dayAllPaid"))
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.58))
+        return VStack(alignment: .leading, spacing: 0) {
+            if !owed.isEmpty {
+                faces(owed)
+                    .padding(.bottom, 12)
             }
-            .padding(18)
-        }
-        .frame(maxWidth: .infinity, minHeight: 158, alignment: .bottomLeading)
-        .clipShape(.rect(cornerRadius: 26))
-        .padding(.top, 8)
-    }
 
-    /// Три второстепенных показателя одной полосой, а не тремя плитками:
-    /// плитка вокруг каждого сделала бы их равными плите.
-    private func metrics(_ board: API.PayrollBoard) -> some View {
-        HStack(spacing: 0) {
-            metric(L("owner.payrollAccrued"), money(board.totals.accrued, currency))
-            divider
-            metric(L("payroll.paid"), money(board.totals.settled, currency))
-            divider
-            metric(Terms.unitWord(board.totals.units, unitOne), "\(board.totals.units)")
-        }
-        .padding(.vertical, 12)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
-    }
+            Text(L("payroll.dueHeader"))
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .tracking(1.35)
+                .foregroundStyle(Brand.boardMuted)
 
-    private func metric(_ title: String, _ value: String) -> some View {
-        VStack(spacing: 3) {
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+            /* Долг набран чернилами, а не грейпом: это показание, а не
+               действие, и красить его фирменным цветом значит обещать
+               нажатие, которого нет. */
+            Text(money(total, currency))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(title)
-                .font(.system(size: 10.5, weight: .medium))
+                .minimumScaleFactor(0.42)
+                .contentTransition(.numericText(value: Double(total)))
+                .padding(.top, 2)
+
+            Text(total > 0 ? parts.joined(separator: " · ") : L("payroll.dayAllPaid"))
+                .font(.system(size: 12.5))
+                .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 3)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .combine)
     }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(Brand.boardInk.opacity(0.09))
-            .frame(width: 1, height: 29)
+    /// Кому должны, от большего долга к меньшему.
+    ///
+    /// Один человек может стоять в нескольких днях; здесь он один и с
+    /// общим долгом, иначе в стопке появились бы два одинаковых кружка.
+    private func owedPeople(_ board: API.PayrollBoard) -> [(name: String, owed: Int)] {
+        var sums: [String: Int] = [:]
+        for day in board.days {
+            for person in day.people where person.earned > 0 {
+                guard let name = person.name, !name.isEmpty else { continue }
+                sums[name, default: 0] += person.earned
+            }
+        }
+        return sums.map { (name: $0.key, owed: $0.value) }.sorted { $0.owed > $1.owed }
+    }
+
+    /// Стопка кружков: четверо в лицо, остальные счётчиком.
+    ///
+    /// Кольцо цвета полотна вокруг каждого — не украшение: без него два
+    /// тёмных кружка внахлёст сливаются в одно пятно, и стопка перестаёт
+    /// читаться количеством.
+    private func faces(_ people: [(name: String, owed: Int)]) -> some View {
+        let shown = people.prefix(4)
+        let rest = people.count - shown.count
+
+        return HStack(spacing: -11) {
+            ForEach(Array(shown.enumerated()), id: \.offset) { _, person in
+                Text(String(person.name.prefix(1)))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(Brand.personTone(person.name).base, in: .circle)
+                    .overlay(Circle().strokeBorder(Brand.board, lineWidth: 2.5))
+            }
+
+            if rest > 0 {
+                Text("+\(rest)")
+                    .font(.system(size: 13, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .frame(width: 36, height: 36)
+                    .background(Brand.boardInk.opacity(0.09), in: .circle)
+                    .overlay(Circle().strokeBorder(Brand.board, lineWidth: 2.5))
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     /**
