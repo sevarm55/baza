@@ -751,6 +751,200 @@ extension View {
     }
 }
 
+/**
+ * Кусок разреза: имя, цвет и деньги.
+ *
+ * Полоса долей принадлежит сводке и только ей. На соседние экраны она не
+ * ходит намеренно: там свои вопросы и свои фигуры, а две одинаковые полосы
+ * по разным данным читались бы одной и той же вещью — ровно та путаница,
+ * ради которой разрезы и разведены по экранам.
+ */
+struct Split: Identifiable {
+    let id: String
+    let label: String
+    let ink: Color
+    let amount: Int
+
+    /**
+     * Разрез денег: сколько осталось владельцу, сколько ушло людям,
+     * сколько расходам.
+     *
+     * Три краски, а не серые оттенки. Грейп у доли владельца: это марка, и
+     * главный кусок полосы должен быть ею. Лаванда у зарплат, песок у
+     * расходов — те же цвета, что стоят под этими словами на всех экранах.
+     *
+     * В минус полоса не уходит: отрицательного куска не бывает. Когда день
+     * ушёл в убыток, владельцу не осталось ничего, и полоса честно состоит
+     * из одних расходов, а знак минуса уже стоит в главном числе над ней.
+     */
+    static func money(mine: Int, staff: Int, costs: Int) -> [Split] {
+        [
+            Split(id: "mine", label: L("common.you"), ink: Brand.grapeFill, amount: max(0, mine)),
+            Split(id: "staff", label: L("summary.toStaff"), ink: Brand.lavenderInk, amount: staff),
+            Split(id: "costs", label: L("expenses.title"), ink: Brand.sandInk, amount: costs),
+        ].filter { $0.amount > 0 }
+    }
+}
+
+/**
+ * Полоса, разрезанная по долям.
+ *
+ * Один орган на оба разреза сводки: деньги дня и способы оплаты. Полоса
+ * отвечает на вопрос, которого нет у колонок цифр, — КАКОЙ ДОЛЕЙ. Из
+ * каждых двадцати двух тысяч владельцу осталось четыре, и это видно
+ * длиной куска, без чтения.
+ *
+ * Целое считается по кускам, а не приходит снаружи: полоса, у которой
+ * сумма частей не сходится с её же длиной, врёт молча.
+ */
+struct SplitBar: View {
+    let parts: [Split]
+    var height: CGFloat = 12
+
+    var body: some View {
+        let total = max(1, parts.reduce(0) { $0 + $1.amount })
+
+        GeometryReader { proxy in
+            let gaps = CGFloat(max(0, parts.count - 1)) * 2
+            let free = max(0, proxy.size.width - gaps)
+            HStack(spacing: 2) {
+                ForEach(parts) { part in
+                    RoundedRectangle(cornerRadius: height / 3, style: .continuous)
+                        .fill(part.ink)
+                        /* Не тоньше четырёх точек: кусок нулевой ширины
+                           читается как отсутствие статьи, а она есть. */
+                        .frame(width: max(4, free * CGFloat(part.amount) / CGFloat(total)))
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// Подписи к полосе — одной строкой, а не колонками: колонка под полосой
+/// это опять тройка блоков, от которой мы и ушли.
+struct SplitLegend: View {
+    let parts: [Split]
+    let currency: String
+
+    var body: some View {
+        HStack(spacing: 11) {
+            ForEach(parts) { part in
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(part.ink)
+                        .frame(width: 6, height: 6)
+                    Text(part.label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text(money(part.amount, currency))
+                        .font(.system(size: 11, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+    }
+}
+
+/**
+ * Спокойная краска показания: заливка и знаки к ней.
+ *
+ * Это не акцентные цвета продукта — грейпом и лаймом здесь не красят
+ * ничего. Мята принадлежит объёму работы, лаванда денежному контексту,
+ * песок расходам, и один и тот же смысл окрашен одинаково на всех
+ * экранах: увидев песочную карточку, человек ещё до чтения знает, что
+ * речь о тратах.
+ */
+enum StatTint {
+    case mint, lavender, sand
+    /// Не деньги. Бумага без краски — для счётчиков: число машин стоит в
+    /// одном ряду с суммами, но отвечает на другой вопрос, и красить его
+    /// денежной краской значит соврать глазу.
+    case paper
+
+    var fill: Color {
+        switch self {
+        case .mint: return Brand.mintCard
+        case .lavender: return Brand.lavenderCard
+        case .sand: return Brand.sandCard
+        case .paper: return Brand.boardSurface
+        }
+    }
+
+    var ink: Color {
+        switch self {
+        case .mint: return Brand.mintInk
+        case .lavender: return Brand.lavenderInk
+        case .sand: return Brand.sandInk
+        case .paper: return Brand.onBoard
+        }
+    }
+}
+
+/// Показание в ряду итогов: подпись, число и краска.
+struct Stat: Identifiable {
+    let id: String
+    let label: String
+    let value: String
+    let tint: StatTint
+}
+
+/**
+ * Ряд итогов: несколько мягких карточек в строку.
+ *
+ * Цвет остался — ушла громкость. Тёмная плитка со свечением была
+ * прибором: она светилась, тянула взгляд первой и спорила с главным
+ * числом экрана, хотя говорит вещи второстепенные. Эти карточки той же
+ * семьи, что спокойные поверхности смены: низкая насыщенность, никакого
+ * градиента, знаки цветом самой краски, а не белым по тёмному.
+ *
+ * Содержимое по центру карточки, а не по левому краю. Числа здесь разной
+ * длины — «5» и «43 500 ֏» рядом, — и при левой выключке ряд выглядит
+ * рассыпанным; по центру каждая карточка читается отдельным показанием, а
+ * ряд остаётся ровным.
+ */
+struct StatCards: View {
+    let items: [Stat]
+    var columns: Int = 3
+
+    var body: some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 9), count: columns),
+            spacing: 9
+        ) {
+            ForEach(items) { item in
+                VStack(spacing: 3) {
+                    Text(item.label)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(item.ink.opacity(0.85))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(item.value)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(item.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .padding(.horizontal, 8)
+                .background(item.tint.fill, in: .rect(cornerRadius: 18, style: .continuous))
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+}
+
+private extension Stat {
+    var ink: Color { tint.ink }
+}
+
 /// Кольцо доли: заполненная дуга — то, что осталось владельцу.
 struct Ring: View {
     let share: Double

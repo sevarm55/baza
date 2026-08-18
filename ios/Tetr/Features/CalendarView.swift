@@ -45,7 +45,6 @@ struct CalendarView: View {
             VStack(spacing: gap) {
                 if let total = data?.total { reading(total) }
                 grid
-                if let total = data?.total { totals(total) }
                 weekProfile
             }
             .padding(.horizontal, 12)
@@ -132,9 +131,60 @@ struct CalendarView: View {
                 // значение передаётся внутрь: по нему система понимает, в
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(total.profit)))
+
+            totals(total)
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 4)
+    }
+
+    /**
+     * Итоги месяца четырьмя мягкими карточками.
+     *
+     * Тёмных плиток со свечением было две — выручка и машины, — и они
+     * отвечали на два вопроса из четырёх: куда делись деньги, из них не
+     * следовало. Светились при этом громче всего на экране, хотя главное
+     * здесь — форма месяца в сетке.
+     *
+     * Теперь цепочка названа целиком: пришло, за сколько машин, ушло
+     * людям, ушло на расходы. Краски те же, что на смене и в карточке дня:
+     * мята за объём работы, лаванда за деньги, песок за траты — и один и
+     * тот же смысл окрашен одинаково во всём продукте.
+     */
+    @ViewBuilder
+    private func totals(_ total: API.MonthTotal) -> some View {
+        if total.revenue > 0 || total.count > 0 {
+            StatCards(
+                items: [
+                    Stat(
+                        id: "revenue",
+                        label: L("owner.revenue"),
+                        value: money(total.revenue, currency),
+                        tint: .mint
+                    ),
+                    Stat(
+                        id: "count",
+                        label: Terms.unitWord(total.count, session.tenant?.unitOne ?? ""),
+                        value: "\(total.count)",
+                        tint: .paper
+                    ),
+                    Stat(
+                        id: "staff",
+                        label: L("summary.toStaff"),
+                        value: money(total.payroll, currency),
+                        tint: .lavender
+                    ),
+                    Stat(
+                        id: "costs",
+                        label: L("expenses.title"),
+                        value: money(total.expenses, currency),
+                        tint: .sand
+                    ),
+                ],
+                columns: 2
+            )
+            .padding(.top, 16)
+        }
     }
 
     // ══════════════════════════ сетка ══════════════════════════
@@ -165,7 +215,18 @@ struct CalendarView: View {
             }
         }
         .padding(14)
-        .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 24))
+        /* Бумага, а не серое пятно от полотна.
+
+           Серая подложка была тенью: на светлой теме она читалась не как
+           «спокойная поверхность», а как выключенный блок, и сетка теряла
+           края. Белая коробка с волосяной кромкой — та же, в которой на
+           этом экране живут все списки, — держит сетку предметом, а
+           сиреневые клетки внутри становятся заметно чище. */
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
         .opacity(loading && data == nil ? 0.4 : 1)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: month)
     }
@@ -237,35 +298,6 @@ struct CalendarView: View {
         .accessibilityValue(day.revenue > 0 ? "\(day.count) · \(money(day.revenue, currency))" : L("common.empty"))
     }
 
-    // ══════════════════════════ итоги ══════════════════════════
-
-    private func totals(_ total: API.MonthTotal) -> some View {
-        HStack(spacing: gap) {
-            small(.teal, L("owner.revenue"), money(total.revenue, currency), Double(total.revenue))
-            small(.slate, Terms.unitWord(total.count, session.tenant?.unitOne ?? ""), "\(total.count)", Double(total.count))
-        }
-    }
-
-    private func small(_ tone: Tone, _ title: String, _ value: String, _ animate: Double) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 11.5))
-                .foregroundStyle(tone.ink.opacity(0.72))
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(tone.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .contentTransition(.numericText(value: animate))
-        }
-        .frame(height: 88, alignment: .topLeading)
-        .tile(tone)
-        .accessibilityElement(children: .combine)
-    }
-
     // ══════════════════════════ профиль недели ══════════════════════════
 
     /**
@@ -315,7 +347,11 @@ struct CalendarView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 24))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
         }
     }
 

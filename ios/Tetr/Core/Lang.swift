@@ -229,6 +229,17 @@ enum LocalDate {
         return f.string(from: date)
     }
 
+    /// «շաբաթ» / «суббота» / «Saturday».
+    ///
+    /// Нужен карточке дня: владелец помнит не число, а «та суббота, когда
+    /// было много», и без дня недели дата из истории ни с чем не связана.
+    static func weekday(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = LangStore.currentLang.locale
+        f.setLocalizedDateFormatFromTemplate("EEEE")
+        return f.string(from: date)
+    }
+
     /// То же с годом — для дат не этого года.
     static func longDayYear(_ date: Date) -> String {
         let f = DateFormatter()

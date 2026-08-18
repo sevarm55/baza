@@ -279,11 +279,11 @@ struct OwnerView: View {
            Грейп у доли владельца: это марка, и главный кусок полосы должен
            быть ею. Лаванда у зарплат, песок у расходов — те же цвета, что
            стояли под колонками до перестройки, и тот же за ними смысл. */
-        let parts = [
-            Share(id: "mine", label: L("common.you"), ink: Brand.grapeFill, amount: mine),
-            Share(id: "staff", label: L("summary.toStaff"), ink: Brand.lavenderInk, amount: s.stats.payroll),
-            Share(id: "costs", label: L("expenses.title"), ink: Brand.sandInk, amount: s.costs.total),
-        ].filter { $0.amount > 0 }
+        let parts = Split.money(
+            mine: mine,
+            staff: s.stats.payroll,
+            costs: s.costs.total
+        )
         let total = parts.reduce(0) { $0 + $1.amount }
 
         if total > 0 {
@@ -303,8 +303,8 @@ struct OwnerView: View {
                     Spacer(minLength: 0)
                 }
 
-                splitBar(parts, total: total, height: 12)
-                splitLegend(parts)
+                SplitBar(parts: parts, height: 12)
+                SplitLegend(parts: parts, currency: currency)
             }
             .padding(.top, 16)
             .frame(maxWidth: 360)
@@ -322,62 +322,6 @@ struct OwnerView: View {
         }
     }
 
-    /// Кусок разреза: имя, цвет и деньги.
-    private struct Share: Identifiable {
-        let id: String
-        let label: String
-        let ink: Color
-        let amount: Int
-    }
-
-    /**
-     * Полоса, разрезанная по долям.
-     *
-     * Один орган на два разреза экрана — деньги дня и способы оплаты.
-     * Второй копией он разъехался бы с первой на первой же правке, а
-     * читаются они одинаково именно потому, что это одна фигура.
-     */
-    private func splitBar(_ parts: [Share], total: Int, height: CGFloat) -> some View {
-        GeometryReader { proxy in
-            let gaps = CGFloat(max(0, parts.count - 1)) * 2
-            let free = max(0, proxy.size.width - gaps)
-            HStack(spacing: 2) {
-                ForEach(parts) { part in
-                    RoundedRectangle(cornerRadius: height / 3, style: .continuous)
-                        .fill(part.ink)
-                        /* Не тоньше четырёх точек: кусок нулевой ширины
-                           читается как отсутствие статьи, а она есть. */
-                        .frame(width: max(4, free * CGFloat(part.amount) / CGFloat(max(total, 1))))
-                }
-                Spacer(minLength: 0)
-            }
-        }
-        .frame(height: height)
-    }
-
-    /// Подписи к полосе — одной строкой, а не колонками: колонка под
-    /// полосой это опять тройка блоков, от которой мы и ушли.
-    private func splitLegend(_ parts: [Share]) -> some View {
-        HStack(spacing: 11) {
-            ForEach(parts) { part in
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(part.ink)
-                        .frame(width: 6, height: 6)
-                    Text(part.label)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.boardMuted)
-                    Text(money(part.amount, currency))
-                        .font(.system(size: 11, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
-    }
 
     /// Число без валюты — для строки вычитания.
     private func plain(_ amount: Int) -> String {
@@ -885,16 +829,15 @@ struct OwnerView: View {
                    Три полосы разной длины друг под другом сравниваются
                    плохо: глаз меряет их от общего левого края, а доля
                    читается от целого. Здесь целое и есть полоса. */
-                splitBar(
-                    parts.map {
-                        Share(
+                SplitBar(
+                    parts: parts.map {
+                        Split(
                             id: $0.payment,
                             label: paymentLabel($0.payment),
                             ink: paymentInk($0.payment),
                             amount: $0.revenue
                         )
                     },
-                    total: total,
                     height: 10
                 )
 
