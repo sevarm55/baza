@@ -13,6 +13,7 @@
     "db:fresh": "tsx scripts/db-fresh.ts",
     "icons": "tsx scripts/make-icons.ts",
     "icon:split": "tsx scripts/split-icon.ts",
+    "ios:host": "sh scripts/ios-host.sh",
     "activate": "tsx scripts/activate.ts",
     "trial": "tsx scripts/set-trial.ts",
     "smoke": "tsx scripts/smoke.ts",
