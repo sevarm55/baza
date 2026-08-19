@@ -5,6 +5,7 @@ import { authAction, type AuthState } from '@/app/auth-actions';
 import { resumeSavedAccount, type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
 import { PhoneField } from '@/components/phone-field';
+import { SwitchMark } from '@/components/switch-mark';
 import { IconBack, IconCheck } from '@/components/icons';
 import { personColor } from '@/lib/person-color';
 import { PIN_LENGTH } from '@/lib/phone';
@@ -21,14 +22,30 @@ import s from './auth-surface.module.css';
  * страница `/login`, страница `/start/:niche`. Разница между ними
  * визуальная и остаётся снаружи — здесь только сам разговор.
  *
+ * ГЛАВНОЕ РЕШЕНИЕ ЭТОГО ЭКРАНА: спрашиваем не «каким кодом», а «кто вы».
+ *
+ * Кодов в продукте два, и раньше оба назывались PIN. Владельцу приходил
+ * код из SMS, себе он мог завести постоянный, а сотруднику постоянный
+ * выдавал хозяин мойки — и все три назывались одним словом. Человек,
+ * которому пришло сообщение, искал в нём тот код, который ему когда-то
+ * продиктовали, и не находил.
+ *
+ * Теперь у кодов разные имена — «код из SMS» и «код доступа», — а первый
+ * вопрос экрана поменялся. «Владелец» и «Сотрудник» это не два дизайна и
+ * не две формы: это один разговор, у которого от роли зависит состав
+ * полей. Владельцу по умолчанию шлём код, потому что помнить ему нечего;
+ * сотруднику сразу показываем оба поля, потому что код доступа ему уже
+ * выдали вместе с номером.
+ *
+ * Сотруднику не показываем ни вход по SMS, ни восстановление, и это не
+ * упрощение картинки, а правда о системе: номер сотруднику заводит
+ * владелец, подтверждённым этот номер не становится (см. `claimAccount`),
+ * а восстановление работает только по подтверждённому. Кнопка
+ * «восстановить» ответила бы ему молчанием.
+ *
  * Разговор ведёт одно серверное действие и один `useActionState`. Шаг
  * приходит с сервера: браузер не решает, показать ли экран кода из SMS,
  * — это решение принято там, где известно, знакомое ли устройство.
- *
- * Переключение «Вход / Регистрация» сбрасывает разговор целиком, и это
- * сделано ключом на компоненте, а не разбором состояния: у React нет
- * способа обнулить `useActionState`, а недосброшенная форма показала бы
- * ошибку входа над полями регистрации.
  */
 export function AuthSurface({
   mode = 'signIn',
@@ -41,14 +58,24 @@ export function AuthSurface({
   remembered?: RememberedWebAccount | null;
   trialDays: number;
 }) {
-  /* Дверей две, но не равных. Главная — телефон и код из SMS: ею
-     входят владельцы, и ею же регистрируются, потому что после кода эти
-     два случая перестают различаться. Вторая — телефон и PIN: ею входят
-     мойщики, которым аккаунт завёл владелец, и она же остаётся, когда
-     SMS не идёт. Показывать их вкладками значило бы соврать о том, как
-     продуктом пользуются. */
-  const [door, setDoor] = useState<'sms' | 'pin'>(mode === 'register' ? 'sms' : 'sms');
+  /* Кто пришёл. Регистрация это всегда владелец: сотрудника заводит
+     хозяин мойки, сам себя он завести не может. */
+  const [who, setWho] = useState<Who>('owner');
+  /* Чем входит владелец. У сотрудника способ один, и переключать ему
+     нечего. */
+  const [method, setMethod] = useState<Method>('sms');
   const [forgot, setForgot] = useState(false);
+
+  /* Номер живёт ЗДЕСЬ, а не в поле.
+   *
+   * Разговор сбрасывается ключом при каждой смене роли и способа — иначе
+   * `useActionState` тащит за собой ошибку от прошлой формы. Но вместе с
+   * ним раньше обнулялся и телефон: человек набирал восемь цифр, нажимал
+   * «войти по коду доступа» и получал пустое поле. Номер один и тот же
+   * при любом способе входа, и переспрашивать его — работа, которую
+   * продукт заставляет делать дважды. */
+  const [phone, setPhone] = useState('');
+  const [country, setCountry] = useState<string | undefined>(undefined);
 
   /* Язык берётся из общего контекста продукта, а не из своего состояния.
      Своя локализация у окна входа была, пока общей не существовало;
@@ -59,54 +86,83 @@ export function AuthSurface({
   return (
     <div className={s.surface}>
       <Conversation
-        /* Ключ обнуляет разговор при смене вкладки и при уходе в
+        /* Ключ обнуляет разговор при смене роли, способа и при уходе в
            восстановление: другого способа сбросить useActionState нет. */
-        key={`${door}:${forgot}`}
-        door={door}
+        key={`${who}:${method}:${forgot}`}
+        who={who}
+        method={method}
         forgot={forgot}
         niche={niche}
+        register={mode === 'register'}
         remembered={remembered}
         t={t}
         trialDays={trialDays}
+        phone={phone}
+        country={country}
+        onPhone={(nsn, code) => {
+          setPhone(nsn);
+          setCountry(code);
+        }}
         onForgot={() => setForgot(true)}
         onBack={() => setForgot(false)}
-        onDoor={(next) => {
-          setDoor(next);
+        onWho={(next) => {
+          setWho(next);
+          /* Сотрудник входит кодом доступа всегда. Возвращаясь к
+             владельцу, отдаём ему главную дверь: код приходит сам. */
+          setMethod(next === 'staff' ? 'code' : 'sms');
+          setForgot(false);
+        }}
+        onMethod={(next) => {
+          setMethod(next);
           setForgot(false);
         }}
       />
-
     </div>
   );
 }
 
+type Who = 'owner' | 'staff';
+type Method = 'sms' | 'code';
+
 function Conversation({
-  door,
+  who,
+  method,
   forgot,
   niche,
+  register,
   remembered,
   t,
   trialDays,
+  phone,
+  country,
+  onPhone,
   onForgot,
   onBack,
-  onDoor,
+  onWho,
+  onMethod,
 }: {
-  door: 'sms' | 'pin';
+  who: Who;
+  method: Method;
   forgot: boolean;
   niche: string;
+  register: boolean;
   remembered: RememberedWebAccount | null;
   t: Dict;
   trialDays: number;
+  phone: string;
+  country: string | undefined;
+  onPhone: (nsn: string, country: string) => void;
   onForgot: () => void;
   onBack: () => void;
-  onDoor: (next: 'sms' | 'pin') => void;
+  onWho: (next: Who) => void;
+  onMethod: (next: Method) => void;
 }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(authAction, null);
   const [manual, setManual] = useState(!remembered);
 
-  /* Сохранённый профиль показывается только на входе и только пока
-     человек не попросил другой аккаунт. */
-  if (door === 'sms' && !forgot && remembered && !manual && state === null) {
+  /* Сохранённый профиль показывается только на входе владельца и только
+     пока человек не попросил другой аккаунт. */
+  if (who === 'owner' && method === 'sms' && !forgot && remembered && !manual && state === null) {
     return <RememberedAccount who={remembered} t={t} onOther={() => setManual(true)} />;
   }
 
@@ -132,6 +188,21 @@ function Conversation({
 
   const error = state?.step === 'credentials' ? state.error : undefined;
 
+  const phoneField = (
+    <PhoneField
+      label={t.auth.phone}
+      countryLabel={t.auth.country}
+      defaultValue={phone}
+      defaultCountry={country}
+      onChange={onPhone}
+      autoComplete={method === 'sms' ? 'tel' : 'username'}
+      invalid={Boolean(error)}
+    />
+  );
+
+  /* Восстановление кода доступа. Отдельная ветка, а не третья роль:
+     сюда попадают только владельцы, и разговор здесь тот же самый —
+     номер, код из SMS, новый код доступа. */
   if (forgot) {
     return (
       <form action={action} className={s.step}>
@@ -144,12 +215,7 @@ function Conversation({
 
         <Head title={t.auth.resetTitle} subtitle={t.auth.resetSub} />
 
-        <PhoneField
-          label={t.auth.phone}
-          countryLabel={t.auth.country}
-          autoFocus
-          invalid={Boolean(error)}
-        />
+        {phoneField}
 
         {error && <p className={s.error}>{error}</p>}
 
@@ -160,29 +226,32 @@ function Conversation({
     );
   }
 
-  if (door === 'sms') {
+  const roles = (
+    <WhoSwitch who={who} onWho={onWho} t={t} />
+  );
+
+  /* ───────── владелец: главная дверь, код приходит сам ───────── */
+
+  if (who === 'owner' && method === 'sms') {
     return (
       <form action={action} className={s.step}>
         <input type="hidden" name="intent" value="entry" />
 
-        <Head title={t.auth.entryTitle} subtitle={t.auth.entrySub} />
-
-        <PhoneField
-          label={t.auth.phone}
-          countryLabel={t.auth.country}
-          autoComplete="tel"
-          autoFocus
-          invalid={Boolean(error)}
+        {roles}
+        <Head
+          title={register ? t.auth.createTitle : t.auth.ownerTitle}
+          subtitle={register ? t.auth.createSub : t.auth.entrySub}
         />
+
+        {phoneField}
 
         {error && <p className={s.error}>{error}</p>}
 
         <div className={s.actions}>
           <Submit pending={pending} idle={t.auth.entrySend} busy={t.auth.sending} />
-          {/* Вторая дверь строкой, а не вкладкой: ею входят мойщики,
-              которым аккаунт завёл владелец, и она же остаётся, когда
-              SMS не идёт. */}
-          <button type="button" className={s.quiet} onClick={() => onDoor('pin')}>
+          {/* Вторая дверь строкой, а не второй кнопкой: главное действие
+              на экране одно, и спорить с ним второй заливкой нельзя. */}
+          <button type="button" className={s.quiet} onClick={() => onMethod('code')}>
             {t.auth.entryPinDoor}
           </button>
         </div>
@@ -190,55 +259,98 @@ function Conversation({
     );
   }
 
+  /* ───────── постоянный код: у владельца по выбору, у сотрудника всегда ───────── */
+
+  const staff = who === 'staff';
+
   return (
     <form action={action} className={s.step}>
       <input type="hidden" name="intent" value="signIn" />
 
-      <Head title={t.auth.welcome} subtitle={t.auth.welcomeSub} />
-
-      <PhoneField
-        label={t.auth.phone}
-        countryLabel={t.auth.country}
-        autoComplete="username"
-        invalid={Boolean(error)}
+      {roles}
+      <Head
+        title={staff ? t.auth.staffTitle : t.auth.ownerTitle}
+        subtitle={staff ? t.auth.staffHelper : t.auth.ownerCodeHelper}
       />
 
-      <div className="grid gap-2">
-        <CodeInput
-          name="pin"
-          length={PIN_LENGTH}
-          /* Четыре — не опечатка. Столько цифр у всех, кто завёл
-             аккаунт до перехода на шесть, и требовать от них шесть
-             значило бы запереть снаружи живых людей. Новый код всегда
-             ровно шесть; здесь код только сверяется. */
-          minLength={4}
-          label={t.auth.pinGroup(PIN_LENGTH)}
-          title={t.auth.pin}
-          autoComplete="current-password"
-          /* На входе форма уходит от последней цифры: это движение
-             повторяют каждое утро, и лишнее нажатие в нём стоит дорого.
-             На регистрации — нет, там человек ещё думает. */
-          submitOnComplete
-          revealable
-          revealLabel={t.auth.showCode}
-          hideLabel={t.auth.hideCode}
-          enteredLabel={t.auth.entered}
-          invalid={Boolean(error)}
-        />
-      </div>
+      {phoneField}
+
+      <CodeInput
+        name="pin"
+        length={PIN_LENGTH}
+        /* Четыре — не опечатка. Столько цифр у всех, кто завёл аккаунт
+           до перехода на шесть, и требовать от них шесть значило бы
+           запереть снаружи живых людей. Новый код всегда ровно шесть;
+           здесь код только сверяется. */
+        minLength={4}
+        label={t.auth.pinGroup(PIN_LENGTH)}
+        title={t.auth.accessCodeField(PIN_LENGTH)}
+        autoComplete="current-password"
+        /* На входе форма уходит от последней цифры: это движение
+           повторяют каждое утро, и лишнее нажатие в нём стоит дорого. */
+        submitOnComplete
+        revealable
+        revealLabel={t.auth.showCode}
+        hideLabel={t.auth.hideCode}
+        enteredLabel={t.auth.entered}
+        invalid={Boolean(error)}
+      />
 
       {error && <p className={s.error}>{error}</p>}
 
       <div className={s.actions}>
         <Submit pending={pending} idle={t.auth.signIn} busy={t.auth.signingIn} />
-        <button type="button" className={s.quiet} onClick={onForgot}>
-          {t.auth.forgotPin}
-        </button>
-        <button type="button" className={s.quiet} onClick={() => onDoor('sms')}>
-          {t.auth.entrySmsDoor}
-        </button>
+
+        {/* Сотруднику ни SMS, ни восстановления: номер ему завёл
+            владелец, подтверждённым этот номер не стал, и восстановление
+            ответило бы ему молчанием. Забытый код доступа сотруднику
+            выдаёт заново тот же владелец. */}
+        {!staff && (
+          <div className={s.quietRow}>
+            <button type="button" className={s.quiet} onClick={() => onMethod('sms')}>
+              {t.auth.entrySmsDoor}
+            </button>
+            <button type="button" className={s.quiet} onClick={onForgot}>
+              {t.auth.forgotPin}
+            </button>
+          </div>
+        )}
       </div>
     </form>
+  );
+}
+
+/* ------------------------- кто входит ------------------------- */
+
+/**
+ * Владелец или сотрудник.
+ *
+ * Тот же жёлоб с переезжающей плашкой, что во всём продукте, но со
+ * своими цветами: окно входа всплывает поверх чего угодно, и токены
+ * кабинета (`--board-ink`) в нём означают не то же самое.
+ */
+function WhoSwitch({ who, onWho, t }: { who: Who; onWho: (next: Who) => void; t: Dict }) {
+  const items: { key: Who; label: string }[] = [
+    { key: 'owner', label: t.roles.owner },
+    { key: 'staff', label: t.roles.staff },
+  ];
+
+  return (
+    <div className={s.roles} role="group" aria-label={t.settings.role}>
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          className={s.roleItem}
+          data-on={who === item.key ? '' : undefined}
+          aria-pressed={who === item.key}
+          onClick={() => onWho(item.key)}
+        >
+          {who === item.key && <SwitchMark id="auth-who" radius={7} fill="var(--up)" />}
+          <span className={s.roleLabel}>{item.label}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -281,6 +393,12 @@ function OtpStep({
         <input type="hidden" name="challengeId" value={state.challengeId} />
 
         <CodeInput
+          /* Новая заявка — пустые клетки. Повтор приходит со своим
+             идентификатором, у старой заявки код уже погашен, и цифры от
+             неё, оставшиеся в ряду, читаются как «код введён» — а он
+             мёртвый. Ключ обнуляет поле ровно тогда, когда меняется
+             заявка, и ни на кадр раньше. */
+          key={state.challengeId}
           name="code"
           length={CODE_LENGTH}
           label={t.auth.otpGroup(CODE_LENGTH)}
@@ -291,7 +409,7 @@ function OtpStep({
           submitOnComplete
           /* Единственное место с просветом посреди ряда: код из SMS
              переписывают с другого экрана, и «204 815» сверяется
-             взглядом, а «204815» — пересчитывается пальцем. PIN
+             взглядом, а «204815» — пересчитывается пальцем. Код доступа
              набирают по памяти, ему шов не нужен. */
           groupEvery={3}
           enteredLabel={t.auth.entered}
@@ -328,9 +446,9 @@ function OtpStep({
 /**
  * Последний шаг новичка.
  *
- * PIN здесь не спрашивается: входить он будет кодом. Два поля вместо
- * четырёх — и это единственный экран, который человек видит один раз в
- * жизни, поэтому на нём и стоит обещание про бесплатные дни.
+ * Код доступа здесь не спрашивается: входить он будет кодом из SMS. Два
+ * поля вместо четырёх — и это единственный экран, который человек видит
+ * один раз в жизни, поэтому на нём и стоит обещание про бесплатные дни.
  */
 function NameStep({
   state,
@@ -379,7 +497,7 @@ function NameStep({
   );
 }
 
-/* ---------------------------- новый PIN ---------------------------- */
+/* ------------------------ новый код доступа ------------------------ */
 
 function NewPinStep({
   state,
@@ -403,7 +521,7 @@ function NewPinStep({
         name="pin"
         length={PIN_LENGTH}
         label={t.auth.pinGroup(PIN_LENGTH)}
-        title={t.auth.newPin}
+        title={t.auth.accessCodeField(PIN_LENGTH)}
         autoComplete="new-password"
         autoFocus
         revealable

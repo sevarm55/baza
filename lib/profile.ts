@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users } from './db/schema';
-import { hashPin, hasPin, verifyPin } from './pin';
+import { hashPin, hasPin, NO_PIN, verifyPin } from './pin';
 import { pinProblem } from './phone';
 import { revokeAccountSessions } from './auth';
 import { accountOf } from './accounts';
@@ -79,6 +79,52 @@ export async function changePin(userId: string, current: string, next: string) {
      кабинета — наказание за предусмотрительность, и выглядит оно как
      падение страницы, а не как забота о безопасности. */
   if (had) await revokeAccountSessions(account.id);
+
+  return user;
+}
+
+/**
+ * Убрать код доступа совсем.
+ *
+ * Человек возвращается в то состояние, в котором живёт каждый, кто завёл
+ * мойку по коду из SMS: постоянного кода нет, вход только сообщением. В
+ * `pin_hash` ложится метка «кода нет» (см. lib/pin.ts), а не случайный
+ * хеш: по случайному нельзя отличить «кода нет» от «код есть, просто вы
+ * его не знаете», а отличать надо — от этого зависит, спрашивают ли
+ * текущий код при следующей установке и чем подтверждается удаление
+ * бизнеса.
+ *
+ * Текущий код спрашиваем, как и при смене: телефон бывает разблокирован
+ * и лежит на мойке, а «убрать вторую дверь» это ровно то действие,
+ * которое посторонний рядом сделал бы первым.
+ *
+ * Запертым человек после этого не остаётся: вход по коду из SMS работает
+ * на любой номер, а подтверждение удаления бизнеса само переходит на SMS
+ * (см. `deleteNeedsCode`). Потерять доступ этим действием нельзя.
+ *
+ * Сессии гасим все, включая текущую: тот, у кого старый код в руках,
+ * обязан перестать работать в ту же секунду — иначе «удалил» означало бы
+ * «перестал видеть в настройках».
+ */
+export async function deletePin(userId: string, current: string) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) throw new ProfileError('WRONG_PIN');
+
+  const account = await accountOf(user);
+
+  /* Кода нет — удалять нечего, и это не ошибка человека: экран, с
+     которого он пришёл, просто отстал от базы. Отвечаем как на удачу. */
+  if (!hasPin(account.pinHash)) return user;
+
+  if (!(await verifyPin(current, account.pinHash))) throw new ProfileError('WRONG_PIN');
+
+  await db.transaction(async (tx) => {
+    await tx.update(accounts).set({ pinHash: NO_PIN }).where(eq(accounts.id, account.id));
+    // копия, пока схема обязана оставаться совместимой со старым кодом
+    await tx.update(users).set({ pinHash: NO_PIN }).where(eq(users.accountId, account.id));
+  });
+
+  await revokeAccountSessions(account.id);
 
   return user;
 }

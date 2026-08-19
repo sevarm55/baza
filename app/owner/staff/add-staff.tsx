@@ -121,7 +121,7 @@ export function AddStaff({
 
           <label className="grid gap-1.5">
             <span className="label">
-              {t.auth.pin} · {t.auth.pinHint}
+              {t.auth.staffAccessCode} · {t.auth.pinHint}
             </span>
             <input
               className="field auth-field num !text-center !text-[19px] !font-semibold"
@@ -134,7 +134,7 @@ export function AddStaff({
             />
           </label>
 
-          <p className="note">{t.settings.staffNote}</p>
+          <p className="note">{t.auth.staffAccessCodeNote}</p>
 
           {state?.error && <p className="alert">{state.error}</p>}
         </form>

@@ -29,7 +29,7 @@ import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness } from '@/lib/tenant';
 import { revokeDevice } from '@/lib/devices';
-import { changePin, ProfileError, saveProfile } from '@/lib/profile';
+import { changePin, deletePin, ProfileError, saveProfile } from '@/lib/profile';
 import { createOrder, cancelOrder, setOrderCrew, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
@@ -719,6 +719,59 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
 
   revalidatePath('/owner/profile');
   return { ok: true };
+}
+
+/**
+ * Убрать код доступа совсем.
+ *
+ * Третье действие рядом с «создать» и «изменить», и оно не декоративное:
+ * код доступа необязателен, а до сих пор заведённый однажды нельзя было
+ * убрать никак. Человек, назначивший себе постоянный код и передумавший,
+ * оставался с ним навсегда.
+ *
+ * Текущий код спрашиваем, тот же счётчик попыток, что на входе: без него
+ * форма — тихий способ подобрать код изнутри уже открытой сессии.
+ *
+ * После удаления сессии погашены, включая эту, — как при смене. Уводим на
+ * вход: идти внутрь больше некуда.
+ */
+export async function deletePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  const t = await getDict();
+  await ensureDb();
+
+  const current = String(formData.get('current') ?? '');
+
+  const ip = clientIp(await headers());
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
+
+  const guard = await checkLogin(me.phone, ip);
+  if (!guard.allowed) {
+    return { error: t.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
+  }
+
+  try {
+    await deletePin(session.uid, current);
+  } catch (e) {
+    if (e instanceof ProfileError) {
+      await noteLogin(me.phone, ip, false);
+      return { error: t.auth.wrongPin };
+    }
+    return { error: t.errors.generic };
+  }
+
+  await noteLogin(me.phone, ip, true);
+  logSecurityInBackground({
+    event: 'auth.pin.changed',
+    phone: me.phone,
+    tenantId: session.tid,
+    userId: session.uid,
+    ip,
+    data: { deleted: true },
+  });
+
+  redirect('/?auth=signIn');
 }
 
 /* --------------------------- устройства --------------------------- */

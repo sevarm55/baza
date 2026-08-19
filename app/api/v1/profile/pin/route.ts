@@ -1,5 +1,5 @@
 import { ensureDb } from '@/lib/db/ready';
-import { changePin, ProfileError } from '@/lib/profile';
+import { changePin, deletePin, ProfileError } from '@/lib/profile';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { issueForDevice } from '@/lib/api/tokens';
 import { authorize, denied } from '@/lib/api/guard';
@@ -84,6 +84,67 @@ export async function POST(request: Request) {
       const weak = e.message === 'BAD_PIN' || e.message === 'TRIVIAL_PIN';
       return fail(weak ? 'PIN_WEAK' : 'BAD_REQUEST', 400, { reason: e.message });
     }
+    return failFromError(e);
+  }
+}
+
+/**
+ * Убрать код доступа совсем.
+ *
+ * DELETE, а не `POST { next: null }`: действие ровно одно и оно
+ * удаляющее, а маршрут с необязательным полем «а теперь без кода» читался
+ * бы как опечатка ровно до того дня, когда её кто-нибудь допустит.
+ *
+ * Текущий код обязателен и здесь: телефон бывает разблокирован и лежит на
+ * мойке, а «убрать вторую дверь» — то, что посторонний рядом сделал бы
+ * первым. Счётчик попыток тот же, что на входе.
+ *
+ * Запертым человек не остаётся: вход по коду из SMS работает на любой
+ * номер, а подтверждение удаления бизнеса само переходит на SMS.
+ *
+ * Все остальные устройства выходят, это устройство остаётся: человек
+ * убрал код у себя же, и выкидывать его из приложения за это незачем.
+ */
+export async function DELETE(request: Request) {
+  try {
+    await ensureDb();
+    const ctx = await authorize(request, { anyPlan: true });
+    if (denied(ctx)) return ctx;
+
+    const input = await body<{ current?: string; device?: string }>(request);
+    const current = str(input?.current);
+    if (!current) return fail('BAD_REQUEST', 400);
+
+    const ip = clientIp(request.headers);
+    const guard = await checkLogin(ctx.user.phone, ip);
+    if (!guard.allowed) {
+      return fail('TOO_MANY_TRIES', 429, { retryAfter: guard.retryAfter });
+    }
+
+    try {
+      await deletePin(ctx.user.id, current);
+    } catch (e) {
+      if (e instanceof ProfileError) {
+        await noteLogin(ctx.user.phone, ip, false);
+        return fail('WRONG_CREDENTIALS', 401);
+      }
+      throw e;
+    }
+    await noteLogin(ctx.user.phone, ip, true);
+
+    const issued = await issueForDevice({
+      tenantId: ctx.tenant.id,
+      userId: ctx.user.id,
+      role: ctx.user.role === 'owner' ? 'owner' : 'staff',
+      device: str(input?.device) || null,
+    });
+
+    return ok({
+      access: issued.access,
+      refresh: issued.refresh,
+      expiresIn: issued.expiresIn,
+    });
+  } catch (e) {
     return failFromError(e);
   }
 }

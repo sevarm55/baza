@@ -609,17 +609,26 @@ private struct AccessSkin: ViewModifier {
 }
 
 /**
- * Смена PIN. И его установка впервые.
+ * Код доступа: создать, изменить, удалить.
  *
- * Старый спрашивается обязательно: телефон может лежать разблокированным
- * на столе, и смена без подтверждения означала бы, что случайный человек
- * рядом отбирает аккаунт целиком.
+ * Постоянный код, которым входят без SMS. Кода из сообщения он не
+ * заменяет и с ним не путается: у них разные имена, и это правило,
+ * которое экран обязан держать так же, как вход.
+ *
+ * Текущий спрашивается обязательно и при изменении, и при удалении:
+ * телефон может лежать разблокированным на столе, и оба этих действия
+ * без подтверждения означали бы, что случайный человек рядом отбирает
+ * аккаунт целиком.
  *
  * ОДНО ИСКЛЮЧЕНИЕ: кода нет вовсе. Так живут заведённые по коду из SMS —
- * входят они кодом, и `pin_hash` у них помечен «кода нет». Спрашивать у
- * них текущий значит задать вопрос без верного ответа, и второй двери у
- * них не появилось бы никогда. Решает не этот экран, а сервер — по хешу
- * в базе; экран лишь не показывает поле, которого не заполнить.
+ * входят они сообщением, и `pin_hash` у них помечен «кода нет».
+ * Спрашивать у них текущий значит задать вопрос без верного ответа.
+ * Решает не этот экран, а сервер — по хешу в базе; экран лишь не
+ * показывает поле, которого не заполнить.
+ *
+ * Удаление возвращает человека ровно в это состояние. Запертым он не
+ * остаётся: вход по коду из SMS работает на любой номер, а подтверждение
+ * удаления бизнеса само переходит на SMS.
  *
  * Длина берётся из `API.pinLength`. Стояла четвёрка, а сервер требует
  * шесть: смена кода не работала ни у кого, кто завёл его после перехода
@@ -634,9 +643,17 @@ struct PinChangeView: View {
     @State private var again = ""
     @State private var error: String?
     @State private var busy = false
+    /// Человек нажал «удалить» и ещё не подтвердил.
+    @State private var confirmingDelete = false
 
-    /// Есть ли что менять. Нет — экран задаёт код впервые.
+    /// Есть ли что менять. Нет — экран создаёт код впервые.
     private var changing: Bool { session.hasPin }
+
+    /// Достаточно ли введено, чтобы удалить: нового кода тут не нужно,
+    /// нужен только текущий.
+    private var readyToDelete: Bool {
+        !busy && current.count >= API.pinMinLength
+    }
 
     private var ready: Bool {
         guard !busy, next.count == API.pinLength, next == again else { return false }
@@ -672,12 +689,41 @@ struct PinChangeView: View {
                     .loading(busy, tint: Brand.grape, size: 18)
                     .disabled(!ready)
                 } footer: {
-                    /* Гашение сессий — следствие СМЕНЫ, а не установки.
-                       Когда кода не было вовсе, отбирать нечего: человек
-                       просто завёл себе вторую дверь, и обещать ему выход
-                       со всех устройств было бы неправдой. */
+                    /* Гашение сессий — следствие ИЗМЕНЕНИЯ, а не
+                       создания. Когда кода не было вовсе, отбирать
+                       нечего: человек просто завёл себе вторую дверь, и
+                       обещать ему выход со всех устройств было бы
+                       неправдой. */
                     Text(changing ? L("profile.pinChangedNote") : L("auth.pinMemo"))
                 }
+
+                /* Удаление — отдельным разделом внизу и только когда есть
+                   что удалять. Красным и с переспросом: действие
+                   необратимое в том смысле, что новый код придётся
+                   придумывать заново. Текущий код для него уже введён
+                   выше, второго поля не заводим. */
+                if changing {
+                    Section {
+                        Button(L("auth.deleteAccessCode"), role: .destructive) {
+                            confirmingDelete = true
+                        }
+                        .disabled(!readyToDelete)
+                    } footer: {
+                        Text(L("auth.deleteAccessCodeNote"))
+                    }
+                }
+            }
+            .confirmationDialog(
+                L("auth.deleteAccessCodeAsk"),
+                isPresented: $confirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button(L("auth.deleteAccessCode"), role: .destructive) {
+                    Task { await remove() }
+                }
+                Button(L("common.cancel"), role: .cancel) {}
+            } message: {
+                Text(L("auth.deleteAccessCodeNote"))
             }
             .navigationTitle(changing ? L("auth.changePin") : L("auth.setPin"))
             .navigationBarTitleDisplayMode(.inline)
@@ -689,8 +735,22 @@ struct PinChangeView: View {
         }
     }
 
+    /**
+     * Строка кода: подпись слева, точки справа.
+     *
+     * Не `LabeledContent`: он отдаёт полю фиксированную долю строки и
+     * режет подпись многоточием — «Текущий код дост…». После
+     * переименования PIN в код доступа подписи стали длиннее, и обрезалась
+     * ровно та, по которой человек отличает текущий код от нового.
+     * Здесь подпись берёт себе всё, что ей нужно, а поле — остаток.
+     */
     private func pin(_ title: String, _ value: Binding<String>) -> some View {
-        LabeledContent(title) {
+        HStack(spacing: 12) {
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .layoutPriority(1)
+
             SecureField("••••••", text: value)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.trailing)
@@ -717,6 +777,28 @@ struct PinChangeView: View {
             case "TOO_MANY_TRIES": error = L("auth.throttled")
             case "PIN_WEAK":
                 error = e.reason == "TRIVIAL_PIN" ? L("auth.pinTrivial") : L("auth.pinMemo")
+            default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
+            }
+        } catch {
+            self.error = L("payroll.failed")
+        }
+    }
+
+    /// Убрать код доступа. Разбор отказов тот же, что у изменения: там и
+    /// здесь сервер отвечает про один и тот же введённый код.
+    private func remove() async {
+        busy = true
+        defer { busy = false }
+        error = nil
+
+        do {
+            try await session.deletePin(current: current)
+            dismiss()
+        } catch let e as APIError {
+            current = ""
+            switch e.code {
+            case "WRONG_CREDENTIALS": error = L("auth.wrongPin")
+            case "TOO_MANY_TRIES": error = L("auth.throttled")
             default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }
         } catch {

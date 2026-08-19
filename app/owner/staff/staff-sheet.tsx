@@ -173,7 +173,7 @@ export function StaffSheet({
                 <dd className="num">{formatPhone(person.phone)}</dd>
               </div>
               <div>
-                <dt>{t.auth.pin}</dt>
+                <dt>{t.auth.staffAccessCode}</dt>
                 <dd style={{ color: 'var(--muted)' }}>{t.settings.pinHidden}</dd>
               </div>
               <div>

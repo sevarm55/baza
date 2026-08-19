@@ -26,6 +26,56 @@
   color: var(--ink);
 }
 
+/* ───────── кто входит ─────────
+
+   Жёлоб с переезжающей плашкой, тот же приём, что во всём продукте.
+   Цвета свои: общий `.seg` живёт на чернилах кабинета (`--board-ink`),
+   а окно входа всплывает поверх чего угодно, и там это означает не то
+   же самое.
+
+   Углы 8 снаружи и 7 внутри, а не одинаковые: скругление плашки должно
+   быть меньше внешнего ровно на толщину жёлоба, иначе между двумя
+   дугами остаётся серп фона. */
+
+.roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.roleItem {
+  position: relative;
+  /* Сорок точек по высоте: меньше этого Apple не советует ни для чего,
+     во что целятся пальцем, а первый вопрос экрана целятся точно. */
+  min-height: 38px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s ease;
+}
+.roleItem:hover {
+  color: var(--ink);
+}
+.roleItem[data-on] {
+  color: var(--ink);
+}
+
+.roleLabel {
+  position: relative;
+  z-index: 1;
+  display: block;
+  /* Длинное армянское «Սեփականատեր» в узкой половине окна: переносим
+     по слогам, а не выпускаем за плашку. */
+  overflow-wrap: anywhere;
+}
+
 /* ───────── шапка шага ───────── */
 
 .head {
@@ -146,6 +196,17 @@
   to {
     transform: rotate(1turn);
   }
+}
+
+/* Два тихих выхода в строку. Порознь они встали бы двумя строками под
+   единственной кнопкой и начали читаться как список действий, из
+   которого надо выбирать. */
+.quietRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 18px;
 }
 
 .quiet {

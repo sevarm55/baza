@@ -492,6 +492,35 @@ final class Session: ObservableObject {
         try? await loadBootstrap()
     }
 
+    /**
+     * Убрать код доступа совсем.
+     *
+     * Человек возвращается в то состояние, в котором живёт каждый, кто
+     * завёл мойку по коду из SMS: постоянного кода нет, вход только
+     * сообщением. Текущий код спрашивается обязательно — телефон бывает
+     * разблокирован и лежит на мойке.
+     *
+     * Запертым после этого никто не остаётся: вход по коду из SMS
+     * работает на любой номер, а подтверждение удаления бизнеса само
+     * переходит на SMS. Остальные устройства выходят, это остаётся:
+     * сервер выдаёт новую пару взамен погашенной.
+     */
+    func deletePin(current: String) async throws {
+        let issued: API.Tokens = try await authed { token in
+            try await self.api.send(
+                "profile/pin",
+                method: "DELETE",
+                body: ["current": current, "device": UIDevice.current.name],
+                token: token,
+                as: API.Tokens.self
+            )
+        }
+        accessToken = issued.access
+        refreshToken = issued.refresh
+        // в профиле после этого стоит «создать», а не «изменить»
+        try? await loadBootstrap()
+    }
+
     /// Имя человека и название бизнеса.
     func saveProfile(name: String?, businessName: String?) async throws {
         var payload: [String: Any] = [:]

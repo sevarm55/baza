@@ -411,19 +411,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Change PIN"
+            "value" : "Change the access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Փոխել PIN-ը"
+            "value" : "Փոխել մուտքի կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сменить PIN"
+            "value" : "Изменить код доступа"
           }
         }
       }
@@ -457,19 +457,111 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Current PIN"
+            "value" : "Current access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ընթացիկ PIN"
+            "value" : "Ընթացիկ մուտքի կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Текущий PIN"
+            "value" : "Текущий код доступа"
+          }
+        }
+      }
+    },
+    "auth.deleteAccessCode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the access code"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ջնջել մուտքի կոդը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить код доступа"
+          }
+        }
+      }
+    },
+    "auth.deleteAccessCodeAsk" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the access code?"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ջնջե՞լ մուտքի կոդը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить код доступа?"
+          }
+        }
+      }
+    },
+    "auth.deleteAccessCodeDone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access code deleted"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Մուտքի կոդը ջնջված է"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код доступа удалён"
+          }
+        }
+      }
+    },
+    "auth.deleteAccessCodeNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the SMS code will remain. Every device signs out, including this one."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Կմնա միայն SMS կոդով մուտքը։ Բոլոր սարքերը դուրս կգան, ներառյալ այս մեկը։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Входить останется только по коду из SMS. Выйдут все устройства, включая это."
           }
         }
       }
@@ -503,19 +595,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in with a PIN"
+            "value" : "Sign in with your access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտք PIN-ով"
+            "value" : "Մուտք մուտքի կոդով"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Войти по PIN"
+            "value" : "Войти по коду доступа"
           }
         }
       }
@@ -526,19 +618,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continue"
+            "value" : "Get the code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Շարունակել"
+            "value" : "Ստանալ կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Продолжить"
+            "value" : "Получить код"
           }
         }
       }
@@ -555,7 +647,7 @@
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտք SMS-ի կոդով"
+            "value" : "Մուտք SMS կոդով"
           }
         },
         "ru" : {
@@ -572,19 +664,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter your number and we will send a code"
+            "value" : "Enter your number and we will send a code by SMS"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտքագրեք համարը, կուղարկենք կոդ"
+            "value" : "Մուտքագրեք համարը, կուղարկենք SMS կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Введите номер, пришлём код"
+            "value" : "Введите номер, пришлём код из SMS"
           }
         }
       }
@@ -618,19 +710,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Forgot your PIN?"
+            "value" : "Forgot your access code?"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մոռացե՞լ եք PIN-ը"
+            "value" : "Մոռացե՞լ եք մուտքի կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Забыли PIN?"
+            "value" : "Забыли код доступа?"
           }
         }
       }
@@ -733,19 +825,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "New PIN"
+            "value" : "New access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Նոր PIN"
+            "value" : "Նոր մուտքի կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Новый PIN"
+            "value" : "Новый код доступа"
           }
         }
       }
@@ -871,19 +963,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "We sent a code to %@"
+            "value" : "The code was sent to %@"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Կոդն ուղարկեցինք %@"
+            "value" : "Կոդն ուղարկվել է %@"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Мы отправили код на %@"
+            "value" : "Код отправлен на %@"
           }
         }
       }
@@ -894,19 +986,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Confirm your number"
+            "value" : "Enter the code from SMS"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Հաստատեք համարը"
+            "value" : "Մուտքագրեք SMS կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Подтвердите номер"
+            "value" : "Введите код из SMS"
           }
         }
       }
@@ -957,25 +1049,71 @@
         }
       }
     },
+    "auth.ownerCodeHelper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can create an access code in your Tetrin profile."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Մուտքի կոդը կարող եք ստեղծել Tetrin-ի պրոֆիլում։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код доступа можно создать в профиле Tetrin."
+          }
+        }
+      }
+    },
+    "auth.ownerTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owner sign-in"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Սեփականատիրոջ մուտք"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход владельца"
+          }
+        }
+      }
+    },
     "auth.phone" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Phone"
+            "value" : "Phone number"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Հեռախոս"
+            "value" : "Հեռախոսահամար"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Телефон"
+            "value" : "Номер телефона"
           }
         }
       }
@@ -1009,19 +1147,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN"
+            "value" : "Access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN կոդ"
+            "value" : "Մուտքի կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-код"
+            "value" : "Код доступа"
           }
         }
       }
@@ -1032,19 +1170,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN code · 6 digits"
+            "value" : "Access code · 6 digits"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN կոդ · 6 նիշ"
+            "value" : "Մուտքի կոդ · 6 նիշ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-код · 6 цифр"
+            "value" : "Код доступа · 6 цифр"
           }
         }
       }
@@ -1078,19 +1216,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The PINs do not match"
+            "value" : "The codes do not match"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-երը չեն համընկնում"
+            "value" : "Կոդերը չեն համընկնում"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-коды не совпадают"
+            "value" : "Коды не совпадают"
           }
         }
       }
@@ -1101,19 +1239,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You sign in with an SMS code. A PIN is a second door for when SMS does not arrive."
+            "value" : "You sign in with an SMS code. An access code is a second door for when SMS does not arrive."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Դուք մտնում եք SMS-ի կոդով։ PIN-ը երկրորդ դուռն է՝ երբ SMS-ը չի հասնում։"
+            "value" : "Դուք մտնում եք SMS կոդով։ Մուտքի կոդը երկրորդ դուռն է՝ երբ SMS-ը չի հասնում։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Вы входите по коду из SMS. PIN — вторая дверь, когда SMS не идёт."
+            "value" : "Вы входите по коду из SMS. Код доступа это вторая дверь, когда SMS не идёт."
           }
         }
       }
@@ -1124,19 +1262,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN · 4 digits"
+            "value" : "Access code · 4 digits"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN · 4 նիշ"
+            "value" : "Մուտքի կոդ · 4 նիշ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN · 4 цифры"
+            "value" : "Код доступа · 4 цифры"
           }
         }
       }
@@ -1147,19 +1285,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pick a less obvious PIN"
+            "value" : "Pick a less obvious code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ընտրեք ավելի դժվար PIN"
+            "value" : "Ընտրեք ավելի դժվար կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Выберите менее очевидный PIN"
+            "value" : "Выберите менее очевидный код"
           }
         }
       }
@@ -1170,19 +1308,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The PIN is wrong"
+            "value" : "The access code is wrong"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-ը սխալ է"
+            "value" : "Մուտքի կոդը սխալ է"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN неверный"
+            "value" : "Код доступа неверный"
           }
         }
       }
@@ -1193,19 +1331,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The saved sign-in has expired. Enter your PIN."
+            "value" : "The saved sign-in has expired. Enter your access code."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։"
+            "value" : "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք մուտքի կոդը։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Срок сохранённого входа истёк. Введите PIN."
+            "value" : "Срок сохранённого входа истёк. Введите код доступа."
           }
         }
       }
@@ -1216,19 +1354,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN changed"
+            "value" : "Access code changed"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-ը փոխված է"
+            "value" : "Մուտքի կոդը փոխված է"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN изменён"
+            "value" : "Код доступа изменён"
           }
         }
       }
@@ -1262,19 +1400,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save the new PIN"
+            "value" : "Save the access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Պահպանել նոր PIN-ը"
+            "value" : "Պահպանել մուտքի կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сохранить новый PIN"
+            "value" : "Сохранить код доступа"
           }
         }
       }
@@ -1285,19 +1423,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Send code"
+            "value" : "Get the code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ուղարկել կոդը"
+            "value" : "Ստանալ կոդը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Отправить код"
+            "value" : "Получить код"
           }
         }
       }
@@ -1308,19 +1446,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter your number and we will send a confirmation code"
+            "value" : "Enter your number and we will send a code by SMS"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտքագրեք համարը, կուղարկենք հաստատման կոդ"
+            "value" : "Մուտքագրեք համարը, կուղարկենք SMS կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Введите номер, пришлём код подтверждения"
+            "value" : "Введите номер, пришлём код из SMS"
           }
         }
       }
@@ -1331,19 +1469,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reset your PIN"
+            "value" : "Reset your access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-ի վերականգնում"
+            "value" : "Մուտքի կոդի վերականգնում"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Восстановление PIN"
+            "value" : "Восстановление кода доступа"
           }
         }
       }
@@ -1377,19 +1515,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set a PIN"
+            "value" : "Create an access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Սահմանել PIN"
+            "value" : "Ստեղծել մուտքի կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Задать PIN"
+            "value" : "Создать код доступа"
           }
         }
       }
@@ -1509,25 +1647,117 @@
         }
       }
     },
+    "auth.staffAccessCode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Staff access code"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Աշխատակցի մուտքի կոդը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код доступа сотрудника"
+          }
+        }
+      }
+    },
+    "auth.staffAccessCodeNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The staff member signs in with their own phone number and this code."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Աշխատակիցը կմտնի իր հեռախոսահամարով և այս կոդով։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сотрудник будет входить по своему номеру телефона и этому коду."
+          }
+        }
+      }
+    },
+    "auth.staffHelper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The business owner gives you your phone number and access code."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Номер телефона и код доступа выдаёт владелец бизнеса."
+          }
+        }
+      }
+    },
     "auth.staffNote" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The business owner gives you your sign-in details"
+            "value" : "The business owner gives you your phone number and access code."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը"
+            "value" : "Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Данные для входа выдаёт владелец бизнеса"
+            "value" : "Номер телефона и код доступа выдаёт владелец бизнеса."
+          }
+        }
+      }
+    },
+    "auth.staffTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Staff sign-in"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Աշխատակցի մուտք"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход сотрудника"
           }
         }
       }
@@ -1538,19 +1768,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign-in from an unfamiliar device. We sent a code to %@"
+            "value" : "Sign-in from an unfamiliar device. The code was sent to %@"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@"
+            "value" : "Մուտքն անծանոթ սարքից է։ Կոդն ուղարկվել է %@"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Вход с незнакомого устройства. Мы отправили код на %@"
+            "value" : "Вход с незнакомого устройства. Код отправлен на %@"
           }
         }
       }
@@ -1747,19 +1977,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Without a confirmed number your PIN cannot be recovered. Takes half a minute."
+            "value" : "Without a confirmed number your access code cannot be recovered. Takes half a minute."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։"
+            "value" : "Առանց հաստատված համարի մուտքի կոդը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Без подтверждённого номера восстановить PIN нельзя. Займёт полминуты."
+            "value" : "Без подтверждённого номера восстановить код доступа нельзя. Займёт полминуты."
           }
         }
       }
@@ -1793,19 +2023,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wrong phone or PIN"
+            "value" : "Wrong number or access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Սխալ հեռախոս կամ PIN"
+            "value" : "Սխալ համար կամ մուտքի կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Неверный телефон или PIN"
+            "value" : "Неверный номер или код доступа"
           }
         }
       }
@@ -1816,19 +2046,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The current PIN is wrong"
+            "value" : "The current access code is wrong"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ընթացիկ PIN-ը սխալ է"
+            "value" : "Ընթացիկ մուտքի կոդը սխալ է"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Текущий PIN неверный"
+            "value" : "Текущий код доступа неверный"
           }
         }
       }
@@ -3499,19 +3729,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deletion is confirmed with an SMS code: you have no PIN set."
+            "value" : "Deletion is confirmed with an SMS code: you have no access code set."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ջնջումը հաստատվում է SMS-ի կոդով. PIN դուք չունեք։"
+            "value" : "Ջնջումը հաստատվում է SMS կոդով. մուտքի կոդ դուք չունեք։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Удаление подтверждается кодом из SMS: PIN у вас не задан."
+            "value" : "Удаление подтверждается кодом из SMS: код доступа у вас не задан."
           }
         }
       }
@@ -4902,19 +5132,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ did not confirm. Enter your PIN."
+            "value" : "%@ did not confirm. Enter your access code."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@-ը չհաստատվեց։ Մուտքագրեք PIN-ը։"
+            "value" : "%@-ը չհաստատվեց։ Մուտքագրեք մուտքի կոդը։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ не подтвердил. Введите PIN."
+            "value" : "%@ не подтвердил. Введите код доступа."
           }
         }
       }
@@ -7971,19 +8201,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After changing the PIN, other phones are signed out"
+            "value" : "Lets you sign in without SMS. This code is also used for quick access to your account."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PIN-ը փոխելուց հետո մյուս հեռախոսներից ելքը փակվում է"
+            "value" : "Թույլ է տալիս մտնել առանց SMS-ի։ Այս կոդն օգտագործվում է նաև հաշիվ արագ մտնելու համար։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "После смены PIN вход с других телефонов закрывается"
+            "value" : "Позволяет входить без SMS. Этот код также используется для быстрого входа в аккаунт."
           }
         }
       }
@@ -9056,19 +9286,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Confirm with your PIN"
+            "value" : "Confirm with your access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Հաստատեք ձեր PIN-ով"
+            "value" : "Հաստատեք մուտքի կոդով"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Подтвердите своим PIN"
+            "value" : "Подтвердите кодом доступа"
           }
         }
       }
@@ -9125,19 +9355,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Issue a new code"
+            "value" : "Issue a new access code"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Տալ նոր կոդ"
+            "value" : "Տալ նոր մուտքի կոդ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Выдать новый код"
+            "value" : "Выдать новый код доступа"
           }
         }
       }
@@ -9148,19 +9378,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The code is changed. Pass it to the staff member."
+            "value" : "The access code is changed. Pass it to the staff member."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Կոդը փոխված է։ Հաղորդեք աշխատակցին։"
+            "value" : "Մուտքի կոդը փոխված է։ Հաղորդեք աշխատակցին։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Код изменён. Передайте его сотруднику."
+            "value" : "Код доступа изменён. Передайте его сотруднику."
           }
         }
       }
@@ -9171,19 +9401,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The staff member forgot the code — set a new one. Sign-ins with the old code will close."
+            "value" : "The staff member forgot the access code. Set a new one, sign-ins with the old code will close."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Աշխատակիցը մոռացել է կոդը՝ տվեք նորը։ Հին կոդով մուտքերը կփակվեն։"
+            "value" : "Աշխատակիցը մոռացել է մուտքի կոդը։ Տվեք նորը, հին կոդով մուտքերը կփակվեն։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сотрудник забыл код — назначьте новый. Входы старым кодом закроются."
+            "value" : "Сотрудник забыл код доступа. Назначьте новый, входы старым кодом закроются."
           }
         }
       }
@@ -9194,19 +9424,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This person works elsewhere too. They change the code themselves, from their own page."
+            "value" : "This person works elsewhere too. They change the access code themselves, from their own page."
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Այս մարդն աշխատում է նաև այլ տեղ։ Կոդը նա փոխում է ինքը՝ իր էջից։"
+            "value" : "Այս մարդն աշխատում է նաև այլ տեղ։ Մուտքի կոդը նա փոխում է ինքը՝ իր էջից։"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Этот человек работает не только здесь. Код он меняет сам, из своего профиля."
+            "value" : "Этот человек работает не только здесь. Код доступа он меняет сам, из своего профиля."
           }
         }
       }

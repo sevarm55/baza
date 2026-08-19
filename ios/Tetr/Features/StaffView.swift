@@ -376,7 +376,7 @@ struct StaffEditor: View {
                          * форма отправляла заведомо негодный код и сама
                          * об этом не знала. Длина берётся из одного места
                          * на всё приложение — см. `API.pinLength`. */
-                        field(L("auth.pinShort"), text: $pin, placeholder: "••••••", keyboard: .numberPad)
+                        field(L("auth.staffAccessCode"), text: $pin, placeholder: "••••••", keyboard: .numberPad)
                             .onChange(of: pin) { _, v in
                                 let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
                                 if clean != v { pin = clean }
@@ -384,6 +384,20 @@ struct StaffEditor: View {
                     }
                 }
                 .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+
+                /* Чем именно этот код является. Владелец в эту минуту
+                   придумывает его вслух, стоя рядом с работником, и
+                   должен понимать, что диктует не одноразовый код из
+                   сообщения, а постоянный, с которым тот будет входить
+                   каждое утро. */
+                if isNew {
+                    Text(L("auth.staffAccessCodeNote"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
 
                 percentPicker
 

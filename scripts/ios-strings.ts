@@ -40,9 +40,9 @@ export const IOS_ONLY: Record<string, Row> = {
   'lock.unlockWith': { hy: 'Բացել %@-ով', ru: 'Разблокировать через %@', en: 'Unlock with %@' },
   'lock.usePhone': { hy: 'Մուտք գործել հեռախոսով', ru: 'Войти кодом телефона', en: 'Use phone passcode' },
   'lock.failed': {
-    hy: '%@-ը չհաստատվեց։ Մուտքագրեք PIN-ը։',
-    ru: '%@ не подтвердил. Введите PIN.',
-    en: '%@ did not confirm. Enter your PIN.',
+    hy: '%@-ը չհաստատվեց։ Մուտքագրեք մուտքի կոդը։',
+    ru: '%@ не подтвердил. Введите код доступа.',
+    en: '%@ did not confirm. Enter your access code.',
   },
 
   /* --- общее --- */
@@ -169,25 +169,27 @@ export const IOS_ONLY: Record<string, Row> = {
   /* --- вход --- */
   'auth.signInAs': { hy: 'Մուտք գործել որպես %@', ru: 'Войти как %@', en: 'Sign in as %@' },
   'auth.tapAvatarPhone': { hy: 'Հպեք ավատարին՝ մուտք գործելու համար', ru: 'Коснитесь аватара, чтобы войти', en: 'Tap your avatar to sign in' },
-  /* Шесть, а не четыре. PIN в продукте шестизначный (см. lib/pin.ts), и
-     каталог приложения это уже говорил — а здесь осталось старое число с
-     тех пор, когда код был короче. Пока никто не запускал генератор,
-     расхождение не было видно; первый же запуск подписал бы поле «4
-     цифры» под шестизначным вводом. */
-  'auth.pinField': { hy: 'PIN կոդ · 6 նիշ', ru: 'PIN-код · 6 цифр', en: 'PIN code · 6 digits' },
+  /* Шесть, а не четыре. Код доступа в продукте шестизначный (см.
+     lib/pin.ts), и каталог приложения это уже говорил — а здесь осталось
+     старое число с тех пор, когда код был короче. Пока никто не запускал
+     генератор, расхождение не было видно; первый же запуск подписал бы
+     поле «4 цифры» под шестизначным вводом. */
+  'auth.pinField': { hy: 'Մուտքի կոդ · 6 նիշ', ru: 'Код доступа · 6 цифр', en: 'Access code · 6 digits' },
+  /* Подсказка сотруднику. Называет ОБА поля разом: он смотрит на «код
+     доступа» и вспоминает SMS, а код ему выдали вместе с номером. */
   'auth.staffNote': {
-    hy: 'Մուտքի տվյալները տալիս է բիզնեսի սեփականատերը',
-    ru: 'Данные для входа выдаёт владелец бизнеса',
-    en: 'The business owner gives you your sign-in details',
+    hy: 'Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։',
+    ru: 'Номер телефона и код доступа выдаёт владелец бизнеса.',
+    en: 'The business owner gives you your phone number and access code.',
   },
   'auth.rememberedExpiredPin': {
-    hy: 'Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։',
-    ru: 'Срок сохранённого входа истёк. Введите PIN.',
-    en: 'The saved sign-in has expired. Enter your PIN.',
+    hy: 'Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք մուտքի կոդը։',
+    ru: 'Срок сохранённого входа истёк. Введите код доступа.',
+    en: 'The saved sign-in has expired. Enter your access code.',
   },
-  'auth.pinShort': { hy: 'PIN · 4 նիշ', ru: 'PIN · 4 цифры', en: 'PIN · 4 digits' },
-  'auth.pinMismatch': { hy: 'PIN-երը չեն համընկնում', ru: 'PIN-коды не совпадают', en: 'The PINs do not match' },
-  'auth.pinWrong': { hy: 'PIN-ը սխալ է', ru: 'PIN неверный', en: 'The PIN is wrong' },
+  'auth.pinShort': { hy: 'Մուտքի կոդ · 4 նիշ', ru: 'Код доступа · 4 цифры', en: 'Access code · 4 digits' },
+  'auth.pinMismatch': { hy: 'Կոդերը չեն համընկնում', ru: 'Коды не совпадают', en: 'The codes do not match' },
+  'auth.pinWrong': { hy: 'Մուտքի կոդը սխալ է', ru: 'Код доступа неверный', en: 'The access code is wrong' },
   'auth.throttled': { hy: 'Չափազանց շատ փորձեր։ Սպասեք։', ru: 'Слишком много попыток. Подождите.', en: 'Too many attempts. Wait.' },
 
   /* --- проверка входа с незнакомого устройства ---
@@ -199,9 +201,9 @@ export const IOS_ONLY: Record<string, Row> = {
      одного места. --- */
   'auth.stepUpTitle': { hy: 'Ստուգում', ru: 'Проверка', en: 'Verification' },
   'auth.stepUpSub': {
-    hy: 'Մուտքն անծանոթ սարքից է։ Կոդն ուղարկեցինք %@',
-    ru: 'Вход с незнакомого устройства. Мы отправили код на %@',
-    en: 'Sign-in from an unfamiliar device. We sent a code to %@',
+    hy: 'Մուտքն անծանոթ սարքից է։ Կոդն ուղարկվել է %@',
+    ru: 'Вход с незнакомого устройства. Код отправлен на %@',
+    en: 'Sign-in from an unfamiliar device. The code was sent to %@',
   },
   'auth.otpCode': { hy: 'Կոդը SMS-ից', ru: 'Код из SMS', en: 'Code from SMS' },
   'auth.otpVerify': { hy: 'Հաստատել', ru: 'Подтвердить', en: 'Confirm' },
@@ -400,9 +402,9 @@ export const IOS_ONLY: Record<string, Row> = {
     en: 'The app locks every time you leave it',
   },
   'profile.pinNote': {
-    hy: 'PIN-ը փոխելուց հետո մյուս հեռախոսներից ելքը փակվում է',
-    ru: 'После смены PIN вход с других телефонов закрывается',
-    en: 'After changing the PIN, other phones are signed out',
+    hy: 'Թույլ է տալիս մտնել առանց SMS-ի։ Այս կոդն օգտագործվում է նաև հաշիվ արագ մտնելու համար։',
+    ru: 'Позволяет входить без SMS. Этот код также используется для быстрого входа в аккаунт.',
+    en: 'Lets you sign in without SMS. This code is also used for quick access to your account.',
   },
   'profile.deleteNote': {
     hy: 'Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ',
@@ -641,7 +643,14 @@ export const SHARED_KEYS: string[] = [
   'auth.signInTitle', 'auth.phone', 'auth.pin', 'auth.signIn',
   'auth.signOut', 'auth.welcomeBack', 'auth.anotherAccount', 'auth.wrongCredentials',
   'auth.phoneTaken', 'auth.changePin', 'auth.currentPin', 'auth.newPin',
-  'auth.wrongPin', 'profile.rememberLogin', 'billing.expiredTitle', 'billing.blockedTitle',
+  'auth.wrongPin',
+  /* Вход ролями. Слова «владелец» и «сотрудник» берём из общих `roles.*`:
+     они уже стоят в карточке человека, и второй пары синонимов на том же
+     экране быть не должно. */
+  'auth.ownerTitle', 'auth.staffTitle', 'auth.staffHelper', 'auth.ownerCodeHelper',
+  'auth.deleteAccessCode', 'auth.deleteAccessCodeNote', 'auth.deleteAccessCodeAsk',
+  'auth.deleteAccessCodeDone', 'auth.staffAccessCode', 'auth.staffAccessCodeNote',
+  'profile.rememberLogin', 'billing.expiredTitle', 'billing.blockedTitle',
   'billing.wallDownload', 'billing.wallDelete', 'roles.owner', 'roles.staff',
   'points.title', 'points.here', 'points.freshTitle', 'work.earnedToday',
   'work.shiftRevenue', 'work.worksTotal', 'work.onShift', 'work.needShift',
