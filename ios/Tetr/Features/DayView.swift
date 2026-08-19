@@ -131,12 +131,11 @@ struct DayView: View {
                 .foregroundStyle(Brand.onBoard.opacity(0.85))
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
-               Убыток жёлтым, не красным — красный в продукте значит
-               «удалить». */
+               Цвет по знаку — то же правило, что на сводке. */
             Text((day.profit < 0 ? "−" : "") + money(abs(day.profit), currency))
                 .font(.system(size: 46, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(day.profit < 0 ? Brand.warnOnBoard : Brand.onBoard)
+                .foregroundStyle(Brand.sign(day.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
 

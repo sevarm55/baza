@@ -290,6 +290,37 @@ export function Row({ children }: { children: ReactNode }) {
  */
 
 /**
+ * Знак денежного числа: убыток, заработок или ничего.
+ *
+ * Одно правило на все денежные экраны, ровно как `Brand.sign` в
+ * приложении. Раньше знак считала каждая страница сама, и день на
+ * вебе успел разойтись со сводкой: там минус красился, тут нет.
+ *
+ * Ноль не знак: нулевой день это не потеря и не заработок, и зелёный
+ * ноль читался бы как «всё хорошо», хотя не заработано ничего.
+ */
+export type Sign = 'good' | 'bad' | undefined;
+
+export function signOf(amount: number): Sign {
+  return amount < 0 ? 'bad' : amount > 0 ? 'good' : undefined;
+}
+
+/**
+ * Цвет знака на полотне — для чисел, у которых нет своей плиты.
+ *
+ * Плита красит число сама, через `data-good`/`data-bad`: там под
+ * числом тёмная заливка, и цвета берутся «на тёмном». Здесь полотно
+ * светлое, поэтому тона другие, а правило то же.
+ */
+export function signColor(sign: Sign): string | undefined {
+  return sign === 'bad'
+    ? 'var(--bad-on-board)'
+    : sign === 'good'
+      ? 'var(--good-on-board)'
+      : undefined;
+}
+
+/**
  * Плита: одно число, ради которого страницу открывают.
  *
  * Единственное место шапки, где цвет несёт смысл. Остальное нейтрально —
@@ -299,16 +330,26 @@ export function Plate({
   label,
   value,
   note,
-  /** число ушло в минус: это состояние, а не оформление */
-  bad,
+  /**
+   * Знак числа: минус, плюс или ничего.
+   *
+   * Не два булевых пропса, а один знак: «минус и плюс одновременно» —
+   * состояние, которого не бывает, и типу незачем его допускать. Ноль
+   * не знак: нулевой день это не потеря и не заработок.
+   */
+  sign,
 }: {
   label: ReactNode;
   value: string;
   note?: ReactNode;
-  bad?: boolean;
+  sign?: 'good' | 'bad';
 }) {
   return (
-    <div className="plate" data-bad={bad ? '' : undefined}>
+    <div
+      className="plate"
+      data-bad={sign === 'bad' ? '' : undefined}
+      data-good={sign === 'good' ? '' : undefined}
+    >
       <span className="plate-label">{label}</span>
       <span className="plate-value">
         <NumericText>{value}</NumericText>

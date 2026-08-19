@@ -6,7 +6,7 @@ import { passesEnabled } from '@/lib/features';
 import { personColor } from '@/lib/person-color';
 import { daysInMonthOf } from '@/lib/time';
 import Link from 'next/link';
-import { Panel } from '@/components/board';
+import { Panel, signColor, signOf } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { PageHead } from '@/components/page-head';
 import { getDict } from '@/lib/i18n/server';
@@ -177,7 +177,7 @@ export default async function ReportsPage({
     payroll: money(m.payroll),
     costs: money(m.costs),
     profit: money(m.profit),
-    loss: m.profit < 0,
+    sign: signOf(m.profit),
     kept: m.kept,
   }));
 
@@ -287,12 +287,9 @@ export default async function ReportsPage({
         <span
           className="num font-semibold"
           style={{
-            color:
-              delta === null
-                ? 'var(--board-muted)'
-                : delta >= 0
-                  ? 'var(--good-on-board)'
-                  : 'var(--warn-on-board)',
+            /* Сравнивать не с чем — приглушённо: «нет базы» это не
+               плохая новость, а отсутствие новости. */
+            color: delta === null ? 'var(--board-muted)' : signColor(signOf(delta)),
           }}
         >
           {delta === null

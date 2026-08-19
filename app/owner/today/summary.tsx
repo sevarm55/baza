@@ -1,4 +1,4 @@
-import { Figures, Plate } from '@/components/board';
+import { Figures, Plate, signOf } from '@/components/board';
 import { formatMoney } from '@/lib/money';
 import { getDict } from '@/lib/i18n/server';
 import { fromOneUnit } from '@/lib/i18n/terms';
@@ -76,7 +76,7 @@ export async function TodaySummary({
       className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
       aria-label={t.owner.profit}
     >
-      <Plate label={t.owner.profit} value={money(profit)} note={note} bad={profit < 0} />
+      <Plate label={t.owner.profit} value={money(profit)} note={note} sign={signOf(profit)} />
 
       <Figures
         items={[

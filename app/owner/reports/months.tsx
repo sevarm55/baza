@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Panel } from '@/components/board';
+import { Panel, signColor, type Sign } from '@/components/board';
 import { getDict } from '@/lib/i18n/server';
 import { unitCount, unitForms } from '@/lib/i18n/terms';
 
@@ -15,7 +15,8 @@ export type MonthRow = {
   payroll: string;
   costs: string;
   profit: string;
-  loss: boolean;
+  /** знак итога: считает `signOf`, а не таблица */
+  sign: Sign;
   kept: number;
 };
 
@@ -67,7 +68,7 @@ export async function MonthsTable({
               <span className="shrink-0 text-end">
                 <span
                   className="num block text-[14px] font-semibold"
-                  style={{ color: m.loss ? 'var(--warn-on-board)' : undefined }}
+                  style={{ color: signColor(m.sign) }}
                 >
                   {m.profit}
                 </span>
@@ -124,10 +125,7 @@ export async function MonthsTable({
                       «сто тысяч, это сорок процентов», — и разнесённые по
                       столбцам они гоняют глаз туда-обратно. */}
                   <td className="num end">
-                    <span
-                      className="block font-semibold"
-                      style={{ color: m.loss ? 'var(--warn-on-board)' : undefined }}
-                    >
+                    <span className="block font-semibold" style={{ color: signColor(m.sign) }}>
                       {m.profit}
                     </span>
                     <span className="block text-[12px]" style={{ color: 'var(--board-muted)' }}>

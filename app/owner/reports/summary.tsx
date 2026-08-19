@@ -1,4 +1,4 @@
-import { Figures, Plate } from '@/components/board';
+import { Figures, Plate, signOf } from '@/components/board';
 import { formatMoney } from '@/lib/money';
 import { getDict } from '@/lib/i18n/server';
 
@@ -54,7 +54,7 @@ export async function ReportSummary({
               ? `${monthName} · ${kept}% ${t.owner.kept}`
               : monthName
         }
-        bad={profit < 0}
+        sign={signOf(profit)}
       />
 
       <Figures

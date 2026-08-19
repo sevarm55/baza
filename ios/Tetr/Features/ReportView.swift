@@ -167,7 +167,12 @@ struct ReportView: View {
            неизменна нарочно: она сама марка. Но на почти чёрном полотне
            тёмно-фиолетовый столбик под четверть прозрачности пропадал
            вовсе, и ряд месяцев в темноте оставался с одним столбиком. */
-        let tone: Color = loss ? Brand.warnOnBoard : Brand.grape
+        /* Столбик убыточного месяца берёт тот же красный, что число над
+           графиком: иначе один и тот же месяц назывался бы потерей в
+           двух разных оттенках. Прибыльный остаётся грейповым — это
+           марка, а не «хорошо»: зелёный ряд из двенадцати столбиков
+           превратил бы график в оценку каждого месяца, а он про ход. */
+        let tone: Color = loss ? Brand.badOnBoard : Brand.grape
         let height: CGFloat = loss
             ? (down > 0 ? max(3, downField * CGFloat(-month.profit) / down) : 0)
             : (up > 0 ? max(3, upField * CGFloat(month.profit) / up) : 0)
@@ -250,12 +255,11 @@ struct ReportView: View {
                 .padding(.top, 5)
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается
-               точкой. Убыток жёлтым, не красным — красный в продукте
-               значит «удалить». */
+               точкой. Цвет по знаку — то же правило, что на сводке. */
             Text((m.profit < 0 ? "−" : "") + money(abs(m.profit), currency))
                 .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(m.profit < 0 ? Brand.warnOnBoard : Brand.onBoard)
+                .foregroundStyle(Brand.sign(m.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
                 .padding(.top, 1)
@@ -293,7 +297,7 @@ struct ReportView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                 }
-                .foregroundStyle(diff > 0 ? Brand.goodOnBoard : Brand.warnOnBoard)
+                .foregroundStyle(Brand.sign(diff))
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
                 .background(Brand.chipRest, in: .rect(cornerRadius: 9))

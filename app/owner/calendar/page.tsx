@@ -7,7 +7,7 @@ import { getPeriodStats, getRevenueSeries, getTenant, startOfDay } from '@/lib/q
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { isMonth, localDate, monthBounds } from '@/lib/history';
 import { formatMoney } from '@/lib/money';
-import { Panel } from '@/components/board';
+import { Panel, signColor, signOf } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { getDict } from '@/lib/i18n/server';
 import { intlLocale } from '@/lib/i18n/format';
@@ -79,6 +79,8 @@ export default async function CalendarPage({
     };
   });
 
+  const monthProfit = profitOf(stats.revenue, stats.payroll, costs);
+
   const peak = Math.max(1, ...cells.map((c) => c.revenue));
   const today = localDate(zone);
 
@@ -110,7 +112,9 @@ export default async function CalendarPage({
         {t.owner.revenue} <b className="num">{money(stats.revenue)}</b>
         <i />
         {t.owner.profit}{' '}
-        <b className="num">{money(profitOf(stats.revenue, stats.payroll, costs))}</b>
+        <b className="num" style={{ color: signColor(signOf(monthProfit)) }}>
+          {money(monthProfit)}
+        </b>
       </p>
 
       <div className="mt-[var(--seam)]">

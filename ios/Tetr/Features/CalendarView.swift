@@ -125,7 +125,7 @@ struct CalendarView: View {
             Text((total.profit < 0 ? "−" : "") + money(abs(total.profit), currency))
                 .font(.system(size: 46, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(total.profit < 0 ? Brand.warnOnBoard : Brand.onBoard)
+                .foregroundStyle(Brand.sign(total.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
                 // значение передаётся внутрь: по нему система понимает, в

@@ -225,12 +225,12 @@ struct OwnerView: View {
                 .padding(.top, 8)
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
-               Убыток жёлтым, не красным — красный в продукте значит
-               «удалить». */
+               Цвет по знаку — правило одно на все денежные экраны и
+               живёт в `Brand.sign`. */
             Text((s.profit < 0 ? "−" : "") + money(abs(s.profit), currency))
                 .font(.system(size: 54, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(s.profit < 0 ? Brand.warnOnBoard : Brand.onBoard)
+                .foregroundStyle(Brand.sign(s.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
                 .padding(.top, 1)
@@ -363,7 +363,7 @@ struct OwnerView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.warnOnBoard)
+            .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.badOnBoard)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
             .background(Brand.chipRest, in: .rect(cornerRadius: 9))

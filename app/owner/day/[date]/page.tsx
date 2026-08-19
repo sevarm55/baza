@@ -10,7 +10,7 @@ import { dayBounds, isDate, localDate } from '@/lib/history';
 import { daysInMonthOf, hhmm } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
-import { Figures, Panel, Plate } from '@/components/board';
+import { Figures, Panel, Plate, signOf } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { PageHead } from '@/components/page-head';
 import { TodayOperations } from '../../today/operations';
@@ -132,7 +132,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
         aria-label={t.owner.profit}
       >
-        <Plate label={t.owner.profit} value={money(profit)} note={title} />
+        <Plate label={t.owner.profit} value={money(profit)} note={title} sign={signOf(profit)} />
         <Figures
           items={[
             { label: t.owner.revenue, value: money(stats.revenue) },
