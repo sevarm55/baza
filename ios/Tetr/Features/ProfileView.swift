@@ -40,34 +40,67 @@ struct ProfileView: View {
     @State private var exporting = false
     @State private var exported: URL?
 
+    /// Насколько экран оттянут вниз. Ноль в покое, растёт под пальцем.
+    @State private var pull: CGFloat = 0
+    /// Фото раскрыто во всю ширину.
+    @State private var photoOpen = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isOwner: Bool { session.me?.isOwner == true }
 
     private let gap: CGFloat = 10
 
+    /// Якорь верха: к нему возвращается прокрутка, когда фото складывается.
+    private static let topAnchor = "profile.top"
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: gap) {
-                card
-                if let access = session.access { accessTile(access) }
-                fields
-                if changed || saved { saveRow }
-                if saveFailed {
-                    Text(L("common.failed"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.warnOnBoard)
-                        .padding(.horizontal, 6)
+        GeometryReader { geo in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        header(width: geo.size.width, safeTop: geo.safeAreaInsets.top, proxy: proxy)
+                            .id(Self.topAnchor)
+
+                        VStack(spacing: gap) {
+                            if let access = session.access { accessTile(access) }
+                            fields
+                            if changed || saved { saveRow }
+                            if saveFailed {
+                                Text(L("common.failed"))
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.warnOnBoard)
+                                    .padding(.horizontal, 6)
+                            }
+                            language
+                            switches
+                            actions
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 12)
+                        .padding(.bottom, 28)
+                        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
+                        .animation(.easeOut(duration: 0.2), value: saved)
+                    }
                 }
-                language
-                switches
-                actions
+                /* Оттяжку читаем с самой прокрутки, а не с рамки внутри
+                   содержимого: рамка врёт на первом кадре и после каждой
+                   перестройки списка, а геометрия прокрутки — нет. */
+                .onScrollGeometryChange(for: CGFloat.self) {
+                    $0.contentOffset.y + $0.contentInsets.top
+                } action: { _, y in
+                    pull = max(0, -y)
+                    if !photoOpen, pull > 86 {
+                        setPhoto(true, proxy: proxy)
+                    } else if photoOpen, y > 72 {
+                        setPhoto(false, proxy: proxy)
+                    }
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
-            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
-            .animation(.easeOut(duration: 0.2), value: saved)
+            /* Фото уходит под часы, как в мессенджерах: иначе раскрытие
+               упирается в полосу статуса и читается как картинка в рамке,
+               а не как верх экрана. */
+            .ignoresSafeArea(edges: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
@@ -85,38 +118,167 @@ struct ProfileView: View {
 
     // ══════════════════════════ кто я ══════════════════════════
 
-    /// Карточка человека цветом самого человека — тем же, каким его имя
-    /// набрано в ленте и кружок на смене.
-    private var card: some View {
+    /**
+     * Шапка: фото, имя, номер. И одно движение — оттянуть.
+     *
+     * Раньше здесь стояла цветная плитка человека: кружок с буквой, имя,
+     * мойка, номер. Плитка отвечала на вопрос «кто вошёл» — но ровно так же
+     * отвечают ещё шесть плиток ниже, и лицо экрана ничем не отличалось от
+     * его настроек.
+     *
+     * Теперь верх устроен как в мессенджерах, и не ради подражания: это
+     * единственная фигура, которую человек уже умеет читать без обучения.
+     * Кружок — это я; потянул вниз — фото раскрылось во всю ширину; отпустил
+     * и прокрутил вверх — сложилось обратно. Отклик пальцу даёт не только
+     * картинка, но и толчок: раскрытие защёлкивается, и рука это чувствует.
+     *
+     * Форма кружка здесь не капсула из общего запрета, а портрет: круглым
+     * человека рисуют везде, и квадрат с этим спорить не станет.
+     *
+     * Своей карточки у людей пока нет — вместо неё общий снимок: тёмный
+     * фиолетовый шёлк с лаймовой полосой света. Ни знака, ни буквы, ни
+     * подписи: заглушка стоит на месте ЧУЖОГО лица и не должна ничего
+     * утверждать о человеке. Абстракция ещё и переживает обрез — она
+     * одинаково цела и в кружке 116 точек, и во весь экран, а любой знак в
+     * круге пришлось бы подрезать.
+     *
+     * Низ кадра тёмный намеренно: по нему в раскрытом виде идёт белое имя.
+     *
+     * Буква имени осталась запасным лицом на случай, если картинка не
+     * приехала: пустой серый круг хуже любой заглушки.
+     */
+    private func header(width: CGFloat, safeTop: CGFloat, proxy: ScrollViewProxy) -> some View {
         let name = session.me?.name ?? "—"
         let tone = Brand.personTone(name)
 
-        return HStack(spacing: 14) {
-            Text(String(name.prefix(1)))
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(.white.opacity(0.22), in: .circle)
+        /* Раскрытая шапка — квадрат по ширине экрана. Не «во весь экран»:
+           под фото должно быть видно начало списка, иначе непонятно, что
+           это шапка, а не отдельная картинка. */
+        let base = photoOpen ? width : safeTop + 218
+        let height = base + pull
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                Text(session.tenant?.name ?? "Tetrin")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
-                // телефон не правится: это логин, и смена сломала бы вход
-                Text(session.me?.phone ?? "—")
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.6))
+        /* Кружок растёт ещё до защёлки: рука должна видеть, что тянуть есть
+           куда, а не тянуть вслепую до щелчка. */
+        let grow = photoOpen ? 1 : 1 + min(pull, 130) / 460
+        let side = photoOpen ? width : 116 * grow
+        let tall = photoOpen ? height : 116 * grow
+        let top = photoOpen ? 0 : safeTop + 16 + pull * 0.4
+
+        return Color.clear
+            .frame(width: width, height: height)
+            .overlay(alignment: .top) {
+                face(name: name, tone: tone, side: side)
+                    .frame(width: side, height: tall)
+                    /* Кадр не двигаем и не приближаем: знак стоит ровно в
+                       середине квадрата, и кружок берёт его целиком. */
+                    .clipShape(.rect(cornerRadius: photoOpen ? 0 : side / 2, style: .circular))
+                    .overlay {
+                        /* Затемнение снизу — только под раскрытым фото:
+                           белое имя ложится на капли, а капли светлые. */
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.66)],
+                            startPoint: UnitPoint(x: 0.5, y: 0.42),
+                            endPoint: .bottom
+                        )
+                        .opacity(photoOpen ? 1 : 0)
+                    }
+                    .padding(.top, top)
+                    .contentShape(.rect)
+                    .onTapGesture { setPhoto(!photoOpen, proxy: proxy) }
             }
-            Spacer(minLength: 0)
+            .overlay(alignment: .bottomLeading) {
+                titles(name: name, onPhoto: true)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                    .opacity(photoOpen ? 1 : 0)
+            }
+            .overlay(alignment: .top) {
+                titles(name: name, onPhoto: false)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, photoOpen ? 0 : top + tall + 13)
+                    .opacity(photoOpen ? 0 : 1)
+            }
+            .clipped()
+            /* Тянется вверх, а не съезжает вниз: место в потоке остаётся
+               базовым, а лишнюю высоту шапка забирает у просвета над собой.
+               Иначе между часами и фото открывалась полоса полотна. */
+            .offset(y: -pull)
+            .frame(height: base, alignment: .top)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(name)
+            .accessibilityValue(meta)
+    }
+
+    /// Имя и строка под ним. Одни и те же слова в обоих состояниях —
+    /// меняется только цвет и то, куда они прижаты.
+    private func titles(name: String, onPhoto: Bool) -> some View {
+        VStack(alignment: onPhoto ? .leading : .center, spacing: 3) {
+            Text(name)
+                .font(.system(size: onPhoto ? 27 : 25, weight: .bold))
+                .foregroundStyle(onPhoto ? .white : Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(meta)
+                .font(.system(size: 14))
+                .monospacedDigit()
+                .foregroundStyle(onPhoto ? .white.opacity(0.78) : Brand.boardMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .tile(base: tone.base, glow: tone.glow, radius: 24, pad: 18)
-        .accessibilityElement(children: .combine)
+    }
+
+    /// Номер и мойка одной строкой. Номер первым: он про человека, мойка —
+    /// про место, и человек здесь главный. Правке номер не поддаётся — это
+    /// логин, и смена сломала бы вход.
+    private var meta: String {
+        [session.me?.phone ?? "", session.tenant?.name ?? ""]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private func face(name: String, tone: (base: Color, glow: Color), side: CGFloat) -> some View {
+        if let art = UIImage(named: "avatar.jpg") {
+            Image(uiImage: art).resizable().scaledToFill()
+        } else {
+            ZStack {
+                LinearGradient(
+                    colors: [tone.base, tone.glow],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                Text(String(name.prefix(1)))
+                    .font(.system(size: side * 0.38, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+
+    /**
+     * Раскрыть или сложить фото.
+     *
+     * Толчок — часть ответа, а не украшение: движение пальца тут не
+     * попадает по кнопке, и подтвердить его нечем, кроме как отдачей. Мягкий
+     * на раскрытие, лёгкий на складывание — второе тише, потому что это
+     * возврат, а не событие.
+     *
+     * Прокрутка отправляется к верху вместе с состоянием: высота шапки
+     * меняется на две сотни точек, и без возврата список дёрнулся бы под
+     * пальцем на ту же величину.
+     */
+    private func setPhoto(_ open: Bool, proxy: ScrollViewProxy) {
+        guard open != photoOpen else { return }
+        UIImpactFeedbackGenerator(style: open ? .soft : .light).impactOccurred()
+
+        let move = {
+            photoOpen = open
+            proxy.scrollTo(Self.topAnchor, anchor: .top)
+        }
+        if reduceMotion {
+            move()
+        } else {
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.84), move)
+        }
     }
 
     /**

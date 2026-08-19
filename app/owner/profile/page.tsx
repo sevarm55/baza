@@ -8,7 +8,6 @@ import type { Dict } from '@/lib/i18n';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
 import { formatPhone, maskPhone } from '@/lib/phone';
-import { personColor } from '@/lib/person-color';
 import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -16,6 +15,7 @@ import { ValueRow } from '@/components/value-row';
 import { accountOf } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
 import { ChangePhonePanel } from './change-phone-panel';
+import { ProfileFace } from './face';
 import { DeviceList, type DeviceRow } from './devices';
 import { NameForm } from './name-form';
 import { NotifyOrdersToggle } from './notify-orders-toggle';
@@ -100,26 +100,8 @@ export default async function ProfilePage() {
       <div className="grid gap-[var(--seam)] lg:grid-cols-12">
         <div className="grid content-start gap-[var(--seam)] lg:col-span-7">
           <Panel title={t.profile.personal}>
-            {/* Кто вошёл. Цвет точки — тот же, которым этот человек
-                помечен в ленте и на смене. */}
-            <div className="flex items-center gap-3.5">
-              <span
-                className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[15px] font-bold"
-                style={{
-                  color: personColor(me.name),
-                  background: `color-mix(in srgb, ${personColor(me.name)} 16%, transparent)`,
-                }}
-                aria-hidden
-              >
-                {initials(me.name)}
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-[20px] leading-tight font-bold">{me.name}</div>
-                <div className="truncate text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {owner ? t.roles.owner : tenant.staffRole}
-                </div>
-              </div>
-            </div>
+            {/* Кто вошёл. Фото, а не две буквы: см. face.tsx. */}
+            <ProfileFace name={me.name} role={owner ? t.roles.owner : tenant.staffRole} />
 
             {/* Имя правится, телефон — нет, и выглядят они по-разному
                 намеренно: у первого поле с заливкой и подписью, у
@@ -241,12 +223,3 @@ function whenLabel(at: Date, timezone: string, t: Dict): string {
   return `${date}, ${time}`;
 }
 
-/** Две буквы имени: тот же приём, что у плитки человека в списке. */
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
