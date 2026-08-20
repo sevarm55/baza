@@ -5,36 +5,108 @@
       "comment" : "Имя под значком на домашнем экране. Марка не переводится ни на одном языке.",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin" } },
-        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tetrin"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tetrin"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tetrin"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "hy" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tetrin"
+          }
+        }
       }
     },
     "NSCameraUsageDescription" : {
       "comment" : "Зачем камера: сканировать номер машины.",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "To scan the licence plate" } },
-        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Համարանիշը սկանավորելու համար" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чтобы сканировать номер машины" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To scan the licence plate"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Համարանիշը սկանավորելու համար"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтобы сканировать номер машины"
+          }
+        }
       }
     },
     "NSFaceIDUsageDescription" : {
       "comment" : "Зачем Face ID: чтобы не набирать PIN каждый раз.",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "So you don't type your PIN every time" } },
-        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Որպեսզի PIN-ը ամեն անգամ չհավաքեք" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чтобы не набирать PIN каждый раз" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So you don't type your PIN every time"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Որպեսզի PIN-ը ամեն անգամ չհավաքեք"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтобы не набирать PIN каждый раз"
+          }
+        }
       }
     },
     "NSUserNotificationsUsageDescription" : {
       "comment" : "Зачем уведомления: смена и новые записи.",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "So you know about shifts and new records" } },
-        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Որպեսզի իմանաք հերթափոխի և նոր գրանցումների մասին" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чтобы знать о смене и новых записях" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So you know about shifts and new records"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Որպեսզի իմանաք հերթափոխի և նոր գրանցումների մասին"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтобы знать о смене и новых записях"
+          }
+        }
       }
     }
   },

@@ -234,14 +234,17 @@ export function Panel({
  */
 export function PersonTile({
   color,
+  compact,
   children,
 }: {
   color: string;
+  /** строка списка, а не карточка: воздуха внутри меньше */
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
-      className="rounded-[var(--radius-card)] p-4 text-white sm:p-5"
+      className={`rounded-[var(--radius-card)] text-white ${compact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5'}`}
       style={{
         background: `radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, ${color} 40%, transparent) 0%, transparent 62%), color-mix(in srgb, ${color} 45%, #0d0d10)`,
       }}
