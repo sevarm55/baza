@@ -15,13 +15,15 @@ export default function Loading() {
 
         <div className="grid gap-[var(--seam)] lg:grid-cols-12">
           <div className="grid gap-[var(--seam)] lg:col-span-7">
-            <SkeletonCard className="h-[200px]" />
-            <SkeletonCard className="h-[240px]" />
-            <SkeletonCard className="h-[160px]" />
+            <SkeletonCard className="h-[230px]" />
+            <SkeletonCard className="h-[300px]" />
           </div>
           <div className="grid gap-[var(--seam)] lg:col-span-5">
-            <SkeletonCard className="h-[180px]" />
-            <SkeletonCard className="h-[200px]" />
+            <SkeletonCard className="h-[148px]" />
+            <SkeletonCard className="h-[132px]" />
+            <SkeletonCard className="h-[142px]" />
+            <SkeletonCard className="h-[172px]" />
+            <SkeletonCard className="h-[126px]" />
           </div>
         </div>
       </div>

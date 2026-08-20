@@ -39,11 +39,22 @@ export function SkeletonCard({
 }
 
 /** Место строки текста. Высота задаётся классом, как у настоящей строки. */
-export function SkeletonText({ className = '' }: { className?: string }) {
+export function SkeletonText({
+  className = '',
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
     <div
       className={`skeleton rounded-[4px] ${className}`}
-      style={{ '--skeleton-fill': 'color-mix(in srgb, var(--board-ink) 9%, transparent)' } as CSSProperties}
+      style={
+        {
+          '--skeleton-fill': 'color-mix(in srgb, var(--board-ink) 9%, transparent)',
+          ...style,
+        } as CSSProperties
+      }
       aria-hidden
     />
   );
@@ -61,14 +72,21 @@ export function SkeletonAvatar({ className = 'size-9' }: { className?: string })
  * случайно: случайная ширина меняется на каждой отрисовке, и скелет
  * начинает дёргаться сам по себе.
  */
-const ROW_WIDTHS = ['w-28', 'w-36', 'w-24', 'w-32', 'w-40', 'w-28'];
+const ROW_WIDTHS = [56, 74, 48, 66, 82, 58];
+const VALUE_WIDTHS = [72, 88, 62, 78];
 
 export function SkeletonRow({ i = 0, avatar = false }: { i?: number; avatar?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="skeleton-row">
       {avatar ? <SkeletonAvatar className="size-8 shrink-0" /> : <SkeletonText className="size-4 shrink-0" />}
-      <SkeletonText className={`h-3.5 ${ROW_WIDTHS[i % ROW_WIDTHS.length]}`} />
-      <SkeletonText className="ms-auto h-3.5 w-20" />
+      <SkeletonText
+        className="h-3.5 max-w-full"
+        style={{ width: `${ROW_WIDTHS[i % ROW_WIDTHS.length]}%` }}
+      />
+      <SkeletonText
+        className="h-3.5 max-w-full justify-self-end"
+        style={{ width: `${VALUE_WIDTHS[i % VALUE_WIDTHS.length]}%` }}
+      />
     </div>
   );
 }
@@ -76,7 +94,7 @@ export function SkeletonRow({ i = 0, avatar = false }: { i?: number; avatar?: bo
 /** Место списка строк внутри прибора. */
 export function SkeletonList({ rows = 4, avatar = false }: { rows?: number; avatar?: boolean }) {
   return (
-    <div className="grid gap-3.5">
+    <div className="skeleton-list">
       {Array.from({ length: rows }, (_, i) => (
         <SkeletonRow key={i} i={i} avatar={avatar} />
       ))}
@@ -86,22 +104,28 @@ export function SkeletonList({ rows = 4, avatar = false }: { rows?: number; avat
 
 /** Место таблицы: шапка тоньше и короче строк. */
 export function SkeletonTable({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
+  const columns = `minmax(0, 1.6fr) repeat(${Math.max(0, cols - 1)}, minmax(0, 1fr))`;
+
   return (
     <div
       className="panel-pad rounded-[var(--radius-card)]"
       style={{ background: 'color-mix(in srgb, var(--board-ink) 4%, transparent)' }}
       aria-hidden
     >
-      <div className="mb-4 flex gap-4">
+      <div className="skeleton-table-row mb-4" style={{ gridTemplateColumns: columns }}>
         {Array.from({ length: cols }, (_, c) => (
-          <SkeletonText key={c} className={`h-3 ${c === 0 ? 'w-24' : 'w-16'}`} />
+          <SkeletonText key={c} className="h-3" style={{ width: c === 0 ? '76%' : '62%' }} />
         ))}
       </div>
       <div className="grid gap-3.5">
         {Array.from({ length: rows }, (_, r) => (
-          <div key={r} className="flex gap-4">
+          <div key={r} className="skeleton-table-row" style={{ gridTemplateColumns: columns }}>
             {Array.from({ length: cols }, (_, c) => (
-              <SkeletonText key={c} className={`h-3.5 ${c === 0 ? 'w-32' : 'w-14'}`} />
+              <SkeletonText
+                key={c}
+                className="h-3.5"
+                style={{ width: c === 0 ? `${72 - (r % 3) * 9}%` : `${54 + ((r + c) % 3) * 12}%` }}
+              />
             ))}
           </div>
         ))}
@@ -119,11 +143,11 @@ export function SkeletonTable({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
 export function SkeletonHead({ tools = true }: { tools?: boolean }) {
   return (
     <div className="page-head">
-      <div className="grid gap-2">
+      <div className="skeleton-head-copy grid gap-2">
         <SkeletonText className="h-6 w-40" />
         <SkeletonText className="h-3.5 w-24" />
       </div>
-      {tools && <SkeletonText className="h-9 w-[240px] !rounded-[8px]" />}
+      {tools && <SkeletonText className="skeleton-head-tools h-9 !rounded-[8px]" />}
     </div>
   );
 }

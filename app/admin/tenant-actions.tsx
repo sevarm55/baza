@@ -86,7 +86,8 @@ export function TenantActions({
             aria-disabled={pending || undefined}
             onClick={() => run('unblock', () => unblockTenant(tenantId))}
           >
-            {busy === 'unblock' && pending ? <TetrinMiniLoader /> : 'Включить'}
+            {busy === 'unblock' && pending && <TetrinMiniLoader />}
+            <span>{busy === 'unblock' && pending ? 'Включаем…' : 'Включить'}</span>
           </button>
         ) : (
           <button
@@ -100,7 +101,8 @@ export function TenantActions({
               run('block', () => blockTenant(tenantId));
             }}
           >
-            {busy === 'block' && pending ? <TetrinMiniLoader /> : 'Отключить'}
+            {busy === 'block' && pending && <TetrinMiniLoader />}
+            <span>{busy === 'block' && pending ? 'Отключаем…' : 'Отключить'}</span>
           </button>
         )}
       </div>
@@ -133,7 +135,10 @@ export function TenantActions({
             aria-disabled={pending || undefined}
             onClick={confirmPayment}
           >
-            {busy === 'pay' && pending ? <TetrinMiniLoader /> : `Продлить на ${months} мес`}
+            {busy === 'pay' && pending && <TetrinMiniLoader />}
+            <span>
+              {busy === 'pay' && pending ? `Продлеваем на ${months} мес…` : `Продлить на ${months} мес`}
+            </span>
           </button>
           <button
             className={s.btn}

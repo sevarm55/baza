@@ -95,7 +95,7 @@ export function LoadingButton({
 
         <Face on={face === 'busy'}>
           <TetrinMiniLoader />
-          {busyLabel ?? label}
+          <span className="btn-face-label">{busyLabel ?? label}</span>
         </Face>
 
         {doneLabel !== undefined && (

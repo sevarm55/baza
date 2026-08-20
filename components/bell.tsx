@@ -115,7 +115,8 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
                     startTransition(() => snoozeAlert(a.key));
                   }}
                 >
-                  {pending && snoozing === a.key ? <TetrinMiniLoader /> : t.alerts.later}
+                  {pending && snoozing === a.key && <TetrinMiniLoader />}
+                  <span>{t.alerts.later}</span>
                 </button>
               </div>
             ))}
