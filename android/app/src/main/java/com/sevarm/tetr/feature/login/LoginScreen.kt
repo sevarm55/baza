@@ -347,6 +347,7 @@ private fun EntryForm(
         if (needsCode) {
             LimeButton(
                 text = L(R.string.auth__signIn),
+                busyTitle = L(R.string.auth__signingIn),
                 enabled = ui.canSubmitPin,
                 loading = ui.busy,
                 onClick = vm::submitPin,
@@ -354,6 +355,7 @@ private fun EntryForm(
         } else {
             LimeButton(
                 text = L(R.string.auth__entrySend),
+                busyTitle = L(R.string.auth__sending),
                 enabled = ui.canSendPhone,
                 loading = ui.busy,
                 onClick = vm::sendEntryCode,
@@ -493,6 +495,7 @@ private fun ResetForm(
         Spacer(Modifier.height(28.dp))
         LimeButton(
             text = L(R.string.auth__resetSend),
+            busyTitle = L(R.string.auth__sending),
             enabled = ui.canSendPhone,
             loading = ui.busy,
             onClick = vm::sendResetCode,
@@ -559,6 +562,7 @@ private fun CodeForm(
         Spacer(Modifier.height(26.dp))
         LimeButton(
             text = L(R.string.auth__otpVerify),
+            busyTitle = L(R.string.auth__checking),
             enabled = ui.canConfirmCode,
             loading = ui.busy,
             onClick = { vm.confirm(waiting) },
@@ -681,6 +685,7 @@ private fun NewPinForm(vm: LoginViewModel, ui: LoginViewModel.UiState, ticket: S
         Spacer(Modifier.height(26.dp))
         LimeButton(
             text = L(R.string.auth__resetSave),
+            busyTitle = L(R.string.common__saving),
             enabled = ui.canSaveNewPin,
             loading = ui.busy,
             onClick = { vm.saveNewPin(ticket) },
@@ -722,6 +727,7 @@ private fun NameForm(vm: LoginViewModel, ui: LoginViewModel.UiState, ticket: Str
         Spacer(Modifier.height(26.dp))
         LimeButton(
             text = L(R.string.auth__nameCreate),
+            busyTitle = L(R.string.common__saving),
             enabled = ui.namesReady && !ui.busy,
             loading = ui.busy,
             onClick = { vm.createBusiness(ticket) },

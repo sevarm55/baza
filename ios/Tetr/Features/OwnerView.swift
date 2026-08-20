@@ -83,6 +83,23 @@ struct OwnerView: View {
                     details(s)
                         .opacity(detailsVisible ? 1 : 0)
                         .offset(y: detailsVisible || reduceMotion ? 0 : 8)
+                } else {
+                    /* Первая загрузка: место щита, а не пустой экран.
+                       Форма повторяет именно эту страницу — плита итога,
+                       строка фактов, график и лента, — а не «экран
+                       кабинета вообще»: скелет чужой формы читается как
+                       «загрузилось неправильно». */
+                    Delayed(active: loading) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(width: 130, height: 13)
+                            TetrSkeleton(height: 52, radius: 14)
+                            TetrSkeleton(height: 96, radius: 20)
+                            TetrSkeleton(height: 190, radius: 22)
+                            TetrSkeleton(width: 120, height: 13)
+                            TetrSkeletonList(rows: 4)
+                        }
+                        .padding(.top, 10)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -160,7 +177,16 @@ struct OwnerView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .disabled(loading)
+            /* Переключатель НЕ гаснет на время запроса. Порядок ответов
+               держит `loadID` вместе со сверкой периода — поздний ответ
+               на старый период на экран не попадает, — и гасить сверх
+               этого нечего: погашенный переключатель отбирает выбор за
+               работу, которая идёт полсекунды, а владелец в это время
+               как раз и щёлкает между «сегодня» и «месяцем». */
+
+            /* Идёт сверка: точка, а не заслонка. Данные на экране
+               остаются верными, просто чуть старыми. */
+            TetrRefreshDot(active: loading && summary != nil)
 
             Button {
                 showAlerts = true

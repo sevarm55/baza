@@ -828,7 +828,7 @@ struct PayrollView: View {
                     Text(L("payroll.paySum", money(items.reduce(0) { $0 + $1.amount }, currency)))
                         .padding(.horizontal, 20)
                 }
-                .buttonStyle(LimeButton(loading: settling))
+                .buttonStyle(LimeButton(loading: settling, busyTitle: L("payroll.paying")))
                 .fixedSize()
                 .disabled(settling)
             }

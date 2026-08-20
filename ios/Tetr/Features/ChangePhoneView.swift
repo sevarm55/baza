@@ -175,15 +175,15 @@ struct ChangePhoneView: View {
         switch stage {
         case .proof:
             Button(L("common.next")) { Task { await sendPhone() } }
-                .loading(busy, tint: Brand.grape, size: 18)
+                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || proofCode.count < API.codeLength)
         case .phone:
             Button(L("auth.resetSend")) { Task { await sendPhone() } }
-                .loading(busy, tint: Brand.grape, size: 18)
+                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || !canSend)
         case .code:
             Button(L("auth.otpVerify")) { Task { await finish() } }
-                .loading(busy, tint: Brand.grape, size: 18)
+                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || code.count < API.codeLength)
         case .done:
             EmptyView()

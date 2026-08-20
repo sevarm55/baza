@@ -42,11 +42,12 @@ import com.sevarm.tetr.core.i18n.L
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.EmptyState
 import com.sevarm.tetr.design.HairLine
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.ScreenHeader
-import com.sevarm.tetr.design.ScreenLoader
+import com.sevarm.tetr.design.TetrSkeletonList
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.surfaceCard
 import kotlinx.coroutines.launch
@@ -90,7 +91,12 @@ fun DevicesScreen(onBack: () -> Unit) {
         ScreenHeader(L(R.string.profile__devices), onBack = onBack)
 
         if (!loaded) {
-            ScreenLoader()
+            DelayedContent(true) {
+                TetrSkeletonList(
+                    rows = 3,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                )
+            }
         } else if (devices.isEmpty()) {
             EmptyState(L(R.string.common__empty))
         } else {

@@ -9,6 +9,7 @@ import { SignOutButton } from '@/components/sign-out-button';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Смена своего номера.
@@ -60,10 +61,19 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
             /* Без PIN первое нажатие уже отправляет SMS — значит это
                форма, а не переключатель: иначе кнопка «изменить»
                молча слала бы код. */
-            <form action={action}>
-              <button className="btn-inline" disabled={pending} onClick={() => setOpen(true)}>
-                {pending ? t.auth.sending : t.common.edit}
-              </button>
+            <form
+              action={action}
+              onSubmit={(e) => {
+                if (pending) e.preventDefault();
+              }}
+            >
+              <LoadingButton
+                className="btn-inline"
+                busy={pending}
+                label={t.common.edit}
+                busyLabel={t.auth.sending}
+                onClick={() => setOpen(true)}
+              />
             </form>
           )}
         </div>
@@ -203,9 +213,12 @@ function Foot({
       <button type="button" className="btn-inline" onClick={onCancel}>
         {t.common.cancel}
       </button>
-      <button className="btn btn-auto" disabled={pending}>
-        {pending ? t.common.loading : label}
-      </button>
+      <LoadingButton
+        className="btn btn-auto"
+        busy={pending}
+        label={label}
+        busyLabel={t.auth.checking}
+      />
     </div>
   );
 }

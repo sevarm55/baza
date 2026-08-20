@@ -65,6 +65,15 @@ class PayrollViewModel(private val graph: AppGraph) : ViewModel() {
         val openedDays: Set<String> = emptySet(),
         val showClosed: Boolean = false,
         val settling: Boolean = false,
+        /**
+         * Идёт сверка с сервером, а долг уже на экране.
+         *
+         * Отдельно от `loaded`: первая загрузка и обновление — разные
+         * состояния. На первой экран показывает места строк, на второй
+         * не трогает ничего и только держит системный индикатор
+         * потягивания, пока ответ не пришёл.
+         */
+        val refreshing: Boolean = false,
         val note: String? = null,
         val failure: String? = null,
     )
@@ -93,13 +102,15 @@ class PayrollViewModel(private val graph: AppGraph) : ViewModel() {
     }
 
     suspend fun reloadNow() {
+        update { it.copy(refreshing = true) }
         try {
             val fresh = session.authed { token -> api.send<Payroll>("payroll", token = token) }
-            update { it.copy(payroll = fresh, failure = null, loaded = true) }
+            update { it.copy(payroll = fresh, failure = null, loaded = true, refreshing = false) }
         } catch (e: CancellationException) {
+            update { it.copy(refreshing = false) }
             throw e
         } catch (e: Exception) {
-            update { it.copy(failure = Failure.text(e), loaded = true) }
+            update { it.copy(failure = Failure.text(e), loaded = true, refreshing = false) }
         }
     }
 

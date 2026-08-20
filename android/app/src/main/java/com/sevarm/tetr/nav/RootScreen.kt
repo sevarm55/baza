@@ -54,12 +54,23 @@ fun RootScreen(
     }
 
     when (state) {
+        /*
+         * Единственный экран продукта, который отбирает всё сразу, и
+         * единственный повод для этого: приложение ещё не знает, чьё оно
+         * и что показывать. Всё остальное ожидание живёт в скелете
+         * раздела или в занятой кнопке.
+         *
+         * Подписи под фигурой нет. «Բեռնվում է…» под движущимся
+         * загрузчиком не добавляет ни одного факта, а занимает строку и
+         * задаёт вопрос «а сколько ещё».
+         */
         Session.State.CHECKING -> Box(
             Modifier
                 .fillMaxSize()
-                .background(Brand.grapeDeep),
+                .background(Brand.grapeDeep)
+                .background(Brand.splashGlow),
             contentAlignment = Alignment.Center,
-        ) { TetrLoader(size = 34.dp, tint = Brand.lime) }
+        ) { TetrLoader(size = 40.dp, tint = Brand.lime) }
 
         Session.State.SIGNED_OUT -> LoginScreen(activity = activity)
 

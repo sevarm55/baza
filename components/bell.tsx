@@ -10,6 +10,7 @@ import type { Alert } from '@/lib/alerts';
 import { Button } from '@/components/ui/button';
 import { SidebarMenuBadge, SidebarMenuButton } from '@/components/ui/sidebar';
 import { useT } from '@/lib/i18n/client';
+import { TetrinMiniLoader } from '@/components/loading';
 
 /**
  * Колокольчик владельца.
@@ -31,6 +32,10 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
   const t = useT();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  /* Какое именно предупреждение откладываем. Общий признак занятости
+     гасил разом все строки списка и ни в одной не показывал, что
+     нажатие принято. */
+  const [snoozing, setSnoozing] = useState<string | null>(null);
 
   return (
     <>
@@ -102,10 +107,15 @@ export function Bell({ alerts, sidebar = false }: { alerts: Alert[]; sidebar?: b
                 <button
                   type="button"
                   className="alert-later"
-                  disabled={pending}
-                  onClick={() => startTransition(() => snoozeAlert(a.key))}
+                  aria-busy={pending && snoozing === a.key}
+                  aria-disabled={pending || undefined}
+                  onClick={() => {
+                    if (pending) return;
+                    setSnoozing(a.key);
+                    startTransition(() => snoozeAlert(a.key));
+                  }}
                 >
-                  {t.alerts.later}
+                  {pending && snoozing === a.key ? <TetrinMiniLoader /> : t.alerts.later}
                 </button>
               </div>
             ))}

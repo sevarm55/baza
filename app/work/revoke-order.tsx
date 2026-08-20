@@ -5,6 +5,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { revokeOrder } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton, TetrinMiniLoader } from '@/components/loading';
 
 /**
  * Отмена ошибочной записи.
@@ -42,14 +43,21 @@ export function RevokeOrder({
     <>
       <button
         type="button"
-        className="flex size-8 shrink-0 items-center justify-center rounded-[6px] transition disabled:opacity-40"
+        className="flex size-8 shrink-0 items-center justify-center rounded-[6px] transition aria-disabled:opacity-60"
         style={{ color: 'var(--board-muted)' }}
         title={t.work.rowActions}
         aria-label={`${t.work.rowActions}: ${title}`}
-        disabled={pending}
-        onClick={() => setAsking(true)}
+        /* Не `disabled`: выключенная кнопка гаснет до 40 процентов, и
+           индикатор внутри неё становится почти не виден — то есть
+           признак работы пропадает ровно тогда, когда он нужен. */
+        aria-busy={pending || undefined}
+        aria-disabled={pending || undefined}
+        onClick={() => !pending && setAsking(true)}
       >
-        {pending ? '…' : <MoreHorizontal className="size-4" aria-hidden />}
+        {/* Три точки текстом читались как «меню», а не как «идёт»:
+            многоточие в этом месте продукта означает продолжение, а не
+            работу. Здесь та же волна, что в остальных кнопках. */}
+        {pending ? <TetrinMiniLoader /> : <MoreHorizontal className="size-4" aria-hidden />}
       </button>
 
       <Sheet
@@ -66,19 +74,19 @@ export function RevokeOrder({
             >
               {t.work.revokeKeep}
             </button>
-            <button
+            <LoadingButton
               type="button"
               className="btn btn-auto btn-bad"
-              disabled={pending}
+              busy={pending}
+              label={t.work.revoke}
+              busyLabel={t.common.deleting}
               onClick={() =>
                 startTransition(async () => {
                   await revokeOrder(orderId);
                   setAsking(false);
                 })
               }
-            >
-              {pending ? t.common.loading : t.work.revoke}
-            </button>
+            />
           </>
         }
       >

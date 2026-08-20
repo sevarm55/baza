@@ -1,9 +1,10 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { Monitor, Smartphone } from 'lucide-react';
 import { revokeDeviceAction } from '@/app/actions';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 export type DeviceRow = {
   id: string;
@@ -33,6 +34,11 @@ export type DeviceRow = {
 export function DeviceList({ rows }: { rows: DeviceRow[] }) {
   const t = useT();
   const [pending, start] = useTransition();
+  /* Какое именно устройство гасим. Один общий признак занятости
+     блокировал разом все строки списка и ни в одной не показывал, что
+     происходит: человек нажимал «выйти» на телефоне жены и видел, как
+     гаснут все четыре кнопки сразу. */
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   /* Один вход и он же этот — говорить не о чем: список из одной строки
      «это устройство» с нечего погасить не отвечает ни на один вопрос. */
@@ -73,14 +79,18 @@ export function DeviceList({ rows }: { rows: DeviceRow[] }) {
 
             {/* Своё устройство гасить нечем: для этого есть «выйти». */}
             {!row.current && (
-              <button
+              <LoadingButton
                 type="button"
                 className="btn-inline text-bad"
-                disabled={pending}
-                onClick={() => start(() => void revokeDeviceAction(row.id))}
-              >
-                {t.profile.deviceRevoke}
-              </button>
+                busy={pending && revoking === row.id}
+                disabled={pending && revoking !== row.id}
+                label={t.profile.deviceRevoke}
+                busyLabel={t.common.deleting}
+                onClick={() => {
+                  setRevoking(row.id);
+                  start(() => void revokeDeviceAction(row.id));
+                }}
+              />
             )}
           </div>
         ))}

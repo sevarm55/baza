@@ -1,7 +1,7 @@
 package com.sevarm.tetr.feature.calendar
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,9 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,25 +48,26 @@ import com.sevarm.tetr.core.ui.clock
 import com.sevarm.tetr.core.ui.graphViewModel
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
-import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.paymentIcon
 import com.sevarm.tetr.core.ui.paymentLabel
+import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.unitWord
 import com.sevarm.tetr.core.ui.zone
-import kotlinx.coroutines.launch
 import com.sevarm.tetr.design.Brand
-import com.sevarm.tetr.design.Stat
-import com.sevarm.tetr.design.StatCards
-import com.sevarm.tetr.design.StatTint
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.EmptyState
 import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.HairLine
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.Palette
 import com.sevarm.tetr.design.ScreenHeader
-import com.sevarm.tetr.design.ScreenLoader
+import com.sevarm.tetr.design.Stat
+import com.sevarm.tetr.design.StatCards
+import com.sevarm.tetr.design.StatTint
+import com.sevarm.tetr.design.TetrScreenSkeleton
 import com.sevarm.tetr.design.Tone
 import com.sevarm.tetr.design.tile
+import kotlinx.coroutines.launch
 
 /**
  * Один день из истории — то же табло, что везде.
@@ -134,7 +135,9 @@ fun DayScreen(date: String, onBack: () -> Unit) {
              * обещала выход из положения, которого не давала.
              */
             failure != null -> ErrorState(failure!!) { scope.launch { load() } }
-            loading && loaded == null -> ScreenLoader()
+            loading && loaded == null -> DelayedContent(true) {
+                TetrScreenSkeleton(rows = 5, avatar = true)
+            }
             loaded == null -> Unit
             else -> LazyColumn(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),

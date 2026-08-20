@@ -40,19 +40,20 @@ import com.sevarm.tetr.R
 import com.sevarm.tetr.core.api.Month
 import com.sevarm.tetr.core.i18n.Dates
 import com.sevarm.tetr.core.i18n.L
-import com.sevarm.tetr.core.ui.money
 import com.sevarm.tetr.core.ui.lang
+import com.sevarm.tetr.core.ui.money
 import com.sevarm.tetr.core.ui.unitWord
 import com.sevarm.tetr.core.ui.units
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
-import com.sevarm.tetr.design.Stat
-import com.sevarm.tetr.design.StatCards
-import com.sevarm.tetr.design.StatTint
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.RoundIconButton
 import com.sevarm.tetr.design.ScreenHeader
-import com.sevarm.tetr.design.ScreenLoader
+import com.sevarm.tetr.design.Stat
+import com.sevarm.tetr.design.StatCards
+import com.sevarm.tetr.design.StatTint
+import com.sevarm.tetr.design.TetrSkeleton
 import com.sevarm.tetr.design.VerticalHair
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.surfaceCard
@@ -145,7 +146,18 @@ fun CalendarScreen(onBack: () -> Unit, onDay: (String) -> Unit) {
 
             val loaded = data
             when {
-                loading && loaded == null -> ScreenLoader()
+                /* Месяц читается фигурой целиком, поэтому место под
+                   него — прямоугольник той же высоты, а не кружок
+                   посреди пустого поля. */
+                loading && loaded == null -> DelayedContent(true) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        TetrSkeleton(height = 64.dp, radius = 18.dp)
+                        TetrSkeleton(height = 320.dp, radius = 20.dp)
+                    }
+                }
                 loaded == null -> Text(
                     L(R.string.errors__offline),
                     fontSize = 14.sp,

@@ -68,11 +68,11 @@ struct VerifyPhoneView: View {
                 Section {
                     if let challengeId {
                         Button(L("auth.otpVerify")) { Task { await confirm(challengeId) } }
-                            .loading(busy, tint: Brand.grape, size: 18)
+                            .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                             .disabled(busy || code.count < API.codeLength)
                     } else {
                         Button(L("auth.verifyPhoneSend")) { Task { await send() } }
-                            .loading(busy, tint: Brand.grape, size: 18)
+                            .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                             .disabled(busy)
                     }
                 }

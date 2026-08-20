@@ -8,6 +8,7 @@ import { hideSetup } from '@/app/onboarding-actions';
 import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
 import type { SetupStepKey } from '@/lib/onboarding';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * «Начало работы» — прибор, а не баннер.
@@ -46,14 +47,14 @@ export function SetupPanel({
      с тем, что делает. Страшного подтверждения тоже нет: настройку
      всегда можно вернуть со своей страницы. */
   const dismiss = (
-    <button
+    <LoadingButton
       type="button"
       className="btn-inline btn-inline-danger"
-      disabled={hiding}
+      busy={hiding}
+      label={complete ? t.setup.doneHide : t.setup.skip}
+      busyLabel={t.common.updating}
       onClick={() => hide(async () => void (await hideSetup()))}
-    >
-      {complete ? t.setup.doneHide : t.setup.skip}
-    </button>
+    />
   );
 
   if (complete) {

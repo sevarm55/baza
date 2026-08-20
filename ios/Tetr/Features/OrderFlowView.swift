@@ -669,20 +669,26 @@ struct OrderFlowView: View {
                заново. Подтверждение, которому верят, — машина в журнале
                смены и выросший счётчик; они на экране под листом, туда и
                возвращаемся. */
+            /* Занято и погашено — разные состояния, и до сих пор они
+               выглядели одинаково: кнопка гасла до 45 процентов и когда
+               не хватало номера, и когда запись уже летела на сервер.
+               Первое значит «дозаполни», второе «принято, идёт», и
+               мойщик, который видит одно и то же, начинает жать ещё раз.
+
+               Теперь бледнеет только неполная запись. Занятая кнопка
+               остаётся в полном цвете и показывает, что делает. */
             Button {
                 record()
             } label: {
-                Text(sending
-                     ? L("order.saving")
-                     : L("work.addFor", Terms.unit(session.tenant?.unitOne ?? "").acc, money(charged, currency)))
+                Text(L("work.addFor", Terms.unit(session.tenant?.unitOne ?? "").acc, money(charged, currency)))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .accessibilityIdentifier("order.save")
-            .buttonStyle(LimeButton())
+            .buttonStyle(LimeButton(loading: sending, busyTitle: L("order.saving")))
             .disabled(!canRecord || sending)
-            .opacity(canRecord && !sending ? 1 : 0.45)
-            .animation(.easeOut(duration: 0.2), value: canRecord)
+            .opacity(canRecord ? 1 : 0.45)
+            .animation(.easeOut(duration: Motion.normal), value: canRecord)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)

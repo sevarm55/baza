@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { createPoint, type FormState } from '@/app/actions';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Новая точка: название и ниша, больше ничего.
@@ -23,7 +24,13 @@ export function NewPointForm({
   const only = niches.length === 1 ? niches[0] : null;
 
   return (
-    <form action={action} className="grid gap-2.5">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (pending) e.preventDefault();
+      }}
+      className="grid gap-2.5"
+    >
       <label className="grid gap-1">
         <span className="label">{t.onboarding.bizName}</span>
         <input className="field field-sm" name="businessName" required autoComplete="off" />
@@ -55,12 +62,13 @@ export function NewPointForm({
           100%, и кнопка всё равно растягивалась во всю колонку. Точку
           заводят раз в год — обещать этим действием размер главной
           кнопки экрана незачем. */}
-      <button
+      <LoadingButton
         className="btn !w-auto justify-self-start px-7"
-        disabled={pending || disabled}
-      >
-        {pending ? t.common.loading : t.points.add}
-      </button>
+        busy={pending}
+        disabled={disabled}
+        label={t.points.add}
+        busyLabel={t.common.adding}
+      />
     </form>
   );
 }

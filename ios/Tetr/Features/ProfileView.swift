@@ -343,7 +343,7 @@ struct ProfileView: View {
                     .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(Brand.onLime)
-            .loading(saving, tint: Brand.onLime, size: 20)
+            .loading(saving, tint: Brand.onLime, size: 20, title: L("common.saving"))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .background(Brand.lime, in: .rect(cornerRadius: 20))
@@ -848,7 +848,7 @@ struct PinChangeView: View {
                     Button(changing ? L("common.edit") : L("common.save")) {
                         Task { await change() }
                     }
-                    .loading(busy, tint: Brand.grape, size: 18)
+                    .loading(busy, tint: Brand.grape, size: 18, title: L("common.saving"))
                     .disabled(!ready)
                 } footer: {
                     /* Гашение сессий — следствие ИЗМЕНЕНИЯ, а не

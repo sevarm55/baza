@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { removeExpenseAction, saveExpenseAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { formatMoney } from '@/lib/money';
 import type { ExpenseItem } from './model';
 import { useT } from '@/lib/i18n/client';
@@ -104,9 +105,13 @@ export function ExpenseSheet({
             >
               {t.common.cancel}
             </button>
-            <button form="expense-remove" className="btn-inline btn-inline-danger" disabled={removing}>
-              {removing ? t.common.loading : t.expenses.remove}
-            </button>
+            <LoadingButton
+              form="expense-remove"
+              className="btn-inline btn-inline-danger"
+              busy={removing}
+              label={t.expenses.remove}
+              busyLabel={t.common.deleting}
+            />
           </>
         ) : (
           <>
@@ -117,9 +122,13 @@ export function ExpenseSheet({
             >
               {t.expenses.remove}
             </button>
-            <button form="expense-edit" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.settings.save}
-            </button>
+            <LoadingButton
+              form="expense-edit"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.settings.save}
+              busyLabel={t.common.saving}
+            />
           </>
         )
       }
@@ -167,7 +176,15 @@ export function ExpenseSheet({
           ) : (
             /* Ключом стоит расход: при переходе к другому поля обязаны
                сброситься, а не донести чужое название и чужую сумму. */
-            <form key={item.id} id="expense-edit" action={action} className="mt-4 grid gap-3">
+            <form
+              key={item.id}
+              id="expense-edit"
+              action={action}
+              onSubmit={(e) => {
+                if (pending) e.preventDefault();
+              }}
+              className="mt-4 grid gap-3"
+            >
               <input type="hidden" name="id" value={item.id} />
 
               <label className="grid gap-1.5">
@@ -222,7 +239,14 @@ export function ExpenseSheet({
             </form>
           )}
 
-          <form id="expense-remove" action={removeAction} className="hidden">
+          <form
+            id="expense-remove"
+            action={removeAction}
+            onSubmit={(e) => {
+              if (removing) e.preventDefault();
+            }}
+            className="hidden"
+          >
             <input type="hidden" name="id" value={item.id} />
           </form>
         </>

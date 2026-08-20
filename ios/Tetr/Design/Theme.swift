@@ -186,6 +186,25 @@ enum Brand {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    /**
+     * Полотно заставки.
+     *
+     * Не плоская заливка и не диагональ. Плоский прямоугольник краски во
+     * весь экран читается как «стили не загрузились», а диагональный
+     * градиент уводит взгляд в угол — мимо фигуры, ради которой экран и
+     * показан. Здесь свет идёт из центра, где стоит загрузчик, и гаснет
+     * к краям.
+     *
+     * Разница между центром и краем меньше десяти процентов светлоты:
+     * заставка обязана быть фоном для фигуры, а не рекламным экраном.
+     */
+    static let splashGlow = RadialGradient(
+        colors: [grapeFill.opacity(0.55), grapeDeep.opacity(0)],
+        center: UnitPoint(x: 0.5, y: 0.42),
+        startRadius: 0,
+        endRadius: 460
+    )
 }
 
 /**
@@ -338,15 +357,22 @@ func perOneUnit(_ word: String) -> String {
 /// Стекло достаётся поверхностям, сплошной цвет — действию.
 struct LimeButton: ButtonStyle {
     /// Идёт запрос. Надпись остаётся на месте и гаснет, поверх ложится
-    /// загрузчик: подменять текст на «…» значит менять ширину кнопки под
-    /// пальцем и терять то, на что человек только что нажал.
+    /// признак работы: подменять текст на «…» значит менять ширину кнопки
+    /// под пальцем и терять то, на что человек только что нажал.
     var loading = false
+    /// Что делаем: «Մուտք գործում ենք…», «Վճարում ենք…».
+    ///
+    /// Кнопка во всю ширину, поэтому длина подписи на габарит не влияет
+    /// вовсе, а на понимание влияет сильно: слово отвечает на вопрос,
+    /// который человек задал нажатием, а один индикатор говорит только
+    /// «что-то идёт».
+    var busyTitle: String?
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 17, weight: .bold))
             .foregroundStyle(Brand.onLime)
-            .loading(loading, tint: Brand.onLime, size: 22)
+            .loading(loading, tint: Brand.onLime, size: 22, title: busyTitle)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 17)
             .background(Brand.lime, in: RoundedRectangle(cornerRadius: 22))
@@ -1109,22 +1135,38 @@ extension View {
 /**
  * Фирменный загрузчик.
  *
- * Не системный спиннер и не три точки. Столбики — то, из чего собран весь
- * продукт: они в графике дня, в профиле недели, в значке вкладки. Пока
- * приложение думает, оно показывает ту же фигуру, которой показывает
- * деньги, и это единственная причина, по которой загрузчик здесь свой, а не
+ * Четыре столбика — то, из чего собран весь продукт: они в графике дня,
+ * в профиле недели, в значке вкладки, на плитках щита. Пока приложение
+ * думает, оно показывает ту же фигуру, которой показывает деньги, и это
+ * единственная причина, по которой загрузчик здесь свой, а не
  * `ProgressView`.
  *
- * Волна, а не мигание: столбики поднимаются по очереди со сдвигом фазы,
- * поэтому фигура читается «идёт счёт», а не «что-то моргает».
+ * Что делает фигура за оборот:
+ *
+ *     волна  →  сходятся  →  складываются 2×2  →  вдох  →  расходятся
+ *
+ * Волна говорит «идёт счёт»: столбики поднимаются по очереди, как растёт
+ * столбик выручки. Складывание в квадрат — момент, ради которого всё и
+ * затевалось: четыре одинаковые детали на секунду становятся одним
+ * знаком, и знак этот больше нигде не встречается, поэтому запоминается.
+ * Вдох ставит точку, расхождение возвращает в начало.
+ *
+ * Ни один кадр не крутится вокруг центра. Вращение — чужой язык: так
+ * выглядит каждый второй индикатор, и фигура, которая крутится,
+ * перестаёт быть чьей-то.
  *
  * Ход берётся из `TimelineView`, а не из `repeatForever`. Бесконечная
- * анимация останавливается, когда SwiftUI пересоздаёт вид — а загрузчик
- * живёт как раз внутри кнопок, которые перестраиваются на каждое нажатие,
- * и замерший индикатор загрузки хуже, чем никакого: он говорит, что всё
- * зависло.
+ * анимация останавливается, когда SwiftUI пересоздаёт вид, — а загрузчик
+ * живёт как раз внутри кнопок, которые перестраиваются на каждое
+ * нажатие, и замерший индикатор загрузки хуже, чем никакого: он говорит,
+ * что всё зависло. По той же причине кадр считается от абсолютного
+ * времени: пересозданный вид продолжает оборот с того места, где он идёт
+ * у соседа, а не начинает свой.
  *
- * При «Уменьшении движения» столбики стоят на месте и вместо них дышит
+ * Оборот кончается там же, где начался, поэтому шва между оборотами не
+ * видно.
+ *
+ * При «Уменьшении движения» столбики стоят лесенкой и вместо них дышит
  * прозрачность: настройка запрещает движение, а не признак работы.
  */
 struct TetrLoader: View {
@@ -1135,33 +1177,130 @@ struct TetrLoader: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Доли оборота, на которых стоят опорные кадры.
+    private static let times: [Double] = [0, 0.08, 0.16, 0.24, 0.32, 0.44, 0.6, 0.7, 0.8, 0.92, 1]
+
+    /// Кривая на каждом промежутке между опорными кадрами.
+    private static let curves: [(Double) -> Double] = [
+        Ease.inOut,  // волна: столбик 1
+        Ease.inOut,  // столбик 2
+        Ease.inOut,  // столбик 3
+        Ease.inOut,  // столбик 4
+        Ease.spring, // сходятся к центру
+        Ease.soft,   // складываются в квадрат
+        Ease.out,    // вдох
+        Ease.inOut,  // выдох
+        Ease.spring, // расходятся обратно в ряд
+        Ease.linear, // пауза перед новым оборотом
+    ]
+
+    /// Шаг между столбиками в ряду, в долях высоты фигуры.
+    private static let pitch: CGFloat = 0.3
+    /// Ширина столбика, в долях высоты фигуры.
+    private static let barWidth: CGFloat = 0.17
+    /// Насколько ряд сжимается к центру перед складыванием.
+    ///
+    /// Не теснее: при 0.46 шаг становится меньше ширины столбика, четыре
+    /// детали сливаются в один прямоугольник, и вместо «сошлись» видно
+    /// «пропали».
+    private static let compress: CGFloat = 0.72
+    private static let gridX: CGFloat = 0.115
+    private static let gridY: CGFloat = 0.155
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: false)) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
-            HStack(spacing: size * 0.15) {
+            let p = reduceMotion ? 0 : phase(t)
+            ZStack {
                 ForEach(0..<bars, id: \.self) { i in
                     Capsule()
                         .fill(tint)
-                        .frame(width: size * 0.17, height: height(at: i, t: t))
+                        .frame(width: size * Self.barWidth, height: size)
+                        .scaleEffect(y: scaleY(i, p), anchor: .center)
+                        .offset(x: offsetX(i, p), y: offsetY(i, p))
                         .opacity(reduceMotion ? breathe(t) : 1)
                 }
             }
-            .frame(width: size * 1.2, height: size)
+            .frame(width: size * 1.24, height: size)
+            .scaleEffect(reduceMotion ? 1 : pulse(p))
         }
         .accessibilityElement()
         .accessibilityLabel(L("common.loadingShort"))
         .accessibilityAddTraits(.updatesFrequently)
     }
 
-    /// Высота столбика: синус со сдвигом по номеру — отсюда бегущая волна.
-    private func height(at i: Int, t: Double) -> CGFloat {
+    /// Где мы внутри оборота: 0…1.
+    private func phase(_ t: Double) -> Double {
+        let c = Motion.loaderCycle
+        return (t.truncatingRemainder(dividingBy: c) + c).truncatingRemainder(dividingBy: c) / c
+    }
+
+    /**
+     * Значение дорожки на доле оборота `p`.
+     *
+     * Опорные кадры и кривая между ними — ровно те же, что в
+     * `components/loading/tetrin-loader.tsx`. Разъехаться им негде:
+     * числа стоят рядом в обоих файлах и правятся вместе.
+     */
+    private func track(_ values: [CGFloat], _ p: Double) -> CGFloat {
+        let times = Self.times
+        guard values.count == times.count else { return values.first ?? 0 }
+        if p <= 0 { return values[0] }
+        for k in 1..<times.count where p <= times[k] {
+            let span = times[k] - times[k - 1]
+            let raw = span <= 0 ? 1 : (p - times[k - 1]) / span
+            let eased = CGFloat(Self.curves[k - 1](min(max(raw, 0), 1)))
+            return values[k - 1] + (values[k] - values[k - 1]) * eased
+        }
+        return values[values.count - 1]
+    }
+
+    /// Ряд складывается пополам: левая пара уходит влево, правая вправо.
+    /// Иначе третий столбик пролетает сквозь второй, и вместо
+    /// складывания видно свалку.
+    private func rowX(_ i: Int) -> CGFloat {
+        (CGFloat(i) - CGFloat(bars - 1) / 2) * Self.pitch * size
+    }
+
+    private func offsetX(_ i: Int, _ p: Double) -> CGFloat {
+        guard !reduceMotion else { return rowX(i) }
+        let row = rowX(i)
+        let grid = (i < bars / 2 ? -Self.gridX : Self.gridX) * size
+        return track(
+            Array(repeating: row, count: 5) + [row * Self.compress, grid, grid, grid, row, row],
+            p
+        )
+    }
+
+    private func offsetY(_ i: Int, _ p: Double) -> CGFloat {
+        guard !reduceMotion else { return 0 }
+        let grid = (i % 2 == 0 ? -Self.gridY : Self.gridY) * size
+        return track([0, 0, 0, 0, 0, 0, grid, grid, grid, 0, 0], p)
+    }
+
+    private func scaleY(_ i: Int, _ p: Double) -> CGFloat {
         guard !reduceMotion else {
             // неподвижная лесенка: движения нет, а фигура остаётся собой
-            return size * (0.42 + 0.58 * CGFloat(i) / CGFloat(max(1, bars - 1)))
+            return 0.42 + 0.58 * CGFloat(i) / CGFloat(max(1, bars - 1))
         }
-        let phase = t * 2.7 - Double(i) * 0.5
-        let k = (sin(phase) + 1) / 2
-        return size * CGFloat(0.32 + 0.68 * k)
+        let w = wave(i)
+        return track(w + [0.56, 0.26, 0.26, 0.26, w[0], w[0]], p)
+    }
+
+    /// Высота столбика на кадрах волны: свой кадр вытягивает столбик
+    /// целиком, соседние поднимают на треть. Отсюда бегущая волна вместо
+    /// четырёх одновременных морганий.
+    private func wave(_ i: Int) -> [CGFloat] {
+        (0...4).map { k in
+            let d = abs(k - (i + 1))
+            let lift: CGFloat = d == 0 ? 1 : (d == 1 ? 0.34 : 0)
+            return 0.4 + 0.6 * lift
+        }
+    }
+
+    /// Вдох собранной фигуры.
+    private func pulse(_ p: Double) -> CGFloat {
+        track([1, 1, 1, 1, 1, 1, 1, 1.055, 1, 1, 1], p)
     }
 
     /// Дыхание прозрачности вместо движения.
@@ -1170,20 +1309,95 @@ struct TetrLoader: View {
     }
 }
 
+/**
+ * Малый загрузчик: та же волна, три детали.
+ *
+ * Живёт внутри кнопок и строк. Фирменный морф сюда не ставится
+ * сознательно: кнопку «записать» жмут сорок раз за смену, и фигура,
+ * которая на каждое нажатие собирается в квадрат, через неделю начинает
+ * раздражать. Праздник — на запуске, в работе достаточно признака жизни.
+ */
+struct TetrMiniLoader: View {
+    var size: CGFloat = 16
+    var tint: Color = Brand.grape
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: false)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            HStack(spacing: size * 0.16) {
+                ForEach(0..<3, id: \.self) { i in
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: size * 0.22, height: size * 0.62)
+                        .scaleEffect(y: reduceMotion ? 1 : lift(i, t), anchor: .center)
+                        .opacity(reduceMotion ? breathe(i, t) : 0.55 + 0.45 * (lift(i, t) - 1) / 0.38)
+                }
+            }
+            .frame(height: size)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func lift(_ i: Int, _ t: Double) -> CGFloat {
+        let phase = t * 5.7 - Double(i) * 0.75
+        let k = (sin(phase) + 1) / 2
+        return 1 + 0.38 * CGFloat(k)
+    }
+
+    private func breathe(_ i: Int, _ t: Double) -> Double {
+        0.35 + 0.65 * (sin(t * 1.6 - Double(i) * 0.6) + 1) / 2
+    }
+}
+
 extension View {
     /**
-     * Подменить содержимое загрузчиком, не меняя размера.
+     * Подменить содержимое признаком работы, не меняя размера.
      *
      * Именно не меняя: если на время запроса заменить текст кнопки на
      * индикатор, кнопка схлопывается до ширины индикатора и прыгает под
      * пальцем. Здесь содержимое остаётся на месте и просто становится
-     * прозрачным, а загрузчик ложится поверх.
+     * прозрачным, а признак работы ложится поверх.
+     *
+     * Слово важнее фигуры. «Պահպանում ենք…» отвечает ровно на вопрос,
+     * который человек задал нажатием; один индикатор без слова говорит
+     * только «что-то идёт». Поэтому `title` есть везде, где подпись
+     * умещается, и нет там, где кнопка размером со значок.
+     *
+     * Внутри кнопки стоит малый загрузчик, а не фирменный: кнопку
+     * «записать» жмут сорок раз за смену, и морф на каждое нажатие через
+     * неделю начинает раздражать. Праздник — на запуске.
      */
-    func loading(_ on: Bool, tint: Color, size: CGFloat = 22) -> some View {
+    func loading(_ on: Bool, tint: Color, size: CGFloat = 22, title: String? = nil) -> some View {
         opacity(on ? 0 : 1)
             .overlay {
-                if on { TetrLoader(size: size, tint: tint) }
+                if on {
+                    HStack(spacing: 7) {
+                        TetrMiniLoader(size: size * 0.9, tint: tint)
+                        if let title {
+                            Text(title)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                    }
+                    .foregroundStyle(tint)
+                }
             }
-            .animation(.easeOut(duration: 0.18), value: on)
+            .animation(.easeOut(duration: Motion.fast), value: on)
+    }
+
+    /**
+     * Погашено или занято — это разные состояния.
+     *
+     * `.disabled(true)` в SwiftUI гасит и то и другое одинаково, а
+     * значат они противоположное: погашенная кнопка говорит «сейчас
+     * нельзя», занятая — «принято, идёт». Здесь занятость только
+     * запрещает повторное нажатие и не трогает цвет: ответ на палец уже
+     * дан признаком работы внутри кнопки.
+     */
+    func busy(_ on: Bool) -> some View {
+        allowsHitTesting(!on)
+            .accessibilityAddTraits(on ? .updatesFrequently : [])
     }
 }

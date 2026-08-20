@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -49,9 +49,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -67,37 +67,41 @@ import com.sevarm.tetr.core.api.Summary
 import com.sevarm.tetr.core.i18n.Dates
 import com.sevarm.tetr.core.i18n.L
 import com.sevarm.tetr.core.i18n.Terms
-import com.sevarm.tetr.core.i18n.perOneUnit
 import com.sevarm.tetr.core.i18n.money
+import com.sevarm.tetr.core.i18n.perOneUnit
 import com.sevarm.tetr.core.i18n.plainAmount
 import com.sevarm.tetr.core.ui.clock
 import com.sevarm.tetr.core.ui.currency
 import com.sevarm.tetr.core.ui.graphViewModel
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
-import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.paymentInk
 import com.sevarm.tetr.core.ui.paymentLabel
+import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.tenant
 import com.sevarm.tetr.core.ui.units
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.FlowRowLayout
 import com.sevarm.tetr.design.HairLine
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.Palette
-import com.sevarm.tetr.design.ScreenLoader
+import com.sevarm.tetr.design.Refreshable
 import com.sevarm.tetr.design.SelectChip
+import com.sevarm.tetr.design.TetrRefreshDot
+import com.sevarm.tetr.design.TetrSkeleton
+import com.sevarm.tetr.design.TetrSkeletonList
 import com.sevarm.tetr.design.Tone
 import com.sevarm.tetr.design.VerticalHair
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.surfaceCard
-import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 /**
  * Кабинет владельца — приборное табло, а не список карточек.
@@ -145,26 +149,52 @@ fun OwnerScreen(
     ) {
         PeriodBar(
             period = ui.period,
-            loading = ui.loading,
+            /* Сверка, а не первая загрузка: пока щита ещё нет, о работе
+               говорит скелет, и вторая точка про то же была бы лишней. */
+            refreshing = ui.loading && ui.summary != null,
             alerts = ui.alerts.size,
             onPeriod = vm::selectPeriod,
             onAlerts = { showAlerts = true },
         )
 
         val summary = ui.summary
-        when {
-            ui.failure != null -> ErrorState(ui.failure!!) { vm.reload() }
-            summary == null -> ScreenLoader()
-            else -> Body(
-                vm = vm,
-                ui = ui,
-                summary = summary,
-                setupHidden = setupHidden,
-                goToShift = goToShift,
-                goToServices = goToServices,
-                goToStaff = goToStaff,
-                onCancel = { cancelling = it },
-            )
+        /* Жест обновления, которого у Android не было вовсе. Сверка,
+           а не первая загрузка: числа остаются на экране. */
+        Refreshable(
+            refreshing = ui.loading && ui.summary != null,
+            modifier = Modifier.weight(1f),
+            onRefresh = { vm.reload() },
+        ) {
+            when {
+                ui.failure != null -> ErrorState(ui.failure!!) { vm.reload() }
+                /* Место щита, а не кружок посреди пустого экрана. Форма
+                   повторяет именно эту страницу: плита итога, строка фактов,
+                   график и лента. Скелет чужой формы читается как
+                   «загрузилось неправильно». */
+                summary == null -> DelayedContent(ui.loading) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        TetrSkeleton(width = 130.dp, height = 13.dp)
+                        TetrSkeleton(height = 52.dp, radius = 14.dp)
+                        TetrSkeleton(height = 96.dp, radius = 20.dp)
+                        TetrSkeleton(height = 190.dp, radius = 22.dp)
+                        TetrSkeleton(width = 120.dp, height = 13.dp)
+                        TetrSkeletonList(rows = 4)
+                    }
+                }
+                else -> Body(
+                    vm = vm,
+                    ui = ui,
+                    summary = summary,
+                    setupHidden = setupHidden,
+                    goToShift = goToShift,
+                    goToServices = goToServices,
+                    goToStaff = goToStaff,
+                    onCancel = { cancelling = it },
+                )
+            }
         }
     }
 
@@ -214,7 +244,7 @@ fun OwnerScreen(
 @Composable
 private fun PeriodBar(
     period: String,
-    loading: Boolean,
+    refreshing: Boolean,
     alerts: Int,
     onPeriod: (String) -> Unit,
     onAlerts: () -> Unit,
@@ -237,7 +267,13 @@ private fun PeriodBar(
             periods.forEachIndexed { index, (key, label) ->
                 SegmentedButton(
                     selected = period == key,
-                    onClick = { if (!loading) onPeriod(key) },
+                    /* Переключатель НЕ гаснет и не глохнет на время
+                       запроса. Порядок ответов держит `loadId` вместе со
+                       сверкой периода — поздний ответ на старый период на
+                       экран не попадает, — и запрещать выбор сверх этого
+                       нечего: владелец как раз и щёлкает между «сегодня»
+                       и «месяцем», пока считается предыдущий. */
+                    onClick = { onPeriod(key) },
                     shape = SegmentedButtonDefaults.itemShape(index, periods.size),
                     colors = SegmentedButtonDefaults.colors(
                         activeContainerColor = Brand.onBoard,
@@ -253,6 +289,10 @@ private fun PeriodBar(
                 }
             }
         }
+
+        /* Идёт сверка: точка, а не заслонка. Данные на экране остаются
+           верными, просто чуть старыми. */
+        TetrRefreshDot(active = refreshing)
 
         Box(
             Modifier

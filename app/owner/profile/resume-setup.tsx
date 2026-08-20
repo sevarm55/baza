@@ -4,6 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { resumeSetup } from '@/app/onboarding-actions';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Вернуть «Начало работы» на главную.
@@ -24,18 +25,18 @@ export function ResumeSetup() {
   const [pending, go] = useTransition();
 
   return (
-    <button
+    <LoadingButton
       type="button"
       className="btn-inline"
-      disabled={pending}
+      busy={pending}
+      label={t.setup.resumeCta}
+      busyLabel={t.common.updating}
       onClick={() =>
         go(async () => {
           await resumeSetup();
           router.push('/owner');
         })
       }
-    >
-      {pending ? t.common.loading : t.setup.resumeCta}
-    </button>
+    />
   );
 }

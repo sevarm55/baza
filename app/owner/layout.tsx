@@ -12,6 +12,7 @@ import { MobileTabs } from '@/components/mobile-tabs';
 import { PointSwitcher } from '@/components/point-switcher';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { BillingBanner } from '@/components/billing-banner';
+import { OfflineBar, PageFade } from '@/components/loading';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
@@ -135,11 +136,17 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
         <div className="canvas">
           <div className="canvas-inner">
             <BillingBanner access={currentAccess(tenant)} role="owner" />
-            {children}
+            <PageFade>{children}</PageFade>
           </div>
         </div>
 
         <MobileTabs hint={hint ? phoneTab(hint) : null} />
+
+        {/* Полоса «нет связи» одна на весь кабинет и живёт в оболочке, а
+            не в разделах: интернет пропадает не у страницы, а у всего
+            телефона, и повторять это сообщение в каждом разделе значит
+            рассказать одно и то же восемь раз. */}
+        <OfflineBar />
       </SidebarInset>
     </SidebarProvider>
   );

@@ -7,6 +7,7 @@ import { revokeOrder, saveOrderCrew } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { personColor } from '@/lib/person-color';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton, TetrinMiniLoader } from '@/components/loading';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,17 +101,18 @@ export function OrderMenu({
             type="button"
             title={t.owner.rowActions}
             aria-label={t.owner.rowActions}
-            disabled={pending}
+            aria-busy={pending || undefined}
+            aria-disabled={pending || undefined}
             /* `ms-auto`, а не выравнивание текста у ячейки: кнопка —
                блочный флекс, и `text-align: end` её не двигает. Без
                этого она вставала в тридцати пяти пикселях от правого
                края, тогда как первый столбец отступает от левого на
                десять, и таблица выглядела съехавшей вправо. */
-            className="ms-auto flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition hover:bg-surface2 hover:text-ink data-open:bg-surface2 data-open:text-ink disabled:opacity-40"
+            className="ms-auto flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition hover:bg-surface2 hover:text-ink data-open:bg-surface2 data-open:text-ink aria-disabled:opacity-60"
           />
         }
       >
-        {pending ? '…' : <MoreVertical className="size-4" aria-hidden />}
+        {pending ? <TetrinMiniLoader /> : <MoreVertical className="size-4" aria-hidden />}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
@@ -245,14 +247,15 @@ function CrewSheet({
           <button type="button" className="btn-inline" onClick={onClose}>
             {t.common.cancel}
           </button>
-          <button
+          <LoadingButton
             type="button"
             className="btn btn-auto"
-            disabled={pending || chosen.length === 0}
+            busy={pending}
+            disabled={chosen.length === 0}
+            label={t.common.save}
+            busyLabel={t.common.saving}
             onClick={save}
-          >
-            {pending ? t.common.loading : t.common.save}
-          </button>
+          />
         </>
       }
     >

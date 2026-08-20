@@ -1,8 +1,8 @@
 package com.sevarm.tetr.feature.expenses
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,8 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -74,21 +74,25 @@ import com.sevarm.tetr.core.ui.money
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
 import com.sevarm.tetr.design.Caption
+import com.sevarm.tetr.design.DelayedContent
+import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.FieldRow
 import com.sevarm.tetr.design.FlowRowLayout
-import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.HairLine
+import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.LimeButton
 import com.sevarm.tetr.design.LimeChip
+import com.sevarm.tetr.design.Refreshable
 import com.sevarm.tetr.design.ScreenHeader
 import com.sevarm.tetr.design.SelectChip
 import com.sevarm.tetr.design.SheetHeader
+import com.sevarm.tetr.design.TetrScreenSkeleton
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.sunken
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import kotlinx.coroutines.launch
 
 /**
  * Расходы бизнеса.
@@ -114,19 +118,34 @@ fun ExpensesScreen(onBack: () -> Unit) {
 
     var data by remember { mutableStateOf<Expenses?>(null) }
     var loaded by remember { mutableStateOf(false) }
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы, и до сих пор экран давал на
+     * оба один: `runCatching { … }.getOrNull()` глотал отказ, `loaded`
+     * вставало в `true`, и человек читал «пока ничего нет» о списке,
+     * который просто не привезли. Дальше он заводил его заново.
+     */
+    var failed by remember { mutableStateOf(false) }
+    /* Сверка при уже показанных расходах. Отдельно от `loaded`: первая
+       загрузка рисует места строк, обновление не трогает ничего. */
+    var refreshing by remember { mutableStateOf(false) }
     var month by remember { mutableStateOf("current") }
     var adding by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Expense?>(null) }
     var removing by remember { mutableStateOf<Expense?>(null) }
 
     suspend fun reload() {
+        refreshing = true
         val fresh = runCatching {
             session.authed { token ->
                 graph.api.send<Expenses>("expenses?month=$month", token = token)
             }
         }.getOrNull()
         if (fresh != null) data = fresh
+        failed = fresh == null
         loaded = true
+        refreshing = false
     }
 
     LaunchedEffect(month) { reload() }
@@ -144,128 +163,146 @@ fun ExpensesScreen(onBack: () -> Unit) {
     ) {
         ScreenHeader(L(R.string.expenses__title), onBack = onBack)
 
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        /* Жест обновления, которого у Android не было вовсе. Сверка,
+           а не первая загрузка: расходы остаются на экране. */
+        Refreshable(
+            refreshing = refreshing,
+            onRefresh = { scope.launch { reload() } },
         ) {
-            /*
-             * Шапка есть, только когда есть чем её заполнить: итог и его
-             * части считает сервер, и без них показывать здесь нечего — ноль
-             * на месте расходов читается как «ничего не тратил».
-             */
-            val costs = data?.costs
-            if (loaded && costs != null) {
-                item { Reading(data!!, month) { month = it } }
-            }
-
-            if (monthlyOnes.isNotEmpty()) {
-                item { Heading(L(R.string.expenses__monthlyOnes), monthlyOnes.size) }
-                items(monthlyOnes, key = { it.id }) { item ->
-                    ExpenseRow(
-                        title = item.category,
-                        badge = L(R.string.expenses__perMonth),
-                        note = monthlyNote(item),
-                        amount = item.amount,
-                        // правится только в текущем месяце: прошлое закрыто
-                        onClick = if (current && item.endedAt == null) {
-                            { editing = item }
-                        } else {
-                            null
-                        },
-                        onRemove = if (current) {
-                            { removing = item }
-                        } else {
-                            null
-                        },
-                    )
-                }
-            }
-
-            if (oneOffs.isNotEmpty()) {
-                item { Heading(L(R.string.expenses__oneOffs), oneOffs.size) }
-                items(oneOffs, key = { it.id }) { item ->
-                    ExpenseRow(
-                        title = item.category,
-                        badge = null,
-                        note = dayLabel(item.at),
-                        amount = item.amount,
-                        onClick = if (current) {
-                            { editing = item }
-                        } else {
-                            null
-                        },
-                        onRemove = if (current) {
-                            { removing = item }
-                        } else {
-                            null
-                        },
-                    )
-                }
-            }
-
-            if (loaded && items.isEmpty()) {
-                item {
-                    Text(
-                        L(R.string.expenses__empty),
-                        fontSize = 14.sp,
-                        color = Brand.boardMuted,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 44.dp),
-                    )
-                }
-            }
-
-            item {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 /*
-                 * Добавление — строкой в самом списке, а не плюсиком в
-                 * панели: плюсик в углу ищут глазами, строка стоит там,
-                 * куда смотрит человек.
+                 * Шапка есть, только когда есть чем её заполнить: итог и его
+                 * части считает сервер, и без них показывать здесь нечего — ноль
+                 * на месте расходов читается как «ничего не тратил».
                  */
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Brand.boardInk.copy(alpha = 0.07f))
-                        .pressable { adding = true }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Brand.boardInk.copy(alpha = 0.07f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = null,
-                            tint = Brand.grape,
-                            modifier = Modifier.size(17.dp),
+                val costs = data?.costs
+                if (loaded && costs != null) {
+                    item { Reading(data!!, month) { month = it } }
+                }
+
+                if (monthlyOnes.isNotEmpty()) {
+                    item { Heading(L(R.string.expenses__monthlyOnes), monthlyOnes.size) }
+                    items(monthlyOnes, key = { it.id }) { item ->
+                        ExpenseRow(
+                            title = item.category,
+                            badge = L(R.string.expenses__perMonth),
+                            note = monthlyNote(item),
+                            amount = item.amount,
+                            // правится только в текущем месяце: прошлое закрыто
+                            onClick = if (current && item.endedAt == null) {
+                                { editing = item }
+                            } else {
+                                null
+                            },
+                            onRemove = if (current) {
+                                { removing = item }
+                            } else {
+                                null
+                            },
                         )
                     }
+                }
+
+                if (oneOffs.isNotEmpty()) {
+                    item { Heading(L(R.string.expenses__oneOffs), oneOffs.size) }
+                    items(oneOffs, key = { it.id }) { item ->
+                        ExpenseRow(
+                            title = item.category,
+                            badge = null,
+                            note = dayLabel(item.at),
+                            amount = item.amount,
+                            onClick = if (current) {
+                                { editing = item }
+                            } else {
+                                null
+                            },
+                            onRemove = if (current) {
+                                { removing = item }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
+
+                if (!loaded) {
+                    /* Места строк, а не пустой экран. Порог в две десятых
+                       секунды: быстрый ответ не должен успевать мигнуть
+                       скелетом. */
+                    item { DelayedContent(true) { TetrScreenSkeleton(rows = 5) } }
+                } else if (failed && items.isEmpty()) {
+                    item {
+                        ErrorState(L(R.string.common__loadFailed)) {
+                            scope.launch { reload() }
+                        }
+                    }
+                } else if (items.isEmpty()) {
+                    item {
+                        Text(
+                            L(R.string.expenses__empty),
+                            fontSize = 14.sp,
+                            color = Brand.boardMuted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 44.dp),
+                        )
+                    }
+                }
+
+                item {
+                    /*
+                     * Добавление — строкой в самом списке, а не плюсиком в
+                     * панели: плюсик в углу ищут глазами, строка стоит там,
+                     * куда смотрит человек.
+                     */
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Brand.boardInk.copy(alpha = 0.07f))
+                            .pressable { adding = true }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Brand.boardInk.copy(alpha = 0.07f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = null,
+                                tint = Brand.grape,
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        Text(
+                            L(R.string.expenses__addExpense),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Brand.onBoard,
+                        )
+                    }
+                }
+
+                item {
+                    // те же слова, что в кабинете: одно и то же правило,
+                    // объяснённое двумя фразами, читается как два разных
                     Text(
-                        L(R.string.expenses__addExpense),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Brand.onBoard,
+                        L(R.string.expenses__note),
+                        fontSize = 11.5.sp,
+                        color = Brand.boardMuted,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
                     )
                 }
-            }
-
-            item {
-                // те же слова, что в кабинете: одно и то же правило,
-                // объяснённое двумя фразами, читается как два разных
-                Text(
-                    L(R.string.expenses__note),
-                    fontSize = 11.5.sp,
-                    color = Brand.boardMuted,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
-                )
             }
         }
     }
@@ -784,6 +821,7 @@ private fun ExpenseEditor(
 
             LimeButton(
                 text = L(R.string.common__save),
+                busyTitle = L(R.string.common__saving),
                 enabled = ready,
                 loading = busy,
                 onClick = {

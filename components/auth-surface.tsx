@@ -14,6 +14,7 @@ import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
 import type { RememberedWebAccount } from '@/lib/auth';
 import s from './auth-surface.module.css';
+import { LoadingButton, TetrinMiniLoader } from '@/components/loading';
 
 /**
  * Форма входа и регистрации целиком.
@@ -556,7 +557,12 @@ function RememberedAccount({
 
   return (
     <div className={s.avatarBlock}>
-      <form action={action}>
+      <form
+        action={action}
+        onSubmit={(e) => {
+          if (pending) e.preventDefault();
+        }}
+      >
         <button
           className={s.avatar}
           style={{
@@ -564,9 +570,20 @@ function RememberedAccount({
             boxShadow: `0 18px 42px color-mix(in srgb, ${color} 28%, transparent)`,
           }}
           aria-label={`${t.auth.signIn} — ${who.name}`}
-          disabled={pending}
+          /* Не `disabled`: выключенная кнопка бледнеет, а бледный
+             аватар в момент входа читается как «вход не удался». Здесь
+             же наоборот, всё идёт хорошо. Второе нажатие гасит
+             обработчик, а форма гасит Enter. */
+          aria-busy={pending || undefined}
+          aria-disabled={pending || undefined}
+          onClick={(e) => {
+            if (pending) e.preventDefault();
+          }}
         >
-          {pending ? <span className={s.spinner} /> : who.name.trim().slice(0, 1).toUpperCase()}
+          {/* Крутящийся кружок был единственным чужим движением во всём
+              продукте: он ничего не сообщал сверх «идёт» и при этом
+              выглядел как индикатор из любого другого приложения. */}
+          {pending ? <TetrinMiniLoader /> : who.name.trim().slice(0, 1).toUpperCase()}
           <span className={s.avatarRing} aria-hidden />
         </button>
       </form>
@@ -606,12 +623,7 @@ function Head({ title, subtitle }: { title: string; subtitle: string }) {
  * который человек только что занял сам.
  */
 function Submit({ pending, idle, busy }: { pending: boolean; idle: string; busy: string }) {
-  return (
-    <button className="btn" disabled={pending} aria-busy={pending}>
-      {pending && <span className={s.spinner} aria-hidden />}
-      {pending ? busy : idle}
-    </button>
-  );
+  return <LoadingButton className="btn" busy={pending} label={idle} busyLabel={busy} />;
 }
 
 /**

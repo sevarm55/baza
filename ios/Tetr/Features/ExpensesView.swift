@@ -30,6 +30,20 @@ struct ExpensesView: View {
     @State private var editing: API.Expense?
     @State private var confirmingRemoval: API.Expense?
     @State private var loaded = false
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы, и до сих пор экран давал на
+     * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
+     * человек читал «Դեռ ծախսեր չկան» о месяце, в котором расходы есть.
+     * Дальше он заводил их второй раз.
+     *
+     * Причина отдельной строкой и только когда она известна точнее, чем
+     * «не вышло»: пропавшая связь — это совет, который можно выполнить,
+     * а код ответа сервера владельцу мойки не говорит ничего.
+     */
+    @State private var failed = false
+    @State private var failNote: String?
     /// Какой месяц смотрим. Считает сервер — здесь только выбор.
     @State private var month: Month = .current
 
@@ -116,7 +130,26 @@ struct ExpensesView: View {
                 }
             }
 
-            if loaded && items.isEmpty {
+            if !loaded {
+                /* Места строк, а не пустой экран. Порог в две десятых
+                   секунды: быстрый ответ не должен успевать мигнуть
+                   скелетом. */
+                Delayed(active: true) {
+                    TetrScreenSkeleton(rows: 5)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+            } else if failed, items.isEmpty {
+                TetrFailure(
+                    title: L("common.loadFailed"),
+                    note: failNote,
+                    retry: { await reload() }
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
+            } else if items.isEmpty {
                 Text(L("expenses.empty"))
                     .font(.system(size: 14))
                     .foregroundStyle(Brand.boardMuted)
@@ -543,15 +576,27 @@ struct ExpensesView: View {
     }
 
     private func reload() async {
-        let result: API.Expenses? = try? await session.authed { token in
-            try await APIClient.shared.send("expenses?month=\(month.rawValue)", token: token, as: API.Expenses.self)
-        }
-        if let result {
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("expenses?month=\(month.rawValue)", token: token, as: API.Expenses.self)
+            }
             items = result.expenses
             hints = result.hints
             costs = result.costs
             revenue = result.revenue ?? 0
             perDayAvg = result.perDayAvg ?? 0
+            failed = false
+            failNote = nil
+        } catch is CancellationError {
+            /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
+               сломалось — и экран об этом молчит. */
+            return
+        } catch let error as APIError {
+            failed = true
+            failNote = error.isOffline ? L("common.offlineNote") : nil
+        } catch {
+            failed = true
+            failNote = nil
         }
         loaded = true
     }
@@ -839,7 +884,7 @@ struct ExpenseEditor: View {
             Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20)
+                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(Brand.lime, in: .rect(cornerRadius: 22))

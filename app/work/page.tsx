@@ -34,6 +34,7 @@ import { OrderFlow } from './order-flow';
 import { getDict } from '@/lib/i18n/server';
 import { serviceNameTerm, unitForms, unitWord } from '@/lib/i18n/terms';
 import { localizeTenant } from '@/lib/i18n/terms';
+import { OfflineBar } from '@/components/loading';
 
 export default async function WorkPage() {
   const t = await getDict();
@@ -386,6 +387,7 @@ export default async function WorkPage() {
             <div className="canvas-inner">{body}</div>
           </div>
           <MobileTabs />
+          <OfflineBar />
         </SidebarInset>
       </SidebarProvider>
     );
@@ -407,6 +409,12 @@ export default async function WorkPage() {
           <div className="canvas-inner">{body}</div>
         </main>
       </div>
+
+      {/* Мойка часто в подвале или за городом. Без этой полосы
+          пропавший интернет выглядел как сломанное приложение: запись
+          ложилась в очередь, а почему — знал только тот, кто читал
+          журнал. */}
+      <OfflineBar />
     </div>
   );
 }

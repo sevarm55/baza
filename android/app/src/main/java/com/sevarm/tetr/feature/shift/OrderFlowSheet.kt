@@ -715,16 +715,18 @@ fun OrderFlowSheet(onClose: () -> Unit, onDone: suspend () -> Unit) {
                  * верят, — это машина в журнале смены, а не пустая форма на
                  * её месте.
                  */
+                /* Занято и погашено — разные состояния. Бледнеет
+                   только неполная запись («дозаполни»); занятая кнопка
+                   остаётся в полном цвете и называет, что делает
+                   («принято, идёт»). Мойщик, который видит одно и то же
+                   в обоих случаях, начинает жать ещё раз. */
                 LimeButton(
-                    text = if (sending) {
-                        L(R.string.order__saving)
-                    } else {
-                        L(
-                            R.string.work__addFor,
-                            Terms.unit(tenant?.unitOne.orEmpty(), lang).acc,
-                            money(charged),
-                        )
-                    },
+                    text = L(
+                        R.string.work__addFor,
+                        Terms.unit(tenant?.unitOne.orEmpty(), lang).acc,
+                        money(charged),
+                    ),
+                    busyTitle = L(R.string.order__saving),
                     enabled = canRecord && !sending,
                     loading = sending,
                     onClick = {

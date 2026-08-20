@@ -63,7 +63,20 @@ struct ShiftView: View {
 
                 if let shift, !shift.orders.isEmpty {
                     journal(shift.orders)
-                } else if !loading {
+                } else if shift == nil {
+                    /* Первая загрузка: места записей, а не пустота. До
+                       сих пор между открытием экрана и первой строкой
+                       журнала не было ничего, и смена выглядела пустой
+                       ровно до того момента, как оказывалась не пустой.
+
+                       Порог в две десятых секунды: быстрый ответ не
+                       должен успевать мигнуть скелетом. */
+                    Delayed(active: loading) {
+                        TetrSkeletonList(rows: 4)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 8)
+                    }
+                } else {
                     empty
                 }
             }
@@ -250,13 +263,22 @@ struct ShiftView: View {
                 .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 14)
 
-            Text(money(value, currency))
-                .font(.system(size: 46, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.42)
-                .contentTransition(.numericText(value: Double(value)))
+            /* Пока смена не приехала, на месте суммы стоит место
+               суммы, а не «0 ֏». Ноль здесь не пустое место, а
+               утверждение: «сегодня ты не заработал ничего», — и мойщик
+               читает его как факт, потому что выглядит оно как факт. */
+            if shift == nil {
+                TetrSkeleton(width: 190, height: 46, radius: 12)
+                    .padding(.vertical, 4)
+            } else {
+                Text(money(value, currency))
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.42)
+                    .contentTransition(.numericText(value: Double(value)))
+            }
 
             /* Состояние смены — строкой под цифрой, а не значком «ԲԱՑ Է» в
                углу. Значок отвечал только «да или нет», а спрашивают на

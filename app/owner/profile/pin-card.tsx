@@ -6,6 +6,7 @@ import { CodeInput } from '@/components/code-input';
 import { ChangePinForm } from './change-pin-form';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Код доступа в разделе «безопасность».
@@ -132,9 +133,12 @@ function DeletePinForm({ onCancel }: { onCancel: () => void }) {
         <button type="button" className="btn-inline" onClick={onCancel}>
           {t.common.cancel}
         </button>
-        <button className="btn btn-auto btn-ghost text-bad" disabled={pending}>
-          {pending ? t.common.loading : t.auth.deleteAccessCode}
-        </button>
+        <LoadingButton
+          className="btn btn-auto btn-ghost text-bad"
+          busy={pending}
+          label={t.auth.deleteAccessCode}
+          busyLabel={t.common.deleting}
+        />
       </div>
     </form>
   );

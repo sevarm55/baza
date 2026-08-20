@@ -2,9 +2,9 @@ package com.sevarm.tetr.feature.clients
 
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,8 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -71,23 +71,26 @@ import com.sevarm.tetr.core.i18n.L
 import com.sevarm.tetr.core.i18n.Ln
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
-import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.paymentLabel
+import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.EmptyState
+import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.FieldRow
 import com.sevarm.tetr.design.HairLine
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.ScreenHeader
 import com.sevarm.tetr.design.SelectChip
 import com.sevarm.tetr.design.SheetHeader
+import com.sevarm.tetr.design.TetrSkeletonList
 import com.sevarm.tetr.design.Tone
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.sunken
 import com.sevarm.tetr.design.tile
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
+import kotlinx.coroutines.launch
 
 /**
  * База клиентов.
@@ -107,16 +110,26 @@ fun ClientsScreen(onBack: () -> Unit) {
 
     var clients by remember { mutableStateOf<List<Client>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы: первое зовёт завести строку,
+     * второе ждать связь. Экран, который на отказ пишет «пока ничего
+     * нет», отправляет заводить заново то, что уже заведено.
+     */
+    var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableStateOf(0) }
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(Sort.RECENT) }
     var opened by remember { mutableStateOf<Client?>(null) }
     var group by remember { mutableStateOf<Group?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(attempt) {
         val fresh = runCatching {
             session.authed { token -> graph.api.send<Clients>("clients", token = token) }
         }.getOrNull()
         if (fresh != null) clients = fresh.clients
+        failed = fresh == null
         loaded = true
     }
 
@@ -207,9 +220,18 @@ fun ClientsScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (loaded && clients.isEmpty()) {
+            if (!loaded) {
+                item { DelayedContent(true) { TetrSkeletonList(rows = 6, avatar = true) } }
+            } else if (failed && clients.isEmpty()) {
+                item {
+                    ErrorState(L(R.string.common__loadFailed)) {
+                        loaded = false
+                        attempt += 1
+                    }
+                }
+            } else if (clients.isEmpty()) {
                 item { EmptyState(L(R.string.common__empty)) }
-            } else if (loaded && found.isEmpty()) {
+            } else if (found.isEmpty()) {
                 item { EmptyState(L(R.string.owner__clientsNotFound)) }
             }
         }

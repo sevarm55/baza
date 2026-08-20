@@ -4,6 +4,7 @@ import { Sheet } from '@/components/sheet';
 import { formatMoney } from '@/lib/money';
 import type { StaffEntry } from './model';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /** Что подтверждаем: люди, сгруппированные по рабочему дню. */
 export type ConfirmGroup = { day: string; title: string; people: StaffEntry[] };
@@ -54,9 +55,14 @@ export function ConfirmPayout({
           <button type="button" className="btn-inline" onClick={onCancel} disabled={pending}>
             {t.common.cancel}
           </button>
-          <button type="button" className="btn btn-auto" onClick={onConfirm} disabled={pending}>
-            {pending ? t.common.loading : t.payroll.confirm}
-          </button>
+          <LoadingButton
+            type="button"
+            className="btn btn-auto"
+            busy={pending}
+            label={t.payroll.confirm}
+            busyLabel={t.payroll.paying}
+            onClick={onConfirm}
+          />
         </>
       }
     >

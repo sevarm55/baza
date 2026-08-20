@@ -637,9 +637,32 @@ struct LoginView: View {
             Task { await runPrimary() }
         }
         .accessibilityIdentifier(primaryIdentifier)
-        .buttonStyle(LimeButton(loading: busy))
+        .buttonStyle(LimeButton(loading: busy, busyTitle: primaryBusyTitle))
         .disabled(busy || !primaryReady)
         .opacity(primaryReady ? 1 : 0.5)
+    }
+
+    /**
+     * Что делает кнопка, пока запрос летит.
+     *
+     * Своё слово на каждый шаг, а не «Բեռնվում է…» на все. Между «код
+     * ушёл на телефон» и «проверяем набранное» разница есть, и человек,
+     * который ждёт SMS, должен видеть именно первое: иначе он ищет
+     * сообщение раньше, чем оно отправлено.
+     */
+    private var primaryBusyTitle: String {
+        switch stage {
+        case .entry: return method == .sms ? L("auth.sending") : L("auth.signingIn")
+        case .reset: return L("auth.sending")
+        case .code: return L("auth.checking")
+        case .newPin: return L("common.saving")
+        /* Имя владельца — последний шаг регистрации: после него
+           заводится бизнес, и это дольше остальных запросов. */
+        case .name: return L("common.saving")
+        /* Кнопка на этом шаге уводит обратно на вход и никуда не
+           обращается: занятой она не бывает. */
+        case .done: return L("common.loadingShort")
+        }
     }
 
     private var primaryTitle: String {

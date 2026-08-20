@@ -5,6 +5,7 @@ import { toggleShiftAction } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
 import { formatMoney } from '@/lib/money';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Начало и конец смены.
@@ -42,14 +43,14 @@ export function StartShift() {
           даст завести уникальный индекс, — а ради человека: связь на
           мойке пропадает, и кнопка, которая молчит секунду, выглядит
           ненажатой. */}
-      <button
+      <LoadingButton
         type="button"
         className="btn btn-big"
-        disabled={pending}
+        busy={pending}
+        label={t.work.startShift}
+        busyLabel={t.work.startingShift}
         onClick={() => startTransition(async () => void (await toggle(true)))}
-      >
-        {pending ? t.common.loading : t.work.startShift}
-      </button>
+      />
       {/* Вне смены записывать нельзя: машина, записанная мимо смены, не
           попадает в сдачу наличных при закрытии. То же правило в
           приложении и на сервере. Объяснение стоит под кнопкой, которая
@@ -128,14 +129,14 @@ export function EndShift({
             >
               {t.work.endStay}
             </button>
-            <button
+            <LoadingButton
               type="button"
               className="btn"
-              disabled={pending}
+              busy={pending}
+              label={t.work.endConfirm}
+              busyLabel={t.work.endingShift}
               onClick={() => startTransition(async () => void (await toggle(false, declared)))}
-            >
-              {pending ? t.common.loading : t.work.endConfirm}
-            </button>
+            />
           </div>
         }
       >

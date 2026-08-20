@@ -5,6 +5,7 @@ import { type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Смена PIN.
@@ -152,9 +153,12 @@ export function ChangePinForm({
             {t.common.cancel}
           </button>
         )}
-        <button className="btn btn-auto" disabled={pending}>
-          {pending ? t.common.loading : hasPin ? t.auth.resetSave : t.auth.setPin}
-        </button>
+        <LoadingButton
+          className="btn btn-auto"
+          busy={pending}
+          label={hasPin ? t.auth.resetSave : t.auth.setPin}
+          busyLabel={t.common.saving}
+        />
       </div>
     </form>
   );

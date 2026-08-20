@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { Users } from 'lucide-react';
 import { saveTeamPercentAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { FormField } from '@/components/form-field';
 import { crewSplit } from '@/lib/crew';
 import { formatMoney } from '@/lib/money';
@@ -96,13 +97,24 @@ export function TeamWash({
             <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>
-            <button form="team-wash" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.common.save}
-            </button>
+            <LoadingButton
+              form="team-wash"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.common.save}
+              busyLabel={t.common.saving}
+            />
           </>
         }
       >
-        <form id="team-wash" action={action} className="grid gap-3.5">
+        <form
+          id="team-wash"
+          action={action}
+          onSubmit={(e) => {
+            if (pending) e.preventDefault();
+          }}
+          className="grid gap-3.5"
+        >
           <FormField
             id="team-percent"
             label={t.crew.percentLabel}

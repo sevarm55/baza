@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { saveService, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { ServiceFields } from './service-fields';
 import { useT } from '@/lib/i18n/client';
 
@@ -67,15 +68,27 @@ export function AddService({
             <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>
-            <button form="service-new" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.settings.createService}
-            </button>
+            <LoadingButton
+              form="service-new"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.settings.createService}
+              busyLabel={t.common.adding}
+            />
           </>
         }
       >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлой недописанной услугой. */}
-        <form key={String(open)} id="service-new" action={action} className="grid gap-3.5">
+        <form
+          key={String(open)}
+          id="service-new"
+          action={action}
+          onSubmit={(e) => {
+            if (pending) e.preventDefault();
+          }}
+          className="grid gap-3.5"
+        >
           <ServiceFields
             idPrefix="service-new"
             step={step}

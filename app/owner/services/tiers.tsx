@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { Layers, Plus, X } from 'lucide-react';
 import { saveTiersAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { FormField } from '@/components/form-field';
 import { useT } from '@/lib/i18n/client';
 
@@ -83,13 +84,24 @@ export function TiersEditor({
             <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>
-            <button form="tiers" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.common.save}
-            </button>
+            <LoadingButton
+              form="tiers"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.common.save}
+              busyLabel={t.common.saving}
+            />
           </>
         }
       >
-        <form id="tiers" action={action} className="grid gap-3.5">
+        <form
+          id="tiers"
+          action={action}
+          onSubmit={(e) => {
+            if (pending) e.preventDefault();
+          }}
+          className="grid gap-3.5"
+        >
           <FormField id="tiers-label" label={t.settings.tiersLabel} hint={t.settings.tiersLabelHint}>
             <input
               id="tiers-label"

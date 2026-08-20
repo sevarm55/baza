@@ -190,6 +190,7 @@ fun DeleteBusinessSheet(onClose: () -> Unit) {
                  */
                 LimeButton(
                     text = L(R.string.delete__sendCode),
+                    busyTitle = L(R.string.auth__sending),
                     enabled = !busy,
                     loading = busy,
                     onClick = {
@@ -216,6 +217,7 @@ fun DeleteBusinessSheet(onClose: () -> Unit) {
                  */
                 LimeButton(
                     text = if (saved) L(R.string.billing__wallDelete) else L(R.string.settings__deleteKeep),
+                    busyTitle = L(R.string.common__deleting),
                     enabled = ready,
                     loading = busy,
                     onClick = {

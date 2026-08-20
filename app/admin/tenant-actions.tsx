@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { blockTenant, extendSubscription, saveNote, unblockTenant } from './actions';
 import { PRICE } from '@/lib/plan';
 import s from './admin.module.css';
+import { TetrinMiniLoader } from '@/components/loading';
 
 /**
  * Управление бизнесом из админки.
@@ -33,7 +34,17 @@ export function TenantActions({
   const [comment, setComment] = useState('');
   const [draftNote, setDraftNote] = useState(note ?? '');
 
-  const run = (fn: () => Promise<void>) => startTransition(async () => void (await fn()));
+  /* Какое действие идёт прямо сейчас. Общий `pending` гасил все
+     кнопки строки разом и ни на одной не показывал, что нажали именно
+     её: админ жал «Отключить», видел серую полосу кнопок и не понимал,
+     ушёл запрос или он промахнулся. */
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const run = (key: string, fn: () => Promise<void>) => {
+    if (pending) return;
+    setBusy(key);
+    startTransition(async () => void (await fn()));
+  };
 
   function open(m: number) {
     setMonths(m);
@@ -46,7 +57,7 @@ export function TenantActions({
     const value = Number(amount);
     if (!Number.isInteger(value) || value < 0) return;
 
-    run(async () => {
+    run('pay', async () => {
       await extendSubscription(tenantId, months, value, comment);
       setMonths(null);
     });
@@ -59,8 +70,8 @@ export function TenantActions({
           <button
             key={m}
             className={`${s.btn} ${months === m ? s.btnOn : ''}`}
-            disabled={pending}
-            onClick={() => open(m)}
+            aria-disabled={pending || undefined}
+            onClick={() => !pending && open(m)}
           >
             +{m} мес
           </button>
@@ -71,23 +82,25 @@ export function TenantActions({
         {blocked ? (
           <button
             className={`${s.btn} ${s.btnGood}`}
-            disabled={pending}
-            onClick={() => run(() => unblockTenant(tenantId))}
+            aria-busy={busy === 'unblock' && pending}
+            aria-disabled={pending || undefined}
+            onClick={() => run('unblock', () => unblockTenant(tenantId))}
           >
-            Включить
+            {busy === 'unblock' && pending ? <TetrinMiniLoader /> : 'Включить'}
           </button>
         ) : (
           <button
             className={`${s.btn} ${s.btnDanger}`}
-            disabled={pending}
+            aria-busy={busy === 'block' && pending}
+            aria-disabled={pending || undefined}
             onClick={() => {
               if (!confirm(`Отключить «${name}»? Доступ закроется сразу, данные сохранятся.`)) {
                 return;
               }
-              run(() => blockTenant(tenantId));
+              run('block', () => blockTenant(tenantId));
             }}
           >
-            Отключить
+            {busy === 'block' && pending ? <TetrinMiniLoader /> : 'Отключить'}
           </button>
         )}
       </div>
@@ -114,10 +127,19 @@ export function TenantActions({
             onChange={(e) => setComment(e.target.value)}
           />
 
-          <button className={`${s.btn} ${s.btnGood}`} disabled={pending} onClick={confirmPayment}>
-            Продлить на {months} мес
+          <button
+            className={`${s.btn} ${s.btnGood}`}
+            aria-busy={busy === 'pay' && pending}
+            aria-disabled={pending || undefined}
+            onClick={confirmPayment}
+          >
+            {busy === 'pay' && pending ? <TetrinMiniLoader /> : `Продлить на ${months} мес`}
           </button>
-          <button className={s.btn} disabled={pending} onClick={() => setMonths(null)}>
+          <button
+            className={s.btn}
+            aria-disabled={pending || undefined}
+            onClick={() => !pending && setMonths(null)}
+          >
             Отмена
           </button>
         </div>
@@ -133,7 +155,7 @@ export function TenantActions({
           onChange={(e) => setDraftNote(e.target.value)}
           onBlur={() => {
             if (draftNote.trim() !== (note ?? '').trim()) {
-              run(() => saveNote(tenantId, draftNote));
+              run('note', () => saveNote(tenantId, draftNote));
             }
           }}
         />

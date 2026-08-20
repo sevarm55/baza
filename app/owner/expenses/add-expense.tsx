@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addExpenseAction, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { useT } from '@/lib/i18n/client';
 
 /**
@@ -110,15 +111,27 @@ export function AddExpense({
             <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>
-            <button form="expense-new" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.expenses.add}
-            </button>
+            <LoadingButton
+              form="expense-new"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.expenses.add}
+              busyLabel={t.common.adding}
+            />
           </>
         }
       >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлым недописанным расходом. */}
-        <form key={String(open)} id="expense-new" action={action} className="grid gap-3.5">
+        <form
+          key={String(open)}
+          id="expense-new"
+          action={action}
+          onSubmit={(e) => {
+            if (pending) e.preventDefault();
+          }}
+          className="grid gap-3.5"
+        >
           {/* Сумма первой и крупно: с ней приходят. Название вспоминают
               уже после того, как посмотрели в чек. */}
           <label className="grid gap-1.5">

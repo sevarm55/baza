@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n';
 import { useLocale, useSetLocale, useT } from '@/lib/i18n/client';
+import { TetrinMiniLoader } from '@/components/loading';
 
 /**
  * Выбор языка интерфейса.
@@ -43,19 +44,35 @@ export function LanguagePicker({ compact = false }: { compact?: boolean }) {
           compact ? (
             <button
               type="button"
-              disabled={switching}
-              className="btn-icon btn-icon-board disabled:opacity-60"
+              /* Смена языка перерисовывает весь кабинет, и до ответа
+                 сервера значок остаётся на месте, а не бледнеет: бледная
+                 кнопка сказала бы «сейчас нельзя», тогда как нажатие уже
+                 принято. */
+              aria-busy={switching || undefined}
+              aria-disabled={switching || undefined}
+              onClick={(e) => {
+                if (switching) e.preventDefault();
+              }}
+              className="btn-icon btn-icon-board"
               title={`${t.common.language}: ${LOCALE_NAMES[locale]}`}
               aria-label={`${t.common.language}: ${LOCALE_NAMES[locale]}`}
             >
-              <Languages aria-hidden="true" className="size-4" />
+              {switching ? <TetrinMiniLoader /> : <Languages aria-hidden="true" className="size-4" />}
             </button>
           ) : (
             /* Тот же каркас строки, что у темы рядом (`.setting-row`):
                две соседние настройки в одном приборе, набранные разными
                размерами и с разными полями, читаются как детали из
                разных наборов. */
-            <button type="button" disabled={switching} className="setting-row disabled:opacity-60">
+            <button
+              type="button"
+              aria-busy={switching || undefined}
+              aria-disabled={switching || undefined}
+              onClick={(e) => {
+                if (switching) e.preventDefault();
+              }}
+              className="setting-row"
+            >
               <span className="flex min-w-0 items-center gap-2.5">
                 <Languages aria-hidden="true" className="size-4 shrink-0" />
                 <span className="setting-row-label truncate">{t.common.language}</span>

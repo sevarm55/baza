@@ -1,9 +1,85 @@
 package com.sevarm.tetr.design
 
 import android.provider.Settings
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import kotlin.math.pow
+
+/**
+ * Язык движения Tetrin.
+ *
+ * Те же числа, что в `lib/motion.ts` на вебе и в
+ * `ios/Tetr/Design/Motion.swift`. Продукт один, и человек, который утром
+ * смотрит выручку в браузере, а днём записывает машину с телефона, не
+ * должен замечать, что переходы там и тут разной длины: расхождение он
+ * не назовёт словами, но почувствует как «в приложении что-то тормозит».
+ */
+object Motion {
+    /** Нажатие, отклик под пальцем. */
+    const val INSTANT = 110
+
+    /** Смена состояния мелкой детали. */
+    const val FAST = 170
+
+    /** Появление содержимого, перекрёстное затухание. */
+    const val NORMAL = 240
+
+    /** Перестроение фигуры, морф. */
+    const val SLOW = 450
+
+    /** Полный оборот фирменного загрузчика. */
+    const val LOADER_CYCLE = 1350
+
+    /**
+     * Сколько ждать, прежде чем показать, что идёт загрузка.
+     *
+     * Запрос на девяносто миллисекунд, отмеченный скелетом, выглядит
+     * хуже, чем тот же запрос без ничего: человек видит вспышку серых
+     * прямоугольников и считает, что экран дрогнул. Готовый ответ при
+     * этом никогда не придерживаем: порог откладывает показ загрузки, а
+     * не показ данных.
+     */
+    const val LOADING_DELAY_MS = 180L
+
+    /** Сколько держится отметка «получилось». */
+    const val SUCCESS_HOLD_MS = 1400L
+
+    /** Пружина для крупного: лист, окно, перестроение. */
+    val springSoft = spring<Float>(dampingRatio = 0.82f, stiffness = 260f)
+
+    /** Пружина для мелкого: галочка, отметка выбора, нажатие. */
+    val springSnap = spring<Float>(dampingRatio = 0.72f, stiffness = 340f)
+}
+
+/**
+ * Кривые для ручной интерполяции.
+ *
+ * Нужны там, где кадр считает не Compose, а мы сами по доле оборота, —
+ * то есть в фирменном загрузчике: у него на каждом промежутке своя
+ * кривая, и одним `Easing` это не выражается.
+ */
+object Ease {
+    /** Мягкий разгон и мягкое торможение. */
+    fun inOut(x: Float) = x * x * (3 - 2 * x)
+
+    /** Резкий выход, мягкое гашение. */
+    fun out(x: Float) = 1 - (1 - x).pow(3)
+
+    /** Длинный выкат: то же, что `cubic-bezier(0.16, 1, 0.3, 1)` на вебе. */
+    fun soft(x: Float) = 1 - (1 - x).pow(5)
+
+    /** Пружина с еле заметным перелётом. */
+    fun spring(x: Float): Float {
+        val c1 = 0.7f
+        val c3 = c1 + 1
+        val t = x - 1
+        return 1 + c3 * t * t * t + c1 * t * t
+    }
+
+    fun linear(x: Float) = x
+}
 
 /**
  * Выключил ли человек анимации.

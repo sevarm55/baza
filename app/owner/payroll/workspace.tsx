@@ -50,7 +50,9 @@ export function PayrollWorkspace({
   const [tab, setTab] = useState<'due' | 'history'>('due');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState<string[] | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  /* Не просто текст: у сообщения об удаче и у сообщения об отказе
+     разные знаки, и подставлять галку к слову «не получилось» нельзя. */
+  const [note, setNote] = useState<{ text: string; ok: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -111,12 +113,14 @@ export function PayrollWorkspace({
       /* Запрос может не дойти вовсе — связь на мойке не идеальная.
          Молчать здесь опаснее всего: деньги уже отданы из рук в руки, и
          человек уверен, что запись легла. */
-      let done: string;
+      let done: { text: string; ok: boolean };
       try {
         const result = await settlePayroll(items);
-        done = result.ok ? t.payroll.done(money(result.paid)) : t.payroll.failed;
+        done = result.ok
+          ? { text: t.payroll.done(money(result.paid)), ok: true }
+          : { text: t.payroll.failed, ok: false };
       } catch {
-        done = t.payroll.failed;
+        done = { text: t.payroll.failed, ok: false };
       }
 
       setAsking(null);
@@ -297,7 +301,17 @@ export function PayrollWorkspace({
           непонятно, случилось это от нажатия или что-то сломалось. */}
       {note && (
         <div className="pay-toast" role="status" aria-live="polite">
-          <span>{note}</span>
+          <span data-ok={note.ok ? '' : undefined}>
+            {/* Галка появляется вместе с сообщением и чуть подрастает:
+                короткое подтверждение вместо окна, которое пришлось бы
+                закрывать ещё одним нажатием за то, что всё хорошо. */}
+            {note.ok && (
+              <span className="btn-done">
+                <Check className="size-[1em]" aria-hidden />
+              </span>
+            )}
+            {note.text}
+          </span>
         </div>
       )}
     </div>

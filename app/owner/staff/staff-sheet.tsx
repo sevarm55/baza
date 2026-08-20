@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { archiveStaff, resetStaffPinAction, saveStaff, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { formatPhone } from '@/lib/phone';
 import type { StaffPerson } from './model';
 import { useT } from '@/lib/i18n/client';
@@ -74,9 +75,13 @@ export function StaffSheet({
               {t.settings.remove}
             </button>
           )}
-          <button form="staff-edit" className="btn btn-auto" disabled={pending}>
-            {pending ? t.common.loading : t.settings.save}
-          </button>
+          <LoadingButton
+            form="staff-edit"
+            className="btn btn-auto"
+            busy={pending}
+            label={t.settings.save}
+            busyLabel={t.common.saving}
+          />
         </>
       }
     >
@@ -122,7 +127,15 @@ export function StaffSheet({
 
           {/* Ключом стоит человек: при переходе к другому поля обязаны
               сброситься, а не донести чужое имя и чужой процент. */}
-          <form key={person.id} id="staff-edit" action={action} className="mt-4 grid gap-3">
+          <form
+            key={person.id}
+            id="staff-edit"
+            action={action}
+            onSubmit={(e) => {
+              if (pending) e.preventDefault();
+            }}
+            className="mt-4 grid gap-3"
+          >
             <input type="hidden" name="id" value={person.id} />
 
             <label className="grid gap-1.5">
@@ -270,9 +283,12 @@ function ResetPin({ id }: { id: string }) {
       {state?.ok && <p className="note note-good">{t.settings.pinResetDone}</p>}
 
       <div className="flex gap-2">
-        <button className="btn-inline" disabled={pending}>
-          {pending ? t.common.loading : t.settings.save}
-        </button>
+        <LoadingButton
+          className="btn-inline"
+          busy={pending}
+          label={t.settings.save}
+          busyLabel={t.common.saving}
+        />
         <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
           {t.common.cancel}
         </button>

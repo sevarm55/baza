@@ -7,6 +7,7 @@ import { personColor } from '@/lib/person-color';
 import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
+import { AsyncBoundary, LoadingButton, SkeletonList, SkeletonText } from '@/components/loading';
 
 type History = Awaited<ReturnType<typeof clientHistory>>;
 
@@ -50,8 +51,14 @@ export function ClientSheet({
      чужая история под новым номером показаться не может. Сверка идёт
      при отрисовке, без сброса состояния и без лишнего кадра. */
   const [entry, setEntry] = useState<{ plate: string; data: History } | null>(null);
+  /* Отказ хранится вместе с номером по той же причине, что и данные:
+     ошибка на прошлой машине не должна встречать того, кто открыл
+     следующую. */
+  const [failed, setFailed] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const data = entry && entry.plate === plate ? entry.data : null;
-  const loading = plate !== null && data === null;
+  const error = failed !== null && failed === plate;
+  const loading = plate !== null && data === null && !error;
 
   useEffect(() => {
     if (!plate) return;
@@ -59,14 +66,24 @@ export function ClientSheet({
     /* Ответ на закрытую или уже сменённую панель выбрасываем: два
        быстрых нажатия подряд могут вернуться в обратном порядке, и
        поздний ответ на ранний номер затёр бы правильный. */
+    /* Отказ сбрасывать не нужно: он хранится вместе с номером, и на
+       чужом номере `failed === plate` и так ложь. */
     let alive = true;
-    clientHistory(plate).then((d) => {
-      if (alive) setEntry({ plate, data: d });
-    });
+    clientHistory(plate).then(
+      (d) => {
+        if (alive) setEntry({ plate, data: d });
+      },
+      () => {
+        /* Без этой ветки отказ оставлял панель в вечной загрузке:
+           обещание, что история сейчас появится, не выполнялось никогда,
+           и закрыть панель было единственным выходом. */
+        if (alive) setFailed(plate);
+      },
+    );
     return () => {
       alive = false;
     };
-  }, [plate]);
+  }, [plate, attempt]);
 
   async function refresh() {
     if (!plate) return;
@@ -171,19 +188,34 @@ export function ClientSheet({
         <Contacts plate={c.key} name={c.name} phone={c.phone} lost={lost} onSaved={refresh} />
       )}
 
-      {loading && (
-        <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {t.common.loading}
-        </p>
-      )}
+      {/* Четыре разных ответа на один вопрос «что показывать»: место
+          строк, пока едет; отказ с повтором, если не доехало; «пока
+          пусто», если приехал пустой список; и сама история.
 
-      {data && orders.length === 0 && (
-        <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {t.common.empty}
-        </p>
-      )}
-
-      {orders.length > 0 && (
+          Пустой список и «ещё не приехало» здесь особенно легко
+          спутать: и то и другое выглядит как машина без визитов, а
+          значат они противоположное. */}
+      <AsyncBoundary
+        loading={loading}
+        error={error || undefined}
+        empty={orders.length === 0}
+        errorTitle={t.owner.clientHistoryFailed}
+        onRetry={() => {
+          setFailed(null);
+          setAttempt((n) => n + 1);
+        }}
+        skeleton={
+          <div className="mt-4 grid gap-3.5">
+            <SkeletonText className="h-3 w-28" />
+            <SkeletonList rows={4} />
+          </div>
+        }
+        emptyState={
+          <p className="py-10 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
+            {t.common.empty}
+          </p>
+        }
+      >
         <>
           <h3 className="mt-4 mb-1 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
             {t.owner.clientHistory}
@@ -218,7 +250,7 @@ export function ClientSheet({
             ))}
           </div>
         </>
-      )}
+      </AsyncBoundary>
     </Sheet>
   );
 }
@@ -314,19 +346,31 @@ function Contacts({
         background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)',
         ['--field-fill' as string]: 'var(--board-surface)',
       }}
+      /* Enter в поле имени отправляет форму мимо кнопки, поэтому засов
+         стоит и здесь, а не только на ней. */
+      onSubmit={(e) => {
+        if (saving) e.preventDefault();
+      }}
       action={async (form: FormData) => {
+        if (saving) return;
         setSaving(true);
-        await saveClientContact(
-          plate,
-          String(form.get('name') ?? ''),
-          String(form.get('phone') ?? ''),
-        );
-        /* Сначала перечитать, потом закрыть форму: закрой раньше — и
-           человек на мгновение увидит старое значение под новой формой,
-           то есть ровно то, чего он и боится, нажимая «сохранить». */
-        await onSaved();
-        setSaving(false);
-        setEditing(false);
+        try {
+          await saveClientContact(
+            plate,
+            String(form.get('name') ?? ''),
+            String(form.get('phone') ?? ''),
+          );
+          /* Сначала перечитать, потом закрыть форму: закрой раньше — и
+             человек на мгновение увидит старое значение под новой формой,
+             то есть ровно то, чего он и боится, нажимая «сохранить». */
+          await onSaved();
+          setEditing(false);
+        } finally {
+          /* Иначе отказ сервера оставлял кнопку занятой навсегда: форма
+             выглядела как отправляющаяся и не отвечала ни на одно
+             нажатие, и единственным выходом была перезагрузка. */
+          setSaving(false);
+        }
       }}
     >
       <label className="grid gap-1.5">
@@ -347,9 +391,12 @@ function Contacts({
       </label>
 
       <div className="mt-1 flex gap-2">
-        <button className="btn-inline btn-inline-primary" disabled={saving}>
-          {saving ? t.common.loading : t.settings.save}
-        </button>
+        <LoadingButton
+          className="btn-inline btn-inline-primary"
+          busy={saving}
+          label={t.settings.save}
+          busyLabel={t.common.saving}
+        />
         <button
           type="button"
           className="btn-inline"

@@ -1,9 +1,9 @@
 package com.sevarm.tetr.feature.services
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,8 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -70,12 +70,15 @@ import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.tenant
 import com.sevarm.tetr.design.Brand
 import com.sevarm.tetr.design.Caption
+import com.sevarm.tetr.design.DelayedContent
+import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.FieldRow
 import com.sevarm.tetr.design.HairLine
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.LimeButton
 import com.sevarm.tetr.design.ScreenHeader
 import com.sevarm.tetr.design.SheetHeader
+import com.sevarm.tetr.design.TetrSkeletonList
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.sunken
 import com.sevarm.tetr.design.surfaceCard
@@ -102,6 +105,14 @@ fun ServicesScreen(onBack: () -> Unit) {
 
     var services by remember { mutableStateOf<List<Service>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы: первое зовёт завести строку,
+     * второе ждать связь. Экран, который на отказ пишет «пока ничего
+     * нет», отправляет заводить заново то, что уже заведено.
+     */
+    var failed by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Service?>(null) }
     var adding by remember { mutableStateOf(false) }
     var editingTiers by remember { mutableStateOf(false) }
@@ -114,6 +125,7 @@ fun ServicesScreen(onBack: () -> Unit) {
             session.authed { token -> graph.api.send<Services>("services", token = token) }
         }.getOrNull()
         if (result != null) services = result.services
+        failed = result == null
         loaded = true
     }
 
@@ -209,7 +221,11 @@ fun ServicesScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (loaded && services.isEmpty()) {
+            if (!loaded) {
+                DelayedContent(true) { TetrSkeletonList(rows = 5) }
+            } else if (failed && services.isEmpty()) {
+                ErrorState(L(R.string.common__loadFailed)) { scope.launch { reload() } }
+            } else if (services.isEmpty()) {
                 Text(
                     L(R.string.services__empty),
                     fontSize = 14.sp,

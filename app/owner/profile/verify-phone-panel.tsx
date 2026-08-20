@@ -6,6 +6,7 @@ import { CodeInput } from '@/components/code-input';
 import { IconCheck } from '@/components/icons';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Подтверждение своего номера — для тех, кто регистрировался до кода из
@@ -63,9 +64,12 @@ export function VerifyPhonePanel({
         {state.error && <p className="alert">{state.error}</p>}
 
         <div>
-          <button className="btn-inline" disabled={pending}>
-            {pending ? t.auth.checking : t.auth.otpVerify}
-          </button>
+          <LoadingButton
+            className="btn-inline"
+            busy={pending}
+            label={t.auth.otpVerify}
+            busyLabel={t.auth.checking}
+          />
         </div>
       </form>
     );
@@ -81,9 +85,12 @@ export function VerifyPhonePanel({
     <form action={action} className="grid justify-items-start gap-3">
       <p className="text-[13.5px] text-muted">{t.auth.verifyPhoneNote}</p>
       {state?.error && <p className="alert">{state.error}</p>}
-      <button className="btn-inline" disabled={pending}>
-        {pending ? t.auth.sending : t.auth.verifyNow}
-      </button>
+      <LoadingButton
+        className="btn-inline"
+        busy={pending}
+        label={t.auth.verifyNow}
+        busyLabel={t.auth.sending}
+      />
     </form>
   );
 }

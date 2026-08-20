@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { saveOwnName, type FormState } from '@/app/actions';
 import { FormField } from '@/components/form-field';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * Своё имя.
@@ -25,7 +26,13 @@ export function NameForm({ name }: { name: string }) {
 
   return (
     <FormField id="profile-name" label={t.settings.name} error={state?.error}>
-      <form action={action} className="row-edit items-center">
+      <form
+        action={action}
+        onSubmit={(e) => {
+          if (pending) e.preventDefault();
+        }}
+        className="row-edit items-center"
+      >
         <input
           id="profile-name"
           className="field field-sm min-w-0 flex-1"
@@ -35,12 +42,12 @@ export function NameForm({ name }: { name: string }) {
           minLength={2}
           required
         />
-        <button
+        <LoadingButton
           className={`btn-inline btn-inline-primary ${dirty ? '' : 'invisible'}`}
-          disabled={pending}
-        >
-          {pending ? t.common.loading : t.settings.save}
-        </button>
+          busy={pending}
+          label={t.settings.save}
+          busyLabel={t.common.saving}
+        />
       </form>
     </FormField>
   );

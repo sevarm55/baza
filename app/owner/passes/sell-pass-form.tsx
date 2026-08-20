@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { sellPassAction, type FormState } from '@/app/actions';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 type Service = { id: string; name: string; price: number };
 
@@ -36,7 +37,14 @@ export function SellPassForm({
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="card grid gap-2.5">
+    <form
+      ref={formRef}
+      action={action}
+      onSubmit={(e) => {
+        if (pending) e.preventDefault();
+      }}
+      className="card grid gap-2.5"
+    >
       <label className="grid gap-1.5">
         <span className="text-xs text-muted">{clientIdLabel}</span>
         <input
@@ -117,9 +125,12 @@ export function SellPassForm({
 
       {state?.error && <p className="alert">{state.error}</p>}
 
-      <button className="btn" disabled={pending}>
-        {pending ? t.common.loading : t.passes.sell}
-      </button>
+      <LoadingButton
+        className="btn"
+        busy={pending}
+        label={t.passes.sell}
+        busyLabel={t.common.adding}
+      />
     </form>
   );
 }

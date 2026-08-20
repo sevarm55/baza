@@ -64,10 +64,11 @@ import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
 import com.sevarm.tetr.core.ui.staffCount
 import com.sevarm.tetr.core.ui.tenant
-import com.sevarm.tetr.core.ui.units
 import com.sevarm.tetr.core.ui.unitWord
+import com.sevarm.tetr.core.ui.units
 import com.sevarm.tetr.core.ui.zone
 import com.sevarm.tetr.design.Brand
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.EmptyState
 import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.HairLine
@@ -75,7 +76,8 @@ import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.LimeButton
 import com.sevarm.tetr.design.Palette
 import com.sevarm.tetr.design.QuietButton
-import com.sevarm.tetr.design.ScreenLoader
+import com.sevarm.tetr.design.Refreshable
+import com.sevarm.tetr.design.TetrScreenSkeleton
 import com.sevarm.tetr.design.VerticalHair
 import com.sevarm.tetr.design.pressable
 import java.time.Instant
@@ -113,11 +115,23 @@ fun PayrollScreen() {
             .padding(top = Insets.top.calculateTopPadding()),
     ) {
         val board = ui.payroll?.board
-        when {
-            ui.failure != null -> ErrorState(ui.failure!!) { vm.reload() }
-            !ui.loaded -> ScreenLoader()
-            board == null -> Outdated { vm.reload() }
-            else -> Board(vm = vm, ui = ui, board = board)
+        /* Жест обновления, которого у Android не было вовсе. Сверка,
+           а не первая загрузка: долг остаётся на экране. */
+        Refreshable(
+            refreshing = ui.refreshing && ui.payroll != null,
+            onRefresh = { vm.reload() },
+        ) {
+            when {
+                ui.failure != null -> ErrorState(ui.failure!!) { vm.reload() }
+                /* Места рабочих дней со строками людей, а не кружок:
+                   скелет говорит, что сейчас появится, кружок — только
+                   «ждите». */
+                !ui.loaded -> DelayedContent(true) {
+                    TetrScreenSkeleton(rows = 5, avatar = true)
+                }
+                board == null -> Outdated { vm.reload() }
+                else -> Board(vm = vm, ui = ui, board = board)
+            }
         }
 
         /*

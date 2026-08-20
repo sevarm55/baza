@@ -640,6 +640,16 @@ export const SHARED_KEYS: string[] = [
   'common.edit', 'common.close', 'common.back', 'common.cancel',
   'common.save', 'common.delete', 'common.today', 'common.yesterday',
   'common.total', 'common.empty', 'common.no', 'common.retry',
+  /* Пока идёт. Слова действия, а не «Загрузка…»: кнопка, которая на
+     время запроса пишет «Загрузка…», говорит про себя, а не про то,
+     что делает. Живут в общем словаре, потому что те же слова стоят на
+     тех же кнопках в браузере. */
+  'common.saving', 'common.saved', 'common.adding', 'common.added',
+  'common.deleting', 'common.updating', 'common.retrying', 'common.refreshing',
+  'common.loadFailed', 'common.stillWorking', 'common.offline', 'common.offlineNote',
+  'auth.signingOut', 'work.recording', 'work.startingShift', 'work.endingShift',
+  'work.loadFailed', 'payroll.paying', 'payroll.loadFailed', 'today.loadFailed',
+  'owner.clientHistoryFailed',
   'auth.signInTitle', 'auth.phone', 'auth.pin', 'auth.signIn',
   'auth.signOut', 'auth.welcomeBack', 'auth.anotherAccount', 'auth.wrongCredentials',
   'auth.phoneTaken', 'auth.changePin', 'auth.currentPin', 'auth.newPin',
@@ -779,6 +789,38 @@ if (process.argv[1] && process.argv[1].endsWith('ios-strings.ts')) {
     process.exit(1);
   }
   const out = path.join('ios', 'Tetr', 'Localizable.xcstrings');
+
+  /* Замок на потерю переводов.
+   *
+   * Каталог собирается из `SHARED_KEYS` и `IOS_ONLY`, но живёт своей
+   * жизнью: часть строк в своё время дописали прямо в `.xcstrings` и в
+   * эти списки не внесли. Для генератора такие ключи чужие, и прогон
+   * «просто чтобы пересобрать» однажды вынес из каталога сто двадцать
+   * один готовый перевод разом. Диффом это не ловится: Xcode
+   * переформатирует файл целиком, и потеря тонет в пятнадцати тысячах
+   * строк.
+   *
+   * Поэтому запись останавливается, если в каталоге есть ключ, которого
+   * нет в сборке. Чинится это не флагом, а списками: ключ надо внести в
+   * `SHARED_KEYS` (если слово общее с вебом) или в `IOS_ONLY`.
+   */
+  if (fs.existsSync(out)) {
+    const current = JSON.parse(fs.readFileSync(out, 'utf8')) as {
+      strings?: Record<string, unknown>;
+    };
+    const lost = Object.keys(current.strings ?? {}).filter(
+      (key) => key.trim() !== '' && !(key in rows),
+    );
+    if (lost.length) {
+      console.error(
+        `В каталоге есть ${lost.length} ключей, которых нет в сборке. ` +
+          'Перезапись их удалит; внесите их в SHARED_KEYS или IOS_ONLY:\n  ' +
+          lost.join('\n  '),
+      );
+      process.exit(1);
+    }
+  }
+
   fs.writeFileSync(out, toXcstrings(rows));
   console.log(`${out}: ${Object.keys(rows).length} ключей × 3 языка`);
 }

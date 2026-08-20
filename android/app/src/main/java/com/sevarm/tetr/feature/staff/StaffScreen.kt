@@ -718,6 +718,7 @@ private fun StaffEditor(person: StaffMember?, onClose: () -> Unit, onSaved: () -
             Spacer(Modifier.height(4.dp))
             LimeButton(
                 text = L(R.string.common__save),
+                busyTitle = L(R.string.common__saving),
                 enabled = ready,
                 loading = busy,
                 onClick = {
@@ -1005,6 +1006,7 @@ private fun TeamWashEditor(onClose: () -> Unit) {
 
             LimeButton(
                 text = L(R.string.common__save),
+                busyTitle = L(R.string.common__saving),
                 modifier = Modifier.fillMaxWidth(),
                 loading = busy,
                 enabled = !busy,

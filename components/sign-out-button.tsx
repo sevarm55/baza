@@ -5,6 +5,7 @@ import { signOut } from '@/app/actions';
 import { IconPower } from '@/components/icons';
 import { Sheet } from '@/components/sheet';
 import { useT } from '@/lib/i18n/client';
+import { LoadingButton } from '@/components/loading';
 
 /**
  * При выходе просим service worker выбросить кэш страниц.
@@ -89,19 +90,19 @@ export function SignOutButton({
             >
               {t.work.endStay}
             </button>
-            <button
+            <LoadingButton
               type="button"
               className="btn btn-auto"
-              disabled={pending}
+              busy={pending}
+              label={t.auth.signOut}
+              busyLabel={t.auth.signingOut}
               onClick={() =>
                 startTransition(async () => {
                   dropCache();
                   await signOut();
                 })
               }
-            >
-              {pending ? t.common.loading : t.auth.signOut}
-            </button>
+            />
           </>
         }
       >

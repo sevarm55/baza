@@ -36,6 +36,7 @@ import { personColor } from '@/lib/person-color';
 import { hhmm } from '@/lib/time';
 import { staffCount } from '@/lib/i18n/terms';
 import { normalizeClientKey } from '@/lib/client-key';
+import { LoadingButton, RefreshIndicator } from '@/components/loading';
 
 /**
  * Коллега в списке «помыли вместе».
@@ -240,6 +241,9 @@ export function OrderFlow({
      обе попытки войдут в обработчик до того, как кнопка погаснет. Ref
      меняется в ту же миллисекунду, что и первое касание. */
   const sending = useRef(false);
+  /* Идёт досылка накопленного без связи. Не то же самое, что отправка
+     новой записи: журнал остаётся на экране целиком. */
+  const [syncing, setSyncing] = useState(false);
   const router = useRouter();
   const resolvedClientKey =
     clientIdType === 'plate'
@@ -324,7 +328,12 @@ export function OrderFlow({
   /* Досылаем накопленное при загрузке и как только связь вернулась.
      Сервер отсеет повторы по ref, поэтому лишняя попытка безвредна. */
   useEffect(() => {
+    let alive = true;
     const run = () => {
+      /* Досылка идёт фоном и данные с экрана не убирает: журнал уже
+         показан и остаётся верным. Признак нужен ровно для одной
+         точки у заголовка — «идёт сверка», а не «ничего нет». */
+      if (alive) setSyncing(true);
       void flushQueue(async (item) => {
         await addOrder({
           clientKey: item.clientKey,
@@ -347,14 +356,21 @@ export function OrderFlow({
           participantIds: item.participantIds,
           clientRef: item.ref,
         });
-      }).then((sent) => {
-        if (sent > 0) router.refresh();
-      });
+      })
+        .then((sent) => {
+          if (sent > 0) router.refresh();
+        })
+        .finally(() => {
+          if (alive) setSyncing(false);
+        });
     };
 
     run();
     window.addEventListener('online', run);
-    return () => window.removeEventListener('online', run);
+    return () => {
+      alive = false;
+      window.removeEventListener('online', run);
+    };
   }, [router]);
 
   /* Подсказка о клиенте ищется во время набора. Задержка нужна, чтобы
@@ -505,7 +521,12 @@ export function OrderFlow({
   const stuck = rejected(queue);
   const nothingYet = recent.length === 0 && queue.length === 0;
   const journal = !shiftOpen && nothingYet ? null : (
-    <Panel title={t.work.recent} count={recent.length + queue.length}>
+    <Panel
+      title={t.work.recent}
+      count={recent.length + queue.length}
+      /* Уровень «фон»: содержимое не трогаем, точка у заголовка. */
+      actions={<RefreshIndicator active={syncing} label={t.common.refreshing} />}
+    >
       <div className="board-journal">
         {/* Отвергнутые первыми и с разбором.
 
@@ -1044,14 +1065,15 @@ export function OrderFlow({
             сколько. Пока номера, услуги или оплаты нет, кнопка погашена:
             неполную запись сервер и так не примет, но узнавать об этом
             из ошибки после нажатия — значит нажимать вслепую. */}
-        <button
+        <LoadingButton
           type="button"
           className="btn btn-big mt-3.5"
-          disabled={!ready || pending}
+          busy={pending}
+          disabled={!ready}
+          label={t.work.addFor(unitOne, sum)}
+          busyLabel={t.work.recording}
           onClick={submit}
-        >
-          {pending ? t.common.loading : t.work.addFor(unitOne, sum)}
-        </button>
+        />
 
         {error && <p className="alert mt-2.5">{error}</p>}
 

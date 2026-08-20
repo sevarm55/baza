@@ -20,6 +20,20 @@ struct ClientsView: View {
 
     @State private var clients: [API.Client] = []
     @State private var loaded = false
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы, и до сих пор экран давал на
+     * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
+     * человек читал «пока ничего нет» о списке, который просто не
+     * привезли.
+     *
+     * Причина отдельной строкой и только когда она известна точнее, чем
+     * «не вышло»: пропавшая связь — совет, который можно выполнить, а
+     * код ответа сервера владельцу мойки не говорит ничего.
+     */
+    @State private var failed = false
+    @State private var failNote: String?
     @State private var query = ""
 
     @FocusState private var typingQuery: Bool
@@ -99,9 +113,18 @@ struct ClientsView: View {
                     group(sort.label, found, lostOnes: false)
                 }
 
-                if loaded && clients.isEmpty {
+                if !loaded {
+                    Delayed(active: true) { TetrSkeletonList(rows: 6, avatar: true) }
+                        .padding(.top, 8)
+                } else if failed, clients.isEmpty {
+                    TetrFailure(
+                        title: L("common.loadFailed"),
+                        note: failNote,
+                        retry: { await reload() }
+                    )
+                } else if clients.isEmpty {
                     empty(L("common.empty"))
-                } else if loaded && found.isEmpty {
+                } else if found.isEmpty {
                     empty(L("owner.clientsNotFound"))
                 }
             }
@@ -435,10 +458,23 @@ struct ClientsView: View {
     }
 
     private func reload() async {
-        let result: API.Clients? = try? await session.authed { token in
-            try await APIClient.shared.send("clients", token: token, as: API.Clients.self)
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("clients", token: token, as: API.Clients.self)
+            }
+            clients = result.clients
+            failed = false
+            failNote = nil
+        } catch is CancellationError {
+            // потянули вниз и отпустили: ничего не сломалось
+            return
+        } catch let error as APIError {
+            failed = true
+            failNote = error.isOffline ? L("common.offlineNote") : nil
+        } catch {
+            failed = true
+            failNote = nil
         }
-        if let result { clients = result.clients }
         loaded = true
     }
 }

@@ -22,6 +22,20 @@ struct ServicesView: View {
     @State private var adding = false
     @State private var editingTiers = false
     @State private var loaded = false
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы, и до сих пор экран давал на
+     * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
+     * человек читал «пока ничего нет» о списке, который просто не
+     * привезли.
+     *
+     * Причина отдельной строкой и только когда она известна точнее, чем
+     * «не вышло»: пропавшая связь — совет, который можно выполнить, а
+     * код ответа сервера владельцу мойки не говорит ничего.
+     */
+    @State private var failed = false
+    @State private var failNote: String?
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var tiers: [String] { session.tenant?.tiers ?? [] }
@@ -33,7 +47,16 @@ struct ServicesView: View {
 
                 serviceRail
 
-                if loaded && services.isEmpty {
+                if !loaded {
+                    Delayed(active: true) { TetrSkeletonList(rows: 5) }
+                        .padding(.horizontal, 4)
+                } else if failed, services.isEmpty {
+                    TetrFailure(
+                        title: L("common.loadFailed"),
+                        note: failNote,
+                        retry: { await reload() }
+                    )
+                } else if services.isEmpty {
                     Text(L("services.empty"))
                         .font(.system(size: 14))
                         .foregroundStyle(Brand.boardMuted)
@@ -252,10 +275,23 @@ struct ServicesView: View {
     }
 
     private func reload() async {
-        let result: API.Services? = try? await session.authed { token in
-            try await APIClient.shared.send("services", token: token, as: API.Services.self)
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("services", token: token, as: API.Services.self)
+            }
+            services = result.services
+            failed = false
+            failNote = nil
+        } catch is CancellationError {
+            // потянули вниз и отпустили: ничего не сломалось
+            return
+        } catch let error as APIError {
+            failed = true
+            failNote = error.isOffline ? L("common.offlineNote") : nil
+        } catch {
+            failed = true
+            failNote = nil
         }
-        if let result { services = result.services }
         loaded = true
     }
 }
@@ -483,7 +519,7 @@ struct ServiceEditor: View {
             Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20)
+                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(Brand.lime, in: .rect(cornerRadius: 22))
@@ -714,7 +750,7 @@ struct TierEditor: View {
             Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20)
+                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(Brand.lime, in: .rect(cornerRadius: 22))

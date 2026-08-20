@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addStaff, type FormState } from '@/app/actions';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { useT } from '@/lib/i18n/client';
 
 /**
@@ -61,15 +62,27 @@ export function AddStaff({
             <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>
-            <button form="staff-new" className="btn btn-auto" disabled={pending}>
-              {pending ? t.common.loading : t.settings.addStaff}
-            </button>
+            <LoadingButton
+              form="staff-new"
+              className="btn btn-auto"
+              busy={pending}
+              label={t.settings.addStaff}
+              busyLabel={t.common.adding}
+            />
           </>
         }
       >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
             снова — поля пустые, а не с прошлым недописанным человеком. */}
-        <form key={String(open)} id="staff-new" action={action} className="grid gap-3">
+        <form
+          key={String(open)}
+          id="staff-new"
+          action={action}
+          onSubmit={(e) => {
+            if (pending) e.preventDefault();
+          }}
+          className="grid gap-3"
+        >
           <label className="grid gap-1.5">
             <span className="label">{t.settings.name}</span>
             <input className="field auth-field" name="name" required autoComplete="off" autoFocus />

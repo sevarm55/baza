@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { AsyncError } from '@/components/loading';
 import { useT } from '@/lib/i18n/client';
 
 /**
@@ -36,14 +37,15 @@ export default function TodayError({
     <>
       <h1 className="page-title">{t.owner.tabToday}</h1>
 
+      {/* Тот же вид отказа, что у прибора внутри страницы: одно
+          сообщение и одна кнопка, которая сама показывает, что повтор
+          пошёл. Два разных вида ошибки в одном продукте заставляют
+          читать каждый заново. */}
       <div
-        className="panel-pad mt-[var(--seam)] grid justify-items-center gap-2 rounded-[var(--radius-card)] py-12 text-center"
+        className="panel-pad mt-[var(--seam)] rounded-[var(--radius-card)]"
         style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
       >
-        <p className="text-[15px] font-semibold">{t.today.loadFailed}</p>
-        <button type="button" className="btn-inline mt-2" onClick={reset}>
-          {t.payroll.retry}
-        </button>
+        <AsyncError title={t.today.loadFailed} note={t.common.offlineNote} onRetry={reset} />
       </div>
     </>
   );

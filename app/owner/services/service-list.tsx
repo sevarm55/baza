@@ -6,6 +6,7 @@ import { archiveService, saveService, type FormState } from '@/app/actions';
 import { Panel } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { Sheet } from '@/components/sheet';
+import { LoadingButton } from '@/components/loading';
 import { AddService } from './add-service';
 import { ServiceFields } from './service-fields';
 import { useT } from '@/lib/i18n/client';
@@ -241,9 +242,13 @@ function ServiceEditor({
           <button type="button" className="btn-inline" onClick={onClose}>
             {t.common.cancel}
           </button>
-          <button form="service-edit" className="btn btn-auto" disabled={pending}>
-            {pending ? t.common.loading : t.settings.save}
-          </button>
+          <LoadingButton
+            form="service-edit"
+            className="btn btn-auto"
+            busy={pending}
+            label={t.settings.save}
+            busyLabel={t.common.saving}
+          />
         </>
       }
     >
@@ -267,7 +272,15 @@ function ServiceEditor({
 
           {/* Ключом стоит услуга: при переходе к другой поля обязаны
               сброситься, а не донести чужое название и чужую цену. */}
-          <form key={service.id} id="service-edit" action={action} className="mt-4 grid gap-3.5">
+          <form
+            key={service.id}
+            id="service-edit"
+            action={action}
+            onSubmit={(e) => {
+              if (pending) e.preventDefault();
+            }}
+            className="mt-4 grid gap-3.5"
+          >
             <input type="hidden" name="id" value={service.id} />
 
             <ServiceFields

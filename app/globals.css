@@ -382,6 +382,17 @@
   --slow: cubic-bezier(0.16, 1, 0.3, 1);
   --t-micro: 160ms;
   --t-press: 90ms;
+  /* Появление содержимого на месте скелета. Длиннее микро-перехода:
+     это не смена состояния детали, а приход целого экрана. Те же числа
+     лежат в lib/motion.ts, ios/Tetr/Design/Motion.swift и
+     android/.../design/Motion.kt — движение обязано совпадать на всех
+     трёх экранах, потому что продукт один. */
+  --t-content: 240ms;
+
+  /* Скелет. Заливка чуть темнее полотна, волна чуть светлее заливки:
+     блок должен читаться как место, а не как объект. */
+  --skeleton-fill: color-mix(in srgb, var(--board-ink) 6%, transparent);
+  --skeleton-sheen: color-mix(in srgb, var(--board-ink) 4%, transparent);
 }
 
 /* ───────────────────── размеры рабочей панели ─────────────────────
@@ -1721,21 +1732,208 @@ input[type='radio'] {
   }
 }
 
-/* Скелет: место прибора, пока едут данные.
+/* ───────────────────── скелет и загрузчики ─────────────────────
 
-   Дышит прозрачностью, а не бегущим бликом. Блик по десятку блоков
-   сразу — это десяток движущихся объектов на экране, где ещё ничего
-   не показано; дыхание тише и не спорит с содержимым, которое вот-вот
-   появится. Медленно (1.6 с) — чтобы не читалось как ошибка. */
-@keyframes skeleton {
-  50% {
-    opacity: 0.55;
+   Скелет: место прибора, пока едут данные.
+
+   По нему проходит одна очень мягкая волна света, а не блик по каждому
+   блоку своей рукой. Разница принципиальная: десять независимых бликов
+   на пустом экране — это десять движущихся объектов там, где ещё ничего
+   не показано, и страница выглядит нервной раньше, чем успела
+   загрузиться. Здесь все блоки живут в одном такте: анимация у всех
+   одна и та же длины, стартуют они вместе, и глаз читает одно движение
+   на всю страницу.
+
+   Волна размыта не фильтром, а самим градиентом: широкие мягкие стопы
+   дают ту же мягкость, но не заставляют браузер перерисовывать слой на
+   каждом кадре. Двигается только `transform`.
+
+   Медленно (2.6 с) и очень слабо по контрасту — скелет обязан читаться
+   как «сейчас будет», а не как «что-то мигает». */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--skeleton-fill);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  /* Шире блока с обеих сторон: волна должна входить и выходить за
+     край, а не появляться из ниоткуда посреди прямоугольника. */
+  inset: 0 -60%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    var(--skeleton-sheen) 42%,
+    var(--skeleton-sheen) 58%,
+    transparent 100%
+  );
+  transform: translate3d(-45%, 0, 0);
+  animation: skeleton-sheen 2.6s var(--slow) infinite;
+}
+
+@keyframes skeleton-sheen {
+  0% {
+    transform: translate3d(-45%, 0, 0);
+  }
+  /* Пауза в конце: волна прошла и экран на полсекунды затихает. Без
+     паузы движение читается как бесконечная лента и начинает
+     торопить. */
+  70%,
+  100% {
+    transform: translate3d(45%, 0, 0);
   }
 }
 
-.skeleton {
-  animation: skeleton 1.6s var(--ease) infinite;
+/* Фигура загрузчика. Столбики стоят в центре и разъезжаются
+   трансформациями — поэтому у них нет своего места в раскладке и
+   ни один кадр не заставляет браузер считать её заново. */
+.tetrin-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
+
+.tetrin-loader-stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tetrin-loader-bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  translate: -50% -50%;
+  will-change: transform;
+}
+
+/* Малый загрузчик — тот же язык, три детали вместо четырёх.
+
+   Внутри кнопки фирменная фигура не нужна: кнопку жмут сорок раз за
+   смену, и морф на каждое нажатие через неделю начинает раздражать.
+   Здесь остаётся только волна — ровно столько движения, чтобы было
+   видно, что нажатие принято.
+
+   На CSS, а не на `motion`: индикатор живёт в каждой кнопке продукта, и
+   тащить ради него в каждую форму по анимационному узлу незачем. */
+.tetrin-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22em;
+  flex: none;
+  vertical-align: -0.06em;
+}
+
+.tetrin-mini i {
+  display: block;
+  width: 0.22em;
+  height: 0.62em;
+  border-radius: 0.11em;
+  background: currentColor;
+  transform-origin: center;
+  animation: tetrin-mini 1.1s var(--ease) infinite;
+}
+
+.tetrin-mini i:nth-child(2) {
+  animation-delay: 0.13s;
+}
+.tetrin-mini i:nth-child(3) {
+  animation-delay: 0.26s;
+}
+
+@keyframes tetrin-mini {
+  0%,
+  55%,
+  100% {
+    transform: scaleY(1) translateY(0);
+    opacity: 0.55;
+  }
+  22% {
+    transform: scaleY(1.38) translateY(-4%);
+    opacity: 1;
+  }
+}
+
+/* Точка фонового обновления.
+
+   Данные на экране уже есть и остаются на месте; идёт только сверка с
+   сервером. Скелет здесь был бы враньём — он говорит «ничего нет», —
+   а полноэкранная заслонка отобрала бы страницу ради работы, которая
+   человека не касается. Остаётся одна точка рядом с заголовком. */
+.refresh-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  animation: refresh-dot 1.2s var(--ease) infinite;
+}
+
+@keyframes refresh-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Появление содержимого на месте скелета.
+
+   Не подстановка встык: скелет исчезает, содержимое въезжает на шесть
+   пикселей снизу и проявляется. Шесть, а не двадцать — это рабочий
+   экран, который открывают сорок раз за смену, а не заставка. */
+@keyframes async-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+}
+
+.async-in {
+  animation: async-in var(--t-content) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    opacity: 0.5;
+  }
+  .tetrin-mini i {
+    animation: tetrin-mini-still 1.6s var(--ease) infinite;
+  }
+  .refresh-dot {
+    animation: tetrin-mini-still 1.6s var(--ease) infinite;
+  }
+  .async-in {
+    animation-name: async-fade;
+  }
+  @keyframes async-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  /* Движение запрещено, признак работы — нет. Остаётся прозрачность. */
+  @keyframes tetrin-mini-still {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
 
 /* ───────────────── перекат разрядов ─────────────────
    Разряд уходит вниз и новый приходит снизу, когда число выросло, и
@@ -1784,11 +1982,6 @@ input[type='radio'] {
   .tick {
     animation-name: tick-fade;
     animation-delay: 0ms !important;
-  }
-
-  /* Скелету дыхание тоже ни к чему: место прибора видно и без него. */
-  .skeleton {
-    animation: none;
   }
 }
 
@@ -3931,6 +4124,9 @@ input[type='radio'] {
     pointer-events: none;
   }
   .pay-toast > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     max-width: 100%;
     padding: 0.6rem 0.95rem;
     border-radius: var(--radius-sm);
@@ -5410,5 +5606,214 @@ input[type='radio'] {
     font-weight: 400;
     text-decoration: line-through;
     color: var(--board-muted);
+  }
+}
+
+/* ─────────────────── занято, погашено, получилось ───────────────────
+
+   Три состояния кнопки, которые до сих пор выглядели одним.
+
+   Погашенная кнопка говорит «сейчас нельзя»: не хватает номера, не
+   выбрана услуга, нечего сохранять. Занятая говорит «принято, идёт».
+   Это разные сообщения, и человек, который видит одну и ту же бледную
+   кнопку в обоих случаях, не знает, ждать ему или дозаполнять форму.
+
+   Поэтому занятая кнопка не бледнеет вовсе. Она остаётся в полном
+   цвете, чуть притухает заливкой (как под пальцем) и показывает
+   волну — ровно то же движение, что в фирменном загрузчике, но три
+   детали вместо четырёх и без морфа: морф на каждое нажатие кнопки,
+   которую жмут сорок раз за смену, через неделю начинает раздражать. */
+@layer components {
+  /* Подписи лежат стопкой в одной ячейке сетки, а не подменяют друг
+     друга. Отсюда главное свойство: ширина кнопки равна самой длинной
+     из подписей и не меняется при переходе между ними. «Сохранить» →
+     «Сохраняем…» больше не дёргает кнопку под пальцем и не переносит
+     соседнюю кнопку на другую строку. */
+  .btn-stack {
+    display: grid;
+    grid-template-columns: minmax(0, auto);
+    align-items: center;
+    justify-items: center;
+    min-width: 0;
+  }
+
+  .btn-face {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    white-space: nowrap;
+    transition: opacity var(--t-micro) var(--ease), transform var(--t-micro) var(--ease);
+  }
+
+  /* Уходящая подпись не уезжает вбок: боковой сдвиг на кнопке читается
+     как «страница поехала». Она проваливается на два пикселя и гаснет. */
+  .btn-face[data-on='false'] {
+    opacity: 0;
+    transform: translateY(-2px);
+    pointer-events: none;
+  }
+
+  .btn-face[data-on='true'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Занято. Цвет полный, заливка на тон темнее — как под пальцем: рука
+     ещё помнит нажатие, и продолжение этого же тона читается как
+     «нажатие приняли», а не как «кнопка сломалась». */
+  .btn[data-busy='true'],
+  .btn-inline[data-busy='true'] {
+    cursor: progress;
+  }
+  .btn[data-busy='true'] {
+    background: color-mix(in srgb, var(--accent-fill) 88%, var(--accent-on));
+  }
+  .btn-ghost[data-busy='true'] {
+    background: var(--surface2);
+  }
+  .btn-inline-primary[data-busy='true'] {
+    background: color-mix(in srgb, var(--accent-fill) 88%, var(--accent-on));
+  }
+  /* Пока идёт отправка, кнопка не отвечает на палец: подпрыгивающая
+     кнопка обещает, что нажатие приняли ещё раз, а второго нажатия
+     здесь не будет. */
+  .btn[data-busy='true']:active,
+  .btn-inline[data-busy='true']:active {
+    transform: none;
+  }
+
+  /* Погашено. Тот же вид, что у `:disabled`, но без атрибута: кнопка,
+     которую браузер выключил насовсем, теряет фокус клавиатуры и
+     пропадает для чтеца экрана прямо под руками у того, кто её читал. */
+  .btn[aria-disabled='true']:not([data-busy='true']) {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .btn-inline[aria-disabled='true']:not([data-busy='true']) {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .btn[aria-disabled='true']:active,
+  .btn-inline[aria-disabled='true']:active {
+    transform: none;
+  }
+
+  /* Получилось. Полторы секунды и обратно в покой. Отдельного окна нет:
+     окно требует, чтобы его закрыли, то есть просит ещё одно нажатие за
+     то, что всё и так хорошо. */
+  .btn-done {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.05em;
+    height: 1.05em;
+    animation: btn-done var(--t-content) var(--slow) both;
+  }
+
+  @keyframes btn-done {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+}
+
+/* ─────────────────── ошибка, пусто, нет связи ───────────────────
+
+   Отказ одного прибора не превращает страницу в страницу ошибки: если
+   не приехал график, остальные восемь чисел на щите верны, и убирать их
+   ради сообщения о девятом значит потерять больше, чем сообщить.
+   Поэтому ошибка живёт внутри того прибора, который сломался, и
+   выглядит как его содержимое, а не как авария. */
+@layer components {
+  .async-error {
+    display: grid;
+    justify-items: center;
+    gap: 0.7rem;
+    padding: 1.6rem 1.1rem;
+    text-align: center;
+  }
+
+  .async-error-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .async-error-note {
+    max-width: 34ch;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  /* Полоса «нет связи» поверх нижней кромки: она относится ко всему
+     экрану сразу и потому не принадлежит ни одному прибору. Не
+     заслонка: без связи в кабинете всё ещё можно читать то, что уже
+     приехало, и мешать этому незачем. */
+  .offline-bar {
+    position: fixed;
+    inset-inline: 0;
+    /* Полоса встаёт НАД разделами внизу, а не поверх них: закрыть собой
+       вкладки значит отнять навигацию за то, что пропала связь, то есть
+       наказать за чужую беду. Смещение то же, что у рабочей области. */
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+    background: var(--warn);
+    color: var(--warn-ink);
+    font-size: 13px;
+    font-weight: 600;
+    animation: async-in var(--t-content) var(--ease) both;
+  }
+  @media (max-width: 767px) {
+    .offline-bar {
+      bottom: calc(4.5rem + env(safe-area-inset-bottom));
+      padding-bottom: 0.6rem;
+    }
+  }
+}
+
+/* ───────────────────────── заставка ─────────────────────────
+
+   Экран запуска. Фон не плоский: плоская заливка во весь экран
+   читается как «стили не загрузились». Из центра идёт очень слабое
+   свечение, к краям грейп темнеет — разница меньше десяти процентов
+   светлоты, ровно столько, чтобы экран выглядел объёмом, а не
+   прямоугольником краски.
+
+   Ни подписи «Loading…», ни процента. Процента сервер не присылает, а
+   нарисованный процент врёт, и его ловят на первой же операции,
+   которая идёт дольше обещанного. */
+@layer components {
+  .tetrin-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 1.1rem;
+    background:
+      radial-gradient(
+        120% 90% at 50% 42%,
+        color-mix(in srgb, #7c3aed 55%, transparent) 0%,
+        transparent 68%
+      ),
+      #2e1065;
+  }
+
+  .tetrin-splash-note {
+    max-width: 26ch;
+    text-align: center;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: color-mix(in srgb, #ffffff 72%, transparent);
   }
 }

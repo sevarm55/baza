@@ -31,6 +31,10 @@ export function SettingSwitch({
   const [pending, startTransition] = useTransition();
 
   function toggle() {
+    /* Второе нажатие, пока первое ещё летит, отменило бы его же ответ:
+       тумблер вернулся бы в исходное положение и настройка молча не
+       сохранилась. */
+    if (pending) return;
     const next = !on;
     setOn(next);
     startTransition(async () => {
@@ -47,9 +51,12 @@ export function SettingSwitch({
       type="button"
       role="switch"
       aria-checked={on}
-      disabled={pending}
+      /* Тумблер переключается сразу и возвращается назад, если сервер
+         не принял. Гасить его на время запроса не за что: ответ на
+         нажатие уже дан, и бледная строка сообщала бы ровно обратное. */
+      aria-busy={pending || undefined}
       onClick={toggle}
-      className="group flex w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] bg-[color-mix(in_srgb,var(--board-ink)_5%,transparent)] px-3.5 py-3 text-start outline-none transition hover:bg-[color-mix(in_srgb,var(--board-ink)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-70"
+      className="group flex w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] bg-[color-mix(in_srgb,var(--board-ink)_5%,transparent)] px-3.5 py-3 text-start outline-none transition hover:bg-[color-mix(in_srgb,var(--board-ink)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
       <span className="min-w-0">
         <span className="block text-[14px] font-semibold" style={{ color: 'var(--on-board)' }}>

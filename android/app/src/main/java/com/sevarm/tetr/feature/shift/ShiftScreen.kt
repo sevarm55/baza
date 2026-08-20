@@ -58,25 +58,29 @@ import com.sevarm.tetr.core.ui.currency
 import com.sevarm.tetr.core.ui.graphViewModel
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
-import com.sevarm.tetr.core.ui.serviceName
-import com.sevarm.tetr.core.ui.staffCount
 import com.sevarm.tetr.core.ui.paymentIcon
 import com.sevarm.tetr.core.ui.paymentLabel
+import com.sevarm.tetr.core.ui.serviceName
+import com.sevarm.tetr.core.ui.staffCount
 import com.sevarm.tetr.core.ui.tenant
 import com.sevarm.tetr.core.ui.unitWord
 import com.sevarm.tetr.design.Brand
-import com.sevarm.tetr.design.Tone
-import com.sevarm.tetr.design.VerticalHair
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.EmptyState
 import com.sevarm.tetr.design.Insets
 import com.sevarm.tetr.design.LimeButton
 import com.sevarm.tetr.design.QuietButton
+import com.sevarm.tetr.design.Refreshable
 import com.sevarm.tetr.design.StateDot
+import com.sevarm.tetr.design.TetrSkeleton
+import com.sevarm.tetr.design.TetrSkeletonList
+import com.sevarm.tetr.design.Tone
+import com.sevarm.tetr.design.VerticalHair
 import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.feature.onboarding.WorkerWelcome
-import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.Instant
+import kotlinx.coroutines.delay
 
 /**
  * Смена мойщика — то же табло, что у владельца.
@@ -144,56 +148,78 @@ fun ShiftScreen() {
             onChange = { want -> if (want) vm.openShift() else handingOver = true },
         )
 
-        LazyColumn(
+        /* Жест обновления, которого у Android не было вовсе: рука,
+           увидев вчерашнее число, тянет вниз раньше, чем глаз ищет
+           кнопку. Содержимое при этом остаётся на месте — это сверка, а
+           не первая загрузка. */
+        Refreshable(
+            refreshing = ui.loading && ui.shift != null,
             modifier = Modifier.weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 12.dp,
-                end = 12.dp,
-                bottom = 16.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            onRefresh = { vm.reload() },
         ) {
-            item { Reading(ui) }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = 16.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item { Reading(ui) }
 
-            if (waiting.isNotEmpty()) {
-                item { PendingRow(waiting.size, ui.loading) }
-            }
+                if (waiting.isNotEmpty()) {
+                    item { PendingRow(waiting.size, ui.loading) }
+                }
 
-            items(rejected, key = { it.ref }) { item ->
-                StuckRow(
-                    item = item,
-                    onRetry = { vm.retryQueued(item.ref) },
-                    onDrop = { vm.dropQueued(item.ref) },
-                )
-            }
-
-            item { Grid(ui) }
-
-            if (orders.isNotEmpty()) {
-                item { JournalHeader(orders.size) }
-                items(orders, key = { it.id }) { order ->
-                    JournalRow(
-                        order = order,
-                        highlighted = ui.newestOrderId == order.id,
-                        last = order.id == orders.last().id,
-                        onActions = { revoking = order },
+                items(rejected, key = { it.ref }) { item ->
+                    StuckRow(
+                        item = item,
+                        onRetry = { vm.retryQueued(item.ref) },
+                        onDrop = { vm.dropQueued(item.ref) },
                     )
                 }
-            } else if (!ui.loading) {
-                item {
-                    /*
-                     * Пусто до смены и пусто на смене — разные ответы.
-                     * Первый говорит, что делать; второй — что всё в
-                     * порядке и первая машина просто ещё не приехала.
-                     */
-                    EmptyState(
-                        title = if (ui.onShift) L(R.string.work__emptyOpen) else L(R.string.work__emptyOff),
-                        note = if (ui.onShift) {
-                            L(R.string.work__emptyOpenNote)
-                        } else {
-                            L(R.string.work__emptyOffNote)
-                        },
-                    )
+
+                item { Grid(ui) }
+
+                if (orders.isNotEmpty()) {
+                    item { JournalHeader(orders.size) }
+                    items(orders, key = { it.id }) { order ->
+                        JournalRow(
+                            order = order,
+                            highlighted = ui.newestOrderId == order.id,
+                            last = order.id == orders.last().id,
+                            onActions = { revoking = order },
+                        )
+                    }
+                } else if (ui.shift == null) {
+                    item {
+                        /*
+                         * Первая загрузка: места записей, а не пустота. До сих
+                         * пор между открытием экрана и первой строкой журнала
+                         * не было ничего, и смена выглядела пустой ровно до
+                         * того момента, как оказывалась не пустой.
+                         */
+                        DelayedContent(ui.loading) {
+                            TetrSkeletonList(rows = 4, modifier = Modifier.padding(top = 8.dp))
+                        }
+                    }
+                } else {
+                    item {
+                        /*
+                         * Пусто до смены и пусто на смене — разные ответы.
+                         * Первый говорит, что делать; второй — что всё в
+                         * порядке и первая машина просто ещё не приехала.
+                         */
+                        EmptyState(
+                            title = if (ui.onShift) L(R.string.work__emptyOpen) else L(R.string.work__emptyOff),
+                            note = if (ui.onShift) {
+                                L(R.string.work__emptyOpenNote)
+                            } else {
+                                L(R.string.work__emptyOffNote)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -378,13 +404,25 @@ private fun Reading(ui: ShiftViewModel.UiState) {
             color = Brand.boardMuted,
         )
 
-        Text(
-            money(value),
-            fontSize = 46.sp,
-            fontWeight = FontWeight.Bold,
-            color = Brand.onBoard,
-            maxLines = 1,
-        )
+        /*
+         * Пока смена не приехала, на месте суммы стоит место суммы, а не
+         * «0 ֏». Ноль здесь не пустое место, а утверждение: «сегодня ты
+         * не заработал ничего», — и мойщик читает его как факт, потому
+         * что выглядит оно как факт.
+         */
+        if (ui.shift == null) {
+            Spacer(Modifier.height(4.dp))
+            TetrSkeleton(width = 190.dp, height = 46.dp, radius = 12.dp)
+            Spacer(Modifier.height(4.dp))
+        } else {
+            Text(
+                money(value),
+                fontSize = 46.sp,
+                fontWeight = FontWeight.Bold,
+                color = Brand.onBoard,
+                maxLines = 1,
+            )
+        }
 
         Spacer(Modifier.height(10.dp))
         ShiftLine(ui)

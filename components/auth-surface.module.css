@@ -180,24 +180,6 @@
   margin-top: 2px;
 }
 
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-inline-end: 8px;
-  vertical-align: -2px;
-  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
 /* Два тихих выхода в строку. Порознь они встали бы двумя строками под
    единственной кнопкой и начали читаться как список действий, из
    которого надо выбирать. */
@@ -291,14 +273,16 @@
   outline: none;
   transition: transform 0.2s ease;
 }
-.avatar:hover:not(:disabled) {
+.avatar:hover:not([aria-disabled]) {
   transform: scale(1.03);
 }
-.avatar:active:not(:disabled) {
+.avatar:active:not([aria-disabled]) {
   transform: scale(0.97);
 }
-.avatar:disabled {
-  opacity: 0.6;
+/* Во время входа аватар не бледнеет и не двигается. Прозрачность здесь
+   значила бы «не получилось», а получается как раз всё. */
+.avatar[aria-busy='true'] {
+  cursor: progress;
 }
 .avatarRing {
   position: absolute;

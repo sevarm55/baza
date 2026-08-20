@@ -150,7 +150,19 @@ struct RootView: View {
         /* Посмотреть онбординг, не входя в аккаунт и не сбрасывая
            состояние: `xcrun simctl launch <udid> com.sevarm.tetr --onboarding`.
            Тем же способом здесь запускаются проверки разбора номера. */
-        if CommandLine.arguments.contains("--onboarding") {
+        /* Заставку видно доли секунды, а проверять её приходится
+           глазами: оборот загрузчика длится полторы секунды, и в
+           обычном запуске половина фаз на экран не попадает. Тем же
+           способом, что онбординг:
+           `xcrun simctl launch <udid> com.sevarm.tetr --loader`. */
+        if CommandLine.arguments.contains("--loader") {
+            ZStack {
+                Brand.grapeDeep.ignoresSafeArea()
+                Brand.splashGlow.ignoresSafeArea()
+                TetrLoader(size: 40, tint: Brand.lime)
+            }
+            .preferredColorScheme(.dark)
+        } else if CommandLine.arguments.contains("--onboarding") {
             OnboardingView {}
         } else {
             content
@@ -164,9 +176,18 @@ struct RootView: View {
     private var content: some View {
         switch session.state {
         case .checking:
+            /* Единственный экран продукта, который отбирает всё сразу, и
+               единственный повод для этого: приложение ещё не знает, чей
+               оно и что показывать. Всё остальное ожидание живёт в
+               скелете раздела или в занятой кнопке.
+
+               Подписи под фигурой нет. «Բեռնվում է…» под движущимся
+               загрузчиком не добавляет ни одного факта, а занимает
+               строку и задаёт вопрос «а сколько ещё». */
             ZStack {
-                Brand.heroGradient.ignoresSafeArea()
-                TetrLoader(size: 34, tint: Brand.lime)
+                Brand.grapeDeep.ignoresSafeArea()
+                Brand.splashGlow.ignoresSafeArea()
+                TetrLoader(size: 40, tint: Brand.lime)
             }
             .preferredColorScheme(.dark)
             .task {

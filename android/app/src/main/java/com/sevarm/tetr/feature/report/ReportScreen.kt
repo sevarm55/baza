@@ -1,10 +1,6 @@
 package com.sevarm.tetr.feature.report
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,14 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,29 +50,30 @@ import com.sevarm.tetr.LocalGraph
 import com.sevarm.tetr.R
 import com.sevarm.tetr.core.api.Report
 import com.sevarm.tetr.core.api.ReportCurrent
-import com.sevarm.tetr.core.api.ReportMonth
 import com.sevarm.tetr.core.api.ReportLine
+import com.sevarm.tetr.core.api.ReportMonth
 import com.sevarm.tetr.core.api.SplitSegment
 import com.sevarm.tetr.core.i18n.Dates
 import com.sevarm.tetr.core.i18n.L
+import com.sevarm.tetr.core.i18n.Terms
 import com.sevarm.tetr.core.ui.lang
 import com.sevarm.tetr.core.ui.money
-import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.paymentInk
 import com.sevarm.tetr.core.ui.paymentLabel
+import com.sevarm.tetr.core.ui.serviceName
 import com.sevarm.tetr.core.ui.staffRole
 import com.sevarm.tetr.core.ui.units
 import com.sevarm.tetr.core.ui.zone
-import com.sevarm.tetr.core.i18n.Terms
 import com.sevarm.tetr.design.Brand
+import com.sevarm.tetr.design.DelayedContent
 import com.sevarm.tetr.design.ErrorState
 import com.sevarm.tetr.design.HairLine
-import com.sevarm.tetr.design.Palette
 import com.sevarm.tetr.design.Insets
+import com.sevarm.tetr.design.Palette
 import com.sevarm.tetr.design.ScreenHeader
-import com.sevarm.tetr.design.ScreenLoader
-import com.sevarm.tetr.design.pressable
+import com.sevarm.tetr.design.TetrScreenSkeleton
 import com.sevarm.tetr.design.VerticalHair
+import com.sevarm.tetr.design.pressable
 import com.sevarm.tetr.design.surfaceCard
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -134,7 +135,12 @@ fun ReportScreen(onBack: () -> Unit) {
         val data = report
         when {
             failure != null -> ErrorState(failure!!) { back = back }
-            data == null -> ScreenLoader()
+            /* Отчёт считается дольше остальных разделов: он поднимает
+               историю за период целиком, и пустой экран на эту секунду
+               читается как сломанный. */
+            data == null -> DelayedContent(loading) {
+                TetrScreenSkeleton(rows = 4)
+            }
             else -> LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
             ) {

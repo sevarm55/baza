@@ -23,6 +23,16 @@ struct StaffView: View {
     @State private var adding = false
     /// Открыта настройка общего процента команды.
     @State private var teamOpen = false
+    @State private var loaded = false
+    /**
+     * Почему список пуст.
+     *
+     * Пусто и «не доехало» — разные ответы. Список людей, который не
+     * привезли, до сих пор выглядел как мойка без сотрудников, и
+     * владелец шёл заводить их заново.
+     */
+    @State private var failed = false
+    @State private var failNote: String?
 
     private let gap: CGFloat = 10
 
@@ -52,6 +62,21 @@ struct StaffView: View {
                где он и работает опознавательным знаком, — в кружок с
                буквой. Всё остальное чернила по бумаге. */
             VStack(spacing: 0) {
+                if !loaded {
+                    /* Места людей: кружок лица, имя и ставка. Кружки, а
+                       не квадраты — подставить круг на место квадрата
+                       заметнее, чем не рисовать ничего. */
+                    Delayed(active: true) { TetrSkeletonList(rows: 3, avatar: true) }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 18)
+                } else if failed, staff.isEmpty {
+                    TetrFailure(
+                        title: L("common.loadFailed"),
+                        note: failNote,
+                        retry: { await reload() }
+                    )
+                }
+
                 ForEach(Array(ordered.enumerated()), id: \.element.id) { index, person in
                     if index > 0 { separator }
                     row(person)
@@ -297,10 +322,24 @@ struct StaffView: View {
     }
 
     private func reload() async {
-        let result: API.Staff? = try? await session.authed { token in
-            try await APIClient.shared.send("staff", token: token, as: API.Staff.self)
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("staff", token: token, as: API.Staff.self)
+            }
+            staff = result.staff
+            failed = false
+            failNote = nil
+        } catch is CancellationError {
+            // потянули вниз и отпустили: ничего не сломалось
+            return
+        } catch let error as APIError {
+            failed = true
+            failNote = error.isOffline ? L("common.offlineNote") : nil
+        } catch {
+            failed = true
+            failNote = nil
         }
-        if let result { staff = result.staff }
+        loaded = true
     }
 }
 
@@ -701,7 +740,7 @@ struct StaffEditor: View {
             Text(L("common.save"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20)
+                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(Brand.lime, in: .rect(cornerRadius: 22))
@@ -940,7 +979,7 @@ struct TeamWashEditor: View {
                 Text(L("common.save"))
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Brand.onLime)
-                    .loading(busy, tint: Brand.onLime, size: 20)
+                    .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(Brand.lime, in: .rect(cornerRadius: 22))
