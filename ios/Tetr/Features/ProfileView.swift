@@ -40,8 +40,6 @@ struct ProfileView: View {
     @State private var exporting = false
     @State private var exported: URL?
 
-    /// Насколько экран оттянут вниз. Ноль в покое, растёт под пальцем.
-    @State private var pull: CGFloat = 0
     /// Фото раскрыто во всю ширину.
     @State private var photoOpen = false
 
@@ -51,50 +49,42 @@ struct ProfileView: View {
 
     private let gap: CGFloat = 10
 
-    /// Якорь верха: к нему возвращается прокрутка, когда фото складывается.
-    private static let topAnchor = "profile.top"
-
     var body: some View {
         GeometryReader { geo in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        header(width: geo.size.width, safeTop: geo.safeAreaInsets.top, proxy: proxy)
-                            .id(Self.topAnchor)
+            ScrollView {
+                VStack(spacing: 0) {
+                    header(width: geo.size.width, safeTop: geo.safeAreaInsets.top)
 
-                        VStack(spacing: gap) {
-                            if let access = session.access { accessTile(access) }
-                            fields
-                            if changed || saved { saveRow }
-                            if saveFailed {
-                                Text(L("common.failed"))
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Brand.warnOnBoard)
-                                    .padding(.horizontal, 6)
-                            }
-                            language
-                            switches
-                            actions
+                    VStack(spacing: gap) {
+                        if let access = session.access { accessTile(access) }
+                        identitySettings
+                        if changed || saved { saveRow }
+                        if saveFailed {
+                            Text(L("common.failed"))
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.warnOnBoard)
+                                .padding(.horizontal, 6)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.top, 12)
-                        .padding(.bottom, 28)
-                        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
-                        .animation(.easeOut(duration: 0.2), value: saved)
+                        switches
+                        actions
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
+                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
+                    .animation(.easeOut(duration: 0.2), value: saved)
                 }
-                /* Оттяжку читаем с самой прокрутки, а не с рамки внутри
-                   содержимого: рамка врёт на первом кадре и после каждой
-                   перестройки списка, а геометрия прокрутки — нет. */
-                .onScrollGeometryChange(for: CGFloat.self) {
-                    $0.contentOffset.y + $0.contentInsets.top
-                } action: { _, y in
-                    pull = max(0, -y)
-                    if !photoOpen, pull > 86 {
-                        setPhoto(true, proxy: proxy)
-                    } else if photoOpen, y > 72 {
-                        setPhoto(false, proxy: proxy)
-                    }
+            }
+            /* Шапка больше не меняет высоту ScrollView. Порог жеста меняет
+               только форму кадра внутри фиксированного места. Так быстрый разворот
+               жеста не запускает цикл «новая высота → новый offset → новая высота». */
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: { _, y in
+                if !photoOpen, -y > 74 {
+                    setPhoto(true)
+                } else if photoOpen, y > 38 {
+                    setPhoto(false)
                 }
             }
             /* Фото уходит под часы, как в мессенджерах: иначе раскрытие
@@ -139,7 +129,7 @@ struct ProfileView: View {
      * фиолетовый шёлк с лаймовой полосой света. Ни знака, ни буквы, ни
      * подписи: заглушка стоит на месте ЧУЖОГО лица и не должна ничего
      * утверждать о человеке. Абстракция ещё и переживает обрез — она
-     * одинаково цела и в кружке 116 точек, и во весь экран, а любой знак в
+     * одинаково цела и в компактном кружке, и в широком кадре, а любой знак в
      * круге пришлось бы подрезать.
      *
      * Низ кадра тёмный намеренно: по нему в раскрытом виде идёт белое имя.
@@ -147,31 +137,20 @@ struct ProfileView: View {
      * Буква имени осталась запасным лицом на случай, если картинка не
      * приехала: пустой серый круг хуже любой заглушки.
      */
-    private func header(width: CGFloat, safeTop: CGFloat, proxy: ScrollViewProxy) -> some View {
+    private func header(width: CGFloat, safeTop: CGFloat) -> some View {
         let name = session.me?.name ?? "—"
         let tone = Brand.personTone(name)
+        let height = safeTop + 114
+        let side: CGFloat = photoOpen ? width : 82
+        let tall: CGFloat = photoOpen ? height : 82
+        let top: CGFloat = photoOpen ? 0 : safeTop + 14
 
-        /* Раскрытая шапка — квадрат по ширине экрана. Не «во весь экран»:
-           под фото должно быть видно начало списка, иначе непонятно, что
-           это шапка, а не отдельная картинка. */
-        let base = photoOpen ? width : safeTop + 218
-        let height = base + pull
-
-        /* Кружок растёт ещё до защёлки: рука должна видеть, что тянуть есть
-           куда, а не тянуть вслепую до щелчка. */
-        let grow = photoOpen ? 1 : 1 + min(pull, 130) / 460
-        let side = photoOpen ? width : 116 * grow
-        let tall = photoOpen ? height : 116 * grow
-        let top = photoOpen ? 0 : safeTop + 16 + pull * 0.4
-
-        return Color.clear
-            .frame(width: width, height: height)
-            .overlay(alignment: .top) {
-                face(name: name, tone: tone, side: side)
-                    .frame(width: side, height: tall)
+        return ZStack(alignment: .topLeading) {
+            face(name: name, tone: tone, side: side)
+                .frame(width: side, height: tall)
                     /* Кадр не двигаем и не приближаем: знак стоит ровно в
                        середине квадрата, и кружок берёт его целиком. */
-                    .clipShape(.rect(cornerRadius: photoOpen ? 0 : side / 2, style: .circular))
+                    .clipShape(.rect(cornerRadius: photoOpen ? 0 : 41, style: .continuous))
                     .overlay {
                         /* Затемнение снизу — только под раскрытым фото:
                            белое имя ложится на капли, а капли светлые. */
@@ -182,28 +161,23 @@ struct ProfileView: View {
                         )
                         .opacity(photoOpen ? 1 : 0)
                     }
-                    .padding(.top, top)
+                    .offset(x: photoOpen ? 0 : 16, y: top)
                     .contentShape(.rect)
-                    .onTapGesture { setPhoto(!photoOpen, proxy: proxy) }
-            }
-            .overlay(alignment: .bottomLeading) {
-                titles(name: name, onPhoto: true)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .opacity(photoOpen ? 1 : 0)
-            }
-            .overlay(alignment: .top) {
-                titles(name: name, onPhoto: false)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, photoOpen ? 0 : top + tall + 13)
-                    .opacity(photoOpen ? 0 : 1)
-            }
+                    .onTapGesture { setPhoto(!photoOpen) }
+
+            titles(name: name, onPhoto: true)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+                .frame(width: width, height: height, alignment: .bottomLeading)
+                .opacity(photoOpen ? 1 : 0)
+
+            titles(name: name, onPhoto: false)
+                .frame(width: max(0, width - 126), alignment: .leading)
+                .offset(x: 114, y: top + 15)
+                .opacity(photoOpen ? 0 : 1)
+        }
+            .frame(width: width, height: height, alignment: .topLeading)
             .clipped()
-            /* Тянется вверх, а не съезжает вниз: место в потоке остаётся
-               базовым, а лишнюю высоту шапка забирает у просвета над собой.
-               Иначе между часами и фото открывалась полоса полотна. */
-            .offset(y: -pull)
-            .frame(height: base, alignment: .top)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(name)
             .accessibilityValue(meta)
@@ -212,14 +186,14 @@ struct ProfileView: View {
     /// Имя и строка под ним. Одни и те же слова в обоих состояниях —
     /// меняется только цвет и то, куда они прижаты.
     private func titles(name: String, onPhoto: Bool) -> some View {
-        VStack(alignment: onPhoto ? .leading : .center, spacing: 3) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(name)
-                .font(.system(size: onPhoto ? 27 : 25, weight: .bold))
+                .font(.system(size: onPhoto ? 26 : 22, weight: .bold))
                 .foregroundStyle(onPhoto ? .white : Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(meta)
-                .font(.system(size: 14))
+                .font(.system(size: onPhoto ? 14 : 13))
                 .monospacedDigit()
                 .foregroundStyle(onPhoto ? .white.opacity(0.78) : Brand.boardMuted)
                 .lineLimit(1)
@@ -262,22 +236,21 @@ struct ProfileView: View {
      * на раскрытие, лёгкий на складывание — второе тише, потому что это
      * возврат, а не событие.
      *
-     * Прокрутка отправляется к верху вместе с состоянием: высота шапки
-     * меняется на две сотни точек, и без возврата список дёрнулся бы под
-     * пальцем на ту же величину.
+     * Высота шапки не меняется: пружина работает только с формой фото.
      */
-    private func setPhoto(_ open: Bool, proxy: ScrollViewProxy) {
+    private func setPhoto(_ open: Bool) {
         guard open != photoOpen else { return }
         UIImpactFeedbackGenerator(style: open ? .soft : .light).impactOccurred()
 
-        let move = {
-            photoOpen = open
-            proxy.scrollTo(Self.topAnchor, anchor: .top)
-        }
         if reduceMotion {
-            move()
+            photoOpen = open
         } else {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.84), move)
+            /* Короткая, почти критически затухшая пружина. SwiftUI перенацеливает
+               её из текущего кадра, поэтому быстрый жест назад не ждёт окончания
+               предыдущей анимации. */
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.96)) {
+                photoOpen = open
+            }
         }
     }
 
@@ -310,6 +283,19 @@ struct ProfileView: View {
 
     // ══════════════════════════ поля ══════════════════════════
 
+    /** Имя, бизнес и язык — одна группа личных данных, а не три карточки. */
+    private var identitySettings: some View {
+        VStack(spacing: 0) {
+            fields
+            Rectangle()
+                .fill(Brand.boardInk.opacity(0.07))
+                .frame(height: 1)
+                .padding(.leading, 16)
+            language
+        }
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
     private var fields: some View {
         VStack(spacing: 0) {
             if isOwner {
@@ -318,7 +304,6 @@ struct ProfileView: View {
             }
             field(L("owner.clientName"), $myName)
         }
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
     }
 
     private func field(_ title: String, _ value: Binding<String>) -> some View {
@@ -434,7 +419,6 @@ struct ProfileView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
         }
         .accessibilityLabel(L("common.language"))
         .accessibilityValue(lang.current.ownName)
@@ -464,71 +448,57 @@ struct ProfileView: View {
     // ══════════════════════════ действия ══════════════════════════
 
     private var actions: some View {
-        VStack(spacing: gap) {
-            /* «Задать», а не «сменить», у тех, у кого кода нет вовсе:
-               заведённые по SMS входят кодом из сообщения, и слово
-               «сменить» обещало бы им вопрос про текущий код, которого
-               не существует. Признак приходит с сервера, по хешу в базе
-               (см. `hasPin` в bootstrap). */
-            /* Неподтверждённый номер — дыра именно в безопасности: без
-               него код не восстановить. Поэтому строка стоит НАД самим
-               кодом, а не отдельным разделом в стороне. У подтверждённых
-               здесь ни одного нового пикселя. */
-            if !session.phoneVerified {
-                action(L("auth.verifyPhone"), L("auth.verifyPhoneWhy"),
-                       icon: "checkmark.shield", danger: false) {
-                    verifyingPhone = true
+        VStack(spacing: 0) {
+            /* Код, номер, устройства и выгрузка — один список учётной записи.
+               Общая поверхность делает экран короче и яснее, не пряча ни одного действия. */
+            VStack(spacing: 0) {
+                if !session.phoneVerified {
+                    action(L("auth.verifyPhone"), L("auth.verifyPhoneWhy"),
+                           icon: "checkmark.shield", danger: false) {
+                        verifyingPhone = true
+                    }
+                    profileDivider
+                }
+
+                action(session.hasPin ? L("auth.changePin") : L("auth.setPin"),
+                       session.hasPin ? L("profile.pinNote") : L("auth.pinNoneNote"),
+                       icon: "lock.rotation", danger: false) {
+                    changingPin = true
+                }
+
+                profileDivider
+                action(L("auth.changePhone"), L("auth.changePhoneNote"),
+                       icon: "phone.arrow.up.right", danger: false) {
+                    changingPhone = true
+                }
+
+                profileDivider
+                NavigationLink {
+                    DevicesView().navigationTitle(L("profile.devices"))
+                } label: {
+                    actionFace(L("profile.devices"), L("profile.devicesNote"),
+                               icon: "laptopcomputer.and.iphone", danger: false,
+                               leadsSomewhere: true)
+                }
+                .buttonStyle(.press)
+
+                if isOwner {
+                    profileDivider
+                    exportRow
                 }
             }
-
-            action(session.hasPin ? L("auth.changePin") : L("auth.setPin"),
-                   session.hasPin ? L("profile.pinNote") : L("auth.pinNoneNote"),
-                   icon: "lock.rotation", danger: false) {
-                changingPin = true
-            }
-
-            /* Номер стоит здесь же, под кодом: это второй ключ от входа,
-               а не строка личных данных. В карточке выше он показан
-               просто значением — там отвечают на вопрос «как со мной
-               связаться». */
-            action(L("auth.changePhone"), L("auth.changePhoneNote"),
-                   icon: "phone.arrow.up.right", danger: false) {
-                changingPhone = true
-            }
-
-            /* Устройства стоят перед «выйти», а не после: сначала то, что
-               можно закрыть у других, потом то, что закрывает себя. */
-            NavigationLink {
-                DevicesView().navigationTitle(L("profile.devices"))
-            } label: {
-                actionFace(L("profile.devices"), L("profile.devicesNote"),
-                           icon: "laptopcomputer.and.iphone", danger: false,
-                           leadsSomewhere: true)
-            }
-            .buttonStyle(.press)
-
-            /* Копия данных стоит перед выходом и удалением, а не после:
-               забрать её нужно ДО того, как закрылась дверь. */
-            if isOwner { exportRow }
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
 
             if isOwner {
-                /* С воздухом сверху: «стереть всё» не должно стоять
-                   соседней строчкой ни к чему, где промах пальцем стоит
-                   бизнеса. */
                 action(L("billing.wallDelete"), L("profile.deleteNote"),
                        icon: "trash", danger: true) {
                     deleting = true
                 }
-                .padding(.top, 14)
+                .background(Brand.warnOnBoard.opacity(0.075), in: .rect(cornerRadius: 20))
+                .padding(.top, 12)
             }
-
-            /* Выхода здесь больше нет: он переехал на карту разделов, в
-               самый низ. Причина простая — до профиля за ним нужно было
-               заходить, а это два нажатия ради того, чем пользуются с
-               чужого телефона и в спешке. Здесь остаётся то, что про
-               учётку: код, номер, устройства, копия данных, удаление. */
         }
-        .padding(.top, 4)
+        .padding(.top, 2)
     }
 
     /**
@@ -574,7 +544,6 @@ struct ProfileView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
         }
         .buttonStyle(.press)
         .disabled(exporting)
@@ -647,7 +616,13 @@ struct ProfileView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+    }
+
+    private var profileDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(height: 1)
+            .padding(.leading, 50)
     }
 
     // ══════════════════════════ данные ══════════════════════════
