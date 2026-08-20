@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lock__biometrics">Биометрия</string>
+    <string name="notif__ordersChannel">Записи</string>
+    <string name="notif__shiftChannel">Открытая смена</string>
+    <string name="camera__denied">Нет доступа к камере. Номер можно ввести вручную.</string>
+    <string name="camera__openSettings">Открыть настройки</string>
+</resources>

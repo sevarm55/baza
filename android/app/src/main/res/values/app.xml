@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строки, которых нет в каталоге продукта: имя приложения и системные
+  подписи Android. Каталог `strings.xml` собирается из iOS и правится
+  только там — сюда его дублировать нельзя.
+-->
+<resources>
+    <!-- Латиницей, как в магазине: имя на устройстве и имя в витрине
+         должны совпадать, иначе установленное не находят. -->
+    <string name="app_name" translatable="false">Tetrin</string>
+
+    <string name="notif_channel_orders_id" translatable="false">tetrin.orders</string>
+    <string name="notif_channel_shift_id" translatable="false">tetrin.shift</string>
+
+    <color name="brand_grape_deep">#2E1065</color>
+    <color name="brand_lime">#D7FF00</color>
+    <color name="launch_background">#2E1065</color>
+</resources>

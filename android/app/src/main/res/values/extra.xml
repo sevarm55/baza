@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строки, которых у iOS нет и быть не может: они называют то, чего на той
+  платформе не существует — каналы уведомлений, отказ в доступе к камере,
+  общее слово для отпечатка и лица (Android не сообщает, что именно
+  настроено на телефоне).
+
+  Всё остальное берётся из общего каталога и правится в
+  `ios/Tetr/Localizable.xcstrings`.
+-->
+<resources>
+    <string name="lock__biometrics">Կենսաչափություն</string>
+    <string name="notif__ordersChannel">Գրանցումներ</string>
+    <string name="notif__shiftChannel">Բաց հերթափոխ</string>
+    <string name="camera__denied">Խցիկի հասանելիություն չկա։ Համարը կարող եք մուտքագրել ձեռքով։</string>
+    <string name="camera__openSettings">Բացել կարգավորումները</string>
+</resources>

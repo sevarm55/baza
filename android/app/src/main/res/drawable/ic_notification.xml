@@ -1,0 +1,20 @@
+<!--
+  Значок в строке состояния.
+
+  Одноцветный силуэт и ничего больше: Android рисует его белым по маске и
+  цветную иконку превратил бы в белый квадрат. Тот же знак, что на иконке
+  приложения, — плашка с вырезанной «Т»: по нему уведомление узнаётся
+  раньше, чем прочитан заголовок.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+
+    <path
+        android:fillType="evenOdd"
+        android:pathData="M4,5 h16 a2,2 0 0 1 2,2 v10 a2,2 0 0 1 -2,2 h-16 a2,2 0 0 1 -2,-2 v-10 a2,2 0 0 1 2,-2 z M5.5,8 h13 v2.6 h-5.1 v5.4 h-2.8 v-5.4 h-5.1 z"
+        android:fillColor="#FFFFFF" />
+</vector>

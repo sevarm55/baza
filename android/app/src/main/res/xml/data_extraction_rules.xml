@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ничего не уезжает ни в облачную копию, ни на новый телефон.
+
+  Причина та же, по которой токены на iOS лежат с `ThisDeviceOnly`:
+  refresh живёт тридцать дней и открывает бизнес целиком, а очередь
+  записей принадлежит конкретной установке — восстановленная на другом
+  телефоне, она отправила бы чужие машины ещё раз. Человек войдёт
+  заново, это три касания.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+    </device-transfer>
+</data-extraction-rules>

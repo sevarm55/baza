@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Камера нужна одному экрану — распознаванию номера при записи машины,
+      и спрашивается ровно там. Необязательная: телефон без камеры остаётся
+      рабочим, номер набирают руками.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Спрашивается у владельца после входа, а не на первом экране. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <application
+        android:name=".TetrinApp"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:localeConfig="@xml/locales_config"
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.Tetrin.Splash">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale|locale|layoutDirection"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Tetrin.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              Ссылки продукта. Тот же адрес, что у кабинета: уведомление,
+              открытое с телефона, ведёт в приложение, а не в браузер.
+              autoVerify требует /.well-known/assetlinks.json на домене —
+              до него ссылка спрашивает, чем открыть, и это не поломка.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="tetrin.pro" android:pathPrefix="/work" />
+                <data android:scheme="https" android:host="tetrin.pro" android:pathPrefix="/owner" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Приём уведомлений. Класс существует всегда, а Firebase может и
+          не быть подключён: без `google-services.json` сервис просто
+          никогда не позовут, и приложение об этом не узнает.
+        -->
+        <service
+            android:name=".core.push.TetrinMessagingService"
+            android:exported="false"
+            tools:ignore="MissingClass">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/notif_channel_orders_id" />
+
+        <!--
+          Отдача выгрузки другим приложениям: почте, «Файлам», таблицам.
+          Наружу открыта ровно одна временная папка — см. res/xml/file_paths.xml.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
+          Инициализатор WorkManager выключен: очередь досылается по своим
+          правилам и заводится вместе с приложением, а не при первом
+          обращении к системе.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+</manifest>
