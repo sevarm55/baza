@@ -3,6 +3,7 @@ import { getClientHistory } from '@/lib/queries';
 import { decodeClientKey } from '@/lib/client-key';
 import { authorize, denied } from '@/lib/api/guard';
 import { fail, failFromError, ok } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /**
  * Что эта машина у нас мыла.
@@ -51,7 +52,7 @@ export async function GET(
         price: o.price,
         // прайс рядом со взятым — только когда взяли меньше
         listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
-        serviceName: o.serviceName,
+        serviceName: serviceNameTerm(o.serviceName, ctx.locale),
         payment: o.payment,
         // кто внёс запись; кто над ней работал — в `crew`
         staffName: o.staffName,

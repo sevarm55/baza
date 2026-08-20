@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       listStaff(ctx.tenant.id),
       getPeriodStats(ctx.tenant.id, startOfMonth(ctx.tenant.timezone)),
       whoIsOnShift(ctx.tenant.id, startOfDay(ctx.tenant.timezone)),
-      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone),
+      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone, ctx.locale),
     ]);
 
     const worked = new Map(month.byStaff.map((s) => [s.staffId ?? '', s]));

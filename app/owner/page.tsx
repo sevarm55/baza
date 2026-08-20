@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getDict } from '@/lib/i18n/server';
-import { localizeTenantOrNull, unitCount, unitForms, staffCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, serviceNameTerm, unitCount, unitForms, staffCount } from '@/lib/i18n/terms';
 import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
 import {
@@ -202,7 +202,7 @@ export default async function TodayPage({
         earned: p.earned,
       })),
       authorName: o.staffName,
-      serviceName: o.serviceName,
+      serviceName: serviceNameTerm(o.serviceName, t.locale),
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
       price: o.price,

@@ -3,6 +3,7 @@ import { getShift, startOfDay } from '@/lib/queries';
 import { cashInShift, closedShiftToday, closeShift, currentShift, openShift } from '@/lib/shifts';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, failFromError, ok } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /**
  * Смена сотрудника — главный экран приложения.
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
            раз, номер — один. Приезжает вместе со сменой, отдельного
            запроса на строку нет. */
         clientKey: o.clientKey,
-        serviceName: o.serviceName,
+        serviceName: serviceNameTerm(o.serviceName, ctx.locale),
         price: o.price,
         payment: o.payment,
         /* Сколько причитается СМОТРЯЩЕМУ за эту машину и сколько человек

@@ -18,7 +18,7 @@ import type { Op } from '../../today/model';
 import { getDict } from '@/lib/i18n/server';
 import type { Dict } from '@/lib/i18n';
 import { intlLocale } from '@/lib/i18n/format';
-import { localizeTenantOrNull, unitCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, serviceNameTerm, unitCount } from '@/lib/i18n/terms';
 
 /**
  * Один день целиком.
@@ -85,7 +85,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         earned: p.earned,
       })),
       authorName: o.staffName,
-      serviceName: o.serviceName,
+      serviceName: serviceNameTerm(o.serviceName, t.locale),
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
       price: o.price,

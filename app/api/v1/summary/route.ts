@@ -13,6 +13,7 @@ import { authorize, denied } from '@/lib/api/guard';
 import { getSetup } from '@/lib/onboarding';
 import { failFromError, ok } from '@/lib/api/respond';
 import { asPeriod, windowFor } from '@/lib/summary-window';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /**
  * Сводка владельца за период — весь экран одним запросом.
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
       feed: feed.map((o) => ({
         id: o.id,
         clientKey: o.clientKey,
-        serviceName: o.serviceName,
+        serviceName: serviceNameTerm(o.serviceName, ctx.locale),
         /* Кто ВНЁС запись. Кто над ней работал — в `crew` ниже: у
            совместной мойки это разные вопросы и часто разные ответы. */
         staffName: o.staffName,

@@ -11,7 +11,7 @@ import { personColor } from '@/lib/person-color';
 import { formatPhone } from '@/lib/phone';
 import { dayMonth, hhmm } from '@/lib/time';
 import { getDict } from '@/lib/i18n/server';
-import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, serviceNameTerm } from '@/lib/i18n/terms';
 import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
 
@@ -44,7 +44,14 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   const found = await getClientHistory(tenant.id, decodeURIComponent(key));
   if (!found) notFound();
 
-  const { client, orders } = found;
+  const { client } = found;
+  /* Названия услуг в истории машины — на языке того, кто смотрит.
+     Переводится только заводское, своё название владельца проходит
+     насквозь (см. terms.ts). */
+  const orders = found.orders.map((o) => ({
+    ...o,
+    serviceName: serviceNameTerm(o.serviceName, t.locale),
+  }));
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const days = client.daysSince;
   const avg = client.visits > 0 ? Math.round(client.total / client.visits) : 0;

@@ -459,7 +459,7 @@ struct ReportView: View {
 
                 VStack(spacing: 0) {
                     if !rows.isEmpty {
-                        lines(rows, total: total, tone: Brand.mintInk)
+                        lines(rows, total: total, tone: Brand.mintInk, services: true)
                     }
                     if !ways.isEmpty {
                         if !rows.isEmpty { hairline }
@@ -593,13 +593,21 @@ struct ReportView: View {
      * Пустой разрез не показываем вовсе: раздел, в котором написано
      * «пусто», занимает место и не отвечает ни на что.
      */
-    private func lines(_ rows: [API.ReportLine], total: Int, tone: Color) -> some View {
+    private func lines(
+        _ rows: [API.ReportLine],
+        total: Int,
+        tone: Color,
+        /* Разрез по услугам переводит заводские названия, разрез по
+           расходам — нет: категорию расхода придумывает владелец, и
+           сверять её не с чем. */
+        services: Bool = false
+    ) -> some View {
         // просвет в точку между строками: он виден ровно там, где есть
         // заливка, и отделяет соседние доли, не рисуя ни одной линии
         VStack(spacing: 1) {
             ForEach(rows) { row in
                 line(
-                    name: row.name,
+                    name: services ? Terms.service(row.name) : row.name,
                     note: row.count.map { Terms.units($0, unit) }
                         ?? (row.monthly == true ? L("expenses.perMonth") : L("expenses.oneOff")),
                     value: row.value,

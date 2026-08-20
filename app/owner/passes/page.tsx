@@ -11,7 +11,7 @@ import { Panel } from '@/components/board';
 import { PageHead } from '@/components/page-head';
 import { SellPassForm } from './sell-pass-form';
 import { getDict } from '@/lib/i18n/server';
-import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, serviceNameTerm } from '@/lib/i18n/terms';
 
 export default async function PassesPage() {
   const t = await getDict();
@@ -79,7 +79,7 @@ export default async function PassesPage() {
                           {p.clientKey ?? '—'}
                         </div>
                         <div className="truncate text-[13.5px] text-muted">
-                          {p.serviceName} · {money(p.price)}
+                          {serviceNameTerm(p.serviceName, t.locale)} · {money(p.price)}
                           {p.expiresAt && ` · ${t.passes.until} ${dayMonth(p.expiresAt, tenant.timezone)}`}
                         </div>
                       </div>
@@ -105,7 +105,7 @@ export default async function PassesPage() {
           <SellPassForm
             services={services.map((s) => ({
               id: s.id,
-              name: s.name,
+              name: serviceNameTerm(s.name, t.locale),
               price: toMajor(s.price, tenant.currency),
             }))}
             clientIdLabel={tenant.clientIdLabel}

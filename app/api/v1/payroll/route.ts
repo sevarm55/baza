@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       getUnsettledByDay(ctx.tenant.id, ctx.tenant.timezone),
       getSettledUntil(ctx.tenant.id),
       listPayouts(ctx.tenant.id),
-      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone),
+      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone, ctx.locale),
     ]);
 
     return ok({

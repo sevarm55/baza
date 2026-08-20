@@ -10,6 +10,7 @@ import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
 import { getDict, getLocale } from '@/lib/i18n/server';
 import type { Dict } from '@/lib/i18n';
 import { intlLocale } from '@/lib/i18n/format';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 import {
   findClient,
   getClientHistory,
@@ -1103,7 +1104,7 @@ export async function clientHistory(key: string) {
     },
     orders: found.orders.map((o) => ({
       id: o.id,
-      serviceName: o.serviceName,
+      serviceName: serviceNameTerm(o.serviceName, t.locale),
       price: o.price,
       /* Прайс — только когда взяли меньше. Скидка живёт в истории
          машины наравне с ценой: постоянному её дают не один раз, и
@@ -1293,6 +1294,7 @@ export async function addOrder(input: {
  * и подставляется сам. Тот же ответ, что у `/api/v1/clients/lookup`.
  */
 export async function lookupClient(key: string) {
+  const t = await getDict();
   const session = await requireSession();
   if (key.trim().length < 3) return null;
 
@@ -1312,7 +1314,7 @@ export async function lookupClient(key: string) {
     passes: active.map((p) => ({
       id: p.id,
       serviceId: p.serviceId,
-      serviceName: p.serviceName,
+      serviceName: serviceNameTerm(p.serviceName, t.locale),
       remaining: p.totalUses - p.usedUses,
     })),
   };

@@ -50,7 +50,7 @@ export default async function StaffPage() {
     listStaff(tenant.id),
     getPeriodStats(tenant.id, startOfMonth(tenant.timezone)),
     whoIsOnShift(tenant.id, startOfDay(tenant.timezone)),
-    getPayrollBoard(tenant.id, tenant.timezone),
+    getPayrollBoard(tenant.id, tenant.timezone, t.locale),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);

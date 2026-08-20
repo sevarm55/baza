@@ -158,7 +158,7 @@ struct ServicesView: View {
                     editing = service
                 } label: {
                     HStack(spacing: 12) {
-                        Text(service.name)
+                        Text(Terms.service(service.name))
                             .font(.system(size: 15.5, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
@@ -386,7 +386,7 @@ struct ServiceEditor: View {
             Text(L("services.removeNote"))
         }
         .onAppear {
-            name = service?.name ?? ""
+            name = service.map { Terms.service($0.name) } ?? ""
             price = service.map { String($0.price) } ?? ""
             // пустая цена класса означает «как базовая» — так её и
             // показываем: не подставляем базовую цифрой, иначе владелец

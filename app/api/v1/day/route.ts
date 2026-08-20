@@ -6,6 +6,7 @@ import { shiftsOnDay } from '@/lib/shifts';
 import { dayBounds, isDate } from '@/lib/history';
 import { authorize, denied } from '@/lib/api/guard';
 import { fail, failFromError, ok } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /**
  * Один день целиком.
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
       feed: feed.map((o) => ({
         id: o.id,
         clientKey: o.clientKey,
-        serviceName: o.serviceName,
+        serviceName: serviceNameTerm(o.serviceName, ctx.locale),
         // кто внёс запись; кто над ней работал — в `crew`
         staffName: o.staffName,
         // ставка на всю запись: у совместной мойки это процент команды

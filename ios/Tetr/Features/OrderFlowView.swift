@@ -365,7 +365,7 @@ struct OrderFlowView: View {
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(item.name)
+                        Text(Terms.service(item.name))
                             .font(.system(size: 14.5, weight: .semibold))
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
                         /* Цена перекручивается разрядами при смене класса.
@@ -756,7 +756,7 @@ struct OrderFlowView: View {
                 // этой версией, а отправлена — после отката на прежнюю
                 serviceId: first.id,
                 serviceIds: chosen.map(\.id),
-                serviceName: chosen.map(\.name).joined(separator: " + "),
+                serviceName: chosen.map { Terms.service($0.name) }.joined(separator: " + "),
                 price: charged,
                 listPrice: listTotal,
                 payment: payment,

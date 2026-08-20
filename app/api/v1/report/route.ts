@@ -9,6 +9,7 @@ import {
 } from '@/lib/reports';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /**
  * Отчёт по месяцам — весь экран одним запросом.
@@ -105,7 +106,9 @@ export async function GET(request: Request) {
          него нет, и клиент в этом случае молчит, а не рисует «+100 %»
          от пустоты. */
       base: base && { revenue: base.revenue, profit: base.profit },
-      services: earned,
+      /* Заводские услуги — на языке телефона, названия владельца
+         проходят насквозь (см. lib/i18n/terms.ts). */
+      services: earned.map((e) => ({ ...e, name: serviceNameTerm(e.name, ctx.locale) })),
       /* Категория приезжает сюда полем `category`, а приложение ждёт `name`:
          у него разрез услуг и разрез расходов — один тип строки, у которой
          есть имя и деньги, и как это имя называется в базе, экрану знать

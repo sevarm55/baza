@@ -4,6 +4,7 @@ import { canRecord } from '@/lib/shifts';
 import { startOfDay } from '@/lib/queries';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 const PAYMENTS: Payment[] = ['cash', 'card', 'transfer', 'pass'];
 
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       {
         order: {
           id: result.order.id,
-          serviceName: result.order.serviceName,
+          serviceName: serviceNameTerm(result.order.serviceName, ctx.locale),
           price: result.order.price,
           listPrice: result.order.listPrice,
           /* Ставка, применённая ко всей записи: у одиночной мойки это

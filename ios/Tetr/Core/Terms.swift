@@ -145,6 +145,58 @@ enum Terms {
     ]
 
     /**
+     * Названия заводских услуг. Ключ — заводское `NICHES[*].services[].name`.
+     *
+     * Прайс нового бизнеса кладёт регистрация, и на русском экране
+     * «Կոմպլեքս» читался чужой надписью посреди своего. Переводится
+     * ровно то, что совпало с конфигом ниши; «Мойка дисков», заведённая
+     * владельцем, проходит насквозь и остаётся его словом на всех трёх
+     * языках. Таблица обязана совпадать с `SERVICE_NAMES` в terms.ts.
+     */
+    private static let serviceNames: [String: [Lang: String]] = [
+        // Автомойка
+        "Կոմպլեքս": [.hy: "Կոմպլեքս", .ru: "Комплекс", .en: "Full wash"],
+        "Թափք": [.hy: "Թափք", .ru: "Кузов", .en: "Body"],
+        "Սալոն": [.hy: "Սալոն", .ru: "Салон", .en: "Interior"],
+        "Քիմմաքրում": [.hy: "Քիմմաքրում", .ru: "Химчистка", .en: "Deep clean"],
+        "Փայլեցում": [.hy: "Փայլեցում", .ru: "Полировка", .en: "Polish"],
+
+        // Стоматология
+        "Զննում": [.hy: "Զննում", .ru: "Осмотр", .en: "Checkup"],
+        "Մաքրում": [.hy: "Մաքրում", .ru: "Чистка", .en: "Cleaning"],
+        "Պլոմբ": [.hy: "Պլոմբ", .ru: "Пломба", .en: "Filling"],
+        "Հեռացում": [.hy: "Հեռացում", .ru: "Удаление", .en: "Extraction"],
+        "Իմպլանտ": [.hy: "Իմպլանտ", .ru: "Имплант", .en: "Implant"],
+
+        // Автосервис
+        "Յուղի փոխարինում": [.hy: "Յուղի փոխարինում", .ru: "Замена масла", .en: "Oil change"],
+        "Ախտորոշում": [.hy: "Ախտորոշում", .ru: "Диагностика", .en: "Diagnostics"],
+        "Արգելակներ": [.hy: "Արգելակներ", .ru: "Тормоза", .en: "Brakes"],
+        "Կախոց": [.hy: "Կախոց", .ru: "Подвеска", .en: "Suspension"],
+        "Անվադողերի փոխարինում": [.hy: "Անվադողերի փոխարինում", .ru: "Шиномонтаж", .en: "Tire change"],
+
+        // Барбершоп
+        "Սանրվածք": [.hy: "Սանրվածք", .ru: "Стрижка", .en: "Haircut"],
+        "Մորուք": [.hy: "Մորուք", .ru: "Борода", .en: "Beard"],
+        "Մանկական": [.hy: "Մանկական", .ru: "Детская", .en: "Kids"],
+        "Սափրում": [.hy: "Սափրում", .ru: "Бритьё", .en: "Shave"],
+
+        // Клининг
+        "Բնակարան": [.hy: "Բնակարան", .ru: "Квартира", .en: "Apartment"],
+        "Գրասենյակ": [.hy: "Գրասենյակ", .ru: "Офис", .en: "Office"],
+        "Գլխավոր մաքրում": [.hy: "Գլխավոր մաքրում", .ru: "Генеральная уборка", .en: "Deep cleaning"],
+        "Վերանորոգումից հետո": [.hy: "Վերանորոգումից հետո", .ru: "После ремонта", .en: "After renovation"],
+        "Պատուհաններ": [.hy: "Պատուհաններ", .ru: "Окна", .en: "Windows"],
+
+        // Ветклиника
+        "Ընդունելություն": [.hy: "Ընդունելություն", .ru: "Приём", .en: "Visit"],
+        "Պատվաստում": [.hy: "Պատվաստում", .ru: "Вакцинация", .en: "Vaccination"],
+        "Ուլտրաձայն": [.hy: "Ուլտրաձայն", .ru: "УЗИ", .en: "Ultrasound"],
+        "Ստերիլիզացիա": [.hy: "Ստերիլիզացիա", .ru: "Стерилизация", .en: "Spaying"],
+        "Խուզում": [.hy: "Խուզում", .ru: "Груминг", .en: "Grooming"],
+    ]
+
+    /**
      * Обратный указатель: любая известная форма → заводской ключ.
      *
      * Нужен потому, что слово может прийти уже переведённым — сервер
@@ -154,14 +206,21 @@ enum Terms {
      */
     private static let unitKeys = reverse(units)
     private static let staffKeys = reverse(staffRoles)
-    private static let clientIdKeys: [String: String] = {
+    private static let clientIdKeys = reverse(clientIdLabels)
+    /* Услугу правят руками: открыл прайс на русском, поменял цену и
+       сохранил — на сервер ушло «Комплекс». Обратный указатель узнаёт её
+       и в этом виде, поэтому армянский экран после такой правки не
+       остаётся с русским словом. */
+    private static let serviceKeys = reverse(serviceNames)
+
+    private static func reverse(_ table: [String: [Lang: String]]) -> [String: String] {
         var out: [String: String] = [:]
-        for (key, byLang) in clientIdLabels {
+        for (key, byLang) in table {
             out[key] = key
             for word in byLang.values where out[word] == nil { out[word] = key }
         }
         return out
-    }()
+    }
 
     private static func reverse(_ table: [String: [Lang: Forms]]) -> [String: String] {
         var out: [String: String] = [:]
@@ -221,6 +280,27 @@ enum Terms {
     static func clientId(_ value: String) -> String {
         let raw = value.trimmingCharacters(in: .whitespaces)
         guard let key = clientIdKeys[raw], let found = clientIdLabels[key]?[LangStore.currentLang]
+        else { return value }
+        return found
+    }
+
+    /**
+     * Название услуги: «Комплекс», «Кузов».
+     *
+     * Составное разбирается по частям: в записи их бывает две
+     * («Կոմպլեքս + Թափք»), и одна может быть нашей, а вторая его.
+     * Разделитель тот же, каким склеивает сервер.
+     */
+    static func service(_ value: String) -> String {
+        guard value.contains(serviceJoin) else { return one(value) }
+        return value.components(separatedBy: serviceJoin).map(one).joined(separator: serviceJoin)
+    }
+
+    private static let serviceJoin = " + "
+
+    private static func one(_ value: String) -> String {
+        let raw = value.trimmingCharacters(in: .whitespaces)
+        guard let key = serviceKeys[raw], let found = serviceNames[key]?[LangStore.currentLang]
         else { return value }
         return found
     }

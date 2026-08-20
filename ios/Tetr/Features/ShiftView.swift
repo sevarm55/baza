@@ -487,7 +487,7 @@ struct ShiftView: View {
                     Text(item.clientKey)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(Brand.onBoard)
-                    Text("\(item.serviceName) · \(item.failure ?? "")")
+                    Text("\(Terms.service(item.serviceName)) · \(item.failure ?? "")")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -535,7 +535,7 @@ struct ShiftView: View {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
-                                Text(order.clientKey ?? order.serviceName)
+                                Text(order.clientKey ?? Terms.service(order.serviceName))
                                     .font(.system(size: 14.5, weight: .semibold, design: .rounded))
                                     .monospacedDigit()
                                     .foregroundStyle(Brand.onBoard)
@@ -559,7 +559,7 @@ struct ShiftView: View {
                                неизвестно. */
                             Text(
                                 [
-                                    order.clientKey == nil ? nil : order.serviceName,
+                                    order.clientKey == nil ? nil : Terms.service(order.serviceName),
                                     paymentLabel(order.payment),
                                     at(order.createdAt),
                                     order.shared
@@ -610,7 +610,7 @@ struct ShiftView: View {
                                 .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(L("shift.rowActions", order.clientKey ?? order.serviceName))
+                        .accessibilityLabel(L("shift.rowActions", order.clientKey ?? Terms.service(order.serviceName)))
                         /* Вопрос висит на самой кнопке, а не на списке.
 
                            Раньше он стоял на всей прокрутке, и система, не
@@ -633,7 +633,7 @@ struct ShiftView: View {
                             }
                             Button(L("work.revokeKeep"), role: .cancel) {}
                         } message: { order in
-                            Text(L("shift.revokeBody", order.clientKey ?? order.serviceName, order.serviceName, money(order.price, currency)))
+                            Text(L("shift.revokeBody", order.clientKey ?? Terms.service(order.serviceName), Terms.service(order.serviceName), money(order.price, currency)))
                         }
                     }
                     .padding(.horizontal, 6)

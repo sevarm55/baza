@@ -52,7 +52,7 @@ export default async function PayrollPage() {
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
-  const board = await getPayrollBoard(tenant.id, tenant.timezone);
+  const board = await getPayrollBoard(tenant.id, tenant.timezone, t.locale);
 
   /* Ни одного расчёта за всю жизнь мойки.
    *

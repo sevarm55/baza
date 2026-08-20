@@ -99,7 +99,7 @@ export async function getAlerts(
        выплаты», и дневной расчёт за сегодня закрывает ей вчерашний долг,
        которого никто не отдавал. Повод молчал бы ровно тогда, когда
        деньги не отданы. */
-    getPayrollBoard(tenantId, timezone),
+    getPayrollBoard(tenantId, timezone, locale),
 
     db
       .select({ paidAt: payouts.paidAt })

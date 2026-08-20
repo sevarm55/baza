@@ -6,7 +6,7 @@ import { listPoints } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
-import { clientIdLabelTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
+import { clientIdLabelTerm, serviceNameTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
 import { failFromError, ok } from '@/lib/api/respond';
 
 /**
@@ -138,7 +138,9 @@ export async function GET(request: Request) {
       points: await listPoints(ctx.account.id),
       services: services.map((s) => ({
         id: s.id,
-        name: s.name,
+        /* Заводские услуги — на языке телефона, названия владельца
+           проходят насквозь (см. lib/i18n/terms.ts). */
+        name: serviceNameTerm(s.name, ctx.locale),
         price: s.price,
         tierPrices: s.tierPrices ?? null,
         sort: s.sort,

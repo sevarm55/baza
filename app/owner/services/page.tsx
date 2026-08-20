@@ -8,7 +8,7 @@ import { AddService } from './add-service';
 import { ServiceList, type ServiceRow } from './service-list';
 import { TiersEditor } from './tiers';
 import { getDict } from '@/lib/i18n/server';
-import { unitCount } from '@/lib/i18n/terms';
+import { serviceNameTerm, unitCount } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
 
 /**
@@ -58,7 +58,9 @@ export default async function ServicesPage() {
 
   const rows: ServiceRow[] = services.map((s) => ({
     id: s.id,
-    name: s.name,
+    /* Заводские пять строк прайса переводятся, названия владельца
+       проходят насквозь (см. terms.ts). */
+    name: serviceNameTerm(s.name, t.locale),
     price: toMajor(s.price, tenant.currency),
     display: formatAmount(s.price, tenant.currency, t.locale),
     count: sold.get(s.id)?.count ?? 0,

@@ -5,6 +5,8 @@ import {
   getUnsettledUnitsByDay,
   listPayouts,
 } from './queries';
+import { DEFAULT_LOCALE } from './i18n';
+import { serviceNameTerm } from './i18n/terms';
 
 /**
  * Лист зарплат, собранный из трёх разных вещей в один ответ.
@@ -126,6 +128,10 @@ export type PayrollBoard = {
 export async function getPayrollBoard(
   tenantId: string,
   timezone: string,
+  /* Язык подписи строки. Приходит снаружи по той же причине, что у
+     поводов: лист зарплат читают из браузера и из приложения, и язык у
+     них свой у каждого. */
+  locale: string = DEFAULT_LOCALE,
   historyLimit = 120,
 ): Promise<PayrollBoard> {
   const [days, paidDays, lines, payouts, unitsPerDay] = await Promise.all([
@@ -146,7 +152,9 @@ export async function getPayrollBoard(
     const key = `${line.staffId}|${line.day}`;
     const entry: BoardLine = {
       id: line.id,
-      title: line.clientKey ? `${line.clientKey} · ${line.serviceName}` : line.serviceName,
+      title: line.clientKey
+        ? `${line.clientKey} · ${serviceNameTerm(line.serviceName, locale)}`
+        : serviceNameTerm(line.serviceName, locale),
       price: line.price,
       percent: line.percent,
       earned: line.earned,

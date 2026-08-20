@@ -32,7 +32,7 @@ import { EndShift, StartShift } from './shift-controls';
 import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
 import { getDict } from '@/lib/i18n/server';
-import { unitForms, unitWord } from '@/lib/i18n/terms';
+import { serviceNameTerm, unitForms, unitWord } from '@/lib/i18n/terms';
 import { localizeTenant } from '@/lib/i18n/terms';
 
 export default async function WorkPage() {
@@ -286,7 +286,7 @@ export default async function WorkPage() {
                первой же правке. */
             services={services.map((s) => ({
               id: s.id,
-              name: s.name,
+              name: serviceNameTerm(s.name, t.locale),
               price: s.price,
               prices: tiers.map((_, i) => priceForTier(s, i)),
             }))}
@@ -309,7 +309,7 @@ export default async function WorkPage() {
             recent={shift.orders.map((o) => ({
               id: o.id,
               clientKey: o.clientKey,
-              serviceName: o.serviceName,
+              serviceName: serviceNameTerm(o.serviceName, t.locale),
               price: o.price,
               payment: o.payment,
               at: o.createdAt.toISOString(),

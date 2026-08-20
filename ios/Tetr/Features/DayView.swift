@@ -387,7 +387,7 @@ struct DayView: View {
                        оплаты словом, а не значком: значок карты и значок
                        перевода на десяти точках различаются, только если
                        знать, что они разные. */
-                    Text("\(item.serviceName) · \(paymentLabel(item.payment).lowercased())")
+                    Text("\(Terms.service(item.serviceName)) · \(paymentLabel(item.payment).lowercased())")
                         .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)

@@ -3,6 +3,7 @@ import { listServices } from '@/lib/queries';
 import { upsertService, ValidationError } from '@/lib/catalog';
 import { authorize, denied } from '@/lib/api/guard';
 import { body, fail, failFromError, ok, str } from '@/lib/api/respond';
+import { serviceNameTerm } from '@/lib/i18n/terms';
 
 /** Прайс целиком. Цены в минимальных единицах — как везде. */
 export async function GET(request: Request) {
@@ -15,7 +16,9 @@ export async function GET(request: Request) {
     return ok({
       services: rows.map((s) => ({
         id: s.id,
-        name: s.name,
+        /* Заводские услуги — на языке телефона, названия владельца
+           проходят насквозь (см. lib/i18n/terms.ts). */
+        name: serviceNameTerm(s.name, ctx.locale),
         price: s.price,
         tierPrices: s.tierPrices ?? null,
       })),
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
       {
         service: {
           id: service.id,
-          name: service.name,
+          name: serviceNameTerm(service.name, ctx.locale),
           price: service.price,
           tierPrices: service.tierPrices ?? null,
         },

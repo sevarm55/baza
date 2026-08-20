@@ -137,7 +137,7 @@ struct ClientHistoryView: View {
                 if let firstSeen {
                     fact(L("owner.clientFirstVisit"), longDay(firstSeen))
                 }
-                if let service = topOf(orders.map(\.serviceName)) {
+                if let service = topOf(orders.map { Terms.service($0.serviceName) }) {
                     fact(L("owner.clientOftenTakes"), service)
                 }
                 if let payment = topOf(orders.map { paymentWord($0.payment) }) {
@@ -334,7 +334,7 @@ struct ClientHistoryView: View {
     private func row(_ order: API.ClientOrder) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(order.serviceName)
+                Text(Terms.service(order.serviceName))
                     .font(.system(size: 14.5, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)

@@ -3,7 +3,7 @@ import type { Dict } from './i18n';
 import { exportOrders } from './queries';
 import { toMajor } from './money';
 import { DEFAULT_LOCALE, dict } from './i18n';
-import { clientIdLabelTerm, staffRoleTerm } from './i18n/terms';
+import { clientIdLabelTerm, serviceNameTerm, staffRoleTerm } from './i18n/terms';
 import { hhmm, ymd } from './time';
 
 /**
@@ -58,7 +58,7 @@ export async function buildOrdersCsv(
     ymd(r.createdAt, tenant.timezone),
     hhmm(r.createdAt, tenant.timezone),
     r.clientKey ?? '',
-    r.serviceName,
+    serviceNameTerm(r.serviceName, locale),
     String(toMajor(r.price, tenant.currency)),
     paymentLabel(r.payment, t),
     /* Все, кто мыл, а не один автор записи. У одиночной мойки это то же

@@ -2985,6 +2985,16 @@ async function main() {
   const server = await loadsDb({ NODE_ENV: 'production', DATABASE_URL: REMOTE, SESSION_SECRET: 'x'.repeat(32) });
   check('на сервере замка нет', server.code === 0, server.err.slice(0, 200));
 
+  /* Прайс, которым засевается новый бизнес, обязан быть переводимым:
+     заводскую услугу человек не заводил, и на русском экране армянское
+     слово читается чужой надписью. Проверка ловит ровно одно — что в
+     конфиг ниши добавили услугу, а в словарь терминов её не положили. */
+  const { serviceNameTerm } = await import('../lib/i18n/terms');
+  const untranslated = NICHE_LIST.flatMap((n) => n.services.map((s) => s.name)).filter(
+    (name) => serviceNameTerm(name, 'ru') === name || serviceNameTerm(name, 'en') === name,
+  );
+  check('у каждой заводской услуги есть перевод', untranslated.length === 0, untranslated);
+
   console.log(`\nвыручка форматируется как: ${formatMoney(stats.revenue, tenant.currency)}`);
   console.log(failed === 0 ? '\nвсе проверки пройдены\n' : `\n${failed} провалено\n`);
   process.exit(failed === 0 ? 0 : 1);

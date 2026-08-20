@@ -10,7 +10,7 @@ import { Panel, signColor, signOf } from '@/components/board';
 import { EmptyState } from '@/components/empty-state';
 import { PageHead } from '@/components/page-head';
 import { getDict } from '@/lib/i18n/server';
-import { unitCount } from '@/lib/i18n/terms';
+import { serviceNameTerm, unitCount } from '@/lib/i18n/terms';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
 import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
@@ -183,7 +183,7 @@ export default async function ReportsPage({
 
   const services: BarRow[] = earned.map((e) => ({
     key: e.name,
-    name: e.name,
+    name: serviceNameTerm(e.name, t.locale),
     note: `${e.count} ${t.owner.timesShort}`,
     value: e.revenue,
     money: money(e.revenue),

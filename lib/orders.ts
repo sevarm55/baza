@@ -19,6 +19,7 @@ import { notifyOwnersInBackground } from './push';
 import { normalizeClientKey } from './client-key';
 import { startOfDay } from './time';
 import { DEFAULT_LOCALE, dict } from './i18n';
+import { serviceNameTerm } from './i18n/terms';
 
 export type Payment = 'cash' | 'card' | 'transfer' | 'pass';
 
@@ -432,18 +433,22 @@ export async function createOrder(input: CreateOrderInput) {
      Досылку из очереди не объявляем: `duplicate` означает, что запись
      уже была, и второе сообщение о ней — шум. */
   if (!made.duplicate) {
+    /* Язык уведомления — бизнеса, а не того, кто записал машину: читает
+       его владелец. Название услуги переводится тем же правилом, что на
+       экране: заводское на язык, своё владельца насквозь. */
+    const locale = input.locale ?? DEFAULT_LOCALE;
     notifyOwnersInBackground(
       input.tenantId,
       made.order.staffId,
       {
-        title: made.client?.key ?? made.order.serviceName,
+        title: made.client?.key ?? serviceNameTerm(made.order.serviceName, locale),
         // скидку показываем сразу: она всплывает в тот же вечер, а не
         // через месяц при сверке
         body: discountLine(
-          made.order.serviceName,
+          serviceNameTerm(made.order.serviceName, locale),
           made.order.price,
           made.order.listPrice,
-          input.locale ?? DEFAULT_LOCALE,
+          locale,
           input.currency,
         ),
         thread: 'orders',

@@ -80,11 +80,23 @@ enum TermsTests {
         check("en: из русского в английский", Terms.unit("машина").nom, "car")
         check("en: исполнитель", Terms.staff(2, "Լվացող"), "2 washers")
 
+        // ── названия услуг: заводские переводятся, свои нет ──
+        LangStore.testOnlySet(.ru)
+        check("ru: заводская услуга", Terms.service("Կոմպլեքս"), "Комплекс")
+        // Снимок записи склеивает две услуги: перевести надо обе.
+        check("ru: две услуги в записи", Terms.service("Կոմպլեքս + Թափք"), "Комплекс + Кузов")
+        // Владелец правил прайс на русском — в базе теперь «Комплекс».
+        LangStore.testOnlySet(.hy)
+        check("hy: узнаёт услугу по русскому имени", Terms.service("Комплекс"), "Կոմպլեքս")
+        LangStore.testOnlySet(.en)
+        check("en: заводская услуга", Terms.service("Կոմպլեքս"), "Full wash")
+
         // ── слово владельца не трогаем ни на одном языке ──
         for lang in Lang.allCases {
             LangStore.testOnlySet(lang)
             check("\(lang.rawValue): своё слово цело", Terms.unit("Тачка").nom, "Тачка")
             check("\(lang.rawValue): своё слово с числом", Terms.units(5, "Тачка"), "5 Тачка")
+            check("\(lang.rawValue): своя услуга цела", Terms.service("Мойка дисков"), "Мойка дисков")
         }
 
         print(failed == 0 ? "\nслова ниши: все проверки пройдены\n"
