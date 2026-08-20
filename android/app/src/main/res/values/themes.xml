@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Полотно, которое система рисует до того, как приложение получило
+      управление. Тёмный грейп, а не белое: белая вспышка перед тёмным
+      экраном входа заметна и читается как сбой. Тот же цвет, что у
+      UILaunchScreen в iOS.
+    -->
+    <style name="Theme.Tetrin.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/launch_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Tetrin</item>
+    </style>
+
+    <style name="Theme.Tetrin" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+    </style>
+</resources>

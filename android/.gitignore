@@ -1,0 +1,14 @@
+# Собирается, а не хранится.
+/build
+/app/build
+/.gradle
+/.idea
+/local.properties
+
+# Ключ подписи и его пароли: в репозиторий не кладут.
+/keystore.properties
+*.jks
+*.keystore
+
+# Ключ Firebase — тоже чужой секрет.
+/app/google-services.json

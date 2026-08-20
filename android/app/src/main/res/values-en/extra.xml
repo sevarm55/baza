@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lock__biometrics">Biometrics</string>
+    <string name="notif__ordersChannel">Records</string>
+    <string name="notif__shiftChannel">Open shift</string>
+    <string name="camera__denied">No camera access. You can type the plate by hand.</string>
+    <string name="camera__openSettings">Open settings</string>
+</resources>
