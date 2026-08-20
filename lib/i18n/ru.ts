@@ -922,6 +922,10 @@ export const ru: Dict = {
     periodToday: 'Сегодня',
     periodMonth: 'Этот месяц',
     periodPrevMonth: 'Прошлый месяц',
+    emptySummaryToday: 'Сегодня пока нет данных',
+    emptySummaryMonth: 'В этом месяце пока нет данных',
+    emptySummaryPrevious: 'За прошлый месяц данных нет',
+    emptySummaryNote: 'Сводка появится после первой обслуженной машины',
     periodLabel: 'Период',
 
     vsPrev: 'к предыдущему',

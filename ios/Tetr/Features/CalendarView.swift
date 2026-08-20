@@ -116,14 +116,15 @@ struct CalendarView: View {
     // ══════════════════════════ показание ══════════════════════════
 
     private func reading(_ total: API.MonthTotal) -> some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
             Text(total.profit >= 0 ? L("calendar.monthProfit") : L("calendar.monthInTheRed"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .tracking(1.15)
+                    .foregroundStyle(Brand.boardMuted)
 
             Text((total.profit < 0 ? "−" : "") + money(abs(total.profit), currency))
-                .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(total.profit))
                 .lineLimit(1)
@@ -131,11 +132,15 @@ struct CalendarView: View {
                 // значение передаётся внутрь: по нему система понимает, в
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(total.profit)))
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             totals(total)
         }
         .frame(maxWidth: .infinity)
-        .padding(.bottom, 4)
+        .padding(.bottom, 2)
     }
 
     /**
@@ -148,43 +153,63 @@ struct CalendarView: View {
      *
      * Теперь цепочка названа целиком: пришло, за сколько машин, ушло
      * людям, ушло на расходы. Краски те же, что на смене и в карточке дня:
-     * мята за объём работы, лаванда за деньги, песок за траты — и один и
+     * мята за объём работы, лаванда за деньги, кобальт за траты — и один и
      * тот же смысл окрашен одинаково во всём продукте.
      */
     @ViewBuilder
     private func totals(_ total: API.MonthTotal) -> some View {
         if total.revenue > 0 || total.count > 0 {
-            StatCards(
-                items: [
-                    Stat(
-                        id: "revenue",
-                        label: L("owner.revenue"),
-                        value: money(total.revenue, currency),
-                        tint: .mint
-                    ),
-                    Stat(
-                        id: "count",
-                        label: Terms.unitWord(total.count, session.tenant?.unitOne ?? ""),
-                        value: "\(total.count)",
-                        tint: .paper
-                    ),
-                    Stat(
-                        id: "staff",
-                        label: L("summary.toStaff"),
-                        value: money(total.payroll, currency),
-                        tint: .lavender
-                    ),
-                    Stat(
-                        id: "costs",
-                        label: L("expenses.title"),
-                        value: money(total.expenses, currency),
-                        tint: .sand
-                    ),
-                ],
-                columns: 2
-            )
-            .padding(.top, 16)
+            VStack(spacing: 13) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(L("owner.revenue"))
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Brand.boardMuted)
+                    Spacer(minLength: 8)
+                    Text(money(total.revenue, currency))
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.mintInk)
+                }
+
+                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+
+                HStack(alignment: .top, spacing: 6) {
+                    monthMetric("\(total.count)", Terms.unitWord(total.count, session.tenant?.unitOne ?? ""), Brand.onBoard)
+                    divider
+                    monthMetric(money(total.payroll, currency), L("summary.toStaff"), Brand.lavenderInk)
+                    divider
+                    monthMetric(money(total.expenses, currency), L("expenses.title"), Brand.sandInk)
+                }
+            }
+            .padding(16)
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07))
+            }
         }
+    }
+
+    private func monthMetric(_ value: String, _ label: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            Text(label)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(width: 1, height: 34)
     }
 
     // ══════════════════════════ сетка ══════════════════════════

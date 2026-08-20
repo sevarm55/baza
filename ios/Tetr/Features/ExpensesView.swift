@@ -76,7 +76,7 @@ struct ExpensesView: View {
             /* Шапка есть, только когда есть чем её заполнить: итог и его
                части считает сервер, и без них показывать здесь нечего —
                ноль на месте расходов читается как «ничего не тратил». */
-            if loaded && costs != nil {
+            if loaded && costs != nil && !items.isEmpty {
                 reading
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -150,20 +150,11 @@ struct ExpensesView: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
             } else if items.isEmpty {
-                Text(L("expenses.empty"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 44)
+                emptyState
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
             }
-
-            addButton
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
 
             // те же слова, что в кабинете (`hy.expenses.note`): одно и то
             // же правило, объяснённое двумя разными фразами, читается как
@@ -174,12 +165,15 @@ struct ExpensesView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 6, leading: 18, bottom: 28, trailing: 18))
+                .listRowInsets(.init(top: 6, leading: 18, bottom: month == .current ? 92 : 28, trailing: 18))
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            if month == .current { addButton }
+        }
         /* Полоска захвата видима: лист закрывается смахиванием, но без
            неё об этом не догадываются. */
         .sheet(isPresented: $adding) {
@@ -234,64 +228,101 @@ struct ExpensesView: View {
      * второй источник правды для денег.
      */
     private var reading: some View {
-        VStack(spacing: 0) {
-            Text(month.label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
+        let parts = [
+            Split(
+                id: "monthly",
+                label: L("expenses.monthlyOnes"),
+                ink: Brand.sandInk,
+                amount: spentMonthly
+            ),
+            Split(
+                id: "oneOff",
+                label: L("expenses.oneOffs"),
+                ink: Brand.grape,
+                amount: spentOneOff
+            ),
+        ].filter { $0.amount > 0 }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 10) {
+                HStack(spacing: 5) {
+                    ForEach(Month.allCases, id: \.self) { option in
+                        Button {
+                            month = option
+                            Task { await reload() }
+                        } label: {
+                            Text(option.label)
+                                .font(.system(size: 12.5, weight: month == option ? .semibold : .regular))
+                                .foregroundStyle(month == option ? Brand.board : Brand.boardMuted)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(
+                                    month == option ? Brand.onBoard : Brand.boardInk.opacity(0.055),
+                                    in: .rect(cornerRadius: 8)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                if let share = revenueShare {
+                    Text(L("expenses.shareOfRevenue", share))
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.sandInk)
+                        .lineLimit(1)
+                }
+            }
+
+            Text(L("expenses.title"))
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .padding(.top, 22)
 
             Text(money(spentTotal, currency))
-                .font(.system(size: 46, weight: .bold, design: .rounded))
+                .font(.system(size: 43, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.sandInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
                 .contentTransition(.numericText(value: Double(spentTotal)))
+                .padding(.top, 2)
 
-            if let share = revenueShare {
-                Text(L("expenses.shareOfRevenue", share))
-                    .font(.system(size: 12))
+            if !parts.isEmpty {
+                SplitBar(parts: parts, height: 11)
+                    .padding(.top, 18)
+                SplitLegend(parts: parts, currency: currency)
+                    .padding(.top, 7)
+            }
+
+            if perDayAvg > 0 {
+                Text(L("expenses.perDay", money(perDayAvg, currency)))
+                    .font(.system(size: 11.5))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
-                    .padding(.top, 4)
+                    .padding(.top, 10)
             }
-
-            if spentMonthly > 0 || spentOneOff > 0 {
-                Text(breakdown)
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.top, 6)
-            }
-
-            /* Переключатель месяца рядом с итогом, а не в заголовке
-               экрана: он меняет именно это число, и стоять должен там,
-               где на него смотрят. */
-            HStack(spacing: 6) {
-                ForEach(Month.allCases, id: \.self) { option in
-                    Button {
-                        month = option
-                        Task { await reload() }
-                    } label: {
-                        Text(option.label)
-                            .font(.system(size: 13, weight: month == option ? .semibold : .regular))
-                            .foregroundStyle(month == option ? Brand.board : Brand.boardMuted)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                month == option ? Brand.onBoard : Brand.boardInk.opacity(0.07),
-                                in: .rect(cornerRadius: 9)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.top, 12)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 4)
+        .padding(19)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                    .fill(Brand.boardSurface)
+                Circle()
+                    .fill(Brand.sandInk.opacity(0.09))
+                    .frame(width: 150, height: 150)
+                    .offset(x: 58, y: -78)
+            }
+            .clipShape(.rect(cornerRadius: 27, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
+        }
+        .shadow(color: Brand.boardInk.opacity(0.04), radius: 18, y: 8)
     }
 
     /**
@@ -314,16 +345,6 @@ struct ExpensesView: View {
         guard revenue > 0, spentTotal > 0 else { return nil }
         let exact = Double(spentTotal) / Double(revenue) * 100
         return exact < 1 ? "<1" : String(Int(exact.rounded()))
-    }
-
-    /// Из чего сложился итог: постоянные, разовые и сколько это в день.
-    private var breakdown: String {
-        var parts = [
-            L("expenses.monthlySpent", money(spentMonthly, currency)),
-            L("expenses.oneOffSpent", money(spentOneOff, currency)),
-        ]
-        if perDayAvg > 0 { parts.append(L("expenses.perDay", money(perDayAvg, currency))) }
-        return parts.joined(separator: " · ")
     }
 
     private func heading(_ title: String, _ count: String) -> some View {
@@ -394,6 +415,12 @@ struct ExpensesView: View {
     /// Общая строка расхода. Одна на оба вида — в этом весь смысл.
     private func line(title: String, badge: String?, note: String?, amount: Int) -> some View {
         HStack(spacing: 12) {
+            Image(systemName: symbol(for: title))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.sandInk)
+                .frame(width: 38, height: 38)
+                .background(Brand.sandCard, in: .rect(cornerRadius: 12, style: .continuous))
+
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(title)
@@ -429,8 +456,12 @@ struct ExpensesView: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 13)
-        .padding(.vertical, 12)
-        .background(Brand.boardInk.opacity(0.06), in: .rect(cornerRadius: 14))
+        .padding(.vertical, 11)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 17, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.065), lineWidth: 0.8)
+        }
         .contentShape(.rect)
     }
 
@@ -494,21 +525,71 @@ struct ExpensesView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.grape)
-                    .frame(width: 44, height: 44)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+                    .font(.system(size: 14, weight: .black))
                 Text(L("expenses.addExpense"))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
+                    .font(.system(size: 15, weight: .bold))
                 Spacer(minLength: 0)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 24))
+            .foregroundStyle(Brand.onLime)
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+            .background(Brand.lime, in: .rect(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.press)
-        .padding(.top, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .background(Brand.board.ignoresSafeArea(edges: .bottom))
+    }
+
+    /** Пустой месяц — законченный экран, а не одинокая подпись списка. */
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Brand.boardSurface)
+                    .frame(height: 150)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+                    }
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach([0.34, 0.58, 0.82, 0.46], id: \.self) { value in
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Brand.sandInk.opacity(0.16 + value * 0.36))
+                            .frame(width: 19, height: 24 + 62 * value)
+                    }
+                }
+                .padding(.leading, 22)
+                .padding(.bottom, 20)
+
+                Image(systemName: "arrow.down.right")
+                    .font(.system(size: 25, weight: .semibold))
+                    .foregroundStyle(Brand.sandInk)
+                    .frame(width: 58, height: 58)
+                    .background(Brand.sandCard, in: .rect(cornerRadius: 18, style: .continuous))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, 20)
+                    .padding(.trailing, 20)
+            }
+            .accessibilityHidden(true)
+
+            Text(L("expenses.empty"))
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .tracking(-0.3)
+                .foregroundStyle(Brand.onBoard)
+                .padding(.top, 18)
+
+            Text(L("expenses.note"))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 7)
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 12)
+        .padding(.bottom, 18)
     }
 
     /**

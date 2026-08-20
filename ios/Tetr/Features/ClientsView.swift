@@ -123,9 +123,9 @@ struct ClientsView: View {
                         retry: { await reload() }
                     )
                 } else if clients.isEmpty {
-                    empty(L("common.empty"))
+                    emptyDatabase
                 } else if found.isEmpty {
-                    empty(L("owner.clientsNotFound"))
+                    emptySearch
                 }
             }
             .padding(.horizontal, 12)
@@ -168,8 +168,6 @@ struct ClientsView: View {
      */
     private var head: some View {
         VStack(alignment: .leading, spacing: 10) {
-            counters
-
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14, weight: .semibold))
@@ -203,6 +201,8 @@ struct ClientsView: View {
             // по всей строке поиска, а не по буквам подсказки
             .contentShape(.rect)
             .onTapGesture { typingQuery = true }
+
+            counters
 
             /* Порядок — прокруткой вбок: три слова по-армянски в строку
                не помещаются, а перенос превратил бы переключатель в
@@ -247,77 +247,113 @@ struct ClientsView: View {
      * не понимают, сломалось или так задумано.
      */
     private var counters: some View {
-        HStack(spacing: 6) {
-            counter(L("owner.clientsTotal"), clients.count, tone: Brand.onBoard) { group = .all }
-            counter(L("owner.clientsLoyal"), loyalAll.count, tone: Brand.goodOnBoard) { group = .loyal }
-            /* «Новых» тут не было, а в кабинете они есть: клиент с одним
-               визитом — это не то же самое, что постоянный, и вопрос
-               «кто у меня ещё не вернулся» задают отдельно. */
-            counter(L("owner.clientsFresh"), freshAll.count, tone: Brand.onBoard) { group = .fresh }
-            counter(
-                L("owner.clientsLost"),
-                lostAll.count,
-                tone: lostAll.isEmpty ? Brand.onBoard : Brand.warnOnBoard
-            ) {
-                group = lostAll.isEmpty ? nil : .lost
-            }
-        }
-    }
-
-    private func counter(
-        _ label: String,
-        _ value: Int,
-        tone: Color,
-        _ tap: @escaping () -> Void
-    ) -> some View {
-        // за нулём списка нет: кнопка, которая ничего не открывает, хуже
-        // обычного текста — по ней жмут и не понимают, сломалось или так
-        // задумано
-        let live = value > 0
-
-        return Button(action: tap) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 3) {
-                    Text(label)
-                        .font(.system(size: 11))
+        HStack(spacing: 10) {
+            Button { group = clients.isEmpty ? nil : .all } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("owner.clientsTotal"))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text("\(clients.count)")
+                        .font(.system(size: 31, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                        .contentTransition(.numericText(value: Double(clients.count)))
+                    Text("\(L("owner.clientsLoyal")) \(loyalAll.count) · \(L("owner.clientsFresh")) \(freshAll.count)")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-
-                    Spacer(minLength: 0)
-
-                    /* Шеврон, а не просто нажимаемая плитка: без знака
-                       она читается подписью, по ней не пробуют тапнуть
-                       и не узнают, что за числом что-то есть. */
-                    if live {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundStyle(Brand.boardMuted.opacity(0.55))
-                    }
+                        .minimumScaleFactor(0.72)
                 }
-
-                Text("\(value)")
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(tone)
-                    .contentTransition(.numericText(value: Double(value)))
+                .padding(14)
+                .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 12))
-            .contentShape(.rect)
+            .buttonStyle(.press)
+            .disabled(clients.isEmpty)
+
+            Button { group = lostAll.isEmpty ? nil : .lost } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Image(systemName: lostAll.isEmpty ? "checkmark" : "phone.arrow.up.right")
+                        .font(.system(size: 13, weight: .bold))
+                    Spacer(minLength: 2)
+                    Text("\(lostAll.count)")
+                        .font(.system(size: 25, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text(L("owner.clientsLost"))
+                        .font(.system(size: 10.5, weight: .medium))
+                        .lineLimit(2)
+                }
+                .foregroundStyle(lostAll.isEmpty ? Brand.goodOnBoard : Brand.warnOnBoard)
+                .padding(13)
+                .frame(width: 106, alignment: .leading)
+                .frame(minHeight: 94, alignment: .leading)
+                .background(
+                    (lostAll.isEmpty ? Brand.mintCard : Brand.warnOnBoard.opacity(0.12)),
+                    in: .rect(cornerRadius: 20, style: .continuous)
+                )
+            }
+            .buttonStyle(.press)
+            .disabled(lostAll.isEmpty)
         }
-        .buttonStyle(.press)
-        .disabled(!live)
     }
 
-    private func empty(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 14))
+    private var emptyDatabase: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                ForEach(0..<3, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(index == 0 ? Brand.boardSurface : Brand.grape.opacity(0.055))
+                        .frame(width: 190 - CGFloat(index) * 18, height: 76)
+                        .overlay(alignment: .leading) {
+                            HStack(spacing: 10) {
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .fill(Brand.grape.opacity(0.12 + Double(index) * 0.05))
+                                    .frame(width: 38, height: 38)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Capsule().fill(Brand.boardInk.opacity(0.14)).frame(width: 70, height: 6)
+                                    Capsule().fill(Brand.boardInk.opacity(0.07)).frame(width: 46, height: 5)
+                                }
+                            }
+                            .padding(.horizontal, 13)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+                        }
+                        .offset(y: CGFloat(index - 1) * 24)
+                }
+            }
+            .frame(height: 150)
+            .accessibilityHidden(true)
+
+            Text(L("common.empty"))
+                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                .foregroundStyle(Brand.onBoard)
+                .padding(.top, 8)
+
+            Text(L("more.clientsLead"))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Brand.boardMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+                .padding(.top, 7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+
+    private var emptySearch: some View {
+        Label(L("owner.clientsNotFound"), systemImage: "magnifyingglass")
+            .font(.system(size: 14, weight: .medium))
             .foregroundStyle(Brand.boardMuted)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 44)
+            .padding(.vertical, 38)
     }
 
     /**

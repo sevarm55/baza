@@ -48,9 +48,13 @@ struct DayView: View {
                 if let failure {
                     problem(failure)
                 } else if let day {
-                    reading(day)
-                    crew(day.shifts)
-                    if day.feed.isEmpty { empty } else { records(day.feed) }
+                    if day.feed.isEmpty && day.shifts.isEmpty && day.stats.revenue == 0 && day.costs.total == 0 {
+                        empty
+                    } else {
+                        reading(day)
+                        crew(day.shifts)
+                        if day.feed.isEmpty { empty } else { records(day.feed) }
+                    }
                 } else if loading {
                     TetrLoader(size: 34, tint: Brand.grape).padding(.vertical, 80)
                 }
@@ -125,24 +129,30 @@ struct DayView: View {
      * осталось.
      */
     private func reading(_ day: API.Day) -> some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
             Text(day.profit >= 0 ? L("day.kept") : L("day.red"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .tracking(1.15)
+                    .foregroundStyle(Brand.boardMuted)
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
                Цвет по знаку — то же правило, что на сводке. */
             Text((day.profit < 0 ? "−" : "") + money(abs(day.profit), currency))
-                .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(day.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             totals(day)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 4)
+        .padding(.top, 2)
     }
 
     /**
@@ -162,28 +172,42 @@ struct DayView: View {
     @ViewBuilder
     private func totals(_ day: API.Day) -> some View {
         if day.stats.revenue > 0 || day.costs.total > 0 {
-            StatCards(items: [
-                Stat(
-                    id: "revenue",
-                    label: L("owner.revenue"),
-                    value: money(day.stats.revenue, currency),
-                    tint: .mint
-                ),
-                Stat(
-                    id: "staff",
-                    label: L("summary.toStaff"),
-                    value: money(day.stats.payroll, currency),
-                    tint: .lavender
-                ),
-                Stat(
-                    id: "costs",
-                    label: L("expenses.title"),
-                    value: money(day.costs.total, currency),
-                    tint: .sand
-                ),
-            ])
-            .padding(.top, 18)
+            HStack(alignment: .top, spacing: 6) {
+                dayMetric(money(day.stats.revenue, currency), L("owner.revenue"), Brand.mintInk)
+                metricDivider
+                dayMetric(money(day.stats.payroll, currency), L("summary.toStaff"), Brand.lavenderInk)
+                metricDivider
+                dayMetric(money(day.costs.total, currency), L("expenses.title"), Brand.sandInk)
+            }
+            .padding(16)
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07))
+            }
         }
+    }
+
+    private func dayMetric(_ value: String, _ label: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+            Text(label)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var metricDivider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(width: 1, height: 34)
     }
 
     // ══════════════════════════ смены ══════════════════════════
@@ -487,11 +511,38 @@ struct DayView: View {
     }
 
     private var empty: some View {
-        Text(L("day.empty"))
-            .font(.system(size: 14))
-            .foregroundStyle(Brand.boardMuted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
+        VStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Brand.grape.opacity(0.08))
+                    .frame(width: 108, height: 92)
+                VStack(spacing: 9) {
+                    HStack(spacing: 7) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            Circle().fill(Brand.grape.opacity(0.32)).frame(width: 6, height: 6)
+                        }
+                    }
+                    Capsule().fill(Brand.boardInk.opacity(0.12)).frame(width: 54, height: 7)
+                    Capsule().fill(Brand.boardInk.opacity(0.08)).frame(width: 38, height: 7)
+                }
+            }
+
+            Text(L("day.empty"))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(Brand.onBoard)
+                .multilineTextAlignment(.center)
+            Text(Self.title(date))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 38)
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07))
+        }
+        .padding(.top, 12)
     }
 
     /// «09:40 — 19:12» или «с 09:40», если смену не закрыли.

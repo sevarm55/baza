@@ -40,11 +40,7 @@ struct DevicesView: View {
                     /* Один вход и он же этот — говорить не о чем: строка
                        «это устройство», у которой нечего погасить, не
                        отвечает ни на один вопрос. */
-                    Text(L("profile.devicesOne"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 24)
+                    singleDeviceState
                 } else {
                     Text(L("profile.devicesNote"))
                         .font(.system(size: 13.5))
@@ -91,6 +87,34 @@ struct DevicesView: View {
             Button(L("common.cancel"), role: .cancel) {}
         } message: { row in
             Text(name(row))
+        }
+    }
+
+    private var singleDeviceState: some View {
+        VStack(spacing: 15) {
+            ZStack {
+                Circle()
+                    .fill(Brand.mintInk.opacity(0.08))
+                    .frame(width: 104, height: 104)
+                Circle()
+                    .strokeBorder(Brand.mintInk.opacity(0.16), lineWidth: 1)
+                    .frame(width: 76, height: 76)
+                Image(systemName: "iphone.gen3.badge.checkmark")
+                    .font(.system(size: 31, weight: .medium))
+                    .foregroundStyle(Brand.mintInk)
+            }
+
+            Text(L("profile.devicesOne"))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07))
         }
     }
 

@@ -43,7 +43,7 @@ struct ServicesView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if loaded { reading }
+                if loaded && !services.isEmpty { reading }
 
                 serviceRail
 
@@ -57,11 +57,7 @@ struct ServicesView: View {
                         retry: { await reload() }
                     )
                 } else if services.isEmpty {
-                    Text(L("services.empty"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 44)
+                    servicesEmpty
                 }
 
                 tiersButton
@@ -104,6 +100,42 @@ struct ServicesView: View {
         }
         .task { await reload() }
         .refreshable { await reload() }
+    }
+
+    private var servicesEmpty: some View {
+        VStack(spacing: 15) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Brand.grape.opacity(0.09))
+                    .frame(width: 126, height: 78)
+
+                VStack(spacing: 7) {
+                    ForEach(Array(([CGFloat(0.72), 0.52, 0.86]).enumerated()), id: \.offset) { index, width in
+                        HStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(index == 1 ? Brand.sandInk : Brand.grape)
+                                .frame(width: 7, height: 7)
+                            Capsule()
+                                .fill(Brand.boardInk.opacity(0.13))
+                                .frame(width: 68 * width, height: 6)
+                            Spacer(minLength: 0)
+                            Capsule()
+                                .fill(Brand.boardInk.opacity(0.22))
+                                .frame(width: 21, height: 6)
+                        }
+                    }
+                }
+                .padding(.horizontal, 15)
+                .frame(width: 126)
+            }
+
+            Text(L("services.empty"))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
     }
 
     /// «5 000 — 9 000 ֏», когда у услуги разные цены по классам.

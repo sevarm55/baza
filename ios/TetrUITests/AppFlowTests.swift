@@ -124,6 +124,45 @@ final class AppFlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["login.submit"].isEnabled, "кнопка входа осталась погашенной")
     }
 
+    /// В покое форма стоит по центру, при вводе поднимается, а касание по
+    /// свободному краю возвращает её на место и закрывает клавиатуру.
+    func testEmptySpaceDismissesKeyboardAndRecentersForm() {
+        let app = launch(phone: washerPhone, pin: washerPin, prefill: false)
+        XCTAssertTrue(waitUntil(timeout: 30) { !splashUp(app) }, "заставка не закончилась")
+
+        let phone = app.textFields["login.phone"]
+        XCTAssertTrue(phone.waitForExistence(timeout: 10), "поле телефона не появилось")
+        let restingY = phone.frame.midY
+
+        phone.tap()
+        XCTAssertTrue(
+            app.keyboards.firstMatch.waitForExistence(timeout: 5),
+            "цифровая клавиатура не открылась"
+        )
+        XCTAssertTrue(
+            waitUntil(timeout: 5) { phone.frame.midY < restingY - 20 },
+            "форма не поднялась при открытии клавиатуры"
+        )
+
+        /* Берём середину поля по вертикали, но двенадцать точек от
+           правого края окна — внутри прозрачного поля ScrollView и за
+           пределами формы с её 24-точечным отступом. Это не координата
+           конкретной модели телефона, а проверка самого пустого края. */
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: window.frame.width - 12, dy: phone.frame.midY))
+            .tap()
+
+        XCTAssertTrue(
+            waitUntil(timeout: 5) { app.keyboards.count == 0 },
+            "тап по пустому месту не закрыл клавиатуру"
+        )
+        XCTAssertTrue(
+            waitUntil(timeout: 5) { abs(phone.frame.midY - restingY) < 4 },
+            "после закрытия клавиатуры форма не вернулась в центр"
+        )
+    }
+
     /// Неверный код: одна и та же ошибка на чужой номер и на чужой PIN.
     func testWrongPinKeepsUserOnLogin() {
         let app = launch(phone: washerPhone, pin: "130000")

@@ -31,16 +31,43 @@ struct VerifyPhoneView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
+            ZStack {
+                Brand.board.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Brand.grape.opacity(0.12))
+                                    .frame(width: 58, height: 58)
+                                Image(systemName: challengeId == nil ? "checkmark.shield" : "message.badge")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundStyle(Brand.grape)
+                            }
+
+                            Text(challengeId == nil ? L("auth.verifyPhone") : L("auth.otpCode"))
+                                .font(.system(size: 27, weight: .bold, design: .rounded))
+                                .foregroundStyle(Brand.onBoard)
+
                     Text(L("auth.verifyPhoneWhy"))
-                        .font(.system(size: 14.5))
-                } header: {
-                    Text(session.me?.phone ?? "")
-                }
+                                .font(.system(size: 15))
+                                .foregroundStyle(Brand.boardMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Label(session.me?.phone ?? "", systemImage: "iphone")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Brand.onBoard)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Brand.boardInk.opacity(0.06), in: Capsule())
+                        }
 
                 if let challengeId {
-                    Section {
+                            VStack(alignment: .leading, spacing: 9) {
+                                Text(L("auth.otpCode"))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Brand.boardMuted)
                         TextField("••••••", text: $code)
                             .keyboardType(.numberPad)
                             // система сама подставит код из пришедшей SMS
@@ -54,28 +81,49 @@ struct VerifyPhoneView: View {
                                     Task { await confirm(challengeId) }
                                 }
                             }
-                    } header: {
-                        Text(L("auth.otpCode"))
-                    } footer: {
-                        Text(L("auth.otpSent", sentTo))
+                                Text(L("auth.otpSent", sentTo))
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.boardMuted)
+                            }
+                            .padding(18)
+                            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .strokeBorder(Brand.boardInk.opacity(0.07))
+                            }
                     }
-                }
 
                 if let error {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
+                            Label(error, systemImage: "exclamationmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
 
-                Section {
+                        Spacer(minLength: 24)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 116)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Group {
                     if let challengeId {
                         Button(L("auth.otpVerify")) { Task { await confirm(challengeId) } }
-                            .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                             .disabled(busy || code.count < API.codeLength)
                     } else {
                         Button(L("auth.verifyPhoneSend")) { Task { await send() } }
-                            .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                             .disabled(busy)
                     }
                 }
+                .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
             }
             .navigationTitle(L("auth.verifyPhone"))
             .navigationBarTitleDisplayMode(.inline)

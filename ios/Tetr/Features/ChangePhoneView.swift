@@ -61,20 +61,42 @@ struct ChangePhoneView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                switch stage {
-                case .proof: proofStep
-                case .phone: phoneStep
-                case .code: codeStep
-                case .done: doneStep
-                }
+            ZStack {
+                Brand.board.ignoresSafeArea()
 
-                if let error, stage != .done {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        stageIntro
 
+                        switch stage {
+                        case .proof: proofStep
+                        case .phone: phoneStep
+                        case .code: codeStep
+                        case .done: doneStep
+                        }
+
+                        if let error, stage != .done {
+                            Label(error, systemImage: "exclamationmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, stage == .done ? 28 : 116)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 if stage != .done {
-                    Section { primaryButton }
+                    primaryButton
+                        .buttonStyle(LimeButton())
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial)
                 }
             }
             .navigationTitle(L("auth.changePhone"))
@@ -102,30 +124,64 @@ struct ChangePhoneView: View {
 
     // ══════════════════════════ шаги ══════════════════════════
 
+    private var stageIntro: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Brand.grape.opacity(0.12))
+                    .frame(width: 58, height: 58)
+                Image(systemName: stage == .done ? "checkmark" : "iphone.gen3.radiowaves.left.and.right")
+                    .font(.system(size: 23, weight: .semibold))
+                    .foregroundStyle(stage == .done ? Brand.goodOnBoard : Brand.grape)
+            }
+
+            Text(introTitle)
+                .font(.system(size: 27, weight: .bold, design: .rounded))
+                .foregroundStyle(Brand.onBoard)
+
+            Text(introNote)
+                .font(.system(size: 15))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var introTitle: String {
+        switch stage {
+        case .proof: return L("auth.changePhoneProof")
+        case .phone: return L("auth.changePhoneNew")
+        case .code: return L("auth.otpCode")
+        case .done: return L("auth.changePhoneDone")
+        }
+    }
+
+    private var introNote: String {
+        switch stage {
+        case .proof, .code: return L("auth.otpSent", sentTo)
+        case .phone: return L("auth.changePhoneNote")
+        case .done: return L("auth.changePhoneDoneNote")
+        }
+    }
+
     private var proofStep: some View {
-        Section {
+        inputSurface {
             codeField($proofCode) { Task { await sendPhone() } }
-        } header: {
-            Text(L("auth.changePhoneProof"))
-        } footer: {
-            Text(L("auth.otpSent", sentTo))
         }
     }
 
     @ViewBuilder
     private var phoneStep: some View {
-        Section {
+        inputSurface {
             CountryPhoneField(country: $country, number: $phone)
-        } header: {
-            Text(L("auth.changePhoneNew"))
-        } footer: {
-            Text(L("auth.changePhoneNote"))
         }
 
         /* PIN спрашивается только у тех, у кого он есть. У остальных себя
            уже доказали кодом на предыдущем шаге. */
         if session.hasPin {
-            Section {
+            inputSurface {
+                Text(L("auth.pin"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
                 SecureField("••••••", text: $pin)
                     .keyboardType(.numberPad)
                     .textContentType(.password)
@@ -135,39 +191,33 @@ struct ChangePhoneView: View {
                         let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
                         if clean != v { pin = clean }
                     }
-            } header: {
-                Text(L("auth.pin"))
             }
         }
     }
 
     private var codeStep: some View {
-        Section {
+        inputSurface {
             codeField($code) { Task { await finish() } }
-        } header: {
-            Text(L("auth.otpCode"))
-        } footer: {
-            Text(L("auth.otpSent", sentTo))
         }
     }
 
     @ViewBuilder
     private var doneStep: some View {
-        Section {
-            Label(L("auth.changePhoneDone"), systemImage: "checkmark.circle.fill")
-                .foregroundStyle(Brand.good)
-                .font(.system(size: 15, weight: .semibold))
-            Text(L("auth.changePhoneDoneNote"))
-                .font(.system(size: 14))
-                .foregroundStyle(Brand.boardMuted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-
         /* Дверь наружу здесь обязательна и она одна: сессия мертва, и
            любое другое действие в приложении упрётся в отказ сервера. */
-        Section {
-            Button(L("auth.signOut")) { leave() }
-        }
+        Button(L("auth.signOut")) { leave() }
+            .buttonStyle(LimeButton())
+    }
+
+    private func inputSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10, content: content)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07))
+            }
     }
 
     @ViewBuilder

@@ -49,6 +49,16 @@
         }
       }
     },
+    "%@ %lld · %@ %lld" : {
+      "localizations" : {
+        "hy" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$lld · %3$@ %4$lld"
+          }
+        }
+      }
+    },
     "%@ × %lld%%" : {
       "localizations" : {
         "hy" : {
@@ -101,6 +111,16 @@
     },
     "%lld" : {
 
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "hy" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
     },
     "%lld%%" : {
 
@@ -1624,52 +1644,6 @@
         }
       }
     },
-    "auth.signInTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in"
-          }
-        },
-        "hy" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Մուտք"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вход"
-          }
-        }
-      }
-    },
-    "auth.signOut" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign out"
-          }
-        },
-        "hy" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Դուրս գալ"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Выйти"
-          }
-        }
-      }
-    },
     "auth.signingIn" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1712,6 +1686,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Выходим…"
+          }
+        }
+      }
+    },
+    "auth.signInTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Մուտք"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход"
+          }
+        }
+      }
+    },
+    "auth.signOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Դուրս գալ"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выйти"
           }
         }
       }
@@ -6784,6 +6804,98 @@
         }
       }
     },
+    "owner.emptySummaryMonth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data yet this month"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Այս ամսում դեռ տվյալներ չկան"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В этом месяце пока нет данных"
+          }
+        }
+      }
+    },
+    "owner.emptySummaryNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your summary appears after the first car is served."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ամփոփումը կհայտնվի առաջին սպասարկված մեքենայից հետո։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сводка появится после первой обслуженной машины"
+          }
+        }
+      }
+    },
+    "owner.emptySummaryPrevious" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data for last month"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Անցյալ ամսվա տվյալներ չկան"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "За прошлый месяц данных нет"
+          }
+        }
+      }
+    },
+    "owner.emptySummaryToday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data yet today"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Այսօր դեռ տվյալներ չկան"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сегодня пока нет данных"
+          }
+        }
+      }
+    },
     "owner.feed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7681,29 +7793,6 @@
         }
       }
     },
-    "payroll.paySum" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pay %@"
-          }
-        },
-        "hy" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Վճարել %@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Выплатить %@"
-          }
-        }
-      }
-    },
     "payroll.paying" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7723,6 +7812,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Отмечаем выплату…"
+          }
+        }
+      }
+    },
+    "payroll.paySum" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay %@"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Վճարել %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выплатить %@"
           }
         }
       }
@@ -10039,6 +10151,70 @@
         }
       }
     },
+    "setup.flowMoney" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Counting" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Հաշվարկ" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расчёт" } }
+      }
+    },
+    "setup.flowMoneyNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin counts the money" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin-ը հաշվում է փողը" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Tetrin считает деньги" } }
+      }
+    },
+    "setup.flowResult" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Result" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Արդյունք" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Результат" } }
+      }
+    },
+    "setup.flowResultNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "You see the profit" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Դուք տեսնում եք շահույթը" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вы видите прибыль" } }
+      }
+    },
+    "setup.flowSetup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Setup" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Կարգավորում" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройка" } }
+      }
+    },
+    "setup.flowSetupNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Prices and people" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Գներ և աշխատակիցներ" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Цены и работники" } }
+      }
+    },
+    "setup.flowWork" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Work" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Աշխատանք" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Работа" } }
+      }
+    },
+    "setup.flowWorkNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your people log the cars" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Աշխատակիցները գրանցում են մեքենաները" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Работники записывают машины" } }
+      }
+    },
     "setup.nextControl" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10589,6 +10765,46 @@
             "value" : "Начало работы"
           }
         }
+      }
+    },
+    "setup.welcomeLead" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Let us set the business up and get it ready for work." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Կարգավորենք բիզնեսը և պատրաստենք ամեն ինչ աշխատանքին։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настроим бизнес и подготовим всё к работе." } }
+      }
+    },
+    "setup.welcomeLook" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not now" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Ոչ հիմա" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не сейчас" } }
+      }
+    },
+    "setup.welcomeNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Adjust the prices and add your people. After that you can take in cars, and Tetrin will count payroll, costs and profit on its own." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Ուղղեք գները և ավելացրեք աշխատակիցներին։ Հետո կարող եք ընդունել մեքենաներ, իսկ աշխատավարձը, ծախսերն ու շահույթը Tetrin-ը կհաշվի ինքը։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поправьте цены и добавьте работников. После этого можно принимать машины, а зарплату, расходы и прибыль Tetrin посчитает сам." } }
+      }
+    },
+    "setup.welcomeStart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start setup" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Կարգավորել" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Начать настройку" } }
+      }
+    },
+    "setup.welcomeTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome to Tetrin" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Բարի գալուստ Tetrin" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добро пожаловать в Tetrin" } }
       }
     },
     "setup.workerCta" : {
@@ -12551,6 +12767,29 @@
         }
       }
     },
+    "work.endingShift" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ending…"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ավարտվում է…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Завершаем…"
+          }
+        }
+      }
+    },
     "work.endStay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12593,29 +12832,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Завершить смену?"
-          }
-        }
-      }
-    },
-    "work.endingShift" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ending…"
-          }
-        },
-        "hy" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ավարտվում է…"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Завершаем…"
           }
         }
       }

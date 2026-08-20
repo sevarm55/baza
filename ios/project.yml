@@ -196,7 +196,7 @@ schemes:
       config: Debug
       environmentVariables:
         - variable: TETR_API
-          value: http://192.168.123.3:3100/api/v1/
+          value: http://192.168.10.199:3100/api/v1/
           isEnabled: true
     test:
       config: Debug
@@ -206,7 +206,7 @@ schemes:
       # Прогон по бою заводил бы машины живым мойкам.
       environmentVariables:
         - variable: TETR_API
-          value: http://192.168.123.3:3100/api/v1/
+          value: http://192.168.10.199:3100/api/v1/
           isEnabled: true
     profile:
       config: Release

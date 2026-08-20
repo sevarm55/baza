@@ -288,6 +288,113 @@ private struct SetupAction: ViewModifier {
 }
 
 /**
+ * Первая минута владельца внутри продукта.
+ *
+ * Отдельна от полноэкранных приветственных слайдов: те показывают образ
+ * продукта, а этот лист объясняет рабочую последовательность — настроить,
+ * работать, получить расчёт и увидеть результат. Это iOS-версия того же
+ * листа, который открывается новому владельцу в веб-кабинете.
+ */
+struct OwnerWelcomeSheet: View {
+    let onLook: () -> Void
+    let onStart: () -> Void
+
+    private struct Step {
+        let icon: String
+        let title: String
+        let note: String
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(L("setup.welcomeTitle"))
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(Brand.ink)
+
+            Text(L("setup.welcomeLead"))
+                .font(.system(size: 15))
+                .foregroundStyle(Brand.muted)
+                .padding(.top, 4)
+
+            Text(L("setup.welcomeNote"))
+                .font(.system(size: 14))
+                .lineSpacing(2)
+                .foregroundStyle(Brand.ink.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 18)
+
+            VStack(alignment: .leading, spacing: 15) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(index == 0 ? Brand.lime : Brand.grape.opacity(0.09))
+                            Image(systemName: step.icon)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(index == 0 ? Brand.onLime : Brand.grape)
+                        }
+                        .frame(width: 36, height: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(step.title)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.ink)
+                            Text(step.note)
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(Brand.muted)
+                                .lineLimit(2)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        if index < steps.count - 1 {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(Brand.muted.opacity(0.45))
+                        }
+                    }
+                }
+            }
+            .padding(.top, 22)
+
+            Spacer(minLength: 22)
+
+            HStack(spacing: 10) {
+                Button(L("setup.welcomeLook"), action: onLook)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Brand.ink.opacity(0.06), in: .rect(cornerRadius: 18))
+                    .buttonStyle(.press)
+
+                Button(L("setup.welcomeStart"), action: onStart)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Brand.onLime)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Brand.lime, in: .rect(cornerRadius: 18))
+                    .buttonStyle(.press)
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .screenBackground()
+        .presentationDetents([.fraction(0.78), .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var steps: [Step] {
+        [
+            Step(icon: "slider.horizontal.3", title: L("setup.flowSetup"), note: L("setup.flowSetupNote")),
+            Step(icon: "car.side.fill", title: L("setup.flowWork"), note: L("setup.flowWorkNote")),
+            Step(icon: "function", title: L("setup.flowMoney"), note: L("setup.flowMoneyNote")),
+            Step(icon: "chart.line.uptrend.xyaxis", title: L("setup.flowResult"), note: L("setup.flowResultNote")),
+        ]
+    }
+}
+
+/**
  * Первая минута мойщика.
  *
  * У него одна рабочая страница, и весь Tetrin ему объяснять не нужно —

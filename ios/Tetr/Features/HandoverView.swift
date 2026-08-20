@@ -39,82 +39,108 @@ struct HandoverView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                /* Итог дня — первым, до сдачи наличных.
-                 *
-                 * Смену закрывают один раз за день, и после неё записывать
-                 * нельзя до следующей. Раньше окно спрашивало только про
-                 * деньги в кармане, и человек соглашался, не увидев, что
-                 * именно он закрывает. Три числа читаются за две секунды и
-                 * стоят ровно там, где принимается решение. */
-                Section {
-                    LabeledContent(unitOne.isEmpty ? L("shift.record") : unitOne) {
-                        Text("\(count)").monospacedDigit().foregroundStyle(Brand.boardMuted)
-                    }
-                    LabeledContent(L("work.worksTotal")) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(L("common.today"))
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .tracking(1.25)
+                            .foregroundStyle(Brand.boardMuted)
+
                         Text(money(revenue, currency))
+                            .font(.system(size: 38, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted)
-                    }
-                    if takesShare {
-                        LabeledContent(L("work.earnedToday")) {
-                            Text(money(earned, currency))
-                                .monospacedDigit()
-                                .fontWeight(.semibold)
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .padding(.top, 6)
+
+                        HStack(spacing: 7) {
+                            Text("\(count) \(unitOne.isEmpty ? L("shift.record") : unitOne)")
+                            if takesShare {
+                                Circle().fill(Brand.boardMuted).frame(width: 3, height: 3)
+                                Text("\(L("work.earnedToday")) \(money(earned, currency))")
+                            }
                         }
+                        .font(.system(size: 12.5, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .padding(.top, 5)
                     }
-                } header: {
-                    Text(L("common.today"))
-                } footer: {
-                    Text(L("handover.endNote", Terms.unit(session.tenant?.unitOne ?? "").acc))
-                }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 25, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 25, style: .continuous)
+                            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+                    }
 
-                Section {
-                    LabeledContent(L("handover.cashInShift")) {
-                        Text(money(expected, currency))
-                            .monospacedDigit()
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(L("handover.cashInShift"))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Brand.boardMuted)
+                            Spacer(minLength: 8)
+                            Text(money(expected, currency))
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.onBoard)
+                        }
+
+                        Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+
+                        Text(L("handover.declaring"))
+                            .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Brand.boardMuted)
-                    }
-                } footer: {
-                    Text(L("handover.cardNote"))
-                }
 
-                Section {
-                    LabeledContent(L("handover.declaring")) {
-                        TextField("", text: $amount)
+                        TextField("0", text: $amount)
                             .keyboardType(.numberPad)
                             .focused($typingAmount)
-                            .multilineTextAlignment(.trailing)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                    }
-                    // строка целиком: попадать в пустое поле у правого края
-                    // мокрыми руками почти невозможно
-                    .contentShape(.rect)
-                    .onTapGesture { typingAmount = true }
-                } footer: {
-                    /* Расхождение показываем сразу, а не после отправки:
-                       чаще всего это опечатка, и увидеть её надо до того,
-                       как она уедет к владельцу уведомлением. */
-                    if entered != nil && diff != 0 {
-                        Text(diff < 0
-                             ? L("handover.short", money(-diff, currency))
-                             : L("handover.over", money(diff, currency)))
-                            .foregroundStyle(Brand.warn)
-                    }
-                }
+                            .foregroundStyle(Brand.onBoard)
+                            .padding(.horizontal, 14)
+                            .frame(height: 62)
+                            .background(Brand.boardInk.opacity(0.055), in: .rect(cornerRadius: 16))
+                            .contentShape(.rect)
+                            .onTapGesture { typingAmount = true }
 
-                Section {
-                    Button(L("handover.submit")) {
-                        onDone(entered ?? expected)
-                        dismiss()
+                        if entered != nil && diff != 0 {
+                            Label(
+                                diff < 0
+                                    ? L("handover.short", money(-diff, currency))
+                                    : L("handover.over", money(diff, currency)),
+                                systemImage: diff < 0 ? "arrow.down" : "arrow.up"
+                            )
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(Brand.warnOnBoard)
+                        }
                     }
-                    Button(L("common.skip")) {
-                        onDone(nil)
-                        dismiss()
+                    .padding(16)
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                     }
-                    .foregroundStyle(Brand.boardMuted)
+
+                    Text(L("handover.endNote", Terms.unit(session.tenant?.unitOne ?? "").acc))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 5)
+
+                    Text(L("handover.cardNote"))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 5)
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 100)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Brand.board.ignoresSafeArea())
             .navigationTitle(L("work.endTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -122,6 +148,33 @@ struct HandoverView: View {
                     // остаться на смене — тем же словом, что в вебе
                     Button(L("work.endStay")) { dismiss() }
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 7) {
+                    Button {
+                        onDone(entered ?? expected)
+                        dismiss()
+                    } label: {
+                        Text(L("handover.submit"))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Brand.onLime)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(Brand.lime, in: .rect(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.press)
+
+                    Button(L("common.skip")) {
+                        onDone(nil)
+                        dismiss()
+                    }
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Brand.boardMuted)
+                    .buttonStyle(.press)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+                .background(.ultraThinMaterial)
             }
         }
         .task { amount = expected > 0 ? String(expected) : "" }

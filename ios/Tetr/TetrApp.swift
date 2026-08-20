@@ -144,6 +144,7 @@ struct RootView: View {
     @EnvironmentObject private var lock: BiometricLock
 
     @State private var onboarding = false
+    @State private var ownerGuide = false
 
     var body: some View {
         #if DEBUG
@@ -215,33 +216,58 @@ struct RootView: View {
                        зарплаты и расходов значит задержать работу. Своё
                        короткое приветствие про смену он получает на самом
                        экране смены. */
-                    .fullScreenCover(isPresented: $onboarding) {
+                    .fullScreenCover(isPresented: $onboarding, onDismiss: {
+                        /* Приветственные слайды и обучение — два разных
+                           события. После слайдов показываем владельцу
+                           практическую памятку снизу, если он её ещё не
+                           видел. `onDismiss` ждёт окончания перехода и не
+                           сталкивает две презентации в один такт. */
+                        if session.me?.isOwner == true && !session.welcomeSeen {
+                            ownerGuide = true
+                        }
+                    }) {
                         OnboardingView {
+                            Onboarding.seen = true
                             onboarding = false
                         }
                     }
-                    .task {
-                        /* «Один раз» считает сервер, а не память телефона.
-                           `UserDefaults` отвечал на другой вопрос —
-                           «показывали ли на ЭТОМ устройстве», — и владелец,
-                           заведший мойку в браузере, знакомился с
-                           продуктом второй раз, а переустановивший
-                           приложение третий.
-
-                           Отмечаем прочитанным при показе, а не по кнопке
-                           «дальше»: приветствие уже случилось, человек его
-                           видит. Ждать нажатия значило бы показывать его
-                           снова после каждого перезапуска. */
-                        if session.me?.isOwner == true && !session.welcomeSeen {
-                            onboarding = true
+                    .sheet(isPresented: $ownerGuide, onDismiss: {
+                        /* Системный запрос уведомлений не перебивает
+                           обучение. Новому владельцу задаём его только
+                           после закрытия листа; уже знакомому — ниже при
+                           обычном входе. */
+                        if session.me?.isOwner == true {
+                            Task { await Push.shared.askAndRegister() }
+                        }
+                    }) {
+                        OwnerWelcomeSheet(
+                            onLook: { ownerGuide = false },
+                            onStart: {
+                                ownerGuide = false
+                                NotificationCenter.default.post(name: .openOwnerSetup, object: nil)
+                            }
+                        )
+                        /* Серверный флаг принадлежит именно практическому
+                           обучению — тому же листу, который получает
+                           владелец в веб-кабинете. Картинные слайды выше
+                           остаются локальным знакомством с приложением. */
+                        .task {
+                            guard !session.welcomeSeen else { return }
                             await session.markWelcomeSeen()
+                        }
+                    }
+                    .task(id: session.me?.id) {
+                        if session.me?.isOwner == true && !Onboarding.seen {
+                            onboarding = true
+                        } else if session.me?.isOwner == true && !session.welcomeSeen {
+                            ownerGuide = true
                         }
                         /* Разрешение спрашиваем здесь, а не на запуске:
                            только у владельца и только когда он уже внутри.
                            Системный запрос без объяснения на первом экране
                            отклоняют не глядя, а вернуть его потом можно
                            лишь через настройки телефона. */
-                        if session.me?.isOwner == true {
+                        if session.me?.isOwner == true && session.welcomeSeen {
                             await Push.shared.askAndRegister()
                         }
                     }
@@ -351,6 +377,9 @@ struct MainTabs: View {
         .onReceive(NotificationCenter.default.publisher(for: .openPayroll)) { _ in
             tab = .payroll
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openOwnerSetup)) { _ in
+            tab = .summary
+        }
     }
 
     /**
@@ -398,4 +427,6 @@ struct MainTabs: View {
 extension Notification.Name {
     /// Повод «зарплата копится» просит открыть свою вкладку.
     static let openPayroll = Notification.Name("tetr.openPayroll")
+    /// Обучающий лист владельца ведёт к живому чек-листу на сводке.
+    static let openOwnerSetup = Notification.Name("tetr.openOwnerSetup")
 }

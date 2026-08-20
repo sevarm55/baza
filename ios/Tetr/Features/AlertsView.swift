@@ -118,9 +118,21 @@ struct AlertsView: View {
     }
 
     private var empty: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 11) {
+            ZStack {
+                Circle()
+                    .fill(Brand.goodOnBoard.opacity(0.09))
+                    .frame(width: 98, height: 98)
+                Circle()
+                    .strokeBorder(Brand.goodOnBoard.opacity(0.17), lineWidth: 1)
+                    .frame(width: 70, height: 70)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 25, weight: .bold))
+                    .foregroundStyle(Brand.goodOnBoard)
+            }
+
             Text(L("alerts.empty"))
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(Brand.onBoard)
             Text(L("alerts.emptyNote"))
                 .font(.system(size: 13))
@@ -129,7 +141,13 @@ struct AlertsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
-        .padding(.vertical, 48)
+        .padding(.vertical, 34)
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07))
+        }
+        .padding(.top, 10)
     }
 
     private func reload() async {

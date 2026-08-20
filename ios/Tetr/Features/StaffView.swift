@@ -75,6 +75,8 @@ struct StaffView: View {
                         note: failNote,
                         retry: { await reload() }
                     )
+                } else if staff.isEmpty {
+                    staffEmpty
                 }
 
                 ForEach(Array(ordered.enumerated()), id: \.element.id) { index, person in
@@ -127,6 +129,30 @@ struct StaffView: View {
             .fill(Brand.boardInk.opacity(0.07))
             .frame(height: 0.7)
             .padding(.leading, 70)
+    }
+
+    private var staffEmpty: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: -9) {
+                ForEach(Array([Tone.teal, Tone.violet, Tone.rose].enumerated()), id: \.offset) { index, tone in
+                    Circle()
+                        .fill(tone.base)
+                        .frame(width: 42, height: 42)
+                        .overlay {
+                            Image(systemName: index == 1 ? "plus" : "person.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white.opacity(index == 1 ? 1 : 0.84))
+                        }
+                        .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 3))
+                }
+            }
+
+            Text(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 25)
     }
 
     /**

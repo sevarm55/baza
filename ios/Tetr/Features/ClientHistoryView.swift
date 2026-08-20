@@ -61,11 +61,7 @@ struct ClientHistoryView: View {
                     }
 
                     if loaded && orders.isEmpty {
-                        Text(L("today.noRecords"))
-                            .font(.system(size: 14))
-                            .foregroundStyle(Brand.boardMuted)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 44)
+                        emptyHistory
                     }
                 }
                 .padding(.horizontal, 12)
@@ -91,27 +87,85 @@ struct ClientHistoryView: View {
     /// ради деления было бы ещё одним местом, где два счёта могут
     /// разойтись.
     private var reading: some View {
-        VStack(spacing: 0) {
-            Text(L("common.total"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 6)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                Text(L("common.total"))
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Brand.boardMuted)
+
+                Spacer(minLength: 8)
+
+                Text(client.key)
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .monospaced()
+                    .foregroundStyle(Brand.grape)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Brand.grape.opacity(0.09), in: .rect(cornerRadius: 8))
+            }
 
             Text(money(client.total, currency))
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
+                .padding(.top, 16)
 
             Text(subtitle)
                 .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
-                .padding(.top, 6)
+                .padding(.top, 5)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(Brand.boardSurface)
+                Circle()
+                    .fill(Brand.grape.opacity(0.07))
+                    .frame(width: 130, height: 130)
+                    .offset(x: 52, y: -70)
+            }
+            .clipShape(.rect(cornerRadius: 25, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
+        .padding(.top, 6)
+    }
+
+    private var emptyHistory: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(index == 0 ? Brand.grape.opacity(0.34) : Brand.boardInk.opacity(0.08))
+                        .frame(width: index == 0 ? 11 : 8, height: index == 0 ? 11 : 8)
+                    if index < 2 {
+                        Capsule()
+                            .fill(Brand.boardInk.opacity(0.08))
+                            .frame(width: 50, height: 2)
+                    }
+                }
+            }
+            .accessibilityHidden(true)
+
+            Text(L("today.noRecords"))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .padding(.top, 16)
+            Text(L("more.clientsLead"))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Brand.boardMuted)
+                .multilineTextAlignment(.center)
+                .padding(.top, 5)
         }
         .frame(maxWidth: .infinity)
-        .padding(.bottom, 6)
+        .padding(.vertical, 38)
     }
 
     /**

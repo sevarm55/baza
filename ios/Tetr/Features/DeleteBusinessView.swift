@@ -63,22 +63,48 @@ struct DeleteBusinessView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Text(L("delete.what"))
-                        .font(.system(size: 14.5))
+            ZStack {
+                Brand.board.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Brand.badOnBoard.opacity(0.10))
+                                    .frame(width: 58, height: 58)
+                                Image(systemName: "building.2.crop.circle")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundStyle(Brand.badOnBoard)
+                            }
+
+                            Text(session.tenant?.name ?? L("billing.wallDelete"))
+                                .font(.system(size: 27, weight: .bold, design: .rounded))
+                                .foregroundStyle(Brand.onBoard)
+
+                            Text(L("delete.what"))
+                                .font(.system(size: 15))
+                                .foregroundStyle(Brand.onBoard)
+                                .fixedSize(horizontal: false, vertical: true)
+
                     Text(L("delete.staffNote"))
-                        .font(.system(size: 14.5))
-                        .foregroundStyle(Brand.boardMuted)
-                } header: {
-                    Text(session.tenant?.name ?? "")
-                } footer: {
-                    Text(L("settings.deleteNoWayBack"))
-                        .foregroundStyle(.red)
-                }
+                                .font(.system(size: 14))
+                                .foregroundStyle(Brand.boardMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Label(L("settings.deleteNoWayBack"), systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                        }
+                        .padding(18)
+                        .background(Brand.badOnBoard.opacity(0.055), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                .strokeBorder(Brand.badOnBoard.opacity(0.13))
+                        }
 
                 if asksCode {
-                    Section {
+                            credentialSurface(title: L("delete.codeAsk"), note: L("delete.codeSent", sentTo)) {
                         TextField("••••••", text: $code)
                             .keyboardType(.numberPad)
                             /* Тот же контент-тип, что на входе: система
@@ -91,13 +117,9 @@ struct DeleteBusinessView: View {
                                 let clean = String(v.filter(\.isNumber).prefix(API.codeLength))
                                 if clean != v { code = clean }
                             }
-                    } header: {
-                        Text(L("delete.codeAsk"))
-                    } footer: {
-                        Text(L("delete.codeSent", sentTo))
                     }
                 } else if !byCode {
-                    Section {
+                            credentialSurface(title: L("settings.deletePin"), note: nil) {
                         SecureField("••••••", text: $pin)
                             .keyboardType(.numberPad)
                             .font(.system(size: 20, weight: .semibold))
@@ -106,45 +128,55 @@ struct DeleteBusinessView: View {
                                 let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
                                 if clean != v { pin = clean }
                             }
-                    } header: {
-                        Text(L("settings.deletePin"))
                     }
                 }
 
                 if let error {
-                    Section { Text(error).foregroundStyle(.red) }
+                            Label(error, systemImage: "exclamationmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
 
-                if byCode && challengeId == nil {
-                    /* Первый шаг ничего не удаляет: он высылает код.
-                       Поэтому одна кнопка, и она не разрушительная —
-                       два выхода появятся, когда будет чем подтвердить. */
-                    Section {
-                        Button(L("delete.sendCode")) { Task { await sendCode() } }
-                            .disabled(busy)
-                    } footer: {
-                        Text(L("delete.codeAsk"))
+                        if !(byCode && challengeId == nil) {
+                            Text(saved ? L("delete.downloaded") : L("delete.fileNote"))
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.boardMuted)
+                                .fixedSize(horizontal: false, vertical: true)
                     }
-                } else {
-                    Section {
-                        /* Сохраняющий путь стоит первым и без роли
-                           destructive: по умолчанию человек должен уносить
-                           свои данные с собой, а не терять их молча. */
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 154)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 9) {
+                    if byCode && challengeId == nil {
+                        /* Первый шаг ничего не удаляет: он только высылает код. */
+                        Button(L("delete.sendCode")) { Task { await sendCode() } }
+                            .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
+                            .disabled(busy)
+                    } else {
                         Button(saved ? L("billing.wallDelete") : L("settings.deleteKeep")) {
                             Task { saved ? await wipe() : await archiveThenWipe() }
                         }
+                        .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
                         .disabled(!ready)
 
                         Button(L("settings.deleteWipe"), role: .destructive) {
                             Task { await wipe() }
                         }
+                        .font(.system(size: 14, weight: .semibold))
                         .disabled(!ready)
-                    } footer: {
-                        Text(saved
-                             ? L("delete.downloaded")
-                             : L("delete.fileNote"))
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
             }
             .navigationTitle(L("billing.wallDelete"))
             .navigationBarTitleDisplayMode(.inline)
@@ -163,6 +195,30 @@ struct DeleteBusinessView: View {
                 saved = true
                 Task { await wipe() }
             }
+        }
+    }
+
+    private func credentialSurface<Content: View>(
+        title: String,
+        note: String?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Brand.boardMuted)
+            content()
+            if let note {
+                Text(note)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.boardMuted)
+            }
+        }
+        .padding(18)
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07))
         }
     }
 

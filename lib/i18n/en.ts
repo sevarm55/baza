@@ -883,6 +883,10 @@ export const en: Dict = {
     periodToday: 'Today',
     periodMonth: 'This month',
     periodPrevMonth: 'Last month',
+    emptySummaryToday: 'No data yet today',
+    emptySummaryMonth: 'No data yet this month',
+    emptySummaryPrevious: 'No data for last month',
+    emptySummaryNote: 'Your summary appears after the first car is served.',
     periodLabel: 'Period',
 
     vsPrev: 'vs previous',

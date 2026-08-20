@@ -1190,6 +1190,23 @@ actor APIClient {
      *     xcrun simctl launch --console <udid> com.sevarm.tetr \
      *       --setenv TETR_API http://localhost:3100/api/v1/
      */
+    #if DEBUG
+    /**
+     * Куда эта сборка ходит прямо сейчас.
+     *
+     * Нужен ровно для одного вопроса, который повторяется каждый раз при
+     * запуске на живом телефоне: «почему нет связи». Причина почти всегда
+     * одна и та же и не видна ниоткуда — приложение подняли с домашнего
+     * экрана, а не из Xcode, переменной `TETR_API` в процессе нет, и
+     * сборка честно стучится в `localhost` самого телефона.
+     *
+     * Поэтому адрес показан на экране входа, а не напечатан в консоль:
+     * консоль есть только у запуска из Xcode, то есть ровно у того
+     * случая, когда всё и так работает.
+     */
+    static var debugAddress: String { baseURL().absoluteString }
+    #endif
+
     private static func baseURL() -> URL {
         #if DEBUG
         let raw = ProcessInfo.processInfo.environment["TETR_API"]?

@@ -1239,6 +1239,10 @@ export const hy = {
     periodToday: 'Այսօր',
     periodMonth: 'Այս ամիս',
     periodPrevMonth: 'Անցյալ ամիս',
+    emptySummaryToday: 'Այսօր դեռ տվյալներ չկան',
+    emptySummaryMonth: 'Այս ամսում դեռ տվյալներ չկան',
+    emptySummaryPrevious: 'Անցյալ ամսվա տվյալներ չկան',
+    emptySummaryNote: 'Ամփոփումը կհայտնվի առաջին սպասարկված մեքենայից հետո։',
     /** Имя группы вкладок — его читает только озвучка экрана. */
     periodLabel: 'Ժամանակահատված',
 

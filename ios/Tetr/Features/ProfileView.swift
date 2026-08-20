@@ -827,53 +827,98 @@ struct PinChangeView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    if changing { pin(L("auth.currentPin"), $current) }
-                    pin(L("auth.newPin"), $next)
-                    pin(L("common.retry"), $again)
-                } footer: {
-                    if !again.isEmpty && next != again {
-                        Text(L("auth.pinMismatch")).foregroundStyle(.red)
-                    } else if !changing {
-                        Text(L("auth.pinNoneNote"))
-                    }
-                }
+            ZStack {
+                Brand.board.ignoresSafeArea()
 
-                if let error {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Brand.grape.opacity(0.12))
+                                    .frame(width: 58, height: 58)
+                                Image(systemName: "key.horizontal.fill")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(Brand.grape)
+                            }
 
-                Section {
-                    Button(changing ? L("common.edit") : L("common.save")) {
-                        Task { await change() }
-                    }
-                    .loading(busy, tint: Brand.grape, size: 18, title: L("common.saving"))
-                    .disabled(!ready)
-                } footer: {
-                    /* Гашение сессий — следствие ИЗМЕНЕНИЯ, а не
-                       создания. Когда кода не было вовсе, отбирать
-                       нечего: человек просто завёл себе вторую дверь, и
-                       обещать ему выход со всех устройств было бы
-                       неправдой. */
-                    Text(changing ? L("profile.pinChangedNote") : L("auth.pinMemo"))
-                }
+                            Text(changing ? L("auth.changePin") : L("auth.setPin"))
+                                .font(.system(size: 27, weight: .bold, design: .rounded))
+                                .foregroundStyle(Brand.onBoard)
 
-                /* Удаление — отдельным разделом внизу и только когда есть
-                   что удалять. Красным и с переспросом: действие
-                   необратимое в том смысле, что новый код придётся
-                   придумывать заново. Текущий код для него уже введён
-                   выше, второго поля не заводим. */
-                if changing {
-                    Section {
-                        Button(L("auth.deleteAccessCode"), role: .destructive) {
-                            confirmingDelete = true
+                            Text(changing ? L("profile.pinChangedNote") : L("auth.pinMemo"))
+                                .font(.system(size: 15))
+                                .foregroundStyle(Brand.boardMuted)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .disabled(!readyToDelete)
-                    } footer: {
-                        Text(L("auth.deleteAccessCodeNote"))
+
+                        VStack(spacing: 0) {
+                            if changing {
+                                pin(L("auth.currentPin"), $current)
+                                divider
+                            }
+                            pin(L("auth.newPin"), $next)
+                            divider
+                            pin(L("common.retry"), $again)
+                        }
+                        .padding(.horizontal, 17)
+                        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .strokeBorder(Brand.boardInk.opacity(0.07))
+                        }
+
+                        if !again.isEmpty && next != again {
+                            Label(L("auth.pinMismatch"), systemImage: "exclamationmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                        } else if !changing {
+                            Text(L("auth.pinNoneNote"))
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.boardMuted)
+                        }
+
+                        if let error {
+                            Label(error, systemImage: "exclamationmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+
+                        if changing {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(L("auth.deleteAccessCodeNote"))
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.boardMuted)
+
+                                Button(L("auth.deleteAccessCode"), role: .destructive) {
+                                    confirmingDelete = true
+                                }
+                                .font(.system(size: 15, weight: .semibold))
+                                .disabled(!readyToDelete)
+                            }
+                            .padding(17)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Brand.badOnBoard.opacity(0.065), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 116)
                 }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Button(changing ? L("common.edit") : L("common.save")) {
+                    Task { await change() }
+                }
+                .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
+                .disabled(!ready)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
             }
             .confirmationDialog(
                 L("auth.deleteAccessCodeAsk"),
@@ -895,6 +940,12 @@ struct PinChangeView: View {
                 }
             }
         }
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(height: 1)
     }
 
     /**
@@ -922,6 +973,7 @@ struct PinChangeView: View {
                     if clean != v { value.wrappedValue = clean }
                 }
         }
+        .frame(minHeight: 58)
     }
 
     private func change() async {
