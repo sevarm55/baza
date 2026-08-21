@@ -416,7 +416,7 @@ struct OrderFlowView: View {
                 TextField(String(listTotal), text: $discountText)
                     .keyboardType(.numberPad)
                     .focused($typingDiscount)
-                    .multilineTextAlignment(.trailing)
+                    .multilineTextAlignment(.leading)
                     .monospacedDigit()
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)

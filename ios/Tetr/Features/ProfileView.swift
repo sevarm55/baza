@@ -941,7 +941,7 @@ struct PinChangeView: View {
 
             SecureField("••••••", text: value)
                 .keyboardType(.numberPad)
-                .multilineTextAlignment(.trailing)
+                .multilineTextAlignment(.leading)
                 .monospaced()
                 .onChange(of: value.wrappedValue) { _, v in
                     let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
