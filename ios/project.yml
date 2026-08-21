@@ -38,8 +38,8 @@ settings:
     # Совпадает с номером версии в App Store Connect. Не совпадёт —
     # загруженная сборка прицепится к другой версии и в списке для
     # отправки её просто не будет.
-    MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1"
+    CURRENT_PROJECT_VERSION: "2"
     # Команда разработчика. Здесь, а не в настройках Xcode: .xcodeproj
     # пересоздаётся из этого файла, и выставленное мышкой пропало бы при
     # первом же `xcodegen generate`.
@@ -68,6 +68,16 @@ targets:
         # Tetr. Целиком её переименовывать незачем: она невидима, а следом
         # поехали бы схема, пути и конфигурация.
         CFBundleName: Tetrin
+        # Версия и сборка берутся из MARKETING_VERSION/CURRENT_PROJECT_VERSION
+        # выше, а не пишутся здесь числом. Без этих двух строк xcodegen
+        # подставляет в plist свои умолчания — ровно «1.0» и «1», — и они
+        # не имеют к настройкам сборки никакого отношения. Совпало это
+        # один раз, на первом релизе, и выглядело как работающая связь.
+        # Дальше номер в project.yml менялся бы, а в бандле оставался
+        # прежним: Xcode собрал бы 1.0 (1) второй раз, а App Store Connect
+        # отбил бы загрузку как уже использованную сборку.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Марка Tetrin набрана Unbounded — той же, что в браузере.
         # Файл лежит в Tetr/Fonts и попадает в бандл ресурсом; система
         # шрифт не подхватит, пока он не назван здесь. Начертание одно и
@@ -143,6 +153,11 @@ targets:
       path: TetrWidgets/Info.plist
       properties:
         CFBundleDisplayName: Tetrin Live
+        # Те же две строки, что у приложения, и по той же причине. Плюс
+        # своя: версия расширения обязана совпадать с версией приложения,
+        # иначе загрузку отбивает ITMS ещё до обработки.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
