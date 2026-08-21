@@ -48,7 +48,17 @@ export function StaffRoster({
   const person = rows.find((r) => r.id === open) ?? null;
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
-  if (rows.length === 0) {
+  /* Владелец — не строка этого списка.
+   *
+   * У него нет ни ставки, ни смены, ни начислений, и в таблице, где
+   * сравнивают именно их, он давал строку из прочерков. Метка роли рядом
+   * с именем не помогала: глаз идёт по столбцам чисел, а не по подписям.
+   * Своей панелью он отвечает на другой вопрос — «под кем этот кабинет», —
+   * и не мешает сравнивать тех, кто моет. Так же и в приложении. */
+  const crew = rows.filter((p) => !p.owner);
+  const owners = rows.filter((p) => p.owner);
+
+  if (crew.length === 0 && owners.length === 0) {
     return (
       <Panel>
         <EmptyState
@@ -62,10 +72,10 @@ export function StaffRoster({
 
   return (
     <>
-      <Panel title={t.settings.staff} count={rows.length}>
+      <Panel title={t.settings.staff} count={crew.length}>
         {/* Телефон: строками. */}
         <div className="board-journal lg:hidden">
-          {rows.map((p) => (
+          {crew.map((p) => (
             <button
               key={p.id}
               type="button"
@@ -81,7 +91,6 @@ export function StaffRoster({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="truncate text-[14.5px] font-semibold">{p.name}</span>
-                  {p.owner && <span className="tag">{p.roleLabel}</span>}
                 </span>
                 <span
                   className="num block truncate text-[12px]"
@@ -113,7 +122,7 @@ export function StaffRoster({
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {crew.map((p) => (
               /* Без `role` и `tabIndex` на `<tr>`: с ними React молча
                  бросает гидратацию всего поддерева, и таблица остаётся
                  мёртвой разметкой. Клавиатуре служит настоящая кнопка в
@@ -140,7 +149,6 @@ export function StaffRoster({
                         уже горит зелёная точка, и она означает ровно это.
                         Точка и слово рядом — один ответ, записанный
                         дважды, и вместе они весят больше самого имени. */}
-                    {p.owner && <span className="tag">{p.roleLabel}</span>}
                   </span>
                 </td>
 
@@ -180,6 +188,35 @@ export function StaffRoster({
           </tbody>
         </table>
       </Panel>
+
+      {/* Владелец — отдельной панелью, без столбцов сравнения: у него
+          нет ни машин, ни ставки, и сравнивать его не с кем. Карточка
+          открывается той же кнопкой: имя и телефон меняют там же, где
+          у остальных. */}
+      {owners.length > 0 && (
+        <Panel title={t.roles.owner}>
+          <div className="board-journal">
+            {owners.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setOpen(p.id)}
+                className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
+                aria-label={`${p.name} · ${t.common.edit}`}
+              >
+                <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">
+                  {p.name}
+                </span>
+                <ChevronRight
+                  className="size-3.5 shrink-0"
+                  style={{ color: 'var(--board-muted)' }}
+                  aria-hidden
+                />
+              </button>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <StaffSheet person={person} money={money} unitOne={unitOne} onClose={() => setOpen(null)} />
     </>

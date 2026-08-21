@@ -52,52 +52,69 @@ struct StaffView: View {
         }
     }
 
+    /* Кто моет и кто владеет — разные списки.
+     *
+     * Раньше владелец стоял в общем ряду последней строкой, и это читалось
+     * как работник, у которого почему-то нет ни ставки, ни смены, ни
+     * заработка: три пустоты подряд там, где у соседей числа. Метка «вы»
+     * положение не спасала, потому что глаз сравнивает столбцы, а не
+     * читает подписи. Теперь коробки разные, и сравнивать нечего.
+     */
+    private var crew: [API.StaffMember] { ordered.filter { $0.role != "owner" } }
+    private var owners: [API.StaffMember] { ordered.filter { $0.role == "owner" } }
+
     var body: some View {
         ScrollView {
-            /* Одна коробка на весь список, а не карточка на человека.
+            /* Одна коробка на группу, а не карточка на человека.
                Плитка под каждым была ошибкой ровно в том, в чём ошибаются
                все дашборды: цвет шёл сплошной заливкой, и два человека
                подряд читались двумя одинаковыми фиолетовыми кирпичами, а
                не двумя разными людьми. Цвет человека остался, но ушёл туда,
                где он и работает опознавательным знаком, — в кружок с
                буквой. Всё остальное чернила по бумаге. */
-            VStack(spacing: 0) {
-                if !loaded {
-                    /* Места людей: кружок лица, имя и ставка. Кружки, а
-                       не квадраты — подставить круг на место квадрата
-                       заметнее, чем не рисовать ничего. */
-                    Delayed(active: true) { TetrSkeletonList(rows: 3, avatar: true) }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 18)
-                } else if failed, staff.isEmpty {
-                    TetrFailure(
-                        title: L("common.loadFailed"),
-                        note: failNote,
-                        retry: { await reload() }
-                    )
-                } else if staff.isEmpty {
-                    staffEmpty
+            VStack(spacing: 12) {
+                card {
+                    if !loaded {
+                        /* Места людей: кружок лица, имя и ставка. Кружки, а
+                           не квадраты — подставить круг на место квадрата
+                           заметнее, чем не рисовать ничего. */
+                        Delayed(active: true) { TetrSkeletonList(rows: 3, avatar: true) }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 18)
+                    } else if failed, staff.isEmpty {
+                        TetrFailure(
+                            title: L("common.loadFailed"),
+                            note: failNote,
+                            retry: { await reload() }
+                        )
+                    } else if crew.isEmpty {
+                        staffEmpty
+                    }
+
+                    ForEach(Array(crew.enumerated()), id: \.element.id) { index, person in
+                        if index > 0 { separator }
+                        row(person)
+                    }
+
+                    if loaded, !crew.isEmpty { separator }
+                    addRow
                 }
 
-                ForEach(Array(ordered.enumerated()), id: \.element.id) { index, person in
-                    if index > 0 { separator }
-                    row(person)
+                if loaded, !owners.isEmpty {
+                    card {
+                        ForEach(Array(owners.enumerated()), id: \.element.id) { index, person in
+                            if index > 0 { separator }
+                            row(person)
+                        }
+                    }
                 }
 
-                separator
-                addRow
-
-                /* Совместная работа — строкой в том же списке, а не
-                   отдельным экраном. Свойство трогают раз в год, но
-                   искать его человек будет там же, где ставки: это
-                   условие оплаты труда, и место ему среди людей. */
-                separator
-                teamRow
-            }
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+                /* Совместная работа — своей коробкой, а не строкой под
+                   людьми. Свойство трогают раз в год, но искать его человек
+                   будет здесь же: это условие оплаты труда, и место ему
+                   рядом со ставками. Отдельная коробка держит его рядом,
+                   не выдавая при этом за ещё одного человека в списке. */
+                card { teamRow }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -122,6 +139,17 @@ struct StaffView: View {
         }
         .task { await reload() }
         .refreshable { await reload() }
+    }
+
+    /// Коробка списка: фон, скругление и волосяная обводка. Одна на группу.
+    @ViewBuilder
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+            }
     }
 
     private var separator: some View {
@@ -603,7 +631,7 @@ struct StaffEditor: View {
                         .font(.system(size: 17, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(.leading)
                         .onChange(of: customText) { _, v in
                             // выше сотни ставка не бывает: работник не может
                             // забирать больше, чем стоит услуга
@@ -960,7 +988,7 @@ struct TeamWashEditor: View {
                         .font(.system(size: 17, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(.leading)
                         .onChange(of: text) { _, v in
                             let clean = String(v.filter(\.isNumber).prefix(3))
                             let capped = Int(clean).map { String(min(100, $0)) } ?? clean
