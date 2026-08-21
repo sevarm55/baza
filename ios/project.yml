@@ -78,8 +78,8 @@ targets:
         # Полотно, которое система рисует до того, как приложение получило
         # управление. Пустой словарь давал белое — и на холодном старте
         # человек видел белую вспышку, а следом тёмную заставку. Цвет
-        # совпадает с первым кадром ролика, поэтому вспышки больше нет:
-        # экран сразу тёмный и таким остаётся.
+        # совпадает с полотном заставки (`Brand.launchCanvas`), поэтому
+        # вспышки больше нет: экран сразу тёмный и таким остаётся.
         UILaunchScreen:
           UIColorName: LaunchBackground
         # Локальный сервер для проверки: без этого отладочная сборка может
@@ -196,7 +196,7 @@ schemes:
       config: Debug
       environmentVariables:
         - variable: TETR_API
-          value: http://192.168.10.199:3100/api/v1/
+          value: http://192.168.15.119:3100/api/v1/
           isEnabled: true
     test:
       config: Debug
@@ -206,7 +206,7 @@ schemes:
       # Прогон по бою заводил бы машины живым мойкам.
       environmentVariables:
         - variable: TETR_API
-          value: http://192.168.10.199:3100/api/v1/
+          value: http://192.168.15.119:3100/api/v1/
           isEnabled: true
     profile:
       config: Release

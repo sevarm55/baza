@@ -182,6 +182,17 @@ enum Brand {
     static let goodOnDark = Color(red: 0x34 / 255, green: 0xD3 / 255, blue: 0x99 / 255)
     static let warnOnDark = Color(red: 0xFB / 255, green: 0xBF / 255, blue: 0x24 / 255)
 
+    /**
+     * Полотно заставки запуска.
+     *
+     * Не грейп из палитры, а ровно тот цвет, на котором собрана заставка
+     * в макете. Он же лежит в `Assets.xcassets/LaunchBackground` — том
+     * прямоугольнике, который система рисует ДО того, как приложение
+     * получило управление. Разойдутся эти два места — на холодном старте
+     * мелькнёт смена фона, и выглядит это как сбой запуска.
+     */
+    static let launchCanvas = Color(red: 0x42 / 255, green: 0x16 / 255, blue: 0x85 / 255)
+
     static let heroGradient = LinearGradient(
         colors: [grapeMid, grapeDeep],
         startPoint: .topLeading,
