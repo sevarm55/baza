@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users, services, type Account } from './db/schema';
+import { FIRST_RUN_START } from './first-run-stage';
 import { getNiche, type NicheKey } from './niches';
 import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
@@ -103,6 +104,11 @@ export async function createBusiness(input: CreateBusinessInput) {
         name: input.ownerName.trim(),
         role: 'owner',
         percent: 0,
+        /* Сценарий первого запуска — только первому бизнесу человека.
+           Вторая точка заводится тем, кто цикл продукта уже прошёл:
+           вести его по «услуги → работник → первая машина» второй раз
+           значило бы учить владельца его собственному делу. */
+        onboardingStage: trialGranted ? FIRST_RUN_START : null,
       })
       .returning();
 

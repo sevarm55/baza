@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { toggleShiftAction } from '@/app/actions';
 import { formatMoney, currencySymbol } from '@/lib/money';
+import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/client';
 import { LoadingButton } from '@/components/loading';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ function toggle(open: boolean, cash?: string) {
   return toggleShiftAction(data);
 }
 
-export function StartShift() {
+export function StartShift({ highlight = false }: { highlight?: boolean } = {}) {
   const t = useT();
   const [pending, startTransition] = useTransition();
 
@@ -56,7 +57,12 @@ export function StartShift() {
       <LoadingButton
         type="button"
         size="lg"
-        className="h-12 w-full text-[15px]"
+        className={cn(
+          'h-12 w-full text-[15px]',
+          /* Единственная подсветка сценария первого запуска: тихое
+             кольцо на той самой кнопке, которую называет плашка. */
+          highlight && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
+        )}
         busy={pending}
         label={t.work.startShift}
         busyLabel={t.work.startingShift}

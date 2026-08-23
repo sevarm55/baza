@@ -13,6 +13,22 @@ const REMEMBER_ENABLED_COOKIE = 'bz_remember_login';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 дней — сотрудник не должен логиниться каждый день
 const REMEMBER_MAX_AGE = 60 * 60 * 24 * 180;
 
+/* Режим «глазами работника» в сценарии первого запуска.
+
+   Вторая cookie ПОВЕРХ владельческой, а не вместо неё: пока превью
+   живо, каждый запрос работает от настоящей сессии работника — с его
+   правами, его сменой и его именем в записях, — а сессия владельца
+   лежит нетронутой в своей cookie. Выход из превью — удаление одной
+   cookie; что бы ни случилось посреди, владелец не заперт снаружи
+   собственного кабинета и не должен логиниться заново. */
+const PREVIEW_COOKIE = 'bz_preview';
+/* Часов, а не дней: превью — часть получасового сценария, а не рабочий
+   вход. Запас на «закрыл ноутбук, вернулся вечером» — и всё. */
+const PREVIEW_MAX_AGE = 60 * 60 * 12;
+/** Подпись превью-сессии в списке устройств — и признак, по которому
+ *  брошенные превью гасятся при следующем запуске. */
+const PREVIEW_DEVICE = 'Tetrin onboarding';
+
 /* Дефолтный ключ допустим только локально. На сервере без своего секрета
    сессии подписывались бы общеизвестной строкой — подделать cookie
    владельца смог бы кто угодно. Лучше не запуститься, чем работать так. */
@@ -25,7 +41,18 @@ const secret = new TextEncoder().encode(
 );
 
 export type Role = 'owner' | 'staff';
-export type Session = { uid: string; tid: string; role: Role };
+export type Session = {
+  uid: string;
+  tid: string;
+  role: Role;
+  /**
+   * Запрос работает от превью-сессии работника (см. PREVIEW_COOKIE).
+   * Единственное, что от этого зависит, — плашка сценария на экране
+   * смены и молчание приветствия работника: права и так рабочие, они
+   * пришли вместе с ролью.
+   */
+  preview?: boolean;
+};
 /** То же плюс поля, по которым сессию можно отозвать. */
 export type Claims = Session & { sid: string; ver: number };
 export type RememberedWebAccount = {
@@ -121,6 +148,14 @@ export async function startSession(
 
 export async function endSession({ remember = false }: { remember?: boolean } = {}): Promise<void> {
   const jar = await cookies();
+
+  /* Выход закрывает и превью работника, если оно шло: оставить его
+     живым значило бы, что «выйти» на общем компьютере оставляет рабочий
+     вход в бизнес. */
+  const preview = await previewClaims(jar);
+  jar.delete(PREVIEW_COOKIE);
+  if (preview?.sid) await revokeSession(preview.sid);
+
   const token = jar.get(COOKIE)?.value;
   jar.delete(COOKIE);
 
@@ -272,6 +307,117 @@ export async function revokeAccountSessions(accountId: string): Promise<void> {
   });
 }
 
+/* ------------------------ превью работника ------------------------ */
+
+/**
+ * Претензии превью-cookie, если она есть и подпись верна.
+ *
+ * Роль в превью бывает только рабочей: владельческая сессия в этой
+ * cookie ничем легальным не выписывается, и принять её значило бы дать
+ * второй, никем не задуманный путь владельческого входа.
+ */
+async function previewClaims(jar: Awaited<ReturnType<typeof cookies>>): Promise<Claims | null> {
+  const token = jar.get(PREVIEW_COOKIE)?.value;
+  if (!token) return null;
+  const claims = await readToken(token);
+  return claims && claims.role === 'staff' ? claims : null;
+}
+
+/**
+ * Открыть режим «глазами работника».
+ *
+ * Проверки нарочно по ОСНОВНОЙ cookie, а не по действующей сессии:
+ * действующей во время превью становится рабочая, и без этого работник
+ * мог бы выписать превью на коллегу. Выписывает всегда владелец, всегда
+ * своему работнику, всегда в своей точке.
+ *
+ * Сессия настоящая — строка в таблице, отзыв, поколение PIN работника.
+ * Всё, что человек сделает в превью, продукт запишет так же, как если
+ * бы работник сделал это сам, — в этом и смысл сценария.
+ */
+export async function startWorkerPreview(workerId: string): Promise<boolean> {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  const claims = token ? await readToken(token) : null;
+  if (!claims || claims.role !== 'owner') return false;
+  if (!(await sessionAlive(claims))) return false;
+
+  const [worker] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.id, workerId),
+        eq(users.tenantId, claims.tid),
+        eq(users.role, 'staff'),
+        eq(users.active, true),
+      ),
+    );
+  if (!worker) return false;
+
+  /* Брошенные превью гасятся при следующем входе в режим: cookie
+     умирает сама через PREVIEW_MAX_AGE, а строка сессии — здесь. Иначе
+     закрытый посреди сценария ноутбук оставлял бы в списке устройств
+     работника вечный «вход», который никто не открывал. */
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessions.tenantId, claims.tid),
+        eq(sessions.device, PREVIEW_DEVICE),
+        isNull(sessions.revokedAt),
+      ),
+    );
+
+  const [row] = await db
+    .insert(sessions)
+    .values({ tenantId: claims.tid, userId: workerId, kind: 'web', device: PREVIEW_DEVICE })
+    .returning();
+
+  /* Поколение — работника: смена его PIN гасит и превью. Так же его
+     читает startSession, и расходиться им нельзя. */
+  const [ver] = await db
+    .select({ n: accounts.tokenVersion, legacy: users.tokenVersion })
+    .from(users)
+    .leftJoin(accounts, eq(accounts.id, users.accountId))
+    .where(eq(users.id, workerId));
+
+  const preview = await signAccess(
+    {
+      uid: workerId,
+      tid: claims.tid,
+      role: 'staff',
+      sid: row.id,
+      ver: ver?.n ?? ver?.legacy ?? 0,
+    },
+    '12h',
+  );
+
+  jar.set(PREVIEW_COOKIE, preview, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: PREVIEW_MAX_AGE,
+  });
+
+  return true;
+}
+
+/**
+ * Выйти из режима работника: cookie удаляется, сессия гасится.
+ *
+ * Владельца не трогает вовсе — его cookie всё это время лежала рядом,
+ * и следующий запрос просто снова работает от неё.
+ */
+export async function endWorkerPreview(): Promise<void> {
+  const jar = await cookies();
+  const claims = await previewClaims(jar);
+  jar.delete(PREVIEW_COOKIE);
+  if (claims?.sid) await revokeSession(claims.sid);
+}
+
 /**
  * Сессия по cookie — БЕЗ обращения к базе.
  *
@@ -284,6 +430,10 @@ export async function revokeAccountSessions(accountId: string): Promise<void> {
  */
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
+  const preview = await previewClaims(jar);
+  if (preview) {
+    return { uid: preview.uid, tid: preview.tid, role: preview.role, preview: true };
+  }
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
   const claims = await readToken(token);
@@ -413,6 +563,17 @@ export async function switchSession(next: {
  */
 export async function getLiveSession(): Promise<Session | null> {
   const jar = await cookies();
+
+  /* Живое превью работника сильнее основной cookie: пока оно идёт,
+     весь продукт — экран смены, действия, выгрузки — работает от
+     работника. Мёртвое (отозванное, просроченное) молча уступает
+     владельцу: человек не должен упереться в «сессия закончилась»
+     из-за режима, из которого уже вышел. */
+  const preview = await previewClaims(jar);
+  if (preview && (await sessionAlive(preview))) {
+    return { uid: preview.uid, tid: preview.tid, role: preview.role, preview: true };
+  }
+
   const token = jar.get(COOKIE)?.value;
   const claims = token ? await readToken(token) : null;
   if (!claims) return null;
@@ -430,6 +591,14 @@ export async function getLiveSession(): Promise<Session | null> {
  */
 export async function requireSession(): Promise<Session> {
   const jar = await cookies();
+
+  // живое превью работника сильнее основной cookie; мёртвое молча
+  // уступает ей — см. заметку в getLiveSession
+  const preview = await previewClaims(jar);
+  if (preview && (await sessionAlive(preview))) {
+    return { uid: preview.uid, tid: preview.tid, role: preview.role, preview: true };
+  }
+
   const token = jar.get(COOKIE)?.value;
   const claims = token ? await readToken(token) : null;
   if (!claims) redirect('/?auth=signIn');
