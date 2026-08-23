@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Анимация марки Tetrin</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #ffffff;
+      --surface: #f5f5f3;
+      --border: rgba(0,0,0,0.08);
+      --text-primary: #0d0d0d;
+      --text-secondary: #777;
+      --text-tertiary: #aaa;
+      --accent: #e64036;
+      --speed-progress: 9%;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    #logo-root {
+      width: min(92vw, 616px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: visible;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #logo-root svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      overflow: visible;
+      text-rendering: geometricPrecision;
+    }
+
+    .atomic-motions {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-end;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .atom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .atom-stage {
+      width: 132px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .atom-stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 260ms cubic-bezier(0.34,1.56,0.64,1);
+      transform-origin: center;
+    }
+
+    .atom-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    .principles {
+      max-width: 760px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pill {
+      font-size: 11px;
+      line-height: 1;
+      padding: 5px 10px;
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .pill.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font: 12px/1.2 inherit;
+      letter-spacing: 0.04em;
+      padding: 8px 18px;
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    button.primary {
+      color: var(--bg);
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+    }
+
+    .speed-control {
+      width: min(340px, 80vw);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-secondary);
+    }
+
+    .speed-caption,
+    .speed-value {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .speed-value {
+      min-width: 46px;
+      text-align: right;
+      color: var(--text-primary);
+      text-transform: none;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 120px;
+      height: 24px;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: grab;
+      accent-color: var(--accent);
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--speed-progress), var(--border) var(--speed-progress), var(--border) 100%);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-top: -6.5px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      background: var(--accent);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+    }
+
+    .footer {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+
+    .atom-stage svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      overflow: visible;
+    }
+
+    /* Кнопка: бейдж нажимается как клавиша */
+    #atomHover-badge {
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    [data-atom="hover"]:hover #atomHover-badge {
+      transform: translateY(4px) scale(0.955);
+    }
+
+    /* Пульс: знак ждёт, ритм продукта 2.4с */
+    #atomPulse-badge {
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      animation: atom-breathe 2400ms ease-in-out infinite;
+    }
+    @keyframes atom-breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.07); }
+    }
+
+    /* Волна: затухающий пробег веса по буквам */
+    [data-atom="wave"].play #atomWave-r  { animation: atom-dip 420ms cubic-bezier(0.2, 0, 0, 1) 0ms both; }
+    [data-atom="wave"].play #atomWave-t2 { animation: atom-dip 420ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
+    [data-atom="wave"].play #atomWave-e  { animation: atom-dip 420ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
+    [data-atom="wave"].play #atomWave-t1 { animation: atom-dip 420ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
+    @keyframes atom-dip {
+      0%, 100% { transform: translateY(0); }
+      40% { transform: translateY(22px); }
+    }
+
+    /* Штамп: подпись марки одним жестом */
+    #atomStamp-badge { transform-box: fill-box; transform-origin: 50% 50%; }
+    [data-atom="stamp"].play #atomStamp-badge {
+      animation: atom-stamp 460ms linear both;
+    }
+    @keyframes atom-stamp {
+      0%   { transform: translateY(0) scale(1);
+             animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+      32%  { transform: translateY(-44px) scale(1.14);
+             animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.36); }
+      55%  { transform: translateY(0) scale(1);
+             animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+      70%  { transform: translateY(2px) scale(1.012, 0.968);
+             animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    .p2m-chromeless .atomic-motions,
+    .p2m-chromeless .principles,
+    .p2m-chromeless .controls,
+    .p2m-chromeless .footer {
+      display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      /* Tetrin: слово собирается, печать ставится.
+         Один общий такт 1200мс на всех актёрах; фазы внутри keyframes процентами.
+         Изинги ЛИТЕРАЛЬНЫЕ в каждом сегменте (var() в keyframes молча дропается):
+           rise = cubic-bezier(0.16, 1, 0.3, 1)   (= --ease-out-slow продукта)
+           soft = cubic-bezier(0.2, 0, 0, 1)      (= --ease-out-soft продукта)
+           drop = cubic-bezier(0.55, 0, 0.85, 0.36) (разгон падающего штампа) */
+
+      #logo-root svg {
+        --p2m-duration: 1200ms;
+        --p2m-ease-soft: cubic-bezier(0.2, 0, 0, 1);
+        --p2m-ease-rise: cubic-bezier(0.16, 1, 0.3, 1);
+        --p2m-ease-drop: cubic-bezier(0.55, 0, 0.85, 0.36);
+      }
+
+      #t1, #e, #t2, #r {
+        animation: var(--p2m-duration) linear both;
+      }
+      #t1 { animation-name: p2m-t1; }
+      #e  { animation-name: p2m-e; }
+      #t2 { animation-name: p2m-t2; }
+      #r  { animation-name: p2m-r; }
+
+      #badge {
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
+        animation: p2m-badge var(--p2m-duration) linear both;
+      }
+
+      /* Буквы: старт из-под базовой линии (+40 ед ≈ 0.38em), приземление точно в
+         позицию без овершута; после удара штампа волна веса, затухающая влево. */
+
+      @keyframes p2m-t1 {
+        0%     { opacity: 0; transform: translateY(40px); }
+        7.5%   { opacity: 0; transform: translateY(40px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        21%    { opacity: 1; }
+        40%    { transform: translateY(0); }
+        75%    { transform: translateY(0);
+                 animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }    /* soft */
+        80.5%  { transform: translateY(1.5px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        88.5%  { transform: translateY(0); }
+        100%   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes p2m-e {
+        0%     { opacity: 0; transform: translateY(40px); }
+        13.333% { opacity: 0; transform: translateY(40px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        26.5%  { opacity: 1; }
+        45.833% { transform: translateY(0); }
+        72.5%  { transform: translateY(0);
+                 animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }    /* soft */
+        78%    { transform: translateY(3px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        86%    { transform: translateY(0); }
+        100%   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes p2m-t2 {
+        0%     { opacity: 0; transform: translateY(40px); }
+        19.167% { opacity: 0; transform: translateY(40px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        32.5%  { opacity: 1; }
+        51.667% { transform: translateY(0); }
+        70%    { transform: translateY(0);
+                 animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }    /* soft */
+        75.5%  { transform: translateY(4.5px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        83.5%  { transform: translateY(0); }
+        100%   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes p2m-r {
+        0%     { opacity: 0; transform: translateY(40px); }
+        25%    { opacity: 0; transform: translateY(40px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        38.5%  { opacity: 1; }
+        57.5%  { transform: translateY(0); }
+        67.5%  { transform: translateY(0);
+                 animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }    /* soft */
+        73%    { transform: translateY(6px);
+                 animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        81%    { transform: translateY(0); }
+        100%   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Штамп: проявляется приподнятым, замахивается выше с лёгким ростом (замах),
+         падает с разгоном за 120мс, компрессия 3% с прижатым низом (компенсация
+         +2.04 к scaleY 0.97 при центральном origin), мягкое восстановление. */
+
+      @keyframes p2m-badge {
+        0%      { opacity: 0; transform: translateY(-52px) scale(1.18); }
+        46.667% { opacity: 0; transform: translateY(-52px) scale(1.18);
+                  animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }   /* soft */
+        53%     { opacity: 1; transform: translateY(-52px) scale(1.18);
+                  animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }   /* soft */
+        57.5%   { transform: translateY(-64px) scale(1.22);
+                  animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.36); } /* drop */
+        67.5%   { transform: translateY(0) scale(1);
+                  animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }   /* soft */
+        73.333% { transform: translateY(2.04px) scale(1.015, 0.97);
+                  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); } /* rise */
+        84.167% { transform: translateY(0) scale(1); }
+        100%    { opacity: 1; transform: translateY(0) scale(1); }
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="logo-root" aria-label="Animated logo" data-p2m-duration="1200"></main>
+
+  <section class="atomic-motions" aria-label="Атомарные этюды движения">
+    <div class="atom" data-atom="hover"><div class="atom-stage"></div><span class="atom-label">Кнопка</span></div>
+    <div class="atom" data-atom="pulse"><div class="atom-stage"></div><span class="atom-label">Пульс</span></div>
+    <div class="atom" data-atom="wave"><div class="atom-stage"></div><span class="atom-label">Волна</span></div>
+    <div class="atom" data-atom="stamp"><div class="atom-stage"></div><span class="atom-label">Штамп</span></div>
+  </section>
+
+  <div class="principles" id="principlesRow">
+    <span class="pill" data-p="squashstretch">Сжатие и растяжение</span>
+    <span class="pill" data-p="anticipation">Замах</span>
+    <span class="pill" data-p="staging">Компоновка</span>
+    <span class="pill" data-p="followthrough">Довод</span>
+    <span class="pill" data-p="overlap">Перекрытие</span>
+    <span class="pill" data-p="slowinout">Плавность</span>
+    <span class="pill" data-p="arc">Дуги</span>
+    <span class="pill" data-p="secondary">Второстепенное</span>
+    <span class="pill" data-p="timing">Тайминг</span>
+    <span class="pill" data-p="appeal">Обаяние</span>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="btnReplay" type="button">Повтор</button>
+    <button id="btnSlow" type="button">Замедленно</button>
+    <label class="speed-control" for="speedSlider">
+      <span class="speed-caption">Скорость</span>
+      <input id="speedSlider" type="range" min="0.25" max="2.5" step="0.05" value="0.45" aria-label="Animation speed">
+      <span class="speed-value" id="speedValue">0.45x</span>
+    </label>
+  </div>
+
+  <p class="footer">Клик по логотипу повторяет анимацию. Ползунок меняет скорость. Атомы живые: наведение и нажатие.</p>
+
+  <script>
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const LOGO = {"tag":"svg","attrs":{"viewBox":"0 0 880 336","width":"880","height":"336"},"children":[{"tag":"g","attrs":{"id":"tetr","fill":"#1b1726"},"children":[{"tag":"path","attrs":{"id":"t1","d":"M126.26 141.54H153.1V208H126.26ZM98.18 130H181.18V153.92H98.18Z"},"children":[]},{"tag":"path","attrs":{"id":"e","d":"M277.82 159.74V178.26H219.06V159.74ZM237.46 169 232.68 198.02 222.49 186.78H281.66V208H206.16L211.88 169L206.16 130H281.14V151.22H222.49L232.68 139.98Z"},"children":[]},{"tag":"path","attrs":{"id":"t2","d":"M334.89 141.54H361.72V208H334.89ZM306.81 130H389.8V153.92H306.81Z"},"children":[]},{"tag":"path","attrs":{"id":"r","d":"M435.5 163.38H461.71Q465.66 163.38 467.85 161.51Q470.03 159.64 470.03 156.1Q470.03 152.57 467.85 150.7Q465.66 148.82 461.71 148.82H431.76L443.82 136.76V208H416.99V130H465.87Q475.23 130 482.25 133.28Q489.27 136.55 493.17 142.38Q497.07 148.2 497.07 156.1Q497.07 163.8 493.17 169.68Q489.27 175.55 482.25 178.78Q475.23 182 465.87 182H435.5ZM444.65 171.5H474.29L500.19 208H469.51Z"},"children":[]}]},{"tag":"g","attrs":{"id":"badge"},"children":[{"tag":"rect","attrs":{"id":"plaque","x":"536.00","y":"104.00","width":"248.00","height":"136.00","rx":"24","fill":"#441887"},"children":[]},{"tag":"g","attrs":{"id":"in","fill":"#ffffff"},"children":[{"tag":"path","attrs":{"id":"i","d":"M574.99 130H601.82V208H574.99Z"},"children":[]},{"tag":"path","attrs":{"id":"n","d":"M705.27 188.45 697.99 190.22V130H723.99V208H690.4L651.71 147.89L658.99 146.12V208H632.99V130H667.62Z"},"children":[]}]}]}]};
+    const SVG_TEXT = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 880 336\" width=\"880\" height=\"336\"><style>:root,svg{--bg:#ffffff;--surface:#f5f5f3;--text-primary:#0d0d0d;--text-secondary:#777;--text-tertiary:#aaa;--logo-wordmark:#363e47;--accent:#e64036;--red:#e64036;--red-bright:#ff493f;}<\/style>\n<g id=\"tetr\" fill=\"#1b1726\">\n  <path id=\"t1\" d=\"M126.26 141.54H153.1V208H126.26ZM98.18 130H181.18V153.92H98.18Z\"/>\n  <path id=\"e\" d=\"M277.82 159.74V178.26H219.06V159.74ZM237.46 169 232.68 198.02 222.49 186.78H281.66V208H206.16L211.88 169L206.16 130H281.14V151.22H222.49L232.68 139.98Z\"/>\n  <path id=\"t2\" d=\"M334.89 141.54H361.72V208H334.89ZM306.81 130H389.8V153.92H306.81Z\"/>\n  <path id=\"r\" d=\"M435.5 163.38H461.71Q465.66 163.38 467.85 161.51Q470.03 159.64 470.03 156.1Q470.03 152.57 467.85 150.7Q465.66 148.82 461.71 148.82H431.76L443.82 136.76V208H416.99V130H465.87Q475.23 130 482.25 133.28Q489.27 136.55 493.17 142.38Q497.07 148.2 497.07 156.1Q497.07 163.8 493.17 169.68Q489.27 175.55 482.25 178.78Q475.23 182 465.87 182H435.5ZM444.65 171.5H474.29L500.19 208H469.51Z\"/>\n<\/g>\n<g id=\"badge\">\n  <rect id=\"plaque\" x=\"536.00\" y=\"104.00\" width=\"248.00\" height=\"136.00\" rx=\"24\" fill=\"#441887\"/>\n  <g id=\"in\" fill=\"#ffffff\">\n    <path id=\"i\" d=\"M574.99 130H601.82V208H574.99Z\"/>\n    <path id=\"n\" d=\"M705.27 188.45 697.99 190.22V130H723.99V208H690.4L651.71 147.89L658.99 146.12V208H632.99V130H667.62Z\"/>\n  <\/g>\n<\/g>\n<\/svg>\n";
+    const SVG_URI = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(SVG_TEXT);
+    const DURATION = 1200;
+
+    let playbackRate = 0.45;
+    let pulseRaf = null;
+    let arcRaf = null;
+    window.__p2mReady = false;
+
+    function createSvgNode(node) {
+      const element = document.createElementNS(SVG_NS, node.tag);
+      for (const [name, value] of Object.entries(node.attrs || {})) {
+        element.setAttribute(name, value);
+      }
+      if (node.text) {
+        element.appendChild(document.createTextNode(node.text));
+      }
+      for (const child of node.children || []) {
+        element.appendChild(createSvgNode(child));
+      }
+      return element;
+    }
+
+    function heroAnimations() {
+      const root = document.getElementById("logo-root");
+      if (root.getAnimations) return root.getAnimations({ subtree: true });
+      return document.getAnimations().filter(animation => {
+        const target = animation.effect && animation.effect.target;
+        return target && root.contains(target);
+      });
+    }
+
+    function applyPlaybackRate() {
+      for (const animation of heroAnimations()) {
+        if (animation.updatePlaybackRate) animation.updatePlaybackRate(playbackRate);
+        else animation.playbackRate = playbackRate;
+      }
+    }
+
+    function renderHero() {
+      const root = document.getElementById("logo-root");
+      root.replaceChildren(createSvgNode(LOGO));
+      const svg = root.querySelector("svg");
+      if (svg) {
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "100%";
+        svg.style.height = "auto";
+        svg.style.overflow = "visible";
+      }
+      requestAnimationFrame(() => requestAnimationFrame(applyPlaybackRate));
+    }
+
+    function flashPills(...names) {
+      document.querySelectorAll(".pill").forEach(pill => pill.classList.remove("active"));
+      names.forEach(name => {
+        const pill = document.querySelector(`[data-p="${name}"]`);
+        if (pill) pill.classList.add("active");
+      });
+    }
+
+    function cyclePrinciples() {
+      const phases = [
+        ["staging", "timing"],
+        ["anticipation", "squashstretch"],
+        ["arc", "slowinout"],
+        ["overlap", "followthrough"],
+        ["appeal"]
+      ];
+      let i = 0;
+      flashPills(...phases[0]);
+      return setInterval(() => {
+        i = (i + 1) % phases.length;
+        flashPills(...phases[i]);
+      }, Math.max(240, DURATION / phases.length / Math.max(playbackRate, 0.25)));
+    }
+
+    let pillTimer = null;
+    function replayMain() {
+      clearInterval(pillTimer);
+      renderHero();
+      pillTimer = cyclePrinciples();
+      setTimeout(() => {
+        clearInterval(pillTimer);
+        document.querySelectorAll(".pill").forEach(pill => pill.classList.remove("active"));
+      }, DURATION / Math.max(playbackRate, 0.25) + 600);
+    }
+
+    function formatSpeed(rate) {
+      return `${rate.toFixed(2)}x`;
+    }
+
+    function updateSpeedUI() {
+      const slider = document.getElementById("speedSlider");
+      const value = Number(slider.value);
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+      const progress = ((value - min) / (max - min)) * 100;
+      document.getElementById("speedValue").textContent = formatSpeed(value);
+      slider.style.setProperty("--speed-progress", `${progress}%`);
+      const slow = value <= 0.251;
+      const btnSlow = document.getElementById("btnSlow");
+      btnSlow.textContent = slow ? "Обычная скорость" : "Замедленно";
+      btnSlow.style.background = slow ? "var(--surface)" : "";
+      btnSlow.style.borderColor = slow ? "var(--text-secondary)" : "";
+    }
+
+    function setPlaybackRate(rate, replay = false) {
+      const slider = document.getElementById("speedSlider");
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+      playbackRate = Math.min(max, Math.max(min, Number(rate)));
+      slider.value = String(playbackRate);
+      updateSpeedUI();
+      applyPlaybackRate();
+      if (replay) replayMain();
+    }
+
+    function cloneWithPrefix(node, prefix) {
+      const copy = { tag: node.tag, attrs: { ...(node.attrs || {}) }, children: [] };
+      if (copy.attrs.id) copy.attrs.id = prefix + "-" + copy.attrs.id;
+      if (node.text) copy.text = node.text;
+      for (const child of node.children || []) copy.children.push(cloneWithPrefix(child, prefix));
+      return copy;
+    }
+
+    function setupAtomImages() {
+      const prefixes = { hover: "atomHover", pulse: "atomPulse", wave: "atomWave", stamp: "atomStamp" };
+      for (const [key, prefix] of Object.entries(prefixes)) {
+        const stage = document.querySelector(`[data-atom="${key}"] .atom-stage`);
+        const svg = createSvgNode(cloneWithPrefix(LOGO, prefix));
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        stage.appendChild(svg);
+      }
+    }
+
+    function replayClass(el) {
+      el.classList.remove("play");
+      void el.offsetWidth;
+      el.classList.add("play");
+    }
+
+    function setupAtoms() {
+      const hover = document.querySelector('[data-atom="hover"]');
+      hover.addEventListener("mouseenter", () => flashPills("appeal", "slowinout"));
+
+      const wave = document.querySelector('[data-atom="wave"]');
+      wave.addEventListener("mouseenter", () => {
+        flashPills("followthrough", "overlap");
+        replayClass(wave);
+      });
+      wave.addEventListener("click", () => replayClass(wave));
+
+      const stamp = document.querySelector('[data-atom="stamp"]');
+      const fireStamp = () => {
+        flashPills("anticipation", "squashstretch", "timing");
+        replayClass(stamp);
+      };
+      stamp.addEventListener("mouseenter", fireStamp);
+      stamp.addEventListener("pointerdown", fireStamp);
+
+      document.querySelector('[data-atom="pulse"]').addEventListener("mouseenter",
+        () => flashPills("timing", "appeal"));
+    }
+
+    function applyQaMode() {
+      const params = new URLSearchParams(location.search);
+      const seekMs = params.get("t");
+      const staticMode = params.get("static");
+      if (seekMs === null && staticMode === null) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          applyPlaybackRate();
+          window.__p2mReady = true;
+        }));
+        return;
+      }
+
+      document.documentElement.classList.add("p2m-chromeless");
+      cancelAnimationFrame(pulseRaf);
+      cancelAnimationFrame(arcRaf);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        for (const animation of heroAnimations()) {
+          if (staticMode !== null) {
+            try {
+              animation.finish();
+            } catch (err) {
+              animation.cancel();
+            }
+          } else {
+            animation.pause();
+            animation.currentTime = Number(seekMs);
+          }
+        }
+        window.__p2mReady = true;
+      }));
+    }
+
+    document.getElementById("btnReplay").addEventListener("click", replayMain);
+    document.getElementById("logo-root").addEventListener("click", replayMain);
+    document.getElementById("speedSlider").addEventListener("input", event => {
+      setPlaybackRate(event.target.value, false);
+    });
+    document.getElementById("btnSlow").addEventListener("click", () => {
+      const slow = Number(document.getElementById("speedSlider").value) <= 0.251;
+      setPlaybackRate(slow ? 0.45 : 0.25, true);
+    });
+
+    setupAtomImages();
+    setupAtoms();
+    setPlaybackRate(0.45, false);
+    renderHero();
+    applyQaMode();
+  </script>
+</body>
+</html>
