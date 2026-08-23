@@ -176,6 +176,13 @@
       "when": 1787143723083,
       "tag": "0024_order_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787743723083,
+      "tag": "0025_first_run",
+      "breakpoints": true
     }
   ]
 }

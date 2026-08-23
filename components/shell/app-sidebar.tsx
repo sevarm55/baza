@@ -28,7 +28,6 @@ export async function AppSidebar({
   currentTid,
   passes,
   active,
-  hint,
 }: {
   tenantName: string;
   userName: string;
@@ -36,7 +35,6 @@ export async function AppSidebar({
   currentTid?: string;
   passes: boolean;
   active: 'owner' | 'work';
-  hint?: string | null;
 }) {
   const t = await getDict();
   const many = !!points && points.length > 1 && !!currentTid;
@@ -80,7 +78,7 @@ export async function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="px-1">
-        <SideNav passes={passes} hint={hint} />
+        <SideNav passes={passes} />
       </SidebarContent>
 
       <SidebarFooter className="gap-2 pb-3">

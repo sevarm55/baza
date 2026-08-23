@@ -23,7 +23,6 @@ export function AppShell({
   passes,
   active,
   alerts,
-  hint,
   access,
   sidebarOpen,
   quickAdd,
@@ -37,7 +36,6 @@ export function AppShell({
   passes: boolean;
   active: 'owner' | 'work';
   alerts: Alert[];
-  hint?: string | null;
   access: Access;
   sidebarOpen: boolean;
   quickAdd?: string | null;
@@ -54,7 +52,6 @@ export function AppShell({
         currentTid={currentTid}
         passes={passes}
         active={active}
-        hint={hint}
       />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar alerts={alerts} tenantName={tenantName} quickAdd={quickAdd} />

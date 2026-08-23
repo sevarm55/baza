@@ -15,7 +15,6 @@ import {
   listStaff,
   startOfDay,
 } from '@/lib/queries';
-import { getSetup, needsWelcome } from '@/lib/onboarding';
 import { windowFor } from '@/lib/summary-window';
 import { hhmm, ymd } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
@@ -34,8 +33,6 @@ import { FlowChart } from './today/flow-chart';
 import { CrewPanel } from './today/crew-panel';
 import { PaymentMix } from './today/payment-mix';
 import { Journal } from './today/journal';
-import { SetupPanel } from './setup/panel';
-import { Welcome } from './setup/welcome';
 import type { CrewMember, FlowPoint, MixSlice, Op } from './today/model';
 
 /**
@@ -81,7 +78,6 @@ export default async function TodayPage({
 
   const me = await getUser(session.tid, session.uid);
   if (!me) redirect('/session-ended');
-  const setup = await getSetup(tenant, me);
 
   const { p } = await searchParams;
   const period = getPeriod(p);
@@ -251,13 +247,6 @@ export default async function TodayPage({
         }
         actions={<PeriodTabs current={period} />}
       />
-
-      {/* Настройка идёт первой, пока не закончена; приборы с деньгами
-          остаются на месте, у новой мойки они честно показывают нули. */}
-      {setup.visible && (
-        <SetupPanel steps={setup.steps} done={setup.done} total={setup.total} complete={setup.complete} />
-      )}
-      {needsWelcome(me) && <Welcome nextHref={setup.next?.href ?? '/owner/services'} />}
 
       <MetricStrip columns={4}>
         <Metric

@@ -19,7 +19,7 @@ import { passesEnabled } from '@/lib/features';
 import { priceForTier, tiersOf } from '@/lib/catalog';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
-import { getSetup, needsWelcome } from '@/lib/onboarding';
+import { needsWelcome } from '@/lib/onboarding';
 import { getDict } from '@/lib/i18n/server';
 import { localizeTenant, serviceNameTerm, unitForms, unitWord } from '@/lib/i18n/terms';
 import { AppShell } from '@/components/shell/app-shell';
@@ -32,6 +32,7 @@ import { WorkerWelcome } from './welcome';
 import { EndShift, StartShift } from './shift-controls';
 import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
+import { FirstRunBar } from './first-run-bar';
 
 export default async function WorkPage() {
   const t = await getDict();
@@ -87,6 +88,11 @@ export default async function WorkPage() {
   const owner = session.role === 'owner';
   const onShift = Boolean(open);
 
+  /* Сценарий первого запуска: владелец смотрит на этот экран глазами
+     работника через превью-сессию. Экран от этого не меняется ничем,
+     кроме плашки сверху и тихого кольца на кнопке текущей мини-задачи. */
+  const previewing = session.preview === true;
+
   /* Состояний смены три: «ещё не вставал», «работаю», «отработал и
      закрылся». Источник правды — сервер: открытая смена или её
      сегодняшний след. */
@@ -135,9 +141,18 @@ export default async function WorkPage() {
      смены — дважды в день, журнал — когда ошибся. */
   const body = (
     <div className="flex flex-col gap-4">
+      {/* Плашка сценария: что сделать здесь и как вернуться владельцем.
+          Состояние считает сервер по тем же данным, что и сам экран,
+          поэтому после открытия смены и после первой машины она
+          обновляется вместе с ним. */}
+      {previewing && (
+        <FirstRunBar state={shift.count > 0 ? 'done' : onShift ? 'car' : 'shift'} />
+      )}
+
       {/* Приветствие мойщика — только его и только один раз. Владелец
-          свой первый экран уже прочитал в кабинете. */}
-      {!owner && needsWelcome(me) && <WorkerWelcome />}
+          свой первый экран уже прочитал в кабинете, а в превью сценария
+          оно съело бы момент настоящему работнику в его первый день. */}
+      {!owner && !previewing && needsWelcome(me) && <WorkerWelcome />}
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -194,9 +209,10 @@ export default async function WorkPage() {
 
       {/* Одно действие, и оно никогда не серое: вне смены на месте
           записи стоит начало смены. */}
-      {state !== 'on' && <StartShift />}
+      {state !== 'on' && <StartShift highlight={previewing && shift.count === 0} />}
 
       <OrderFlow
+        highlightAdd={previewing && shift.count === 0}
         canWrite={access.canWrite && onShift}
         shiftOpen={onShift}
         /* Цены по классам приезжают уже посчитанными, по одной на класс
@@ -254,12 +270,10 @@ export default async function WorkPage() {
   if (owner) {
     /* Та же колонка и полоса, что во всём кабинете: числа в них
        считаются тем же кодом, что в app/owner/layout.tsx. */
-    const [alerts, setup, cookieStore] = await Promise.all([
+    const [alerts, cookieStore] = await Promise.all([
       getAlerts(tenant.id, me.id, tenant.timezone, t.locale),
-      getSetup(raw, me),
       cookies(),
     ]);
-    const hint = setup.visible ? (setup.next?.href ?? null) : null;
     const sidebarOpen = cookieStore.get('sidebar_state')?.value !== 'false';
 
     return (
@@ -271,7 +285,6 @@ export default async function WorkPage() {
         passes={passesEnabled()}
         active="work"
         alerts={alerts}
-        hint={hint}
         access={access}
         sidebarOpen={sidebarOpen}
         quickAdd={null}

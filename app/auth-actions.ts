@@ -226,7 +226,10 @@ async function signUp(data: FormData, ctx: Ctx): Promise<AuthState> {
   );
   await markPointUsed(made.ownerId);
 
-  redirect('/owner');
+  /* Новый бизнес начинается со сценария первого запуска, а не с пустой
+     сводки. Обычные входы ведут в /owner как раньше: недошедших до
+     конца сценария вернёт туда раскладка кабинета. */
+  redirect('/onboarding');
 }
 
 /* ------------------------ вход по PIN ------------------------ */
@@ -347,7 +350,8 @@ async function registerVerify(data: FormData, ctx: Ctx, prev: AuthState): Promis
   );
   await markPointUsed(done.ownerId);
 
-  redirect('/owner');
+  // новый бизнес — в сценарий первого запуска, см. заметку в signUp
+  redirect('/onboarding');
 }
 
 /* ----------------------- восстановление PIN ----------------------- */

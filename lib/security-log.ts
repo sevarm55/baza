@@ -49,6 +49,11 @@ export type SecurityEvent =
   | 'auth.session.revoked_all'
   | 'auth.logout'
   | 'auth.suspicious_activity'
+  /* режим «глазами работника» в сценарии первого запуска: владелец
+     получает настоящую сессию своего работника, и такое обязано
+     оставлять след */
+  | 'auth.preview.started'
+  | 'auth.preview.ended'
   /* действия, за которые отвечают деньгами */
   | 'worker.created'
   | 'worker.deleted'

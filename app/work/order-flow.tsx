@@ -146,6 +146,7 @@ export function OrderFlow({
   mates,
   teamPercent,
   staffRole,
+  highlightAdd = false,
 }: {
   canWrite: boolean;
   services: Service[];
@@ -171,6 +172,8 @@ export function OrderFlow({
   teamPercent: number | null;
   /** «мойщик»: слово ниши, им считаем людей */
   staffRole: string;
+  /** сценарий первого запуска: тихое кольцо на кнопке записи */
+  highlightAdd?: boolean;
 }) {
   const t = useT();
   const [wanted, setStep] = useState<Step>('home');
@@ -557,7 +560,12 @@ export function OrderFlow({
           <Button
             type="button"
             size="lg"
-            className="h-12 w-full text-[15px]"
+            className={cn(
+              'h-12 w-full text-[15px]',
+              /* Подсветка сценария первого запуска: кольцо на той самой
+                 кнопке, которую называет плашка над экраном. */
+              highlightAdd && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
+            )}
             onClick={() => setStep('compose')}
           >
             <Plus data-icon="inline-start" aria-hidden />
