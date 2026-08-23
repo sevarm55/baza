@@ -266,10 +266,10 @@ export default async function WorkPage() {
       <AppShell
         tenantName={tenant.name}
         userName={me.name}
+        roleLabel={t.roles.owner}
         points={points}
         currentTid={tenant.id}
         passes={passesEnabled()}
-        active="work"
         alerts={alerts}
         hint={hint}
         access={access}
@@ -286,6 +286,7 @@ export default async function WorkPage() {
     <SoloShell
       tenantName={tenant.name}
       userName={me.name}
+      roleLabel={tenant.staffRole}
       points={points}
       currentTid={tenant.id}
       access={access}

@@ -14,14 +14,17 @@ import { cn } from '@/lib/utils';
  * Оболочка кабинета владельца: колонка слева, полоса сверху, рабочая
  * область с ограниченной шириной. Одна на все разделы и на экран
  * смены владельца.
+ *
+ * Обязанности разнесены: колонка отвечает «куда пойти» и «кто я»,
+ * полоса «на что смотрю» (филиал и страница) и «что сделать сейчас».
  */
 export function AppShell({
   tenantName,
   userName,
+  roleLabel,
   points,
   currentTid,
   passes,
-  active,
   alerts,
   hint,
   access,
@@ -32,10 +35,11 @@ export function AppShell({
 }: {
   tenantName: string;
   userName: string;
+  /** «Владелец» или роль сотрудника словами бизнеса */
+  roleLabel: string;
   points: Point[];
   currentTid: string;
   passes: boolean;
-  active: 'owner' | 'work';
   alerts: Alert[];
   hint?: string | null;
   access: Access;
@@ -47,17 +51,16 @@ export function AppShell({
 }) {
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
-      <AppSidebar
-        tenantName={tenantName}
-        userName={userName}
-        points={points}
-        currentTid={currentTid}
-        passes={passes}
-        active={active}
-        hint={hint}
-      />
+      <AppSidebar userName={userName} roleLabel={roleLabel} passes={passes} hint={hint} />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar alerts={alerts} tenantName={tenantName} quickAdd={quickAdd} />
+        <TopBar
+          alerts={alerts}
+          tenantName={tenantName}
+          points={points}
+          currentTid={currentTid}
+          canManage
+          quickAdd={quickAdd}
+        />
         <main className={cn('mx-auto w-full flex-1 px-4 py-5 md:px-6 md:py-6', narrow ? 'max-w-3xl' : 'max-w-(--page-max)')}>
           <BillingBanner access={access} role="owner" />
           <PageFade>{children}</PageFade>

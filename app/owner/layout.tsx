@@ -50,10 +50,10 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
     <AppShell
       tenantName={tenant.name}
       userName={me.name}
+      roleLabel={t.roles.owner}
       points={points}
       currentTid={tenant.id}
       passes={passes}
-      active="owner"
       alerts={alerts}
       hint={hint}
       access={access}

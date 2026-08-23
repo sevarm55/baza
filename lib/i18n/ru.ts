@@ -550,6 +550,8 @@ export const ru: Dict = {
 
   points: {
     title: 'Мои филиалы',
+    search: 'Найти филиал',
+    manage: 'Все филиалы',
     needsPayment: 'ждёт оплаты',
     go: 'перейти',
     here: 'вы здесь',

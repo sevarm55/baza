@@ -513,6 +513,8 @@ export const en: Dict = {
 
   points: {
     title: 'My locations',
+    search: 'Find a location',
+    manage: 'All locations',
     needsPayment: 'awaiting payment',
     go: 'open',
     here: "you're here",
