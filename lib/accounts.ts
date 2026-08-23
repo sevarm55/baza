@@ -164,6 +164,14 @@ export async function listPoints(accountId: string): Promise<Point[]> {
  * сегодня входил бы в первую.
  */
 export async function pointForLogin(accountId: string): Promise<Point | undefined> {
+  /* Заблокированному админкой входа нет ни в одну точку: для всех трёх
+     путей входа (PIN, код, доп. проверка) это одна и та же дверь. */
+  const [account] = await db
+    .select({ blockedAt: accounts.blockedAt })
+    .from(accounts)
+    .where(eq(accounts.id, accountId));
+  if (account?.blockedAt) return undefined;
+
   const points = await listPoints(accountId);
   return points[0];
 }

@@ -56,7 +56,15 @@ export type SecurityEvent =
   | 'expense.deleted'
   | 'role.changed'
   | 'business.deleted'
-  | 'admin.access';
+  | 'admin.access'
+  /* админка платформы */
+  | 'admin.login.failed'
+  | 'admin.login.step_up'
+  | 'admin.login.success'
+  | 'admin.logout'
+  | 'admin.session.revoked'
+  | 'admin.denied'
+  | 'admin.action';
 
 export type Level = 'info' | 'warn' | 'alert';
 
@@ -120,6 +128,9 @@ const LEVEL_BY_DEFAULT: Partial<Record<SecurityEvent, Level>> = {
   'auth.session.revoked_all': 'warn',
   'business.deleted': 'alert',
   'role.changed': 'warn',
+  'admin.login.failed': 'warn',
+  'admin.denied': 'warn',
+  'admin.action': 'warn',
 };
 
 /**

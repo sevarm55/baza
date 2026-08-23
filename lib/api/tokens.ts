@@ -127,13 +127,14 @@ export async function rotate(token: string): Promise<Issued> {
       ver: accounts.tokenVersion,
       legacyVer: users.tokenVersion,
       active: users.active,
+      blockedAt: accounts.blockedAt,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(and(eq(sessions.id, sid), isNull(sessions.revokedAt)));
 
-  if (!row || !row.refreshHash || !row.active) throw new RefreshRejected();
+  if (!row || !row.refreshHash || !row.active || row.blockedAt) throw new RefreshRejected();
   if (!same(row.refreshHash, hash(secret))) throw new RefreshRejected();
 
   const next = mint(row.id);

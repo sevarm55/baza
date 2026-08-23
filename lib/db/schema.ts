@@ -72,6 +72,15 @@ export const accounts = pgTable(
     tokenVersion: integer('token_version').notNull().default(0),
     /** когда человеку выдали пробный срок; null — ещё не выдавали */
     trialUsedAt: timestamp('trial_used_at', { withTimezone: true }),
+    /**
+     * Блокировка человека целиком, из админки платформы.
+     *
+     * Не путать с `users.active`: то увольнение на одной точке, которое
+     * делает владелец. Здесь вход закрыт везде, и снять это может только
+     * админ. Дата, а не флаг: отвечает и на «когда».
+     */
+    blockedAt: timestamp('blocked_at', { withTimezone: true }),
+    blockedReason: text('blocked_reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('accounts_phone_uniq').on(t.phone)],
@@ -1102,8 +1111,77 @@ export const jobs = pgTable(
   ],
 );
 
+/* ---------------------------------------------------------------------------
+   Админка платформы
+   Свои сущности поверх людей: роль, короткие сессии и журнал действий.
+   Ничего из этого не привязано к бизнесу: админ управляет платформой.
+--------------------------------------------------------------------------- */
+
+export const platformAdmins = pgTable(
+  'platform_admins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** как админа зовут в админке; у человека имени нет (см. accounts) */
+    name: text('name').notNull(),
+    /** owner | support | viewer, см. lib/admin-auth.ts */
+    role: text('role').notNull().default('support'),
+    active: boolean('active').notNull().default(true),
+    createdBy: uuid('created_by'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('platform_admins_account_uniq').on(t.accountId)],
+);
+
+export const adminSessions = pgTable(
+  'admin_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: uuid('admin_id')
+      .notNull()
+      .references(() => platformAdmins.id, { onDelete: 'cascade' }),
+    ip: text('ip'),
+    agent: text('agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (t) => [index('admin_sessions_admin_idx').on(t.adminId, t.revokedAt)],
+);
+
+export const adminAudit = pgTable(
+  'admin_audit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: uuid('admin_id').references(() => platformAdmins.id, { onDelete: 'set null' }),
+    /** снимок имени: админа могут удалить, а строка обязана читаться */
+    adminName: text('admin_name'),
+    action: text('action').notNull(),
+    /** tenant | account | admin | session */
+    targetType: text('target_type'),
+    targetId: uuid('target_id'),
+    /** снимок названия цели: бизнес переименуют, человек сменит номер */
+    targetLabel: text('target_label'),
+    reason: text('reason'),
+    data: jsonb('data').$type<Record<string, unknown>>(),
+    ip: text('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('admin_audit_at_idx').on(t.createdAt),
+    index('admin_audit_target_idx').on(t.targetType, t.targetId),
+  ],
+);
+
 export type Tenant = typeof tenants.$inferSelect;
 export type ActivityEvent = typeof activityEvents.$inferSelect;
+export type PlatformAdmin = typeof platformAdmins.$inferSelect;
+export type AdminSession = typeof adminSessions.$inferSelect;
+export type AdminAuditRow = typeof adminAudit.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;

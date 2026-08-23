@@ -215,6 +215,16 @@ export function proxy(request: NextRequest) {
     return harden(response, request);
   }
 
+  /* Админка живёт на своей cookie. Без неё любая страница админки,
+     кроме входа, уводит на вход: настоящая проверка роли и срока идёт
+     в `requireAdmin()` внутри страниц и действий. */
+  if (isAdminArea(pathname) && !request.cookies.has('bz_admin')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/admin/login';
+    url.search = '';
+    return harden(NextResponse.redirect(url), request);
+  }
+
   if (isPrivate(pathname) && !request.cookies.has('bz_session')) {
     /* На витрину с уже открытым окном, а не на `/login`: отдельной
        страницы входа больше нет, и её адрес всё равно привёл бы сюда —
@@ -244,6 +254,13 @@ export function proxy(request: NextRequest) {
 
 function isPrivate(pathname: string): boolean {
   return pathname.startsWith('/work') || pathname.startsWith('/owner');
+}
+
+function isAdminArea(pathname: string): boolean {
+  return (
+    (pathname === '/admin' || pathname.startsWith('/admin/')) &&
+    !pathname.startsWith('/admin/login')
+  );
 }
 
 export const config = {

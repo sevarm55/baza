@@ -310,6 +310,7 @@ export async function sessionAlive(claims: Claims): Promise<boolean> {
       active: users.active,
       ver: accounts.tokenVersion,
       legacyVer: users.tokenVersion,
+      blockedAt: accounts.blockedAt,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -317,6 +318,9 @@ export async function sessionAlive(claims: Claims): Promise<boolean> {
     .where(eq(sessions.id, claims.sid));
 
   if (!row || row.revokedAt || !row.active) return false;
+  /* Заблокирован админкой: вход закрыт везде и сразу, не дожидаясь
+     срока cookie. */
+  if (row.blockedAt) return false;
 
   /* Токен обязан говорить о той же сессии, том же участии и той же
      точке, что и строка в базе. Раньше это не сверялось вообще: доступ
@@ -337,12 +341,13 @@ async function aliveWithoutSession(claims: Claims): Promise<boolean> {
       active: users.active,
       ver: accounts.tokenVersion,
       legacyVer: users.tokenVersion,
+      blockedAt: accounts.blockedAt,
     })
     .from(users)
     .leftJoin(accounts, eq(accounts.id, users.accountId))
     .where(eq(users.id, claims.uid));
 
-  if (!row || !row.active) return false;
+  if (!row || !row.active || row.blockedAt) return false;
   if (row.tenantId !== claims.tid) return false;
   return (row.ver ?? row.legacyVer) === claims.ver;
 }

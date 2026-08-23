@@ -20,7 +20,8 @@ export type NewPayment = {
   amount: number;
   months: number;
   note?: string | null;
-  byUserId: string;
+  /** участие того, кто записал; пусто у админки платформы */
+  byUserId: string | null;
 };
 
 export async function recordPayment(input: NewPayment) {
