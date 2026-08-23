@@ -91,7 +91,6 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                           <StatusBadge tone="success">{a.common.active}</StatusBadge>
                         )}
                         {!r.verified && <StatusBadge tone="neutral">{a.common.unverified}</StatusBadge>}
-                        {r.isAdmin && <StatusBadge tone="lime">{a.title}</StatusBadge>}
                       </span>
                     </TableCell>
                     <TableCell className="num text-xs text-muted-foreground">

@@ -2284,13 +2284,7 @@ async function main() {
      нужен ответ. Он бесполезен, если состоит из сотни одинаковых строк
      после каждого обновления страницы. */
   const adminAuth = await import('../lib/admin-auth');
-  const { platformAdmins } = await import('../lib/db/schema');
-  const adminAccount = await (await import('../lib/accounts')).accountOf(owner);
-  const [adminRow] = await db
-    .insert(platformAdmins)
-    .values({ accountId: adminAccount.id, name: 'Проверка', role: 'owner' })
-    .returning();
-  const by = { admin: adminRow, role: 'owner' as const, sessionId: 'smoke', phone: owner.phone };
+  const by = { name: 'Проверка', role: 'owner' as const, sessionId: 'smoke' };
   const view = (now?: Date) =>
     adminAuth.logAdminAction({ by, action: 'tenant.view', targetType: 'tenant', targetId: tenant.id, targetLabel: tenant.name, ip: null, now });
   check('первый заход записан', (await view()) === true);

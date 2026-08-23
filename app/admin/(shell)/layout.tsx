@@ -21,7 +21,7 @@ export default async function AdminShellLayout({ children }: { children: React.R
 
   return (
     <AdminShell
-      who={ctx.admin.name}
+      who={ctx.name}
       role={ctx.role}
       counts={{ attention, businesses: list.length }}
       sidebarOpen={sidebarOpen}

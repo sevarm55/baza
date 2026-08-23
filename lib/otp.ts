@@ -82,9 +82,7 @@ export type Purpose =
    * между «войти» и «стереть всё» держалась бы на одном лишь намерении
    * того, кто держит трубку.
    */
-  | 'account_delete'
-  /** вход в админку платформы: второй фактор после PIN */
-  | 'admin_login';
+  | 'account_delete';
 
 export type StartResult =
   | {

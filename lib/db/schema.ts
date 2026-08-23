@@ -1117,32 +1117,12 @@ export const jobs = pgTable(
    Ничего из этого не привязано к бизнесу: админ управляет платформой.
 --------------------------------------------------------------------------- */
 
-export const platformAdmins = pgTable(
-  'platform_admins',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    accountId: uuid('account_id')
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'cascade' }),
-    /** как админа зовут в админке; у человека имени нет (см. accounts) */
-    name: text('name').notNull(),
-    /** owner | support | viewer, см. lib/admin-auth.ts */
-    role: text('role').notNull().default('support'),
-    active: boolean('active').notNull().default(true),
-    createdBy: uuid('created_by'),
-    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex('platform_admins_account_uniq').on(t.accountId)],
-);
-
 export const adminSessions = pgTable(
   'admin_sessions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    adminId: uuid('admin_id')
-      .notNull()
-      .references(() => platformAdmins.id, { onDelete: 'cascade' }),
+    /** логин владельца платформы снимком: учётные данные живут в окружении */
+    login: text('login').notNull(),
     ip: text('ip'),
     agent: text('agent'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1150,15 +1130,14 @@ export const adminSessions = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  (t) => [index('admin_sessions_admin_idx').on(t.adminId, t.revokedAt)],
+  (t) => [index('admin_sessions_login_idx').on(t.login, t.revokedAt)],
 );
 
 export const adminAudit = pgTable(
   'admin_audit',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    adminId: uuid('admin_id').references(() => platformAdmins.id, { onDelete: 'set null' }),
-    /** снимок имени: админа могут удалить, а строка обязана читаться */
+    /** логин снимком: строка обязана читаться и через год */
     adminName: text('admin_name'),
     action: text('action').notNull(),
     /** tenant | account | admin | session */
@@ -1179,7 +1158,6 @@ export const adminAudit = pgTable(
 
 export type Tenant = typeof tenants.$inferSelect;
 export type ActivityEvent = typeof activityEvents.$inferSelect;
-export type PlatformAdmin = typeof platformAdmins.$inferSelect;
 export type AdminSession = typeof adminSessions.$inferSelect;
 export type AdminAuditRow = typeof adminAudit.$inferSelect;
 export type Job = typeof jobs.$inferSelect;

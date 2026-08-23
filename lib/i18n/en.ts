@@ -184,12 +184,12 @@ export const en: Dict = {
       expenses: {
         label: 'Expenses',
         title: 'Expenses do not get lost',
-        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. The net result recalculates immediately.',
+        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. What you keep recalculates immediately.',
       },
       reports: {
         label: 'Reports',
         title: 'Analytics, not a single chart',
-        body: 'Revenue, payroll, expenses and net result for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
+        body: 'Revenue, payroll, expenses and what you keep for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
       },
       branches: {
         label: 'Locations',
@@ -1025,7 +1025,7 @@ export const en: Dict = {
     },
     kpi: {
       revenue: 'Revenue',
-      net: 'Net result',
+      net: 'You keep',
       cars: 'Cars',
       avgCheck: 'Average ticket',
       payroll: 'Payroll',
@@ -1035,8 +1035,8 @@ export const en: Dict = {
     },
     charts: {
       dynamics: 'Dynamics',
-      dynamicsNote: 'Revenue, payroll, expenses and net result',
-      series: { revenue: 'Revenue', payroll: 'Payroll', costs: 'Expenses', net: 'Net', prev: 'Previous' },
+      dynamicsNote: 'Revenue, payroll, expenses and what you keep',
+      series: { revenue: 'Revenue', payroll: 'Payroll', costs: 'Expenses', net: 'You keep', prev: 'Previous' },
       cars: 'Cars',
       carsNote: 'Count per day and average',
       avgCheck: 'Average ticket',

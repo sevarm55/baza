@@ -509,10 +509,16 @@ export function AppSection({ t }: Props) {
           </div>
         </div>
         <div className="flex justify-center lg:col-span-6 lg:justify-end">
-          <div className="w-[272px] overflow-hidden rounded-[28px] border border-border bg-card p-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/landing/app-today.png" alt={l.title} width={414} height={900} className="h-auto w-full rounded-[22px]" />
-          </div>
+          {/* Готовый кадр из App Store: рамка телефона и фон уже внутри
+              снимка, своей рамки поверх не ставим. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/landing/app-today.png"
+            alt={l.title}
+            width={460}
+            height={1000}
+            className="h-auto w-full max-w-[340px] rounded-lg border border-border"
+          />
         </div>
       </div>
     </section>

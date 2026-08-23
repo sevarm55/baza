@@ -3,27 +3,23 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { accounts, adminSessions, platformAdmins, tenants, users } from '@/lib/db/schema';
+import { accounts, tenants, users } from '@/lib/db/schema';
 import {
-  adminLoginStart,
-  adminLoginVerify,
+  adminLogin,
   adminSignOut,
-  asAdminRole,
   logAdminAction,
   requireAdmin,
   revokeAdminSession,
-  type AdminLoginStart,
-  type AdminLoginVerify,
+  type AdminLogin,
 } from '@/lib/admin-auth';
 import { recordPayment } from '@/lib/admin-billing';
 import { revokeAccountSessions } from '@/lib/auth';
 import { clientIp } from '@/lib/login-guard';
 import { NO_PIN } from '@/lib/pin';
-import { normalizePhone } from '@/lib/phone';
 import { logSecurity } from '@/lib/security-log';
 
 /**
@@ -44,22 +40,10 @@ function reasonOf(raw: unknown): string | null {
 
 /* ------------------------------ вход ------------------------------ */
 
-export async function adminLoginStartAction(input: { phone: string; pin: string }): Promise<AdminLoginStart> {
+export async function adminLoginAction(input: { login: string; password: string }): Promise<AdminLogin> {
   await ensureDb();
   const h = await headers();
-  return adminLoginStart({ phone: input.phone, pin: input.pin, ip: clientIp(h), agent: h.get('user-agent') });
-}
-
-export async function adminLoginVerifyAction(input: { challengeId: string; code: string }): Promise<AdminLoginVerify> {
-  await ensureDb();
-  const h = await headers();
-  const result = await adminLoginVerify({
-    challengeId: input.challengeId,
-    code: input.code,
-    ip: clientIp(h),
-    agent: h.get('user-agent'),
-  });
-  return result;
+  return adminLogin({ login: input.login, password: input.password, ip: clientIp(h), agent: h.get('user-agent') });
 }
 
 export async function adminSignOutAction(): Promise<void> {
@@ -193,9 +177,6 @@ export async function blockAccountAction(input: { accountId: string; reason: str
   await ensureDb();
   const reason = reasonOf(input.reason);
   if (!reason) return { ok: false, error: 'reason' };
-  /* Себя заблокировать нельзя: это запирает дверь изнутри. */
-  if (input.accountId === by.admin.accountId) return { ok: false, error: 'self' };
-
   await db
     .update(accounts)
     .set({ blockedAt: new Date(), blockedReason: reason })
@@ -253,7 +234,6 @@ export async function resetAccessAction(input: { accountId: string; reason: stri
   await ensureDb();
   const reason = reasonOf(input.reason);
   if (!reason) return { ok: false, error: 'reason' };
-  if (input.accountId === by.admin.accountId) return { ok: false, error: 'self' };
 
   await db.transaction(async (tx) => {
     await tx.update(accounts).set({ pinHash: NO_PIN }).where(eq(accounts.id, input.accountId));
@@ -269,72 +249,13 @@ export async function resetAccessAction(input: { accountId: string; reason: stri
   return { ok: true };
 }
 
-/* ----------------------------- команда ----------------------------- */
-
-export async function addAdminAction(input: { phone: string; name: string; role: string }): Promise<ActionResult> {
-  const by = await requireAdmin('owner');
-  await ensureDb();
-  const phone = normalizePhone(input.phone);
-  const name = input.name.trim().slice(0, 60);
-  if (name.length < 2) return { ok: false, error: 'name' };
-
-  const [account] = await db.select().from(accounts).where(eq(accounts.phone, phone));
-  if (!account) return { ok: false, error: 'notFound' };
-
-  const [existing] = await db.select().from(platformAdmins).where(eq(platformAdmins.accountId, account.id));
-  if (existing && existing.active) return { ok: false, error: 'exists' };
-
-  const role = asAdminRole(input.role);
-  if (existing) {
-    await db.update(platformAdmins).set({ active: true, role, name }).where(eq(platformAdmins.id, existing.id));
-  } else {
-    await db.insert(platformAdmins).values({ accountId: account.id, name, role, createdBy: by.admin.id });
-  }
-  await logAdminAction({ by, action: 'admin.add', targetType: 'admin', targetId: account.id, targetLabel: `${name} · ${phone}`, data: { role } });
-  revalidatePath('/admin/team');
-  return { ok: true };
-}
-
-export async function setAdminRoleAction(input: { adminId: string; role: string }): Promise<ActionResult> {
-  const by = await requireAdmin('owner');
-  await ensureDb();
-  if (input.adminId === by.admin.id) return { ok: false, error: 'self' };
-  const role = asAdminRole(input.role);
-  const [row] = await db.update(platformAdmins).set({ role }).where(eq(platformAdmins.id, input.adminId)).returning();
-  if (!row) return { ok: false, error: 'notFound' };
-  await logAdminAction({ by, action: 'admin.role', targetType: 'admin', targetId: row.accountId, targetLabel: row.name, data: { role } });
-  revalidatePath('/admin/team');
-  return { ok: true };
-}
-
-export async function deactivateAdminAction(input: { adminId: string; reason: string }): Promise<ActionResult> {
-  const by = await requireAdmin('owner');
-  await ensureDb();
-  if (input.adminId === by.admin.id) return { ok: false, error: 'self' };
-  const reason = reasonOf(input.reason);
-  if (!reason) return { ok: false, error: 'reason' };
-
-  const [row] = await db.update(platformAdmins).set({ active: false }).where(eq(platformAdmins.id, input.adminId)).returning();
-  if (!row) return { ok: false, error: 'notFound' };
-  await db
-    .update(adminSessions)
-    .set({ revokedAt: new Date() })
-    .where(and(eq(adminSessions.adminId, input.adminId), isNull(adminSessions.revokedAt)));
-  await logAdminAction({ by, action: 'admin.deactivate', targetType: 'admin', targetId: row.accountId, targetLabel: row.name, reason });
-  revalidatePath('/admin/team');
-  return { ok: true };
-}
+/* ----------------------------- сессии ----------------------------- */
 
 export async function revokeAdminSessionAction(input: { sessionId: string }): Promise<ActionResult> {
-  const by = await requireAdmin('viewer');
+  const by = await requireAdmin();
   await ensureDb();
-  /* Свою сессию может погасить любой; чужую только владелец платформы. */
-  const [row] = await db.select().from(adminSessions).where(eq(adminSessions.id, input.sessionId));
-  if (!row) return { ok: false, error: 'notFound' };
-  if (row.adminId !== by.admin.id && by.role !== 'owner') return { ok: false, error: 'forbidden' };
-
   await revokeAdminSession(input.sessionId, by);
   await logAdminAction({ by, action: 'admin.session_revoke', targetType: 'session', targetId: input.sessionId });
-  revalidatePath('/admin/team');
+  revalidatePath('/admin/access');
   return { ok: true };
 }

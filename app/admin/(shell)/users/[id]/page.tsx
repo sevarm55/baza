@@ -43,7 +43,6 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         actions={
           <span className="flex flex-wrap gap-1">
             {d.account.blockedAt ? <StatusBadge tone="danger">{a.common.blocked}</StatusBadge> : <StatusBadge tone="success">{a.common.active}</StatusBadge>}
-            {d.admin?.active && <StatusBadge tone="lime">{a.roles[d.admin.role as 'owner' | 'support' | 'viewer'] ?? a.title}</StatusBadge>}
           </span>
         }
       />
@@ -67,7 +66,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
               phone={phone}
               blocked={!!d.account.blockedAt}
               hasSessions={d.sessions.length > 0}
-              canAct={canAct && d.account.id !== ctx.admin.accountId}
+              canAct={canAct}
             />
           </div>
         </Panel>

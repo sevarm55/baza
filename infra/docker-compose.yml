@@ -45,9 +45,14 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://bazis:${POSTGRES_PASSWORD:?}@bazis-postgres:5432/bazis
       SESSION_SECRET: ${SESSION_SECRET:?нужен SESSION_SECRET в .env}
-      # телефоны с доступом в /admin, через запятую. Список в окружении,
-      # а не в базе: чтобы выдать себе админку, мало добраться до базы
+      # телефоны для пуш-уведомлений платформы (новый бизнес, сроки)
       PLATFORM_ADMIN_PHONES: ${PLATFORM_ADMIN_PHONES:-}
+      # Вход в /admin: логин и пароль владельца платформы. Только в
+      # окружении, не в базе: чтобы попасть в админку, мало добраться до
+      # базы. Пароль лучше хешем: npx tsx scripts/admin-password.ts
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
       # абонементы клиентов спрятаны до отдельной проработки; оплата
       # продукта работает всегда, если явно не выключить нулём
       PASSES_ENABLED: ${PASSES_ENABLED:-}

@@ -80,7 +80,7 @@ export function AdminShell({
     { href: '/admin/payments', label: a.nav.payments, icon: Banknote },
     { href: '/admin/activity', label: a.nav.activity, icon: ScrollText },
     { href: '/admin/support', label: a.nav.support, icon: LifeBuoy },
-    { href: '/admin/team', label: a.nav.team, icon: ShieldCheck },
+    { href: '/admin/access', label: a.nav.team, icon: ShieldCheck },
   ];
 
   const current = items.find((it) => (it.exact ? pathname === it.href : pathname.startsWith(it.href)));

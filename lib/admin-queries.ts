@@ -8,7 +8,6 @@ import {
   clients,
   loginAttempts,
   orders,
-  platformAdmins,
   platformPayments,
   securityEvents,
   sessions,
@@ -187,13 +186,12 @@ export type AccountRow = {
   /** имена по участиям: «Давид», «Давид Петросян» */
   names: string[];
   memberships: { tenantId: string; tenantName: string; role: string; active: boolean; name: string }[];
-  isAdmin: boolean;
 };
 
 export type AccountFilter = 'all' | 'owners' | 'staff' | 'blocked';
 
 export async function listAccounts(opts: { q?: string; filter?: AccountFilter } = {}): Promise<AccountRow[]> {
-  const [people, memberships, seen, admins] = await Promise.all([
+  const [people, memberships, seen] = await Promise.all([
     db.select().from(accounts).orderBy(desc(accounts.createdAt)),
     db
       .select({
@@ -216,7 +214,6 @@ export async function listAccounts(opts: { q?: string; filter?: AccountFilter } 
       .innerJoin(users, eq(users.id, sessions.userId))
       .where(isNull(sessions.revokedAt))
       .groupBy(users.accountId),
-    db.select({ accountId: platformAdmins.accountId }).from(platformAdmins).where(eq(platformAdmins.active, true)),
   ]);
 
   const byAccount = new Map<string, AccountRow['memberships']>();
@@ -227,7 +224,6 @@ export async function listAccounts(opts: { q?: string; filter?: AccountFilter } 
     byAccount.set(m.accountId, list);
   }
   const seenBy = new Map(seen.map((s) => [s.accountId, s.last ? new Date(s.last) : null]));
-  const adminSet = new Set(admins.map((a) => a.accountId));
 
   const q = (opts.q ?? '').trim().toLowerCase();
   const qPhone = q ? normalizePhone(q) : '';
@@ -244,7 +240,6 @@ export async function listAccounts(opts: { q?: string; filter?: AccountFilter } 
       hasPin: a.pinHash !== 'none' && a.pinHash.length > 0,
       names: [...new Set(ms.map((m) => m.name))],
       memberships: ms,
-      isAdmin: adminSet.has(a.id),
     };
   });
 
@@ -267,7 +262,7 @@ export async function accountDetail(id: string) {
   const [account] = await db.select().from(accounts).where(eq(accounts.id, id));
   if (!account) return null;
 
-  const [memberships, sess, events, actions, [admin], [fails]] = await Promise.all([
+  const [memberships, sess, events, actions, [fails]] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -314,7 +309,6 @@ export async function accountDetail(id: string) {
       .where(and(eq(adminAudit.targetType, 'account'), eq(adminAudit.targetId, id)))
       .orderBy(desc(adminAudit.createdAt))
       .limit(30),
-    db.select().from(platformAdmins).where(eq(platformAdmins.accountId, id)),
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(loginAttempts)
@@ -327,7 +321,6 @@ export async function accountDetail(id: string) {
     sessions: sess.map((s) => ({ ...s, label: deviceLabel(s.device) ?? s.device })),
     events,
     actions,
-    admin: admin ?? null,
     failedLogins: fails?.n ?? 0,
   };
 }
@@ -339,14 +332,13 @@ export async function accountByPhoneExact(phone: string) {
 
 /* ----------------------------- журнал ----------------------------- */
 
-export async function listAdminAudit(opts: { action?: string; adminId?: string; limit?: number; before?: Date } = {}) {
+export async function listAdminAudit(opts: { action?: string; limit?: number; before?: Date } = {}) {
   return db
     .select()
     .from(adminAudit)
     .where(
       and(
         opts.action ? eq(adminAudit.action, opts.action) : undefined,
-        opts.adminId ? eq(adminAudit.adminId, opts.adminId) : undefined,
         opts.before ? lt(adminAudit.createdAt, opts.before) : undefined,
       ),
     )
@@ -480,23 +472,4 @@ export async function supportSearch(raw: string) {
   ]);
 
   return { people: people.slice(0, 20), businesses: businesses.slice(0, 20), clients: washClients };
-}
-
-/* ----------------------------- команда ----------------------------- */
-
-export async function listAdmins() {
-  return db
-    .select({
-      id: platformAdmins.id,
-      name: platformAdmins.name,
-      role: platformAdmins.role,
-      active: platformAdmins.active,
-      lastLoginAt: platformAdmins.lastLoginAt,
-      createdAt: platformAdmins.createdAt,
-      accountId: platformAdmins.accountId,
-      phone: accounts.phone,
-    })
-    .from(platformAdmins)
-    .innerJoin(accounts, eq(accounts.id, platformAdmins.accountId))
-    .orderBy(desc(platformAdmins.active), platformAdmins.createdAt);
 }

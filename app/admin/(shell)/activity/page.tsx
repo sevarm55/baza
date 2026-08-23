@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { requireAdmin } from '@/lib/admin-auth';
 import { ensureDb } from '@/lib/db/ready';
-import { listAdminAudit, listAdmins, listLegacyAdminAudit, listSecurityEvents, securityEventKinds } from '@/lib/admin-queries';
+import { listAdminAudit, listLegacyAdminAudit, listSecurityEvents, securityEventKinds } from '@/lib/admin-queries';
 import { formatPhone } from '@/lib/phone';
 import { getAdminDict } from '@/lib/i18n/admin/server';
 import { PageHeader } from '@/components/patterns/page-header';
@@ -24,7 +24,7 @@ type Tab = (typeof TABS)[number];
 export default async function ActivityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; action?: string; admin?: string; level?: string; event?: string }>;
+  searchParams: Promise<{ tab?: string; action?: string; level?: string; event?: string }>;
 }) {
   await requireAdmin();
   await ensureDb();
@@ -33,18 +33,17 @@ export default async function ActivityPage({
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? '') ? (sp.tab as Tab) : 'admin';
 
   const href = (patch: Record<string, string>) => {
-    const next = { tab, action: sp.action ?? '', admin: sp.admin ?? '', level: sp.level ?? '', event: sp.event ?? '', ...patch };
+    const next = { tab, action: sp.action ?? '', level: sp.level ?? '', event: sp.event ?? '', ...patch };
     const p = new URLSearchParams();
     if (next.tab !== 'admin') p.set('tab', next.tab);
-    for (const k of ['action', 'admin', 'level', 'event'] as const) if (next[k] && next[k] !== 'all') p.set(k, next[k]);
+    for (const k of ['action', 'level', 'event'] as const) if (next[k] && next[k] !== 'all') p.set(k, next[k]);
     const s = p.toString();
     return s ? `/admin/activity?${s}` : '/admin/activity';
   };
 
-  const [fresh, legacy, admins, events, kinds] = await Promise.all([
-    tab === 'admin' ? listAdminAudit({ action: sp.action || undefined, adminId: sp.admin || undefined, limit: 200 }) : [],
-    tab === 'admin' && !sp.action && !sp.admin ? listLegacyAdminAudit(100) : [],
-    listAdmins(),
+  const [fresh, legacy, events, kinds] = await Promise.all([
+    tab === 'admin' ? listAdminAudit({ action: sp.action || undefined, limit: 200 }) : [],
+    tab === 'admin' && !sp.action ? listLegacyAdminAudit(100) : [],
     tab === 'security' ? listSecurityEvents({ level: sp.level || undefined, event: sp.event || undefined, limit: 200 }) : [],
     tab === 'security' ? securityEventKinds() : [],
   ]);
@@ -66,11 +65,6 @@ export default async function ActivityPage({
               label={a.activity.filterAction}
               value={sp.action ?? 'all'}
               options={[{ value: 'all', label: a.common.all, href: href({ action: '' }) }, ...actionKeys.map((k) => ({ value: k, label: a.activity.actions[k], href: href({ action: k }) }))]}
-            />
-            <SortSelect
-              label={a.activity.filterAdmin}
-              value={sp.admin ?? 'all'}
-              options={[{ value: 'all', label: a.common.all, href: href({ admin: '' }) }, ...admins.map((x) => ({ value: x.id, label: x.name, href: href({ admin: x.id }) }))]}
             />
           </>
         ) : (
