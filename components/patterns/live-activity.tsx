@@ -53,9 +53,16 @@ export function LiveActivity({
 
   /* Сервер мог перерисовать страницу с новыми строками (после
      `router.refresh`): берём их как основу, не теряя того, что поток
-     успел дослать раньше. */
-  useEffect(() => {
+     успел дослать раньше. Сверка прямо при отрисовке, а не эффектом:
+     это производное состояние, а не подписка. */
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) {
+    setSeen(initial);
     setRows((prev) => merge(initial, prev));
+  }
+
+  /* Самое свежее время с сервера: поток спрашивает «после него». */
+  useEffect(() => {
     if (initial[0] && initial[0].at > newest.current) newest.current = initial[0].at;
   }, [initial]);
 

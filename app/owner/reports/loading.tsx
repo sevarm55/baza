@@ -1,34 +1,32 @@
 import { AfterDelay } from '@/components/loading';
-import {
-  LoadingPage,
-  SkeletonHeader,
-  SkeletonMetrics,
-  SkeletonPanel,
-  SkeletonTable,
-} from '@/components/patterns/states';
+import { LoadingPage, SkeletonHeader, SkeletonMetrics, SkeletonPanel, SkeletonTable } from '@/components/patterns/states';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * Что видно, пока считается отчёт: по форме настоящей страницы.
- *
- * Отчёт считается дольше остальных разделов, он поднимает историю за
- * полгода целиком, поэтому скелет здесь особенно важен: шапка с
- * переключателем месяцев, полоса показаний, график с пропорцией, три
- * разреза в ряд, люди и таблица месяцев.
+ * Шапка с панелью инструментов, шесть показаний, динамика с кольцом,
+ * два графика и две таблицы: форма обзора, самой частой вкладки.
  */
 export default function Loading() {
   return (
     <AfterDelay>
       <LoadingPage>
         <SkeletonHeader tools={false} />
-        <SkeletonMetrics count={4} />
+        <div className="flex flex-col gap-3" aria-hidden>
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <Skeleton className="h-9 w-80" />
+        </div>
+        <SkeletonMetrics count={6} />
         <div className="grid gap-4 lg:grid-cols-12">
-          <SkeletonPanel className="h-[300px] lg:col-span-8" />
+          <SkeletonPanel className="h-[340px] lg:col-span-8" />
           <SkeletonPanel rows={3} className="lg:col-span-4" />
-          <SkeletonPanel rows={3} className="lg:col-span-4" />
-          <SkeletonPanel rows={3} className="lg:col-span-4" />
-          <SkeletonPanel rows={3} className="lg:col-span-4" />
-          <SkeletonPanel rows={3} className="lg:col-span-4" />
-          <SkeletonTable rows={5} className="lg:col-span-8" />
+          <SkeletonPanel className="h-[280px] lg:col-span-6" />
+          <SkeletonPanel className="h-[280px] lg:col-span-6" />
+          <SkeletonTable rows={5} className="lg:col-span-6" />
+          <SkeletonTable rows={5} className="lg:col-span-6" />
         </div>
       </LoadingPage>
     </AfterDelay>

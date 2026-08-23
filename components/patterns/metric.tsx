@@ -94,7 +94,7 @@ export function MetricStrip({
   children: ReactNode;
   className?: string;
   /** число колонок на широком экране; по умолчанию по числу детей */
-  columns?: 2 | 3 | 4 | 5;
+  columns?: 2 | 3 | 4 | 5 | 6;
 }) {
   return (
     <div
@@ -105,6 +105,7 @@ export function MetricStrip({
         columns === 3 && 'sm:grid-cols-3',
         columns === 4 && 'sm:grid-cols-2 lg:grid-cols-4',
         columns === 5 && 'sm:grid-cols-3 lg:grid-cols-5',
+        columns === 6 && 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6',
         !columns && 'sm:grid-flow-col sm:auto-cols-fr',
         '*:px-4 *:py-3.5',
         className,

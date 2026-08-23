@@ -1,8 +1,9 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { expenses } from '@/lib/db/schema';
+import { expenses, orderShares, orders, shifts, users } from '@/lib/db/schema';
 import { getPeriodCosts, shareOfPeriod } from '@/lib/expenses';
-import { getPeriodStats, getServiceBreakdown } from '@/lib/queries';
+import { getPaymentSplit, getPeriodStats, getRevenueSeries, getServiceBreakdown } from '@/lib/queries';
+import type { ReportRange } from '@/lib/report-range';
 import { daysInMonthOf, startOfDay, startOfMonth } from '@/lib/time';
 
 /** Один месяц в отчёте: всё, из чего складывается «осталось». */
@@ -259,3 +260,377 @@ export async function getEarnedByService(
   const rows = await getServiceBreakdown(tenantId, from, to);
   return rows.map((r) => ({ name: r.name, count: r.count, revenue: r.revenue }));
 }
+
+/* ═══════════════════════ аналитика за отрезок ═══════════════════════ */
+
+const notCanceled = isNull(orders.canceledAt);
+
+/** Итоги отрезка: то же, из чего сложена сводка, плюс база сравнения. */
+export type RangeSummary = {
+  count: number;
+  revenue: number;
+  payroll: number;
+  costs: number;
+  oneOff: number;
+  monthlyShare: number;
+  profit: number;
+  avgCheck: number;
+  discounts: number;
+  passSales: number;
+  /** процент от выручки */
+  payrollShare: number;
+  costsShare: number;
+  kept: number;
+  byStaff: ReportMonth['byStaff'];
+};
+
+export async function getRangeSummary(
+  tenantId: string,
+  from: Date,
+  to: Date,
+  spread: number,
+): Promise<RangeSummary> {
+  const [stats, costs] = await Promise.all([
+    getPeriodStats(tenantId, from, to),
+    getPeriodCosts(tenantId, from, to, spread),
+  ]);
+  const profit = stats.revenue - stats.payroll - costs.total;
+  const pct = (n: number) => (stats.revenue > 0 ? Math.round((n / stats.revenue) * 1000) / 10 : 0);
+  return {
+    count: stats.count,
+    revenue: stats.revenue,
+    payroll: stats.payroll,
+    costs: costs.total,
+    oneOff: costs.oneOff,
+    monthlyShare: costs.monthlyShare,
+    profit,
+    avgCheck: stats.avgCheck,
+    discounts: stats.discounts,
+    passSales: stats.passSales,
+    payrollShare: pct(stats.payroll),
+    costsShare: pct(costs.total),
+    kept: stats.revenue > 0 ? Math.round((profit / stats.revenue) * 100) : 0,
+    byStaff: stats.byStaff,
+  };
+}
+
+/** Точка ряда: час дня или день отрезка. */
+export type SeriesPoint = {
+  /** «2026-08-23 14» — тот же ключ, что отдаёт база */
+  key: string;
+  revenue: number;
+  count: number;
+  /** оплаченных на месте: по ним считается средний чек */
+  paidCount: number;
+  payroll: number;
+  /** расходы дня: разовые целиком плюс доля постоянных; по часам не считаются */
+  costs: number;
+  net: number;
+  avgCheck: number;
+};
+
+/**
+ * Ряд по отрезку: деньги, машины, начисления и расходы по часам или дням.
+ *
+ * Выручка и машины из того же запроса, что рисует сводку; начисления
+ * отдельно, по долям участников, потому что их группировка по времени
+ * не сводится к записям. Расходы только по дням: постоянный расход не
+ * имеет часа, а разовый в «14:00» ничего не объясняет.
+ */
+export async function getRangeSeries(
+  tenantId: string,
+  range: Pick<ReportRange, 'from' | 'to' | 'byHour' | 'spread' | 'days'>,
+  timezone: string,
+): Promise<SeriesPoint[]> {
+  const bucket = range.byHour ? 'hour' : 'day';
+  const local = sql`(${orders.createdAt} at time zone ${timezone})`;
+
+  const [money, paid, earned, costLines] = await Promise.all([
+    getRevenueSeries(tenantId, range.from, timezone, bucket, range.to),
+    db
+      .select({
+        key: sql<string>`to_char(date_trunc(${bucket}, ${local}), 'YYYY-MM-DD HH24')`,
+        paidCount: sql<number>`count(*) filter (where ${orders.payment} <> 'pass')::int`,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.tenantId, tenantId),
+          gte(orders.createdAt, range.from),
+          lt(orders.createdAt, range.to),
+          notCanceled,
+        ),
+      )
+      .groupBy(sql`1`),
+    db
+      .select({
+        key: sql<string>`to_char(date_trunc(${bucket}, ${local}), 'YYYY-MM-DD HH24')`,
+        payroll: sql<number>`coalesce(sum(${orderShares.earned}), 0)::int`,
+      })
+      .from(orderShares)
+      .innerJoin(orders, eq(orders.id, orderShares.orderId))
+      .where(
+        and(
+          eq(orders.tenantId, tenantId),
+          gte(orders.createdAt, range.from),
+          lt(orders.createdAt, range.to),
+          notCanceled,
+        ),
+      )
+      .groupBy(sql`1`),
+    range.byHour ? Promise.resolve([]) : costsByDay(tenantId, range, timezone),
+  ]);
+
+  const paidBy = new Map(paid.map((p) => [p.key, p.paidCount]));
+  const earnedBy = new Map(earned.map((e) => [e.key, e.payroll]));
+  const costBy = new Map(costLines.map((c) => [c.key, c.amount]));
+
+  const keys = new Set<string>([...money.map((m) => m.key), ...earnedBy.keys(), ...costBy.keys()]);
+  const points: SeriesPoint[] = [];
+  for (const key of keys) {
+    const m = money.find((x) => x.key === key);
+    const revenue = m?.revenue ?? 0;
+    const count = m?.count ?? 0;
+    const paidCount = paidBy.get(key) ?? 0;
+    const payroll = earnedBy.get(key) ?? 0;
+    const costs = costBy.get(key) ?? 0;
+    points.push({
+      key,
+      revenue,
+      count,
+      paidCount,
+      payroll,
+      costs,
+      net: revenue - payroll - costs,
+      avgCheck: paidCount > 0 ? Math.round(revenue / paidCount) : 0,
+    });
+  }
+  return points.sort((a, b) => (a.key < b.key ? -1 : 1));
+}
+
+/**
+ * Расходы по дням: разовые в свой день, постоянные долей за каждый
+ * прожитый день. Доля та же, что и в итогах (`amount / spread`), иначе
+ * сумма столбиков не сошлась бы с показанием наверху.
+ */
+async function costsByDay(
+  tenantId: string,
+  range: Pick<ReportRange, 'from' | 'to' | 'spread'>,
+  timezone: string,
+): Promise<{ key: string; amount: number }[]> {
+  const rows = await db
+    .select({
+      amount: expenses.amount,
+      monthly: expenses.monthly,
+      at: expenses.at,
+      endedAt: expenses.endedAt,
+    })
+    .from(expenses)
+    .where(
+      and(
+        eq(expenses.tenantId, tenantId),
+        lt(expenses.at, range.to),
+        sql`(${expenses.endedAt} is null or ${expenses.endedAt} > ${range.from.toISOString()}::timestamptz)`,
+      ),
+    );
+
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const by = new Map<string, number>();
+  const add = (day: string, n: number) => by.set(day, (by.get(day) ?? 0) + n);
+
+  for (const r of rows) {
+    if (!r.monthly) {
+      if (r.at >= range.from && r.at < range.to) add(`${ymd.format(r.at)} 00`, r.amount);
+      continue;
+    }
+    /* Постоянный: по дню за каждые сутки, когда он действовал. */
+    const perDay = r.amount / range.spread;
+    for (let t = range.from.getTime(); t < range.to.getTime(); t += 86_400_000) {
+      const day = new Date(t);
+      const next = new Date(t + 86_400_000);
+      if (r.at >= next) continue;
+      if (r.endedAt && r.endedAt <= day) continue;
+      add(`${ymd.format(day)} 00`, Math.round(perDay));
+    }
+  }
+  return [...by.entries()].map(([key, amount]) => ({ key, amount }));
+}
+
+/** Клетка тепловой карты: день недели × час. */
+export type HeatCell = { dow: number; hour: number; count: number; revenue: number };
+
+/**
+ * Загрузка по времени: в какие часы каких дней приезжают.
+ *
+ * День недели ISO (1 понедельник … 7 воскресенье) и час в поясе
+ * бизнеса: у мойки в Ереване «восемь утра» это восемь по Еревану, а не
+ * по серверу.
+ */
+export async function getHeatmap(
+  tenantId: string,
+  from: Date,
+  to: Date,
+  timezone: string,
+): Promise<HeatCell[]> {
+  const local = sql`(${orders.createdAt} at time zone ${timezone})`;
+  return db
+    .select({
+      dow: sql<number>`extract(isodow from ${local})::int`,
+      hour: sql<number>`extract(hour from ${local})::int`,
+      count: sql<number>`count(*)::int`,
+      revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
+    })
+    .from(orders)
+    .where(
+      and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), lt(orders.createdAt, to), notCanceled),
+    )
+    .groupBy(sql`1`, sql`2`);
+}
+
+/** Строка команды за отрезок. */
+export type StaffLine = {
+  staffId: string | null;
+  name: string | null;
+  /** в скольких машинах участвовал */
+  count: number;
+  /** выручка машин, в которых участвовал */
+  revenue: number;
+  earned: number;
+  avgCheck: number;
+  shifts: number;
+  /** часов на смене, с одним знаком */
+  hours: number;
+  /** средний процент по начисленному */
+  percent: number;
+};
+
+/**
+ * Люди: сколько машин, сколько принесли, сколько начислено, сколько смен.
+ *
+ * Не рейтинг ради рейтинга: таблица отвечает «кто что сделал», и
+ * сортируется по начисленному, потому что это число и есть зарплата.
+ */
+export async function getStaffPerformance(
+  tenantId: string,
+  from: Date,
+  to: Date,
+): Promise<StaffLine[]> {
+  const [work, rest] = await Promise.all([
+    db
+      .select({
+        staffId: orderShares.staffId,
+        name: users.name,
+        count: sql<number>`count(*)::int`,
+        revenue: sql<number>`coalesce(sum(${orders.price}) filter (where ${orders.payment} <> 'pass'), 0)::int`,
+        paid: sql<number>`count(*) filter (where ${orders.payment} <> 'pass')::int`,
+        earned: sql<number>`coalesce(sum(${orderShares.earned}), 0)::int`,
+      })
+      .from(orderShares)
+      .innerJoin(orders, eq(orders.id, orderShares.orderId))
+      .leftJoin(users, eq(users.id, orderShares.staffId))
+      .where(
+        and(eq(orders.tenantId, tenantId), gte(orders.createdAt, from), lt(orders.createdAt, to), notCanceled),
+      )
+      .groupBy(orderShares.staffId, users.name),
+    db
+      .select({
+        userId: shifts.userId,
+        shifts: sql<number>`count(*)::int`,
+        hours: sql<number>`coalesce(sum(extract(epoch from (coalesce(${shifts.closedAt}, now()) - ${shifts.openedAt}))), 0) / 3600.0`,
+      })
+      .from(shifts)
+      .where(and(eq(shifts.tenantId, tenantId), gte(shifts.openedAt, from), lt(shifts.openedAt, to)))
+      .groupBy(shifts.userId),
+  ]);
+
+  const shiftBy = new Map(rest.map((r) => [r.userId, r]));
+  return work
+    .map((w) => {
+      const sh = w.staffId ? shiftBy.get(w.staffId) : undefined;
+      return {
+        staffId: w.staffId,
+        name: w.name,
+        count: w.count,
+        revenue: w.revenue,
+        earned: w.earned,
+        avgCheck: w.paid > 0 ? Math.round(w.revenue / w.paid) : 0,
+        shifts: sh?.shifts ?? 0,
+        hours: sh ? Math.round(Number(sh.hours) * 10) / 10 : 0,
+        percent: w.revenue > 0 ? Math.round((w.earned / w.revenue) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.earned - a.earned);
+}
+
+/** Способы оплаты за отрезок: уже с долями. */
+export async function getPaymentMix(tenantId: string, from: Date, to: Date) {
+  const rows = await getPaymentSplit(tenantId, from, to);
+  const total = rows.reduce((s, r) => s + r.revenue, 0);
+  return rows
+    .filter((r) => r.revenue > 0 || r.count > 0)
+    .map((r) => ({
+      payment: r.payment,
+      revenue: r.revenue,
+      count: r.count,
+      share: total > 0 ? Math.round((r.revenue / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+/** Сумма рядов нескольких точек по ключу: для режима «все филиалы». */
+export function mergeSeries(lists: SeriesPoint[][]): SeriesPoint[] {
+  const by = new Map<string, SeriesPoint>();
+  for (const list of lists) {
+    for (const p of list) {
+      const cur = by.get(p.key);
+      if (!cur) {
+        by.set(p.key, { ...p });
+        continue;
+      }
+      cur.revenue += p.revenue;
+      cur.count += p.count;
+      cur.paidCount += p.paidCount;
+      cur.payroll += p.payroll;
+      cur.costs += p.costs;
+      cur.net += p.net;
+      cur.avgCheck = cur.paidCount > 0 ? Math.round(cur.revenue / cur.paidCount) : 0;
+    }
+  }
+  return [...by.values()].sort((a, b) => (a.key < b.key ? -1 : 1));
+}
+
+/** Сумма итогов нескольких точек. */
+export function mergeSummaries(list: RangeSummary[]): RangeSummary {
+  const sum = (k: keyof RangeSummary) => list.reduce((s, x) => s + (x[k] as number), 0);
+  const revenue = sum('revenue');
+  const payroll = sum('payroll');
+  const costs = sum('costs');
+  const profit = revenue - payroll - costs;
+  const count = sum('count');
+  /* Средний чек взвешенный: сумма выручек на сумму оплаченных машин. У
+     каждой точки avgCheck = revenue/paid, paid = revenue/avgCheck. */
+  const paid = list.reduce((s, x) => s + (x.avgCheck > 0 ? x.revenue / x.avgCheck : 0), 0);
+  const pct = (n: number) => (revenue > 0 ? Math.round((n / revenue) * 1000) / 10 : 0);
+  return {
+    count,
+    revenue,
+    payroll,
+    costs,
+    oneOff: sum('oneOff'),
+    monthlyShare: sum('monthlyShare'),
+    profit,
+    avgCheck: paid > 0 ? Math.round(revenue / paid) : 0,
+    discounts: sum('discounts'),
+    passSales: sum('passSales'),
+    payrollShare: pct(payroll),
+    costsShare: pct(costs),
+    kept: revenue > 0 ? Math.round((profit / revenue) * 100) : 0,
+    byStaff: list.flatMap((x) => x.byStaff),
+  };
+}
+

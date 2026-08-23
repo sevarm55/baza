@@ -1,331 +1,528 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+
 import { requireOwner } from '@/lib/auth';
-import { getPaymentSplit, getTenant } from '@/lib/queries';
+import { listPoints } from '@/lib/accounts';
+import { getTenant, getUser } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { passesEnabled } from '@/lib/features';
-import { daysInMonthOf } from '@/lib/time';
 import { getDict } from '@/lib/i18n/server';
-import { localizeTenantOrNull, serviceNameTerm, staffCount, unitCount } from '@/lib/i18n/terms';
-import { monthName as monthNameFmt, shortMonth as shortMonthFmt } from '@/lib/i18n/format';
+import { localizeTenantOrNull, serviceNameTerm, unitForms } from '@/lib/i18n/terms';
+import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
+import { asRangeKey, rangeFor, type ReportRange } from '@/lib/report-range';
 import {
   getCostsByCategory,
   getEarnedByService,
-  getMonthBase,
-  getMonthlyReport,
-  type ReportMonth,
+  getHeatmap,
+  getPaymentMix,
+  getRangeSeries,
+  getRangeSummary,
+  getStaffPerformance,
+  mergeSeries,
+  mergeSummaries,
+  type HeatCell,
+  type SeriesPoint,
 } from '@/lib/reports';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/patterns/page-header';
 import { PanelGrid } from '@/components/patterns/panel';
 import { Delta, Metric, MetricStrip } from '@/components/patterns/metric';
-import { Segmented } from '@/components/patterns/segmented';
 import { EmptyState } from '@/components/patterns/states';
-import { Bars, type BarRow } from './bars';
-import { MonthsTable, type MonthRow } from './months';
-import { ProfitSplit } from './split';
-import { ReportTeam, type TeamMember } from './team';
-import { Trend } from './trend';
-import type { TrendPoint } from './model';
+import { ErrorState } from '@/components/patterns/error-state';
+import { ReportToolbar, type ReportQuery } from './report/toolbar';
+import { TrendChart } from './report/trend-chart';
+import { CarsChart } from './report/cars-chart';
+import { AvgCheckChart } from './report/avg-check-chart';
+import { Heatmap } from './report/heatmap';
+import { PaymentDonut } from './report/payment-donut';
+import { CostsTable, ServicesTable } from './report/breakdown-table';
+import { TeamTable } from './report/team-table';
+import { BranchCompare } from './report/branch-compare';
+import {
+  SCOPES,
+  TABS,
+  type BranchRow,
+  type BranchSeries,
+  type CostRow,
+  type HeatRow,
+  type PaymentRow,
+  type Point,
+  type ReportTab,
+  type Scope,
+  type ServiceRow,
+  type TeamRow,
+} from './model';
+
+/* Цвета способов оплаты: те же, что на сводке. */
+const PAYMENT_COLORS: Record<string, string> = {
+  cash: 'var(--success)',
+  card: 'var(--chart-1)',
+  transfer: 'var(--chart-3)',
+  pass: 'var(--warning)',
+};
+
+const BRANCH_COLORS = ['var(--chart-1)', 'var(--chart-3)', 'var(--chart-2)', 'var(--chart-4)', 'var(--warning)', 'var(--success)'];
 
 /**
- * Сколько месяцев показываем.
+ * Отчёт: аналитика владельца за любой отрезок.
  *
- * Плюс один сверх показанных: самому старому месяцу в таблице тоже
- * нужна база сравнения, а взять её неоткуда, кроме как из месяца перед
- * ним. Лишний он только на экране, считается так же, как остальные.
- */
-const MONTHS = 6;
-
-/**
- * Отчёт.
+ * Страница отвечает на вопросы в порядке их важности: сколько заработал
+ * и лучше ли стало (показания с дельтой), как шло по дням (динамика),
+ * где деньги (услуги, оплата, расходы), когда приезжают (загрузка), кто
+ * это сделал (команда). Вкладки делят вопросы по темам, чтобы один
+ * экран не отвечал на всё сразу.
  *
- * Вопрос, который владелец задаёт себе на самом деле: сколько я
- * заработал, стало лучше или хуже, и почему. Порядок чтения задан
- * вопросами, а не удобством вёрстки:
- *
- *   1. сколько заработал за месяц   → первое показание полосы;
- *   2. из чего это сложилось        → три показания рядом;
- *   3. лучше или хуже стало         → сравнение и график месяцев;
- *   4. какая доля куда ушла         → пропорция;
- *   5. откуда пришли деньги         → услуги;
- *   6. куда ушли                    → расходы по названиям;
- *   7. чем платили                  → способы оплаты;
- *   8. кто это сделал               → люди;
- *   9. точные числа                 → таблица месяцев.
- *
- * Ни одно число здесь не считается по-своему: месяцы идут через те же
- * функции, что сводка и расходы. Отчёт, расходящийся с кабинетом хотя бы
- * на драм, не читают вовсе.
+ * Каждый блок считается своим запросом и падает отдельно: упавший
+ * показывает «не загрузился», остальные живут. Числа те же, что на
+ * сводке, потому что считаются теми же функциями.
  */
 export default async function ReportsPage({
   searchParams,
 }: {
-  /** какой месяц открыт: 0 текущий, 1 прошлый и так далее */
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const t = await getDict();
   const session = await requireOwner();
-  /* Слова бизнеса на языке того, кто смотрит. Переводятся только
-     заводские: своё название владельца проходит насквозь (см. terms.ts).
-     Копия уходит только на экран, в базу отсюда ничего не пишется. */
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
+  const me = await getUser(session.tid, session.uid);
+  if (!me) redirect('/session-ended');
 
-  const requested = await getMonthlyReport(tenant.id, tenant.timezone, MONTHS);
+  const sp = await searchParams;
+  const tab: ReportTab = (TABS as readonly string[]).includes(sp.tab ?? '') ? (sp.tab as ReportTab) : 'overview';
+  const rangeKey = asRangeKey(sp.r);
+  const range = rangeFor(rangeKey, tenant.timezone, { from: sp.from, to: sp.to });
+  const compare = sp.cmp !== '0';
 
-  /* Месяцы до первой работы отрезаются.
-   *
-   * Бизнесу может быть два месяца, а окно отчёта шесть, и четыре из них
-   * рисовались бы нулями. Это не нули бизнеса, это месяцы, когда бизнеса
-   * ещё не было. Пустой месяц посреди ряда остаётся на месте: он значит
-   * «стояли», и это ответ, за которым в отчёт и приходят. Отрезается
-   * только хвост с дальнего конца, и только до первого месяца, в котором
-   * хоть что-то было. Один месяц остаётся всегда. */
-  const idle = (m: ReportMonth) => m.count === 0 && m.revenue === 0 && m.costs === 0;
-  let oldest = requested.length - 1;
-  while (oldest > 0 && idle(requested[oldest])) oldest--;
-  const months = requested.slice(0, oldest + 1);
+  /* Филиалы: только те, где этот человек владелец и куда пускают. Чужие
+     точки и точки без оплаты сюда не попадают. */
+  const points = me.accountId ? await listPoints(me.accountId) : [];
+  const owned = points.filter((p) => p.role === 'owner' && p.canRead);
+  const multi = owned.length > 1;
+  const scopeRaw = (SCOPES as readonly string[]).includes(sp.scope ?? '') ? (sp.scope as Scope) : 'current';
+  const scope: Scope = multi ? scopeRaw : 'current';
+  const tenantIds = scope === 'current' ? [tenant.id] : owned.map((p) => p.id);
 
-  /* Мойка, которая ещё не работала ни дня: здесь пусто по одной
-     причине, и её можно назвать. Отсюда же и единственное действие,
-     записать первую машину. Возврат стоит до тяжёлых запросов месяца. */
-  if (months.length === 1 && idle(months[0])) {
-    return (
-      <div className="flex flex-col gap-5">
-        <PageHeader className="mb-0" title={t.reports.title} description={t.reports.note} />
-        <EmptyState
-          title={t.reports.emptyAll}
-          description={t.reports.emptyAllNote}
-          action={<Button render={<Link href="/work" />}>{t.reports.emptyAllCta}</Button>}
-        />
-      </div>
-    );
-  }
-
-  const asked = Number((await searchParams).m ?? 0);
-  const index = Number.isFinite(asked) && asked >= 0 && asked < months.length ? asked : 0;
-  const current = months[index];
-
-  const [costs, earned, split, base] = await Promise.all([
-    getCostsByCategory(
-      tenant.id,
-      current.from,
-      current.to,
-      daysInMonthOf(tenant.timezone, current.from),
-    ),
-    getEarnedByService(tenant.id, current.from, current.to),
-    getPaymentSplit(tenant.id, current.from, current.to),
-    getMonthBase(tenant.id, tenant.timezone, current),
-  ]);
+  const query: ReportQuery = {
+    r: range.key,
+    from: range.key === 'custom' ? range.fromDay : null,
+    to: range.key === 'custom' ? range.toDay : null,
+    tab,
+    scope,
+    compare,
+  };
+  const now = new Date();
+  const exportDays = Math.max(1, Math.ceil((now.getTime() - range.from.getTime()) / 86_400_000));
+  const exportHref = `/owner/export?days=${exportDays}`;
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
-  const longMonth = monthNameFmt(t.locale, tenant.timezone);
-  const shortMonth = shortMonthFmt(t.locale, tenant.timezone);
+  const units = unitForms(tenant.unitOne, t.locale);
 
-  const href = (i: number) => (i === 0 ? '/owner/reports' : `/owner/reports?m=${i}`);
+  /* Каждый блок отдельно и с правом упасть. */
+  const settled = async <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
+  const perTenant = <T,>(fn: (id: string) => Promise<T>) => Promise.all(tenantIds.map(fn));
 
-  /* Переключатель месяцев и график читают слева направо, как время,
-     поэтому месяцы переворачиваются: из базы они приходят от свежего к
-     старому. */
-  const monthItems = months
-    .map((m, i) => ({ key: String(i), label: shortMonth.format(m.from), href: href(i) }))
-    .reverse();
+  const [summaries, prevSummaries, seriesLists, prevSeriesLists] = await Promise.all([
+    settled(perTenant((id) => getRangeSummary(id, range.from, range.to, range.spread))),
+    settled(perTenant((id) => getRangeSummary(id, range.prevFrom, range.prevTo, range.spread))),
+    settled(perTenant((id) => getRangeSeries(id, range, tenant.timezone))),
+    settled(
+      perTenant((id) =>
+        getRangeSeries(
+          id,
+          { from: range.prevFrom, to: range.prevTo, byHour: range.byHour, spread: range.spread, days: range.days },
+          tenant.timezone,
+        ),
+      ),
+    ),
+  ]);
 
-  const trend: TrendPoint[] = months
-    .map((m, i) => ({
-      key: m.from.toISOString(),
-      label: shortMonth.format(m.from),
-      href: href(i),
-      current: i === index,
-      revenue: m.revenue,
-      profit: m.profit,
-      count: m.count,
-    }))
-    .reverse();
+  const summary = summaries ? mergeSummaries(summaries) : null;
+  const prev = prevSummaries ? mergeSummaries(prevSummaries) : null;
+  const hasPrev = !!prev && prev.count > 0;
 
-  const monthRows: MonthRow[] = months.map((m, i) => ({
-    key: m.from.toISOString(),
-    name: longMonth.format(m.from),
-    href: href(i),
-    current: i === index,
-    empty: idle(m),
-    count: m.count,
-    revenue: money(m.revenue),
-    payroll: money(m.payroll),
-    costs: money(m.costs),
-    profit: money(m.profit),
-    loss: m.profit < 0,
-    kept: m.kept,
-  }));
+  /* Пустой бизнес: ещё ни одной машины за всё время. Не ошибка
+     аналитики, а ещё не наступившая. */
+  if (summary && summary.count === 0 && scope === 'current' && (!prev || prev.count === 0) && range.key === 'month') {
+    const everything = await settled(getRangeSummary(tenant.id, tenant.createdAt, new Date(), 30));
+    if (everything && everything.count === 0) {
+      return (
+        <div className="flex flex-col gap-5">
+          <PageHeader className="mb-0" title={t.reports.title} description={t.reports.lead} />
+          <EmptyState
+            title={t.reports.emptyAll}
+            description={t.reports.emptyAllNote}
+            action={<Button render={<Link href="/work" />}>{t.reports.emptyAllCta}</Button>}
+          />
+        </div>
+      );
+    }
+  }
 
-  const services: BarRow[] = earned.map((e) => ({
-    key: e.name,
-    name: serviceNameTerm(e.name, t.locale),
-    note: `${e.count} ${t.owner.timesShort}`,
-    value: e.revenue,
-    money: money(e.revenue),
-  }));
-  const servicesTotal = services.reduce((sum, r) => sum + r.value, 0);
+  const labelOf = pointLabeller(range, tenant.timezone, t);
+  const series = seriesLists ? mergeSeries(seriesLists) : null;
+  const prevSeries = prevSeriesLists ? mergeSeries(prevSeriesLists) : [];
+  const pointsRow: Point[] | null = series
+    ? padPoints(series, prevSeries, range, tenant.timezone, labelOf)
+    : null;
 
-  const costRows: BarRow[] = costs.map((c) => ({
-    key: `${c.category}-${c.monthly}`,
-    name: c.category,
-    note: c.monthly ? t.expenses.perMonth : t.expenses.oneOff,
-    value: c.amount,
-    money: money(c.amount),
-  }));
+  const branchSeries: BranchSeries[] | undefined =
+    scope === 'compare' && seriesLists
+      ? owned.map((p, i) => ({
+          id: p.id,
+          name: p.name,
+          color: BRANCH_COLORS[i % BRANCH_COLORS.length],
+          points: (seriesLists[i] ?? []).map((x) => ({ key: x.key, revenue: x.revenue })),
+        }))
+      : undefined;
 
-  /* Способы оплаты только те, что встретились: строка «0 ֏ · 0 %»
-     сообщает ровно то же, что её отсутствие, и занимает место. */
-  const paid = split.filter((x) => (passesEnabled() || x.payment !== 'pass') && x.revenue > 0);
-  const paidTotal = paid.reduce((sum, x) => sum + x.revenue, 0);
-  const payments: BarRow[] = [...paid]
-    .sort((a, b) => b.revenue - a.revenue)
-    .map((x) => ({
-      key: x.payment,
-      name: paymentLabel(x.payment, t),
-      note: unitCount(x.count, tenant.unitOne, t.locale),
-      value: x.revenue,
-      money: money(x.revenue),
-    }));
+  const branchRows: BranchRow[] | null =
+    scope === 'compare' && summaries
+      ? owned.map((p, i) => {
+          const s = summaries[i];
+          return {
+            id: p.id,
+            name: p.name,
+            current: p.id === tenant.id,
+            revenue: s.revenue,
+            profit: s.profit,
+            count: s.count,
+            avgCheck: s.avgCheck,
+            payroll: s.payroll,
+            costs: s.costs,
+          };
+        })
+      : null;
 
-  const team: TeamMember[] = [...current.byStaff]
-    .filter((s) => s.count > 0)
-    .sort((a, b) => b.earned - a.earned)
-    .map((s) => ({
-      key: s.staffId ?? `noname-${s.name}`,
-      name: s.name ?? '·',
-      count: s.count,
-      earned: money(s.earned),
-    }));
+  /* Разрезы по вкладке: лишнего не считаем. */
+  const wantServices = tab === 'overview' || tab === 'finance' || tab === 'operations';
+  const wantCosts = tab === 'overview' || tab === 'finance';
+  const wantPayments = tab === 'overview' || tab === 'finance';
+  const wantHeat = tab === 'operations';
+  const wantTeam = tab === 'overview' || tab === 'team';
 
-  /* Сравнение считается по прибыли: первое показание показывает её, и
-     подпись рядом обязана объяснять именно то число, которое стоит над
-     ней. Процент только когда в базе была прибыль: от нуля и от убытка
-     процент не считается, «+100 %» к нулю сообщает не о росте, а о том,
-     что раньше сравнивать было не с чем. */
-  const delta = base ? current.profit - base.profit : null;
-  const growth =
-    base && base.profit > 0 && delta !== null ? Math.round((delta / base.profit) * 100) : null;
-  const loss = current.profit < 0;
+  const [services, costs, prevCosts, payments, heat, team] = await Promise.all([
+    wantServices ? settled(perTenant((id) => getEarnedByService(id, range.from, range.to))) : null,
+    wantCosts ? settled(perTenant((id) => getCostsByCategory(id, range.from, range.to, range.spread))) : null,
+    wantCosts && compare
+      ? settled(perTenant((id) => getCostsByCategory(id, range.prevFrom, range.prevTo, range.spread)))
+      : null,
+    wantPayments ? settled(perTenant((id) => getPaymentMix(id, range.from, range.to))) : null,
+    wantHeat ? settled(perTenant((id) => getHeatmap(id, range.from, range.to, tenant.timezone))) : null,
+    wantTeam ? settled(perTenant((id) => getStaffPerformance(id, range.from, range.to))) : null,
+  ]);
 
-  /* Скидки стоят рядом с выручкой, а не в расходах: это не расход, а
-     деньги, которых бизнес решил не брать, и в вычитание им нельзя, там
-     они посчитались бы дважды. Называются только когда были. */
-  const revenueHint = [
-    unitCount(current.count, tenant.unitOne, t.locale),
-    current.avgCheck > 0 ? `${t.owner.avgCheck} ${money(current.avgCheck)}` : null,
-    current.discounts > 0 ? `${t.reports.discounts} ${money(current.discounts)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const serviceRows: ServiceRow[] | null = services
+    ? (() => {
+        const by = new Map<string, { count: number; revenue: number }>();
+        for (const list of services)
+          for (const s of list) {
+            const cur = by.get(s.name) ?? { count: 0, revenue: 0 };
+            by.set(s.name, { count: cur.count + s.count, revenue: cur.revenue + s.revenue });
+          }
+        const total = [...by.values()].reduce((s, x) => s + x.revenue, 0);
+        return [...by.entries()]
+          .map(([name, x]) => ({
+            key: name,
+            name: serviceNameTerm(name, t.locale),
+            count: x.count,
+            revenue: x.revenue,
+            avg: x.count > 0 ? Math.round(x.revenue / x.count) : 0,
+            share: total > 0 ? Math.round((x.revenue / total) * 1000) / 10 : 0,
+          }))
+          .sort((a, b) => b.revenue - a.revenue);
+      })()
+    : null;
 
-  const costsHint = [
-    current.oneOff > 0 ? `${t.expenses.oneOffs} ${money(current.oneOff)}` : null,
-    current.monthlyShare > 0 ? `${t.expenses.monthlyAccrued} ${money(current.monthlyShare)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const costRows: CostRow[] | null = costs
+    ? (() => {
+        const by = new Map<string, { monthly: boolean; amount: number }>();
+        for (const list of costs)
+          for (const c of list) {
+            const key = `${c.category}|${c.monthly}`;
+            const cur = by.get(key) ?? { monthly: c.monthly, amount: 0 };
+            by.set(key, { monthly: c.monthly, amount: cur.amount + c.amount });
+          }
+        const prevBy = new Map<string, number>();
+        for (const list of prevCosts ?? [])
+          for (const c of list) {
+            const key = `${c.category}|${c.monthly}`;
+            prevBy.set(key, (prevBy.get(key) ?? 0) + c.amount);
+          }
+        const total = [...by.values()].reduce((s, x) => s + x.amount, 0);
+        return [...by.entries()]
+          .map(([key, x]) => ({
+            key,
+            name: key.split('|')[0],
+            monthly: x.monthly,
+            amount: x.amount,
+            share: total > 0 ? Math.round((x.amount / total) * 1000) / 10 : 0,
+            prev: prevCosts ? (prevBy.get(key) ?? null) : null,
+          }))
+          .sort((a, b) => b.amount - a.amount);
+      })()
+    : null;
+
+  const paymentRows: PaymentRow[] | null = payments
+    ? (() => {
+        const by = new Map<string, { revenue: number; count: number }>();
+        for (const list of payments)
+          for (const p of list) {
+            if (!passesEnabled() && p.payment === 'pass') continue;
+            const cur = by.get(p.payment) ?? { revenue: 0, count: 0 };
+            by.set(p.payment, { revenue: cur.revenue + p.revenue, count: cur.count + p.count });
+          }
+        const total = [...by.values()].reduce((s, x) => s + x.revenue, 0);
+        return [...by.entries()]
+          .filter(([, x]) => x.revenue > 0)
+          .map(([key, x]) => ({
+            key,
+            label: paymentLabel(key, t),
+            revenue: x.revenue,
+            count: x.count,
+            share: total > 0 ? Math.round((x.revenue / total) * 1000) / 10 : 0,
+            color: PAYMENT_COLORS[key] ?? 'var(--chart-4)',
+          }))
+          .sort((a, b) => b.revenue - a.revenue);
+      })()
+    : null;
+
+  const heatRows: HeatRow[] | null = heat
+    ? (() => {
+        const by = new Map<string, HeatCell>();
+        for (const list of heat)
+          for (const c of list) {
+            const key = `${c.dow}-${c.hour}`;
+            const cur = by.get(key);
+            if (cur) {
+              cur.count += c.count;
+              cur.revenue += c.revenue;
+            } else by.set(key, { ...c });
+          }
+        return [...by.values()];
+      })()
+    : null;
+
+  const teamRows: TeamRow[] | null = team
+    ? (() => {
+        const flat = team.flat();
+        const total = flat.reduce((s, x) => s + x.earned, 0);
+        return flat
+          .filter((x) => x.count > 0)
+          .sort((a, b) => b.earned - a.earned)
+          .map((x) => ({
+            key: `${x.staffId ?? 'noname'}-${x.name}`,
+            name: x.name ?? '·',
+            count: x.count,
+            revenue: x.revenue,
+            earned: x.earned,
+            avgCheck: x.avgCheck,
+            shifts: x.shifts,
+            hours: x.hours,
+            percent: x.percent,
+            share: total > 0 ? Math.round((x.earned / total) * 1000) / 10 : 0,
+          }));
+      })()
+    : null;
+
+  const weekdays = weekdayNames(t.locale);
+  const periodLabel = rangeLabel(range, tenant.timezone, t);
+
+  /* Показания: шесть чисел, каждое с дельтой к базе, где база есть. */
+  const delta = (now: number, was: number | undefined, good: 'up' | 'down' = 'up') =>
+    hasPrev && was !== undefined ? (
+      <Delta
+        value={now - was}
+        formatted={was > 0 ? `${Math.abs(Math.round(((now - was) / was) * 1000) / 10)}%` : undefined}
+        good={good}
+      />
+    ) : undefined;
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader className="mb-0" title={t.reports.title} description={t.reports.note}>
-        {/* Месяц живёт в адресе: ссылку на разбор можно послать себе же.
-            Открытый месяц подсвечен ещё и в графике, и в таблице. */}
-        <Segmented label={t.reports.month} current={String(index)} items={monthItems} />
+      <PageHeader className="mb-0" title={t.reports.title} description={t.reports.lead} meta={
+          <span className="num">
+            <span className="hidden sm:inline" aria-hidden>
+              ·{' '}
+            </span>
+            {periodLabel}
+          </span>
+        }>
+        <ReportToolbar query={query} multi={multi} exportHref={exportHref} />
       </PageHeader>
 
-      <MetricStrip columns={4}>
-        <Metric
-          size="lg"
-          label={t.owner.profit}
-          value={money(Math.abs(current.profit))}
-          tone={loss ? 'destructive' : 'default'}
-          delta={
-            <Delta
-              value={delta}
-              formatted={
-                delta === null
-                  ? undefined
-                  : growth !== null
-                    ? `${Math.abs(growth)}%`
-                    : money(Math.abs(delta))
-              }
-              noBase={t.owner.noBase}
-            />
-          }
-          hint={
-            loss
-              ? t.owner.inTheRed
-              : current.revenue > 0
-                ? `${current.kept}% ${t.owner.kept}`
-                : longMonth.format(current.from)
-          }
-        />
-        <Metric label={t.owner.revenue} value={money(current.revenue)} hint={revenueHint} />
-        <Metric
-          label={t.owner.payrollAccrued}
-          value={current.payroll > 0 ? `−${money(current.payroll)}` : money(0)}
-          hint={team.length > 0 ? staffCount(team.length, tenant.staffRole, t.locale) : undefined}
-        />
-        <Metric
-          label={t.owner.costs}
-          value={current.costs > 0 ? `−${money(current.costs)}` : money(0)}
-          hint={costsHint || undefined}
-        />
-      </MetricStrip>
+      {summary ? (
+        <MetricStrip columns={6}>
+          <Metric
+            size="md"
+            label={t.reports.kpi.revenue}
+            value={money(summary.revenue)}
+            delta={compare ? delta(summary.revenue, prev?.revenue) : undefined}
+            hint={summary.discounts > 0 ? `${t.reports.discounts} ${money(summary.discounts)}` : undefined}
+          />
+          <Metric
+            size="md"
+            label={t.reports.kpi.net}
+            value={money(summary.profit)}
+            tone={summary.profit < 0 ? 'destructive' : 'default'}
+            delta={compare ? delta(summary.profit, prev?.profit) : undefined}
+            hint={summary.revenue > 0 ? `${summary.kept}% ${t.owner.kept}` : undefined}
+          />
+          <Metric
+            size="md"
+            label={units.many}
+            value={String(summary.count)}
+            delta={compare ? delta(summary.count, prev?.count) : undefined}
+            hint={range.days > 1 ? t.reports.kpi.perDay(String(Math.round((summary.count / range.days) * 10) / 10)) : undefined}
+          />
+          <Metric
+            size="md"
+            label={t.reports.kpi.avgCheck}
+            value={money(summary.avgCheck)}
+            delta={compare ? delta(summary.avgCheck, prev?.avgCheck) : undefined}
+          />
+          <Metric
+            size="md"
+            label={t.reports.kpi.payroll}
+            value={money(summary.payroll)}
+            delta={compare ? delta(summary.payroll, prev?.payroll, 'down') : undefined}
+            hint={summary.revenue > 0 ? `${summary.payrollShare}% ${t.reports.kpi.ofRevenue}` : undefined}
+          />
+          <Metric
+            size="md"
+            label={t.reports.kpi.costs}
+            value={money(summary.costs)}
+            delta={compare ? delta(summary.costs, prev?.costs, 'down') : undefined}
+            hint={summary.revenue > 0 ? `${summary.costsShare}% ${t.reports.kpi.ofRevenue}` : undefined}
+          />
+        </MetricStrip>
+      ) : (
+        <ErrorState title={t.reports.charts.failed} />
+      )}
+
+      {branchRows && <BranchCompare rows={branchRows} currency={tenant.currency} unitLabel={units.many} />}
 
       <PanelGrid>
-        <Trend
-          className="lg:col-span-8"
-          points={trend}
-          currency={tenant.currency}
-          unitOne={tenant.unitOne}
-        />
+        {tab === 'overview' && (
+          <>
+            <TrendBlock points={pointsRow} currency={tenant.currency} unitOne={tenant.unitOne} byHour={range.byHour} compare={compare && hasPrev} branches={branchSeries} className="lg:col-span-8" t={t} />
+            {paymentRows ? (
+              <PaymentDonut className="lg:col-span-4" rows={paymentRows} currency={tenant.currency} unitOne={tenant.unitOne} />
+            ) : (
+              <Failed className="lg:col-span-4" title={t.reports.charts.payments} t={t} />
+            )}
+            {pointsRow ? (
+              <>
+                <CarsChart className="lg:col-span-6" points={pointsRow} unitOne={tenant.unitOne} compare={compare && hasPrev} />
+                <AvgCheckChart className="lg:col-span-6" points={pointsRow} avg={summary?.avgCheck ?? 0} currency={tenant.currency} compare={compare && hasPrev} />
+              </>
+            ) : (
+              <>
+                <Failed className="lg:col-span-6" title={t.reports.charts.cars} t={t} />
+                <Failed className="lg:col-span-6" title={t.reports.charts.avgCheck} t={t} />
+              </>
+            )}
+            {serviceRows ? (
+              <ServicesTable className="lg:col-span-6" rows={serviceRows} currency={tenant.currency} compact />
+            ) : (
+              <Failed className="lg:col-span-6" title={t.reports.charts.services} t={t} />
+            )}
+            {teamRows ? (
+              <TeamTable className="lg:col-span-6" rows={teamRows} currency={tenant.currency} unitLabel={units.many} compact />
+            ) : (
+              <Failed className="lg:col-span-6" title={t.reports.charts.team} t={t} />
+            )}
+          </>
+        )}
 
-        <ProfitSplit
-          className="lg:col-span-4"
-          currency={tenant.currency}
-          revenue={current.revenue}
-          payroll={current.payroll}
-          costs={current.costs}
-          profit={current.profit}
-        />
+        {tab === 'finance' && (
+          <>
+            <TrendBlock points={pointsRow} currency={tenant.currency} unitOne={tenant.unitOne} byHour={range.byHour} compare={compare && hasPrev} branches={branchSeries} className="lg:col-span-12" height="h-80" t={t} />
+            {costRows ? (
+              <CostsTable className="lg:col-span-7" rows={costRows} currency={tenant.currency} compare={compare && hasPrev} />
+            ) : (
+              <Failed className="lg:col-span-7" title={t.reports.charts.costs} t={t} />
+            )}
+            {paymentRows ? (
+              <PaymentDonut className="lg:col-span-5" rows={paymentRows} currency={tenant.currency} unitOne={tenant.unitOne} />
+            ) : (
+              <Failed className="lg:col-span-5" title={t.reports.charts.payments} t={t} />
+            )}
+            {serviceRows ? (
+              <ServicesTable className="lg:col-span-12" rows={serviceRows} currency={tenant.currency} />
+            ) : (
+              <Failed className="lg:col-span-12" title={t.reports.charts.services} t={t} />
+            )}
+          </>
+        )}
 
-        {/* Откуда пришло, куда ушло и чем платили: три разреза одного
-            месяца, поэтому в один ряд и одинакового веса. */}
-        <Bars
-          className="lg:col-span-4"
-          title={t.reports.whereFrom}
-          rows={services}
-          total={servicesTotal}
-          empty={t.reports.emptyMonth}
-        />
-        <Bars
-          className="lg:col-span-4"
-          title={t.reports.whereGone}
-          rows={costRows}
-          total={current.costs}
-          empty={t.expenses.empty}
-        />
-        <Bars
-          className="lg:col-span-4"
-          title={t.today.paidWith}
-          rows={payments}
-          total={paidTotal}
-          empty={t.today.noPayments}
-        />
+        {tab === 'operations' && (
+          <>
+            {heatRows ? (
+              <Heatmap className="lg:col-span-8" rows={heatRows} weekdays={weekdays} currency={tenant.currency} unitOne={tenant.unitOne} />
+            ) : (
+              <Failed className="lg:col-span-8" title={t.reports.charts.heatmap} t={t} />
+            )}
+            {pointsRow ? (
+              <CarsChart className="lg:col-span-4" points={pointsRow} unitOne={tenant.unitOne} compare={compare && hasPrev} height="h-64" />
+            ) : (
+              <Failed className="lg:col-span-4" title={t.reports.charts.cars} t={t} />
+            )}
+            {pointsRow ? (
+              <AvgCheckChart className="lg:col-span-5" points={pointsRow} avg={summary?.avgCheck ?? 0} currency={tenant.currency} compare={compare && hasPrev} />
+            ) : (
+              <Failed className="lg:col-span-5" title={t.reports.charts.avgCheck} t={t} />
+            )}
+            {serviceRows ? (
+              <ServicesTable className="lg:col-span-7" rows={serviceRows} currency={tenant.currency} />
+            ) : (
+              <Failed className="lg:col-span-7" title={t.reports.charts.services} t={t} />
+            )}
+          </>
+        )}
 
-        <ReportTeam
-          className="lg:col-span-4"
-          rows={team}
-          unitOne={tenant.unitOne}
-          title={t.settings.staff}
-        />
-        <MonthsTable className="lg:col-span-8" rows={monthRows} unitOne={tenant.unitOne} />
+        {tab === 'team' && (
+          <>
+            {teamRows ? (
+              <TeamTable className="lg:col-span-12" rows={teamRows} currency={tenant.currency} unitLabel={units.many} />
+            ) : (
+              <Failed className="lg:col-span-12" title={t.reports.charts.team} t={t} />
+            )}
+            <TrendBlock points={pointsRow} currency={tenant.currency} unitOne={tenant.unitOne} byHour={range.byHour} compare={compare && hasPrev} branches={branchSeries} className="lg:col-span-12" t={t} />
+          </>
+        )}
       </PanelGrid>
+    </div>
+  );
+}
+
+/* ------------------------------ helpers ------------------------------ */
+
+function TrendBlock({
+  points,
+  t,
+  className,
+  ...rest
+}: {
+  points: Point[] | null;
+  currency: string;
+  unitOne: string;
+  byHour: boolean;
+  compare: boolean;
+  branches?: BranchSeries[];
+  className?: string;
+  height?: string;
+  t: Dict;
+}) {
+  if (!points) return <Failed className={className} title={t.reports.charts.dynamics} t={t} />;
+  return <TrendChart className={className} points={points} {...rest} />;
+}
+
+function Failed({ title, t, className }: { title: string; t: Dict; className?: string }) {
+  return (
+    <div className={className}>
+      <ErrorState title={title} description={t.reports.charts.failed} />
     </div>
   );
 }
@@ -335,4 +532,92 @@ function paymentLabel(p: string, t: Dict): string {
   if (p === 'card') return t.payment.card;
   if (p === 'pass') return t.payment.pass;
   return t.payment.transfer;
+}
+
+/** Подписи дней недели с понедельника, коротко и на языке смотрящего. */
+function weekdayNames(locale: string): string[] {
+  const f = new Intl.DateTimeFormat(intlLocale(locale), { weekday: 'short', timeZone: 'UTC' });
+  // 2024-01-01 понедельник
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 1 + i))));
+}
+
+/** «1 — 23 августа» или «23 августа». */
+function rangeLabel(range: ReportRange, timezone: string, t: Dict): string {
+  const f = new Intl.DateTimeFormat(intlLocale(t.locale), { day: 'numeric', month: 'long', timeZone: timezone });
+  const last = new Date(range.to.getTime() - 1);
+  if (range.days === 1) return f.format(range.from);
+  const day = new Intl.DateTimeFormat(intlLocale(t.locale), { day: 'numeric', timeZone: timezone });
+  const month = (d: Date) => new Intl.DateTimeFormat('en', { month: 'numeric', year: 'numeric', timeZone: timezone }).format(d);
+  return month(range.from) === month(last)
+    ? `${day.format(range.from)} — ${f.format(last)}`
+    : `${f.format(range.from)} — ${f.format(last)}`;
+}
+
+/** Как подписывать точку: «09:00» для часов, «23» или «23.08» для дней. */
+function pointLabeller(range: ReportRange, timezone: string, t: Dict): (key: string) => string {
+  if (range.byHour) return (key) => `${key.slice(11, 13)}:00`;
+  const multiMonth =
+    new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(range.from) !==
+    new Intl.DateTimeFormat('en', { month: 'numeric', timeZone: timezone }).format(new Date(range.to.getTime() - 1));
+  void t;
+  return (key) => (multiMonth ? `${key.slice(8, 10)}.${key.slice(5, 7)}` : key.slice(8, 10));
+}
+
+/**
+ * Ряд с пустыми точками: день без машин это столбик-ноль, а не дыра.
+ * Предыдущий отрезок подставляется по смещению: тот же час или тот же
+ * по счёту день, чтобы понедельник сравнивался с понедельником.
+ */
+function padPoints(
+  series: SeriesPoint[],
+  prevSeries: SeriesPoint[],
+  range: ReportRange,
+  timezone: string,
+  label: (key: string) => string,
+): Point[] {
+  const by = new Map(series.map((s) => [s.key, s]));
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const keys: string[] = [];
+
+  if (range.byHour) {
+    const day = ymd.format(range.from);
+    const hours = series.map((s) => Number(s.key.slice(11, 13)));
+    const isToday = range.to.getTime() > Date.now();
+    const nowHour = Number(
+      new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(new Date()),
+    );
+    const start = Math.min(8, ...(hours.length ? hours : [8]));
+    const end = isToday ? Math.max(nowHour, start + 1, ...(hours.length ? hours : [])) : Math.max(20, ...(hours.length ? hours : [20]));
+    for (let h = start; h <= end; h++) keys.push(`${day} ${String(h).padStart(2, '0')}`);
+  } else {
+    for (let i = 0; i < range.days; i++) keys.push(`${ymd.format(new Date(range.from.getTime() + i * 86_400_000))} 00`);
+  }
+
+  /* Предыдущий ряд по смещению от его начала. */
+  const prevKeys: string[] = range.byHour
+    ? keys.map((k) => `${ymd.format(range.prevFrom)} ${k.slice(11, 13)}`)
+    : keys.map((_, i) => `${ymd.format(new Date(range.prevFrom.getTime() + i * 86_400_000))} 00`);
+  const prevBy = new Map(prevSeries.map((s) => [s.key, s]));
+
+  return keys.map((key, i) => {
+    const s = by.get(key);
+    const p = prevBy.get(prevKeys[i]);
+    const withinPrev = range.byHour
+      ? true
+      : range.prevFrom.getTime() + i * 86_400_000 < range.prevTo.getTime();
+    return {
+      key,
+      label: label(key),
+      revenue: s?.revenue ?? 0,
+      count: s?.count ?? 0,
+      paidCount: s?.paidCount ?? 0,
+      payroll: s?.payroll ?? 0,
+      costs: s?.costs ?? 0,
+      net: s?.net ?? 0,
+      avgCheck: s?.avgCheck ?? 0,
+      prevRevenue: withinPrev ? (p?.revenue ?? 0) : null,
+      prevCount: withinPrev ? (p?.count ?? 0) : null,
+      prevAvgCheck: withinPrev ? (p?.avgCheck ?? 0) : null,
+    };
+  });
 }
