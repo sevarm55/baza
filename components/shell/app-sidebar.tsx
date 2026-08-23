@@ -27,12 +27,10 @@ export async function AppSidebar({
   userName,
   roleLabel,
   passes,
-  hint,
 }: {
   userName: string;
   roleLabel: string;
   passes: boolean;
-  hint?: string | null;
 }) {
   const t = await getDict();
 
@@ -59,7 +57,7 @@ export async function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="px-1 pt-1">
-        <SideNav passes={passes} hint={hint} />
+        <SideNav passes={passes} />
       </SidebarContent>
 
       <SidebarFooter className="gap-2 pb-3">

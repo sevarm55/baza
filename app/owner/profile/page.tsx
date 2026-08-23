@@ -13,7 +13,6 @@ import { currentAccess } from '@/lib/subscription';
 import { formatPhone, maskPhone } from '@/lib/phone';
 import { accountOf } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
-import { getSetup } from '@/lib/onboarding';
 import { LanguagePicker } from '@/components/language-picker';
 import { SignOutButton } from '@/components/sign-out-button';
 import { DetailList, DetailRow } from '@/components/patterns/detail-list';
@@ -25,7 +24,6 @@ import { ChangePhonePanel } from './change-phone-panel';
 import { DeviceList, type DeviceRow } from './devices';
 import { NameForm } from './name-form';
 import { PinCard } from './pin-card';
-import { ResumeSetup } from './resume-setup';
 import { NotifyOrdersToggle, RememberLoginToggle } from './session-toggles';
 import { SubNav, SubNavLayout } from './sub-nav';
 import { SubscriptionSummary } from './subscription-summary';
@@ -66,11 +64,6 @@ export default async function ProfilePage() {
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
 
-  /* Предложение вернуть настройку: только тому, кто её убрал, и только
-     пока в ней есть смысл (см. lib/onboarding.ts). */
-  const setup = owner ? await getSetup(raw, me, { ignoreHidden: true }) : null;
-  const canResume = owner && me.setupHiddenAt !== null && setup !== null && setup.visible;
-
   /* Часы собираются здесь, в поясе бизнеса: пересчитанные на той
      стороне по часам смотрящего, они превратили бы вечер в утро. */
   const devices: DeviceRow[] = (await listDevices(session.uid, sid)).map((d) => ({
@@ -88,7 +81,6 @@ export default async function ProfilePage() {
     { id: 'session', label: t.profile.session },
     { id: 'devices', label: t.profile.devices },
     { id: 'access', label: owner ? t.profile.access : t.settings.business },
-    ...(canResume ? [{ id: 'setup', label: t.setup.resume }] : []),
     { id: 'account', label: t.profile.account },
   ];
 
@@ -175,15 +167,6 @@ export default async function ProfilePage() {
         </Panel>
 
         <SubscriptionSummary id="access" access={access} businessName={tenant.name} owner={owner} />
-
-        {canResume && (
-          <Panel id="setup" title={t.setup.resume} className="scroll-mt-16">
-            <p className="text-sm text-muted-foreground">{t.setup.resumeNote}</p>
-            <div className="mt-3">
-              <ResumeSetup />
-            </div>
-          </Panel>
-        )}
 
         <Panel id="account" title={t.profile.account} className="scroll-mt-16">
           <p className="text-sm text-muted-foreground">{t.profile.signOutNote}</p>

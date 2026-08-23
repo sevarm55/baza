@@ -8,7 +8,7 @@ import { listPoints } from '@/lib/accounts';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
-import { getSetup } from '@/lib/onboarding';
+import { firstRunActive } from '@/lib/first-run-stage';
 import { getDict } from '@/lib/i18n/server';
 import { unitForms } from '@/lib/i18n/terms';
 import { AppShell } from '@/components/shell/app-shell';
@@ -35,16 +35,18 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
 
+  /* Незаконченный сценарий первого запуска сильнее кабинета: новый
+     владелец не должен встречать продукт пустой сводкой. Стоит в
+     раскладке, а не только на редиректе после регистрации, — человек
+     мог закрыть браузер посреди сценария и войти заново. Колонка со
+     ссылками сюда даже не рисуется. */
+  if (firstRunActive(me.onboardingStage)) redirect('/onboarding');
+
   const points = me.accountId ? await listPoints(me.accountId) : [];
   const passes = passesEnabled();
 
   const alerts = await getAlerts(tenant.id, me.id, tenant.timezone, t.locale);
   const sidebarOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
-
-  /* Следующий шаг настройки: одна точка в колонке, пока она не
-     закончена. Считается тем же кодом, что и блок на главной. */
-  const setup = await getSetup(tenant, me);
-  const hint = setup.visible ? (setup.next?.href ?? null) : null;
 
   return (
     <AppShell
@@ -55,7 +57,6 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
       currentTid={tenant.id}
       passes={passes}
       alerts={alerts}
-      hint={hint}
       access={access}
       sidebarOpen={sidebarOpen}
       quickAdd={`${unitForms(tenant.unitOne, t.locale).acc}`}

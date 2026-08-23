@@ -377,71 +377,63 @@ export const en: Dict = {
   },
 
   setup: {
-    welcomeTitle: 'Welcome to Tetrin',
-    welcomeLead: 'Let us set the business up and get it ready for work.',
-    welcomeNote:
-      'Adjust the prices and add your people. After that you can take in cars, and Tetrin will count payroll, costs and profit on its own.',
-
-    flowSetup: 'Setup',
-    flowSetupNote: 'Prices and people',
-    flowWork: 'Work',
-    flowWorkNote: 'Your people log the cars',
-    flowMoney: 'Counting',
-    flowMoneyNote: 'Tetrin counts the money',
-    flowResult: 'Result',
-    flowResultNote: 'You see the profit',
-
-    welcomeStart: 'Start setup',
-    welcomeLook: 'Not now',
-
-    title: 'Getting started',
-    lead: 'A few steps, and Tetrin starts working for you.',
-    progress: (done: number, total: number) => `${done} of ${total}`,
-    progressAria: 'Completed steps',
-    skip: 'Skip',
-    hintAria: 'Next step',
-
-    stepBusiness: 'Business created',
-    stepBusinessNote: 'The name, the price list and the roles are already in place.',
-    stepBusinessCta: 'Change the name',
-
-    stepServices: 'Check the prices',
-    stepServicesNote: 'We filled the list in. Change the prices to yours.',
-    stepServicesCta: 'Open services',
-
-    stepStaff: 'Add your people',
-    stepStaffNote: 'They sign in to their own account, open a shift and log the cars.',
-    stepStaffCta: 'Add a person',
-
-    stepFirst: 'Log the first car',
-    stepFirstNote: 'Open a shift and log a car — Tetrin counts the rest itself.',
-    stepFirstCta: 'Go to the shift',
-
-    doneTitle: 'All set',
-    doneNote: 'Tetrin is configured. From here the numbers collect themselves.',
-    doneHide: 'Got it',
-
-    nextTitle: 'From here Tetrin does most of it itself',
-    nextWork: 'Work',
-    nextWorkNote: 'Your people log the cars they serve.',
-    nextMoney: 'Money',
-    nextMoneyNote: 'Tetrin collects revenue, payroll and costs.',
-    nextControl: 'Control',
-    nextControlNote: 'The main screen shows the state of the business.',
-    nextReports: 'Analytics',
-    nextReportsNote: 'Reports show the result for the period you pick.',
-
-    resume: 'Getting started',
-    resumeNote: 'Bring the setup steps back to the main screen',
-    resumeCta: 'Bring back',
-
     workerTitle: 'Welcome',
-    workerLead: 'This is where your shift happens.',
+    workerLead: 'Your shift lives here.',
     workerOne: 'Open the shift',
     workerTwo: 'Log the cars you serve',
     workerThree: 'Close the shift when you are done',
     workerNote: 'After every entry you see what you have earned at the top.',
     workerCta: 'Start working',
+  },
+
+  firstRun: {
+    stepOf: (n: number, total: number) => `Step ${n} of ${total}`,
+    progressAria: 'Setup progress',
+    later: 'Set up later',
+
+    nameServices: 'Services',
+    nameExpense: 'Expense',
+    nameStaff: 'Worker',
+    namePreview: 'Worker view',
+    nameCar: 'First car',
+
+    s1Title: 'What do you offer your clients?',
+    s1Note: 'We prefilled a starter price list. Adjust the prices, remove what you do not need or add your own. You can change everything later.',
+    s1Service: 'Service',
+    s1Add: 'Add a service',
+    s1Remove: 'Remove',
+    s1Suggest: 'Quick add',
+    s1Cta: 'Save the price list',
+    s1Done: 'Price list ready',
+    s1Empty: 'Keep at least one service',
+
+    s2Title: 'Add one expense',
+    s2Note: 'This lets Tetrin show real costs and profit, not just revenue.',
+    s2Done: 'Expense added',
+
+    s3Title: 'Add your first worker',
+    s3Note: 'A worker signs in with their phone number and code, opens a shift and records the cars they wash.',
+    s3PercentNote: 'of every car',
+    s3Done: 'Worker added',
+
+    s4Title: 'See Tetrin through your worker\'s eyes',
+    s4Note: 'You will see the worker\'s real screen: the shift and car recording. You can leave at any moment.',
+    s4Again: 'Pick up where you left off: enter worker mode and record the first car.',
+    s4Cta: 'Enter as the worker',
+
+    barWatching: 'You are viewing Tetrin as your worker',
+    barTaskShift: 'Start the shift',
+    barTaskShiftNote: 'This is the button a worker starts the day with.',
+    barTaskCar: 'Add the first car',
+    barTaskCarNote: 'This is exactly how workers will record every job.',
+    barDone: 'First car added',
+    barExit: 'Return as the owner',
+    barLeave: 'End the preview',
+
+    fTitle: 'That is it, all done',
+    fLead: (name: string) => `${name} added the first car`,
+    fNote: 'From now on it works like this: workers record the cars, and you instantly see the work, the revenue and the payroll.',
+    fCta: 'Start working',
   },
 
   profile: {

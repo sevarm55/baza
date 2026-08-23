@@ -22,10 +22,9 @@ import {
  *
  * «Вы находитесь здесь» считает `currentSection`, там же, где
  * заголовок страницы; подсветка переезжает на нажатый раздел сразу,
- * не дожидаясь сервера. Одна точка подсказки у раздела со следующим
- * шагом настройки, и только пока настройка не закончена.
+ * не дожидаясь сервера.
  */
-export function SideNav({ passes, hint }: { passes: boolean; hint?: string | null }) {
+export function SideNav({ passes }: { passes: boolean }) {
   const t = useT();
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
@@ -69,14 +68,6 @@ export function SideNav({ passes, hint }: { passes: boolean; hint?: string | nul
                     >
                       {section.icon}
                       <span>{section.label}</span>
-                      {hint === section.href && (
-                        <span
-                          className="ml-auto size-1.5 shrink-0 rounded-full bg-lime-ink"
-                          title={t.setup.hintAria}
-                        >
-                          <span className="sr-only">{t.setup.hintAria}</span>
-                        </span>
-                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

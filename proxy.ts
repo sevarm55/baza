@@ -253,7 +253,11 @@ export function proxy(request: NextRequest) {
 }
 
 function isPrivate(pathname: string): boolean {
-  return pathname.startsWith('/work') || pathname.startsWith('/owner');
+  return (
+    pathname.startsWith('/work') ||
+    pathname.startsWith('/owner') ||
+    pathname.startsWith('/onboarding')
+  );
 }
 
 function isAdminArea(pathname: string): boolean {

@@ -26,7 +26,6 @@ export function AppShell({
   currentTid,
   passes,
   alerts,
-  hint,
   access,
   sidebarOpen,
   quickAdd,
@@ -41,7 +40,6 @@ export function AppShell({
   currentTid: string;
   passes: boolean;
   alerts: Alert[];
-  hint?: string | null;
   access: Access;
   sidebarOpen: boolean;
   quickAdd?: string | null;
@@ -51,7 +49,7 @@ export function AppShell({
 }) {
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
-      <AppSidebar userName={userName} roleLabel={roleLabel} passes={passes} hint={hint} />
+      <AppSidebar userName={userName} roleLabel={roleLabel} passes={passes} />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar
           alerts={alerts}
