@@ -5,29 +5,13 @@ import { accessOf, billingEnabled, type Access } from '@/lib/subscription';
 import { formatMoney } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { NICHES, type NicheKey } from '@/lib/niches';
+import { PageHeader, SectionHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { Panel } from '@/components/patterns/panel';
+import { EmptyState } from '@/components/patterns/states';
+import { StatusBadge } from '@/components/patterns/status-badge';
 import { TenantActions } from './tenant-actions';
-import s from './admin.module.css';
-import shell from './shell.module.css';
-
-/* Русские числительные: «2 владельцев» читается как ошибка, а админку
-   каждый день смотрит человек. Формы для 1 / 2-4 / 5+. */
-function plural(n: number, one: string, few: string, many: string): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  const mod10 = n % 10;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
-  return many;
-}
-
-const STATE_LABEL: Record<Access['state'], string> = {
-  active: 'Оплачено',
-  trial: 'Триал',
-  expired: 'Просрочено',
-  blocked: 'Отключён',
-  // заведена владельцем и ждёт первой оплаты: пробный срок уже израсходован
-  unpaid: 'Ждёт оплаты',
-};
+import { STATE_LABEL, STATE_TONE, date, plural } from './format';
 
 export default async function AdminPage() {
   await ensureDb();
@@ -64,132 +48,118 @@ export default async function AdminPage() {
 
   const owners = groups.length;
 
+  /* Ноль в плитке состояния тихий: цвет несёт смысл, только когда есть
+     кого считать. */
+  const tile = (state: Access['state'], tone: 'success' | 'warning' | 'primary' | 'destructive') => {
+    const n = count(state);
+    return <Metric label={STATE_LABEL[state]} value={String(n)} tone={n > 0 ? tone : 'muted'} />;
+  };
+
   return (
     <>
-      <div className={shell.pageHead}>
-        <h1 className={shell.pageTitle}>Клиенты</h1>
-        <div className={shell.pageSub}>
-          {/* Владельцев и точек порознь: считай мы только точки, вторая
-              мойка старого клиента читалась бы как новый клиент, и рост
-              выручки перестал бы отличаться от роста базы. */}
-          {owners} {plural(owners, 'владелец', 'владельца', 'владельцев')} · {rows.length}{' '}
-          {plural(rows.length, 'точка', 'точки', 'точек')} · продление записывает платёж
-        </div>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Клиенты"
+        description={
+          /* Владельцев и точек порознь: считай мы только точки, вторая
+             мойка старого клиента читалась бы как новый клиент, и рост
+             выручки перестал бы отличаться от роста базы. */
+          `${owners} ${plural(owners, 'владелец', 'владельца', 'владельцев')} · ${rows.length} ${plural(rows.length, 'точка', 'точки', 'точек')} · продление записывает платёж`
+        }
+      />
 
-        {!billingEnabled() && (
-          <div className={s.billingOff}>
-            Оплата выключена: сроки считаются, но никого не блокируют.
-            Включается переменной <code>BILLING_ENABLED=1</code>.
-          </div>
-        )}
+      {!billingEnabled() && (
+        <p
+          role="status"
+          className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground"
+        >
+          Оплата выключена: сроки считаются, но никого не блокируют. Включается переменной{' '}
+          <code className="num">BILLING_ENABLED=1</code>.
+        </p>
+      )}
 
-        <div className={s.summary}>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Владельцев</div>
-            <div className={s.sumValue}>{owners}</div>
-          </div>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Точек</div>
-            <div className={s.sumValue}>{rows.length}</div>
-          </div>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Оплачено</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-good)' }}>
-              {count('active')}
-            </div>
-          </div>
-          <div className={s.sum}>
-            {/* Ждущие первой оплаты — своя плитка, иначе они не попадают
-                ни в один счётчик и плитки перестают складываться в
-                «Всего». Это первое, что начинает врать. */}
-            <div className={s.sumLabel}>Ждёт оплаты</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-warn)' }}>
-              {count('unpaid')}
-            </div>
-          </div>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Триал</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-accent)' }}>
-              {count('trial')}
-            </div>
-          </div>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Просрочено</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-warn)' }}>
-              {count('expired')}
-            </div>
-          </div>
-          <div className={s.sum}>
-            <div className={s.sumLabel}>Отключено</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-bad)' }}>
-              {count('blocked')}
-            </div>
-          </div>
-        </div>
+      <MetricStrip columns={4}>
+        <Metric label="Владельцев" value={String(owners)} />
+        <Metric label="Точек" value={String(rows.length)} />
+        {tile('active', 'success')}
+        {/* Ждущие первой оплаты — своя плитка, иначе они не попадают ни
+            в один счётчик и плитки перестают складываться в «Точек».
+            Это первое, что начинает врать. */}
+        {tile('unpaid', 'warning')}
+      </MetricStrip>
+      <MetricStrip columns={3}>
+        {tile('trial', 'primary')}
+        {tile('expired', 'warning')}
+        {tile('blocked', 'destructive')}
+      </MetricStrip>
 
-        <div className={s.rows}>
-          {rows.length === 0 && <div className={s.empty}>Пока никто не зарегистрировался</div>}
-
+      {rows.length === 0 ? (
+        <EmptyState title="Пока никто не зарегистрировался" />
+      ) : (
+        <div className="flex flex-col gap-4">
           {groups.map((group) => {
             const many = group.points.length > 1;
             const paid = group.points.filter((p) => p.access.canRead).length;
 
             const cards = group.points.map((t) => {
-            const state = t.access.state;
-            const niche = NICHES[t.niche as NicheKey];
-            const idleDays = t.idleDays;
+              const state = t.access.state;
+              const niche = NICHES[t.niche as NicheKey];
+              const idleDays = t.idleDays;
 
-            return (
-              <article key={t.id} className={s.row}>
-                <div className={s.rowTop}>
-                  <div className={s.name}>
-                    <span className={`${s.dot} ${s[dotClass(state)]}`} />
-                    {/* имя — вход в карточку: «посмотреть его цифры» это
-                        первое, чего хочется во время звонка клиента */}
-                    <Link href={`/admin/t/${t.id}`} className={`${s.open} truncate`}>
-                      {niche?.icon} {t.name}
-                    </Link>
+              return (
+                <Panel key={t.id} as="article">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* имя — вход в карточку: «посмотреть его цифры» это
+                          первое, чего хочется во время звонка клиента */}
+                      <Link
+                        href={`/admin/t/${t.id}`}
+                        className="min-w-0 truncate font-semibold underline-offset-4 hover:underline"
+                      >
+                        {niche?.icon} {t.name}
+                      </Link>
+                      <StatusBadge tone={STATE_TONE[state]}>
+                        {STATE_LABEL[state]}
+                        {t.access.daysLeft > 0 && ` · ${t.access.daysLeft} дн`}
+                      </StatusBadge>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      {t.ownerName ?? '—'} ·{' '}
+                      <span className="num">{t.ownerPhone ? formatPhone(t.ownerPhone) : '—'}</span> ·
+                      зарегистрирован <span className="num">{date(t.createdAt)}</span>
+                    </div>
+
+                    <div className="num text-sm">
+                      {t.orderCount === 0 ? (
+                        /* Зарегистрировался и не работает — сюда звонить,
+                           а не ждать оплаты. */
+                        <span className="text-warning">ни одной записи</span>
+                      ) : (
+                        <>
+                          {t.orderCount} {plural(t.orderCount, 'запись', 'записи', 'записей')} ·{' '}
+                          {formatMoney(t.revenue, t.currency)} · {t.staffCount}{' '}
+                          {plural(t.staffCount, 'сотрудник', 'сотрудника', 'сотрудников')} ·{' '}
+                          {idleDays === 0
+                            ? 'работали сегодня'
+                            : idleDays === null
+                              ? '—'
+                              : idleDays > 7
+                                ? `тишина ${idleDays} дн`
+                                : `последняя запись ${idleDays} дн назад`}
+                        </>
+                      )}
+                    </div>
+
+                    <TenantActions
+                      tenantId={t.id}
+                      name={t.name}
+                      blocked={state === 'blocked'}
+                      note={t.adminNote}
+                    />
                   </div>
-                  <span className={`${s.badge} ${s[badgeClass(state)]}`}>
-                    {STATE_LABEL[state]}
-                    {t.access.daysLeft > 0 && ` · ${t.access.daysLeft} дн`}
-                  </span>
-                </div>
-
-                <div className={s.meta}>
-                  {t.ownerName ?? '—'} · {t.ownerPhone ? formatPhone(t.ownerPhone) : '—'} ·
-                  зарегистрирован {date(t.createdAt)}
-                </div>
-
-                <div className={s.usage}>
-                  {t.orderCount === 0 ? (
-                    /* Зарегистрировался и не работает — сюда звонить,
-                       а не ждать оплаты. */
-                    <span className={s.idle}>ни одной записи</span>
-                  ) : (
-                    <>
-                      {t.orderCount} записей · {formatMoney(t.revenue, t.currency)} ·{' '}
-                      {t.staffCount} сотрудников ·{' '}
-                      {idleDays === 0
-                        ? 'работали сегодня'
-                        : idleDays === null
-                          ? '—'
-                          : idleDays > 7
-                            ? `тишина ${idleDays} дн`
-                            : `последняя запись ${idleDays} дн назад`}
-                    </>
-                  )}
-                </div>
-
-                <TenantActions
-                  tenantId={t.id}
-                  name={t.name}
-                  blocked={state === 'blocked'}
-                  note={t.adminNote}
-                />
-              </article>
-            );
+                </Panel>
+              );
             });
 
             /* У кого одна точка — ровно те же карточки, что и были: ни
@@ -199,45 +169,18 @@ export default async function AdminPage() {
             if (!many) return cards;
 
             return (
-              <div key={group.key} className={s.group}>
-                <div className={s.groupHead}>
-                  {group.owner ?? '—'} · {group.points.length}{' '}
-                  {plural(group.points.length, 'точка', 'точки', 'точек')} · оплачено: {paid}
-                </div>
+              <section key={group.key} className="flex flex-col gap-3">
+                <SectionHeader
+                  className="mb-0"
+                  title={group.owner ?? '—'}
+                  description={`${group.points.length} ${plural(group.points.length, 'точка', 'точки', 'точек')} · оплачено: ${paid}`}
+                />
                 {cards}
-              </div>
+              </section>
             );
           })}
-      </div>
+        </div>
+      )}
     </>
   );
-}
-
-function dotClass(state: Access['state']) {
-  return (
-    {
-      active: 'dotActive',
-      trial: 'dotTrial',
-      expired: 'dotExpired',
-      blocked: 'dotBlocked',
-      unpaid: 'dotUnpaid',
-    } as const
-  )[state];
-}
-
-function badgeClass(state: Access['state']) {
-  return (
-    {
-      active: 'badgeActive',
-      trial: 'badgeTrial',
-      expired: 'badgeExpired',
-      blocked: 'badgeBlocked',
-      unpaid: 'badgeUnpaid',
-    } as const
-  )[state];
-}
-
-/** Дата без Intl: он расходится между сервером и браузером. */
-function date(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }

@@ -2,8 +2,11 @@ import Link from 'next/link';
 import { ensureDb } from '@/lib/db/ready';
 import { adminJournal } from '@/lib/admin-audit';
 import { formatMoney } from '@/lib/money';
-import s from '../admin.module.css';
-import shell from '../shell.module.css';
+import { PageHeader } from '@/components/patterns/page-header';
+import { EmptyState } from '@/components/patterns/states';
+import { TableShell } from '@/components/patterns/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { when } from '../format';
 
 /**
  * Что мы делали с чужими бизнесами.
@@ -20,6 +23,9 @@ const LABEL: Record<string, string> = {
   tenant_note: 'изменил заметку',
 };
 
+const head = 'h-9 px-4 text-xs text-muted-foreground';
+const cell = 'px-4 py-2.5';
+
 export default async function JournalPage() {
   await ensureDb();
 
@@ -27,50 +33,57 @@ export default async function JournalPage() {
 
   return (
     <>
-      <div className={shell.pageHead}>
-        <h1 className={shell.pageTitle}>Журнал</h1>
-        <div className={shell.pageSub}>Наши действия с чужими бизнесами</div>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Журнал"
+        description="Наши действия с чужими бизнесами"
+      />
 
-      <div className={s.rows}>
-        {rows.length === 0 ? (
-          <div className={s.empty}>Пока ничего не делали</div>
-        ) : (
-          rows.map((r) => (
-            <article key={r.id} className={s.row}>
-              <div className={s.rowTop}>
-                <div className={s.name}>
-                  <span className="truncate">
-                    {r.adminName ?? 'кто-то'} {LABEL[r.action] ?? r.action}
-                  </span>
-                </div>
-                <Link href={`/admin/t/${r.tenantId}`} className={s.sumLabel}>
-                  {r.tenantName}
-                </Link>
-              </div>
-              <div className={s.meta}>
-                {when(r.at)}
-                {detail(r.action, r.data)}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+      {rows.length === 0 ? (
+        <EmptyState title="Пока ничего не делали" />
+      ) : (
+        <TableShell>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={head}>Когда</TableHead>
+                <TableHead className={head}>Кто</TableHead>
+                <TableHead className={head}>Что</TableHead>
+                <TableHead className={head}>Бизнес</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className={`${cell} num text-muted-foreground`}>{when(r.at)}</TableCell>
+                  <TableCell className={`${cell} font-medium`}>{r.adminName ?? 'кто-то'}</TableCell>
+                  <TableCell className={`${cell} num`}>
+                    {LABEL[r.action] ?? r.action}
+                    {detail(r.action, r.data)}
+                  </TableCell>
+                  <TableCell className={`${cell} font-semibold`}>
+                    <Link
+                      href={`/admin/t/${r.tenantId}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {r.tenantName}
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableShell>
+      )}
     </>
   );
 }
 
-/** У продления в аудите лежат месяцы и сумма — без них строка бессодержательна. */
+/** У продления в аудите лежат месяцы и сумма: без них строка бессодержательна. */
 function detail(action: string, data: unknown): string {
   if (action !== 'subscription_extend') return '';
   const d = data as { months?: number; amount?: number } | null;
   if (!d?.months) return '';
   const amount = typeof d.amount === 'number' ? ` за ${formatMoney(d.amount, 'AMD')}` : '';
   return ` · ${d.months} мес${amount}`;
-}
-
-/** Дата без Intl: он расходится между сервером и браузером. */
-function when(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }

@@ -15,6 +15,3 @@ export { PageFade } from './page-fade';
 export { AfterDelay } from './after-delay';
 export { useAsyncAction, type AsyncStatus } from './use-async-action';
 export { useDelayedFlag, useLongWait, useAlive } from './use-delayed';
-
-/* ВРЕМЕННО: старые имена на время пересборки, см. ./legacy.tsx */
-export * from './legacy';

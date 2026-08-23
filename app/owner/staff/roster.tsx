@@ -70,9 +70,16 @@ export function StaffRoster({
               человека уже стоит в кружке, а значок говорит, стоит ли он
               на мойке прямо сейчас. */}
           {p.present && (
-            <StatusBadge tone="success" dot>
-              {t.owner.onShiftNow}
-            </StatusBadge>
+            <>
+              <StatusBadge tone="success" dot className="hidden sm:inline-flex">
+                {t.owner.onShiftNow}
+              </StatusBadge>
+              <span
+                className="size-2 shrink-0 rounded-full bg-success sm:hidden"
+                aria-label={t.owner.onShiftNow}
+                role="img"
+              />
+            </>
           )}
         </span>
       ),

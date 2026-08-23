@@ -2,8 +2,12 @@ import Link from 'next/link';
 import { ensureDb } from '@/lib/db/ready';
 import { allPayments, paymentTotals } from '@/lib/admin-billing';
 import { formatMoney } from '@/lib/money';
-import s from '../admin.module.css';
-import shell from '../shell.module.css';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { EmptyState } from '@/components/patterns/states';
+import { TableShell, cellNum, headNum } from '@/components/patterns/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { plural, when } from '../format';
 
 /**
  * Наши деньги.
@@ -15,6 +19,9 @@ import shell from '../shell.module.css';
  * Валюта берётся из прайса, а не у клиента: платят нам в драмах
  * независимо от того, в чём считает свою выручку мойка.
  */
+const head = 'h-9 px-4 text-xs text-muted-foreground';
+const cell = 'px-4 py-2.5';
+
 export default async function PaymentsPage() {
   await ensureDb();
 
@@ -22,72 +29,70 @@ export default async function PaymentsPage() {
   const money = (n: number) => formatMoney(n, 'AMD');
 
   const diff = totals.month - totals.prevMonth;
+  const sign = diff > 0 ? '+' : diff < 0 ? '−' : '';
 
   return (
     <>
-      <div className={shell.pageHead}>
-        <h1 className={shell.pageTitle}>Платежи</h1>
-        <div className={shell.pageSub}>Всё, что получено за подписки</div>
-      </div>
+      <PageHeader className="mb-0" title="Платежи" description="Всё, что получено за подписки" />
 
-      <div className={s.summary}>
-        <div className={s.sum}>
-          <div className={s.sumLabel}>В этом месяце</div>
-          <div className={s.sumValue} style={{ color: 'var(--color-good)' }}>
-            {money(totals.month)}
-          </div>
-        </div>
-        <div className={s.sum}>
-          <div className={s.sumLabel}>В прошлом</div>
-          <div className={s.sumValue}>{money(totals.prevMonth)}</div>
-        </div>
-        <div className={s.sum}>
-          <div className={s.sumLabel}>Разница</div>
-          <div
-            className={s.sumValue}
-            style={{ color: diff >= 0 ? 'var(--color-good)' : 'var(--color-warn)' }}
-          >
-            {diff >= 0 ? '+' : '−'}
-            {money(Math.abs(diff))}
-          </div>
-        </div>
-        <div className={s.sum}>
-          <div className={s.sumLabel}>За всё время</div>
-          <div className={s.sumValue}>{money(totals.total)}</div>
-        </div>
-      </div>
+      <MetricStrip columns={4}>
+        <Metric
+          label="В этом месяце"
+          value={money(totals.month)}
+          tone={totals.month > 0 ? 'success' : 'default'}
+        />
+        <Metric label="В прошлом" value={money(totals.prevMonth)} />
+        <Metric
+          label="Разница"
+          value={`${sign}${money(Math.abs(diff))}`}
+          tone={diff > 0 ? 'success' : diff < 0 ? 'destructive' : 'muted'}
+        />
+        <Metric
+          label="За всё время"
+          value={money(totals.total)}
+          hint={`${totals.count} ${plural(totals.count, 'платёж', 'платежа', 'платежей')}`}
+        />
+      </MetricStrip>
 
-      <div className={s.rows}>
-        {rows.length === 0 ? (
-          <div className={s.empty}>Платежей пока нет</div>
-        ) : (
-          rows.map((p) => (
-            <article key={p.id} className={s.row}>
-              <div className={s.rowTop}>
-                <div className={s.name}>
-                  <Link href={`/admin/t/${p.tenantId}`} className={`${s.open} truncate`}>
-                    {p.tenantName}
-                  </Link>
-                </div>
-                <span className={s.sumValue} style={{ fontSize: 17 }}>
-                  {money(p.amount)}
-                </span>
-              </div>
-              <div className={s.meta}>
-                {date(p.at)} · {p.months} мес
-                {p.adminName ? ` · принял ${p.adminName}` : ''}
-                {p.note ? ` · ${p.note}` : ''}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+      {rows.length === 0 ? (
+        <EmptyState title="Платежей пока нет" />
+      ) : (
+        <TableShell>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={head}>Дата</TableHead>
+                <TableHead className={head}>Бизнес</TableHead>
+                <TableHead className={`${head} ${headNum}`}>Сумма</TableHead>
+                <TableHead className={`${head} ${headNum}`}>Месяцев</TableHead>
+                <TableHead className={head}>Принял</TableHead>
+                <TableHead className={head}>Комментарий</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className={`${cell} num text-muted-foreground`}>{when(p.at)}</TableCell>
+                  <TableCell className={`${cell} font-semibold`}>
+                    <Link
+                      href={`/admin/t/${p.tenantId}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {p.tenantName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className={`${cell} font-semibold ${cellNum}`}>{money(p.amount)}</TableCell>
+                  <TableCell className={`${cell} text-muted-foreground ${cellNum}`}>{p.months}</TableCell>
+                  <TableCell className={`${cell} text-muted-foreground`}>{p.adminName ?? '—'}</TableCell>
+                  <TableCell className={`${cell} whitespace-normal text-muted-foreground`}>
+                    {p.note ?? ''}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableShell>
+      )}
     </>
   );
-}
-
-/** Дата без Intl: он расходится между сервером и браузером. */
-function date(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }

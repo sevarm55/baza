@@ -81,7 +81,7 @@ export function AuthDialog({
       className={cn(
         'fixed inset-0 m-auto max-h-full w-fit max-w-full overflow-visible bg-transparent p-0 text-foreground',
         'max-sm:mb-0 max-sm:w-full',
-        'backdrop:bg-black/0 backdrop:transition-colors backdrop:duration-200 data-open:backdrop:bg-black/25 supports-backdrop-filter:backdrop:backdrop-blur-xs',
+        'backdrop:bg-black/0 backdrop:transition-colors backdrop:duration-200 data-open:backdrop:bg-black/25',
       )}
       onCancel={(e) => {
         e.preventDefault();

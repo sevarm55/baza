@@ -27,13 +27,13 @@
   --hover: rgb(26 22 38 / 4%);
 
   --ink: #1a1626;
-  --muted: #56506b;
+  --lnd-muted: #56506b;
   --faint: #8a84a0;
 
   --field-gray: #f4f4f5;
   --field-gray-ink: #71717a;
 
-  --accent: #5b21b6;
+  --lnd-accent: #5b21b6;
   --accent-strong: #7c3aed;
   --accent-fill: #d7ff00;
   --accent-on: #2e1065;
@@ -82,13 +82,13 @@
   --hover: rgb(255 255 255 / 4%);
 
   --ink: #f7f5fb;
-  --muted: #a9a2bd;
+  --lnd-muted: #a9a2bd;
   --faint: #7d7694;
 
   --field-gray: #27272a;
   --field-gray-ink: #a1a1aa;
 
-  --accent: #a78bfa;
+  --lnd-accent: #a78bfa;
   --accent-strong: #8b5cf6;
   --accent-fill: #d7ff00;
   --accent-on: #2e1065;
@@ -120,7 +120,7 @@
   /* Видимый фокус у кнопок и полей показа: грейп, как было в кабинете.
      Поле исключено: у него своё кольцо. */
   .landing :is(button, a, select, [tabindex]):focus-visible:not(.field) {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--lnd-accent);
     outline-offset: 2px;
   }
 
@@ -133,7 +133,7 @@
     --hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
     --hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
     --ink: var(--on-board);
-    --muted: var(--board-muted);
+    --lnd-muted: var(--board-muted);
     --faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
     --field-fill: var(--board-surface);
 

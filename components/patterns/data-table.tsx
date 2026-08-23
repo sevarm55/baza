@@ -99,7 +99,10 @@ export function DataTable<T>({
 
   return (
     <TableShell className={className} title={title} actions={actions} footer={footer}>
-      <Table>
+      {/* На телефоне раскладка фиксированная: колонки делят ширину, а
+          длинное содержимое обрезается внутри ячейки, вместо того чтобы
+          растягивать таблицу за край экрана. */}
+      <Table className="max-sm:table-fixed">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {columns.map((c) => {
@@ -172,7 +175,7 @@ export function DataTable<T>({
                 <TableCell
                   key={c.key}
                   className={cn(
-                    'px-4',
+                    'px-4 max-sm:overflow-hidden max-sm:text-ellipsis',
                     dense ? 'py-2' : 'py-2.5',
                     c.align === 'right' && 'num text-right',
                     c.align === 'center' && 'text-center',

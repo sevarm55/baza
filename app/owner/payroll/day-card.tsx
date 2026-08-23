@@ -59,7 +59,6 @@ export function DayCard({
 
   const payable = group.people.filter((p) => p.staffId && p.earned > 0);
   const mine = payable.filter((p) => picked.has(p.key));
-  const chosen = mine.reduce((sum, p) => sum + p.earned, 0);
 
   const heading = (
     <>
@@ -149,7 +148,7 @@ export function DayCard({
                 {unitForms(unitOne, t.locale).many}
               </TableHead>
               <TableHead className={`${HEAD} text-right`}>{t.owner.payrollAccrued}</TableHead>
-              <TableHead className={`${HEAD} text-right`}>{t.owner.colPayment}</TableHead>
+              <TableHead className={`${HEAD} hidden text-right sm:table-cell`}>{t.owner.colPayment}</TableHead>
               <TableHead className={`${HEAD} w-10 px-2`}>
                 <span className="sr-only">{t.payroll.details}</span>
               </TableHead>
@@ -172,19 +171,10 @@ export function DayCard({
         </Table>
       )}
 
-      {/* Полоса расчёта появляется только когда выбрали. Пустая полоса с
-          погашенной кнопкой под каждым днём — обещание действия, которого
-          не просили. Сумма стоит на кнопке, а не рядом с ней: число, ради
-          которого нажимают, обязано быть там, куда смотрят перед
-          нажатием. */}
-      {mine.length > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
-          <span className="num text-sm text-muted-foreground">{t.payroll.selected(mine.length)}</span>
-          <Button size="sm" disabled={busy} onClick={() => onPay(mine.map((p) => p.key))}>
-            {t.payroll.paySum(money(chosen))}
-          </Button>
-        </div>
-      )}
+      {/* Отдельной полосы расчёта под днём нет: выбранное считает одна
+          плашка внизу экрана, общая на все дни. Две кнопки «Вычесть» с
+          одной суммой на одном экране читались бы как два разных
+          действия. */}
     </Panel>
   );
 }

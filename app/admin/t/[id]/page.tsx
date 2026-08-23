@@ -18,8 +18,15 @@ import { accessOf } from '@/lib/subscription';
 import { formatMoney } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { NICHES, type NicheKey } from '@/lib/niches';
-import s from '../../admin.module.css';
-import shell from '../../shell.module.css';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { Panel, PanelGrid } from '@/components/patterns/panel';
+import { DetailList, DetailRow } from '@/components/patterns/detail-list';
+import { Person } from '@/components/patterns/person';
+import { EmptyState } from '@/components/patterns/states';
+import { TableShell, cellNum, headNum } from '@/components/patterns/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { STATE_LABEL, when, whenShort } from '../../format';
 
 const STATE_SHORT: Record<ReturnType<typeof accessOf>['state'], string> = {
   active: 'оплачена',
@@ -29,6 +36,9 @@ const STATE_SHORT: Record<ReturnType<typeof accessOf>['state'], string> = {
   unpaid: 'ждёт оплаты',
 };
 
+const head = 'h-9 px-4 text-xs text-muted-foreground';
+const cell = 'px-4 py-2.5';
+
 /**
  * Карточка клиента: его цифры нашими глазами.
  *
@@ -37,7 +47,7 @@ const STATE_SHORT: Record<ReturnType<typeof accessOf>['state'], string> = {
  * количество записей и дату регистрации.
  *
  * Страница намеренно только читает. Войти под владельцем было бы удобнее
- * ровно один раз — и опасно каждый следующий: любая случайная кнопка
+ * ровно один раз и опасно каждый следующий: любая случайная кнопка
  * пишется в чужие книги от его имени, и потом ни он, ни мы не разберём,
  * откуда взялась запись. Здесь писать нечем.
  *
@@ -76,163 +86,189 @@ export default async function TenantCard({ params }: { params: Promise<{ id: str
     { label: '30 дней', st: month },
   ];
 
+  /* «0 дн» у просрочки было бы неотличимо от «0 дн» у ждущего первой
+     оплаты, а это разные разговоры: тут ещё ни разу не платили. */
+  const subscription =
+    access.state === 'blocked'
+      ? { value: 'отключён', tone: 'muted' as const }
+      : access.state === 'expired'
+        ? { value: 'срок вышел', tone: 'destructive' as const }
+        : access.state === 'unpaid'
+          ? { value: 'ждёт оплаты', tone: 'warning' as const }
+          : { value: `${access.daysLeft} дн`, tone: 'default' as const };
+
   return (
     <>
-      <div className={shell.pageHead}>
-        <Link href="/admin" className={shell.back}>
-          ← Клиенты
-        </Link>
-        <h1 className={shell.pageTitle}>
-          {niche?.icon} {t.name}
-        </h1>
-        <div className={shell.pageSub}>
-          {owner?.name ?? '—'} ·{' '}
-          {owner?.phone ? <a href={`tel:${owner.phone}`}>{formatPhone(owner.phone)}</a> : '—'} ·{' '}
-          {tz} · только чтение
-        </div>
-      </div>
+      <PageHeader
+        className="mb-0"
+        back={{ href: '/admin', label: 'Клиенты' }}
+        title={`${niche?.icon ?? ''} ${t.name}`.trim()}
+        description={
+          <>
+            {owner?.name ?? '—'} ·{' '}
+            {owner?.phone ? (
+              <a
+                href={`tel:${owner.phone}`}
+                className="num underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {formatPhone(owner.phone)}
+              </a>
+            ) : (
+              '—'
+            )}{' '}
+            · {tz} · только чтение
+          </>
+        }
+      />
 
-      {t.adminNote && <div className={s.billingOff}>{t.adminNote}</div>}
+      {t.adminNote && (
+        <p role="note" className="rounded-lg border border-border bg-muted px-4 py-3 text-sm">
+          {t.adminNote}
+        </p>
+      )}
 
       {/* Остальные мойки того же человека. Разговор почти всегда про все
-          сразу — «продлите мне» без уточнения какую. */}
+          сразу: «продлите мне» без уточнения какую. */}
       {siblings.length > 0 && (
-        <div className={s.billingOff}>
+        <p className="text-sm text-muted-foreground">
           Ещё {siblings.length === 1 ? 'точка' : 'точки'} этого владельца:{' '}
           {siblings.map((p, i) => (
             <span key={p.id}>
               {i > 0 && ', '}
-              <Link href={`/admin/t/${p.id}`}>{p.name}</Link> — {STATE_SHORT[accessOf(p).state]}
+              <Link
+                href={`/admin/t/${p.id}`}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                {p.name}
+              </Link>{' '}
+              · {STATE_SHORT[accessOf(p).state]}
             </span>
           ))}
-        </div>
+        </p>
       )}
 
-      <div className={s.summary}>
-        <div className={s.sum}>
-          <div className={s.sumLabel}>Подписка</div>
-          <div className={s.sumValue} style={{ fontSize: 20 }}>
-            {access.state === 'blocked'
-              ? 'отключён'
-              : access.state === 'expired'
-                ? 'срок вышел'
-                : /* «0 дн» здесь было бы неотличимо от просрочки, а это
-                     разные разговоры: тут ещё ни разу не платили. */
-                  access.state === 'unpaid'
-                  ? 'ждёт оплаты'
-                  : `${access.daysLeft} дн`}
-          </div>
-        </div>
+      <MetricStrip columns={4}>
+        <Metric
+          label="Подписка"
+          value={subscription.value}
+          tone={subscription.tone}
+          hint={access.canRead ? STATE_LABEL[access.state].toLowerCase() : undefined}
+        />
         {periods.map((p) => (
-          <div key={p.label} className={s.sum}>
-            <div className={s.sumLabel}>{p.label}</div>
-            <div className={s.sumValue} style={{ color: 'var(--color-good)' }}>
-              {money(p.st.revenue)}
-            </div>
-          </div>
+          <Metric key={p.label} label={p.label} value={money(p.st.revenue)} />
         ))}
-      </div>
+      </MetricStrip>
 
-      <h2 className={shell.sectionTitle}>Как считается</h2>
-      <div className={s.rows}>
-        {periods.map((p) => (
-          <article key={p.label} className={s.row}>
-            <div className={s.rowTop}>
-              <div className={s.name}>
-                <span className="truncate">{p.label}</span>
-              </div>
-              <span className={s.sumValue} style={{ fontSize: 17 }}>
-                {money(p.st.revenue)}
-              </span>
-            </div>
-            <div className={s.meta}>
-              {p.st.count} машин · средний чек {money(p.st.avgCheck)} · наличными{' '}
-              {money(p.st.cash)} · зарплата {money(p.st.payroll)}
-              {p.st.passesSold > 0 && ` · абонементов ${p.st.passesSold}`}
-            </div>
-          </article>
-        ))}
-      </div>
-
-      <h2 className={shell.sectionTitle}>Сотрудники за 30 дней</h2>
-      <div className={s.rows}>
-        {month.byStaff.length === 0 ? (
-          <div className={s.empty}>За месяц никто ничего не записал</div>
-        ) : (
-          month.byStaff.map((p) => (
-            <article key={p.staffId ?? p.name} className={s.row}>
-              <div className={s.rowTop}>
-                <div className={s.name}>
-                  <span className="truncate">{p.name ?? 'без имени'}</span>
-                </div>
-                <span className={s.sumValue} style={{ fontSize: 17 }}>
-                  {money(p.revenue)}
-                </span>
-              </div>
-              <div className={s.meta}>
-                {p.count} машин · {p.percent ?? 0}% · начислено {money(p.earned)}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
-
-      <h2 className={shell.sectionTitle}>Записи, последние 20</h2>
-      <div className={s.rows}>
-        {feed.length === 0 ? (
-          <div className={s.empty}>За месяц записей нет</div>
-        ) : (
-          feed.map((o) => (
-            <article key={o.id} className={s.row}>
-              <div className={s.rowTop}>
-                <div className={s.name}>
-                  <span className="truncate">{o.serviceName}</span>
-                </div>
-                <span className={s.sumValue} style={{ fontSize: 17 }}>
-                  {o.payment === 'pass' ? 'абонемент' : money(o.price)}
-                </span>
-              </div>
-              <div className={s.meta}>
-                {when(o.createdAt)} · {o.staffName ?? '—'}
-                {o.clientKey ? ` · ${o.clientKey}` : ''}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
-
-      <h2 className={shell.sectionTitle}>Что нам платили</h2>
-      <div className={s.rows}>
-        {payments.length === 0 ? (
-          <div className={s.empty}>Ещё ни разу не платили</div>
-        ) : (
-          payments.map((p) => (
-            <article key={p.id} className={s.row}>
-              <div className={s.rowTop}>
-                <div className={s.name}>
-                  <span className="truncate">
-                    {p.months} мес{p.note ? ` · ${p.note}` : ''}
+      <PanelGrid>
+        <Panel className="lg:col-span-7" title="Как считается">
+          <DetailList>
+            {periods.map((p) => (
+              <DetailRow
+                key={p.label}
+                label={p.label}
+                value={
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="num font-semibold">{money(p.st.revenue)}</span>
+                    <span className="num text-xs font-normal text-muted-foreground">
+                      {p.st.count} машин · средний чек {money(p.st.avgCheck)} · наличными{' '}
+                      {money(p.st.cash)} · зарплата {money(p.st.payroll)}
+                      {p.st.passesSold > 0 && ` · абонементов ${p.st.passesSold}`}
+                    </span>
                   </span>
-                </div>
-                <span className={s.sumValue} style={{ fontSize: 17 }}>
-                  {formatMoney(p.amount, 'AMD')}
-                </span>
-              </div>
-              <div className={s.meta}>{when(p.at)}</div>
-            </article>
-          ))
-        )}
-      </div>
+                }
+              />
+            ))}
+          </DetailList>
+        </Panel>
 
-      <div className={s.meta} style={{ marginTop: 24 }}>
+        <Panel className="lg:col-span-5" title="Сотрудники за 30 дней" padded={false}>
+          {month.byStaff.length === 0 ? (
+            <EmptyState compact title="За месяц никто ничего не записал" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {month.byStaff.map((p) => (
+                <li key={p.staffId ?? p.name ?? 'без имени'} className="px-4 py-2.5">
+                  <Person
+                    name={p.name ?? 'без имени'}
+                    size="sm"
+                    note={
+                      <span className="num">
+                        {p.count} машин · {p.percent ?? 0}% · начислено {money(p.earned)}
+                      </span>
+                    }
+                    right={<span className="num text-sm font-semibold">{money(p.revenue)}</span>}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {feed.length === 0 ? (
+          <Panel className="lg:col-span-8" title="Записи, последние 20" padded={false}>
+            <EmptyState compact title="За месяц записей нет" />
+          </Panel>
+        ) : (
+          <TableShell className="lg:col-span-8" title="Записи, последние 20">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={head}>Когда</TableHead>
+                  <TableHead className={head}>Услуга</TableHead>
+                  <TableHead className={head}>Кто</TableHead>
+                  <TableHead className={head}>Клиент</TableHead>
+                  <TableHead className={`${head} ${headNum}`}>Сумма</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {feed.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className={`${cell} num text-muted-foreground`}>
+                      {whenShort(o.createdAt)}
+                    </TableCell>
+                    <TableCell className={`${cell} font-medium`}>{o.serviceName}</TableCell>
+                    <TableCell className={`${cell} text-muted-foreground`}>{o.staffName ?? '—'}</TableCell>
+                    <TableCell className={`${cell} num text-muted-foreground`}>{o.clientKey ?? ''}</TableCell>
+                    <TableCell className={`${cell} font-semibold ${cellNum}`}>
+                      {o.payment === 'pass' ? (
+                        <span className="font-normal text-muted-foreground">абонемент</span>
+                      ) : (
+                        money(o.price)
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableShell>
+        )}
+
+        <Panel className="lg:col-span-4" title="Что нам платили" padded={false}>
+          {payments.length === 0 ? (
+            <EmptyState compact title="Ещё ни разу не платили" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {payments.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-4 px-4 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {p.months} мес{p.note ? ` · ${p.note}` : ''}
+                    </span>
+                    <span className="num block text-xs text-muted-foreground">{when(p.at)}</span>
+                  </span>
+                  <span className="num shrink-0 text-sm font-semibold">
+                    {formatMoney(p.amount, 'AMD')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </PanelGrid>
+
+      <p className="num text-xs text-muted-foreground">
         Всего сотрудников: {staff.length}. Валюта: {t.currency}.
-      </div>
+      </p>
     </>
   );
-}
-
-/** Дата без Intl: он расходится между сервером и браузером. */
-function when(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }

@@ -133,7 +133,7 @@ export function StaffRow({
           )}
         </TableCell>
 
-        <TableCell className={`${CELL} text-right`}>
+        <TableCell className={`${CELL} hidden text-right sm:table-cell`}>
           {owed ? (
             onPay ? (
               <Button size="xs" variant="outline" disabled={busy} onClick={() => onPay(entry.key)}>
