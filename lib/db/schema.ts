@@ -1026,6 +1026,40 @@ export const alertSnoozes = pgTable(
  * при этом остаётся — по ней видно, сколько машина простояла между
  * «приняли» и «начали», а это первый вопрос владельца к очереди.
  */
+/**
+ * Живая лента бизнеса.
+ *
+ * События с бизнес-смыслом, а не щелчки: вышел на смену, записал
+ * машину, вписал расход, поменял процент. Пишутся внутри тех же
+ * транзакций, что и сами факты, поэтому событие без факта и факт без
+ * события невозможны. Читает владелец на «Сегодня» и на странице
+ * активности; приложение может читать через тот же `lib/activity.ts`.
+ *
+ * Имя и роль действующего лица лежат снимком: человека переименуют или
+ * уволят, а фраза в ленте за прошлую неделю обязана остаться прежней.
+ */
+export const activityEvents = pgTable(
+  'activity_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    actorName: text('actor_name'),
+    actorRole: text('actor_role').notNull().default('staff'), // owner | staff | system
+    eventType: text('event_type').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id'),
+    data: jsonb('data').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('activity_events_tenant_at_idx').on(t.tenantId, t.createdAt),
+    index('activity_events_tenant_type_idx').on(t.tenantId, t.eventType, t.createdAt),
+  ],
+);
+
 export const jobs = pgTable(
   'jobs',
   {
@@ -1069,6 +1103,7 @@ export const jobs = pgTable(
 );
 
 export type Tenant = typeof tenants.$inferSelect;
+export type ActivityEvent = typeof activityEvents.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Shift = typeof shifts.$inferSelect;

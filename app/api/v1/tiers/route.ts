@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       tenantId: ctx.tenant.id,
       label: str(input.label) || null,
       tiers: list,
+      actorId: ctx.user.id,
     });
 
     return ok({ tierLabel: tenant.tierLabel, tiers: tenant.tiers ?? [] });

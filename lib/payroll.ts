@@ -1,4 +1,5 @@
 import { db } from './db';
+import { recordActivity } from './activity';
 import { audit, payouts } from './db/schema';
 import { getUnsettledByDay, startOfDay } from './queries';
 
@@ -78,6 +79,15 @@ export async function settleStaff(params: {
       entity: 'user',
       entityId: params.staffId,
       data: { amount: total, days: owing.map((d) => d.day) },
+    });
+
+    await recordActivity(tx, {
+      tenantId: params.tenantId,
+      type: 'payout.made',
+      actorId: params.byUserId,
+      entityId: params.staffId,
+      data: { name: owing[0]?.name ?? undefined, amount: total, count: owing.length },
+      ...(params.paidAt ? { at: params.paidAt } : {}),
     });
   });
 

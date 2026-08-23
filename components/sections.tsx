@@ -116,6 +116,7 @@ export function currentSection(pathname: string, t: Dict): Section | undefined {
 export function pageTitle(pathname: string, t: Dict): string | null {
   const section = currentSection(pathname, t);
   if (section) return section.label;
+  if (pathname.startsWith('/owner/activity')) return t.activity.all;
   if (pathname.startsWith('/owner/profile')) return t.profile.title;
   if (pathname.startsWith('/owner/points')) return t.points.title;
   if (pathname.startsWith('/owner/day/')) return t.calendar.title;

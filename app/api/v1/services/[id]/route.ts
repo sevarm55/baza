@@ -13,7 +13,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     if (!isUuid(id)) return fail('NOT_FOUND', 404);
 
-    await archiveService({ tenantId: ctx.tenant.id, id });
+    await archiveService({ tenantId: ctx.tenant.id, id, actorId: ctx.user.id });
     return noContent();
   } catch (e) {
     if (e instanceof ValidationError) return fail('NOT_FOUND', 404);

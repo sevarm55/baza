@@ -39,7 +39,7 @@ export async function PUT(request: Request) {
     const percent =
       input.percent === null || input.percent === undefined ? null : Number(input.percent);
 
-    const tenant = await saveTeamPercent({ tenantId: ctx.tenant.id, percent });
+    const tenant = await saveTeamPercent({ tenantId: ctx.tenant.id, percent, actorId: ctx.user.id });
 
     return ok({ percent: tenant.teamPercent });
   } catch (e) {

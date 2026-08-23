@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       price: Number(input.price),
       // undefined — не трогать прежние; null — стереть
       tierPrices: input.tierPrices === undefined ? undefined : input.tierPrices,
+      actorId: ctx.user.id,
     });
 
     return ok(

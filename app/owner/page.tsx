@@ -21,7 +21,10 @@ import { hhmm, ymd } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
 import { passesEnabled } from '@/lib/features';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
-import { whoIsOnShift } from '@/lib/shifts';
+import { shiftsOnDay, whoIsOnShift } from '@/lib/shifts';
+import { countActivity, listActivity, type ActivityType } from '@/lib/activity';
+import { LiveActivity } from '@/components/patterns/live-activity';
+import { Attention, type Signal } from './today/attention';
 import { personColor } from '@/lib/person-color';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Panel, PanelGrid } from '@/components/patterns/panel';
@@ -91,23 +94,31 @@ export default async function TodayPage({
   const w = windowFor(period, tenant.timezone);
   const { byHour, from, to, prevFrom, prevTo } = w;
 
-  const [stats, feed, series, split, costs, prevStats, prevCosts, roster] = await Promise.all([
-    getPeriodStats(tenant.id, from, to),
-    getFeed(tenant.id, from, FEED_LIMIT, to),
-    /* Единственный запрос, которому позволено не доехать: без графика
-       страница отвечает на все вопросы, кроме «когда был заезд». */
-    getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day', to).catch(
-      () => null,
-    ),
-    getPaymentSplit(tenant.id, from, to),
-    getPeriodCosts(tenant.id, from, to, w.spread),
-    getPeriodStats(tenant.id, prevFrom, prevTo),
-    getPeriodCosts(tenant.id, prevFrom, prevTo, w.spread),
-    listStaff(tenant.id),
-  ]);
+  const dayStart = startOfDay(tenant.timezone);
+  const [stats, feed, series, split, costs, prevStats, prevCosts, roster, activity, counts, dayShifts] =
+    await Promise.all([
+      getPeriodStats(tenant.id, from, to),
+      getFeed(tenant.id, from, FEED_LIMIT, to),
+      /* Единственный запрос, которому позволено не доехать: без графика
+         страница отвечает на все вопросы, кроме «когда был заезд». */
+      getRevenueSeries(tenant.id, from, tenant.timezone, byHour ? 'hour' : 'day', to).catch(
+        () => null,
+      ),
+      getPaymentSplit(tenant.id, from, to),
+      getPeriodCosts(tenant.id, from, to, w.spread),
+      getPeriodStats(tenant.id, prevFrom, prevTo),
+      getPeriodCosts(tenant.id, prevFrom, prevTo, w.spread),
+      listStaff(tenant.id),
+      /* Живая лента: всегда «сейчас», как и люди на смене. Падение
+         ленты не роняет сводку: без неё страница отвечает на всё,
+         кроме «что происходит прямо сейчас». */
+      listActivity(tenant.id, { from: dayStart, limit: 30 }).catch(() => []),
+      countActivity(tenant.id, dayStart).catch((): Partial<Record<ActivityType, number>> => ({})),
+      shiftsOnDay(tenant.id, dayStart, new Date(dayStart.getTime() + 86_400_000)).catch(() => []),
+    ]);
 
   /* Кто на смене: «сейчас», без оглядки на выбранный период. */
-  const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
+  const present = await whoIsOnShift(tenant.id, dayStart);
   const presentIds = new Set(present.map((x) => x.userId));
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
@@ -186,6 +197,64 @@ export default async function TodayPage({
   const methods = mix
     .filter((m) => ops.some((o) => o.payment === m.key))
     .map((m) => ({ key: m.key, label: m.label }));
+
+  /* Что необычного сегодня. Считается по сегодняшним данным, на каком
+     бы периоде ни стояла сводка: необычное это про «сейчас». */
+  const signals: Signal[] = [];
+  if (isToday) {
+    if (stats.discounts > 0) {
+      signals.push({
+        key: 'discounts',
+        tone: 'neutral',
+        icon: 'discount',
+        text: t.today.attentionDiscounts(money(stats.discounts)),
+        href: '/owner/activity?g=cars',
+      });
+    }
+    const canceled = counts['car.canceled'] ?? 0;
+    if (canceled > 0) {
+      signals.push({
+        key: 'canceled',
+        tone: 'warning',
+        icon: 'cancel',
+        text: t.today.attentionCanceled(canceled),
+        href: '/owner/activity?g=cars',
+      });
+    }
+    for (const sh of dayShifts) {
+      if (!sh.closedAt || sh.cashExpected === null || sh.cashExpected === 0) continue;
+      if (sh.cashDeclared === null) {
+        signals.push({
+          key: `cash-${sh.userId}`,
+          tone: 'warning',
+          icon: 'cash',
+          text: t.today.attentionCashNotDeclared(sh.name),
+          href: '/owner/activity?g=shifts',
+        });
+      } else if (sh.cashDeclared !== sh.cashExpected) {
+        const diff = sh.cashDeclared - sh.cashExpected;
+        signals.push({
+          key: `cash-${sh.userId}`,
+          tone: diff < 0 ? 'danger' : 'warning',
+          icon: 'cash',
+          text: t.today.attentionCash(sh.name, `${diff > 0 ? '+' : '−'}${money(Math.abs(diff))}`),
+          href: '/owner/activity?g=shifts',
+        });
+      }
+    }
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', { timeZone: tenant.timezone, hour: '2-digit', hourCycle: 'h23' }).format(new Date()),
+    );
+    if (present.length === 0 && roster.length > 0 && hour >= 9 && hour < 20) {
+      signals.push({
+        key: 'nobody',
+        tone: 'warning',
+        icon: 'nobody',
+        text: t.today.attentionNobody,
+        href: '/owner/staff',
+      });
+    }
+  }
 
   const flow =
     series &&
@@ -294,7 +363,26 @@ export default async function TodayPage({
         />
       </MetricStrip>
 
+      <Attention signals={signals} />
+
+      {/* Кто работает и что происходит: операционная картина идёт сразу
+          за деньгами, потому что за ней владелец и открывает сводку днём.
+          Ниже ход дня и способы оплаты: это уже «как сложилось». */}
       <PanelGrid>
+        <CrewPanel
+          className="lg:col-span-4"
+          crew={crew}
+          currency={tenant.currency}
+          unitOne={tenant.unitOne}
+          title={isToday ? t.today.nowWorking : t.settings.staff}
+        />
+        <LiveActivity
+          className="lg:col-span-8"
+          initial={activity}
+          currency={tenant.currency}
+          timezone={tenant.timezone}
+        />
+
         <Panel
           className="lg:col-span-8"
           title={byHour ? t.today.flowDay : t.today.flowPeriod}
@@ -302,16 +390,7 @@ export default async function TodayPage({
         >
           {chart}
         </Panel>
-
-        <div className="flex flex-col gap-4 lg:col-span-4">
-          <CrewPanel
-            crew={crew}
-            currency={tenant.currency}
-            unitOne={tenant.unitOne}
-            title={isToday ? t.today.working : t.settings.staff}
-          />
-          <PaymentMix slices={mix} currency={tenant.currency} />
-        </div>
+        <PaymentMix className="lg:col-span-4" slices={mix} currency={tenant.currency} />
       </PanelGrid>
 
       <Journal

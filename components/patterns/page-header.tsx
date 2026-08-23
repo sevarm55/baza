@@ -37,7 +37,7 @@ export function PageHeader({
   return (
     <header className={cn('mb-5 flex flex-col gap-4', className)}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           {back && (
             <Link
               href={back.href}

@@ -2,6 +2,7 @@ import { and, eq, gt, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { priceForTier, tierIndexOf, tiersOf } from './catalog';
 import { crewOf, crewSplit, MAX_CREW } from './crew';
 import { db } from './db';
+import { recordActivity } from './activity';
 import {
   audit,
   clients,
@@ -421,6 +422,38 @@ export async function createOrder(input: CreateOrderInput) {
       },
     });
 
+    /* Лента: машина записана. Новый клиент отмечается отдельной строкой,
+       это первое появление номера, а не просто ещё одна мойка. */
+    await recordActivity(tx, {
+      tenantId: input.tenantId,
+      type: 'car.created',
+      actorId: staff.id,
+      actorName: staff.name,
+      actorRole: staff.role === 'owner' ? 'owner' : 'staff',
+      entityId: order.id,
+      at: now,
+      data: {
+        key,
+        service: order.serviceName,
+        amount: price,
+        listPrice: listPrice > price ? listPrice : undefined,
+        payment: input.payment,
+        crew: team ? crew.map((p) => p.name) : undefined,
+      },
+    });
+    if (client && client.visits === 1) {
+      await recordActivity(tx, {
+        tenantId: input.tenantId,
+        type: 'client.created',
+        actorId: staff.id,
+        actorName: staff.name,
+        actorRole: staff.role === 'owner' ? 'owner' : 'staff',
+        entityId: client.id,
+        at: now,
+        data: { key },
+      });
+    }
+
     return { order, client, service, duplicate: false, crew, shares: split };
   });
 
@@ -661,6 +694,23 @@ export async function setOrderCrew(params: {
         pool: split.pool,
       },
     });
+    const [who] = order.clientId
+      ? await tx.select({ key: clients.key }).from(clients).where(eq(clients.id, order.clientId))
+      : [];
+    await recordActivity(tx, {
+      tenantId: params.tenantId,
+      type: 'car.updated',
+      actorId: params.byUserId,
+      entityId: order.id,
+      data: {
+        change: 'crew',
+        key: who?.key,
+        service: order.serviceName,
+        amount: order.price,
+        crew: crew.map((p) => p.name),
+        percent: split.percent,
+      },
+    });
 
     return { order: updated, changed: true, percent: split.percent, pool: split.pool };
   });
@@ -726,6 +776,21 @@ export async function cancelOrder(params: {
       entity: 'order',
       entityId: order.id,
       data: { price: order.price, service: order.serviceName },
+    });
+    const [who] = order.clientId
+      ? await tx.select({ key: clients.key }).from(clients).where(eq(clients.id, order.clientId))
+      : [];
+    await recordActivity(tx, {
+      tenantId: params.tenantId,
+      type: 'car.canceled',
+      actorId: params.byUserId,
+      entityId: order.id,
+      data: {
+        key: who?.key,
+        service: order.serviceName,
+        amount: order.price,
+        payment: order.payment,
+      },
     });
 
     return order;

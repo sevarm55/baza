@@ -21,7 +21,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     if (!isUuid(id)) return fail('NOT_FOUND', 404);
 
-    const gone = await removeExpense(ctx.tenant.id, id, startOfDay(ctx.tenant.timezone));
+    const gone = await removeExpense(ctx.tenant.id, id, startOfDay(ctx.tenant.timezone), ctx.user.id);
     if (!gone) return fail('NOT_FOUND', 404);
 
     return noContent();

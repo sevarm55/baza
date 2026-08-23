@@ -44,6 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       id,
       name: input.name === undefined ? undefined : str(input.name),
       percent: input.percent,
+      actorId: ctx.user.id,
     });
 
     return ok({ staff: { id: user.id, name: user.name, percent: user.percent } });

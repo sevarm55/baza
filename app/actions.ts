@@ -1,5 +1,6 @@
 ﻿'use server';
 
+import { recordActivitySafely } from '@/lib/activity';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { refresh, revalidatePath } from 'next/cache';
@@ -259,7 +260,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   try {
-    await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
+    await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent, actorId: session.uid });
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
       return { error: t.auth.phoneTaken };
@@ -390,6 +391,7 @@ export async function saveService(
       name,
       price,
       tierPrices,
+      actorId: session.uid,
     });
   } catch {
     return { error: t.errors.required };
@@ -427,6 +429,7 @@ export async function saveTiersAction(_prev: FormState, formData: FormData): Pro
       tenantId: session.tid,
       label: String(formData.get('label') ?? ''),
       tiers: formData.getAll('tier').map((v) => String(v)),
+      actorId: session.uid,
     });
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'TIERS_TOO_FEW') {
@@ -449,7 +452,7 @@ export async function archiveService(formData: FormData): Promise<void> {
   await requireWriteAccess(session.tid);
 
   const id = String(formData.get('id') ?? '');
-  await catalog.archiveService({ tenantId: session.tid, id }).catch(() => {});
+  await catalog.archiveService({ tenantId: session.tid, id, actorId: session.uid }).catch(() => {});
 
   revalidatePath('/owner/services');
 }
@@ -466,7 +469,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const percent = Number(formData.get('percent') ?? 0);
 
   try {
-    await catalog.saveStaff({ tenantId: session.tid, id, name, percent });
+    await catalog.saveStaff({ tenantId: session.tid, id, name, percent, actorId: session.uid });
   } catch {
     return { error: t.errors.badPercent };
   }
@@ -554,7 +557,7 @@ export async function saveTeamPercentAction(
   const percent = raw === '' ? null : Number(raw);
 
   try {
-    await catalog.saveTeamPercent({ tenantId: session.tid, percent });
+    await catalog.saveTeamPercent({ tenantId: session.tid, percent, actorId: session.uid });
   } catch {
     return { error: t.errors.badPercent };
   }
@@ -1020,6 +1023,12 @@ export async function saveBusiness(formData: FormData): Promise<void> {
   if (name.length < 2) return;
 
   await db.update(tenants).set({ name }).where(eq(tenants.id, session.tid));
+  await recordActivitySafely({
+    tenantId: session.tid,
+    type: 'settings.changed',
+    actorId: session.uid,
+    data: { what: 'business', name },
+  });
   revalidatePath('/owner');
 }
 
@@ -1469,6 +1478,7 @@ export async function removeExpenseAction(
     session.tid,
     String(formData.get('id') ?? ''),
     startOfDay(tenant.timezone),
+    session.uid,
   );
   if (!removed) return { error: t.errors.generic };
 

@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
+import { recordActivitySafely } from './activity';
 import { accounts, services, shifts, tenants, users } from './db/schema';
 import { listServices } from './queries';
 import { hashPin } from './pin';
@@ -42,6 +43,8 @@ export async function upsertService(params: {
    * по классам.
    */
   tierPrices?: number[] | null;
+  /** кто правит: для ленты */
+  actorId?: string | null;
 }) {
   const name = params.name.trim();
   if (!name) throw new ValidationError('NAME_REQUIRED');
@@ -74,6 +77,13 @@ export async function upsertService(params: {
       .where(and(eq(services.id, params.id), eq(services.tenantId, params.tenantId)))
       .returning();
     if (!row) throw new ValidationError('NOT_FOUND');
+    await recordActivitySafely({
+      tenantId: params.tenantId,
+      type: 'service.updated',
+      actorId: params.actorId,
+      entityId: row.id,
+      data: { service: row.name, amount: row.price },
+    });
     return row;
   }
 
@@ -88,17 +98,35 @@ export async function upsertService(params: {
       sort: existing.length,
     })
     .returning();
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'service.created',
+    actorId: params.actorId,
+    entityId: row.id,
+    data: { service: row.name, amount: row.price },
+  });
   return row;
 }
 
 /** Не удаляем: на услугу ссылаются прошлые записи. */
-export async function archiveService(params: { tenantId: string; id: string }) {
+export async function archiveService(params: {
+  tenantId: string;
+  id: string;
+  actorId?: string | null;
+}) {
   const [row] = await db
     .update(services)
     .set({ active: false })
     .where(and(eq(services.id, params.id), eq(services.tenantId, params.tenantId)))
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'service.archived',
+    actorId: params.actorId,
+    entityId: row.id,
+    data: { service: row.name },
+  });
   return row;
 }
 
@@ -110,6 +138,7 @@ export async function addStaff(params: {
   phone: string;
   pin: string;
   percent: number;
+  actorId?: string | null;
 }) {
   const name = params.name.trim();
   const phone = normalizePhone(params.phone);
@@ -152,6 +181,13 @@ export async function addStaff(params: {
       percent: params.percent,
     })
     .returning();
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'employee.created',
+    actorId: params.actorId,
+    entityId: row.id,
+    data: { name, percent: params.percent },
+  });
   return row;
 }
 
@@ -181,6 +217,7 @@ export async function saveStaff(params: {
   id: string;
   name?: string;
   percent?: number;
+  actorId?: string | null;
 }) {
   const patch: { name?: string; percent?: number } = {};
 
@@ -201,12 +238,36 @@ export async function saveStaff(params: {
   // молча ответив «сохранено», мы соврали бы про несохранённое.
   if (Object.keys(patch).length === 0) throw new ValidationError('NOTHING_TO_SAVE');
 
+  /* Прежний процент нужен ленте: «45 % → 50 %» читается, «50 %» нет. */
+  const [before] = await db
+    .select({ percent: users.percent })
+    .from(users)
+    .where(and(eq(users.id, params.id), eq(users.tenantId, params.tenantId)));
+
   const [row] = await db
     .update(users)
     .set(patch)
     .where(and(eq(users.id, params.id), eq(users.tenantId, params.tenantId)))
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
+
+  if (patch.percent !== undefined && before && before.percent !== patch.percent) {
+    await recordActivitySafely({
+      tenantId: params.tenantId,
+      type: 'salary.changed',
+      actorId: params.actorId,
+      entityId: row.id,
+      data: { name: row.name, percentFrom: before.percent, percent: patch.percent },
+    });
+  } else {
+    await recordActivitySafely({
+      tenantId: params.tenantId,
+      type: 'employee.updated',
+      actorId: params.actorId,
+      entityId: row.id,
+      data: { name: row.name },
+    });
+  }
   return row;
 }
 
@@ -252,6 +313,14 @@ export async function deactivateStaff(params: {
         isNull(shifts.closedAt),
       ),
     );
+
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'employee.removed',
+    actorId: params.actorId,
+    entityId: row.id,
+    data: { name: row.name },
+  });
 
   return row;
 }
@@ -362,6 +431,7 @@ export async function resetStaffPin(params: {
 export async function saveTeamPercent(params: {
   tenantId: string;
   percent: number | null;
+  actorId?: string | null;
 }) {
   if (params.percent !== null) {
     if (
@@ -379,6 +449,12 @@ export async function saveTeamPercent(params: {
     .where(eq(tenants.id, params.tenantId))
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'settings.changed',
+    actorId: params.actorId,
+    data: { what: 'teamPercent', percent: params.percent ?? undefined },
+  });
   return row;
 }
 
@@ -438,6 +514,7 @@ export async function saveTiers(params: {
   tenantId: string;
   label: string | null;
   tiers: string[];
+  actorId?: string | null;
 }) {
   const clean = params.tiers.map((t) => t.trim()).filter(Boolean).slice(0, 6);
   const label = params.label?.trim() || null;
@@ -449,5 +526,11 @@ export async function saveTiers(params: {
     .where(eq(tenants.id, params.tenantId))
     .returning();
   if (!row) throw new ValidationError('NOT_FOUND');
+  await recordActivitySafely({
+    tenantId: params.tenantId,
+    type: 'settings.changed',
+    actorId: params.actorId,
+    data: { what: 'tiers' },
+  });
   return row;
 }

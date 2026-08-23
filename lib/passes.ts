@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
+import { recordActivity } from './activity';
 import { audit, clients, passes, services, users } from './db/schema';
 import { NotFoundError } from './orders';
 import { normalizeClientKey } from './client-key';
@@ -72,6 +73,14 @@ export async function sellPass(input: SellPassInput) {
       entity: 'pass',
       entityId: pass.id,
       data: { key, service: service.name, uses: input.totalUses, price: input.price },
+    });
+
+    await recordActivity(tx, {
+      tenantId: input.tenantId,
+      type: 'pass.sold',
+      actorId: input.soldBy,
+      entityId: pass.id,
+      data: { key, service: service.name, amount: input.price, count: input.totalUses },
     });
 
     return { pass, client };

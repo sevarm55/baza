@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       phone: str(input.phone),
       pin: str(input.pin),
       percent: Number(input.percent),
+      actorId: ctx.user.id,
     });
 
     return ok(

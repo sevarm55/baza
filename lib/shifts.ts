@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, gte, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
+import { recordActivitySafely } from './activity';
 import { orders, shifts, tenants, users } from './db/schema';
 import { startOfDay } from './queries';
 import { notifyOwnersInBackground } from './push';
@@ -148,6 +149,15 @@ export async function openShift(
     thread: 'shift',
   });
 
+  await recordActivitySafely({
+    tenantId,
+    type: 'shift.started',
+    actorId: userId,
+    actorName: who?.name,
+    entityId: row.id,
+    at: row.openedAt,
+  });
+
   return row;
 }
 
@@ -222,6 +232,19 @@ export async function closeShift(
     title: t.push.shiftClosedTitle,
     body: cashLine(who?.name ?? '', expected, declared ?? null, locale),
     thread: 'shift',
+  });
+
+  await recordActivitySafely({
+    tenantId,
+    type: 'shift.finished',
+    actorId: userId,
+    actorName: who?.name,
+    entityId: open.id,
+    at,
+    data: {
+      cashExpected: expected,
+      cashDeclared: typeof declared === 'number' ? declared : null,
+    },
   });
 
   return { expected, declared: declared ?? null };
@@ -337,6 +360,17 @@ export async function closeEvening(now = new Date()) {
         .set({ closedAt: bucket.at, cashExpected: expected })
         .where(eq(shifts.id, row.shiftId));
       lines.push(cashLine(row.name, expected, null, bucket.locale, bucket.currency));
+      /* Закрыла система, а не человек: в ленте это видно по роли. */
+      await recordActivitySafely({
+        tenantId,
+        type: 'shift.finished',
+        actorId: row.userId,
+        actorName: row.name,
+        actorRole: 'system',
+        entityId: row.shiftId,
+        at: bucket.at,
+        data: { cashExpected: expected, cashDeclared: null },
+      });
     }
 
     /* Одно уведомление на бизнес, а не на человека: три закрытых смены —

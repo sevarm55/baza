@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
+import { recordActivity, recordActivitySafely } from './activity';
 import { expenses } from './db/schema';
 import { isSaneMoney } from './money';
 import { dict } from './i18n';
@@ -51,6 +52,14 @@ export async function addExpense(input: NewExpense) {
       at: input.at ?? new Date(),
     })
     .returning();
+
+  await recordActivitySafely({
+    tenantId: input.tenantId,
+    type: 'expense.created',
+    actorId: input.userId,
+    entityId: row.id,
+    data: { category, amount: row.amount, monthly: row.monthly },
+  });
 
   return row;
 }
@@ -278,6 +287,13 @@ export async function editExpense(params: {
         })
         .where(and(eq(expenses.tenantId, params.tenantId), eq(expenses.id, params.id)))
         .returning();
+      await recordActivity(tx, {
+        tenantId: params.tenantId,
+        type: 'expense.updated',
+        actorId: params.userId,
+        entityId: updated.id,
+        data: { category, amount: updated.amount, monthly: updated.monthly },
+      });
       return updated;
     }
 
@@ -304,6 +320,14 @@ export async function editExpense(params: {
       })
       .returning();
 
+    await recordActivity(tx, {
+      tenantId: params.tenantId,
+      type: 'expense.updated',
+      actorId: params.userId,
+      entityId: fresh.id,
+      data: { category, amount: fresh.amount, monthly: true },
+    });
+
     return fresh;
   });
 }
@@ -324,13 +348,20 @@ export async function removeExpense(
   tenantId: string,
   id: string,
   dayStart: Date,
+  /** кто убрал: для ленты; пусто у старых вызовов */
+  byUserId: string | null = null,
 ): Promise<boolean> {
   /* Кривой id до Postgres доводить нельзя: он бросит своё на разборе
      uuid, и наружу вместо «не найдено» уйдёт пятисотка. */
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return false;
 
   const [row] = await db
-    .select({ monthly: expenses.monthly, at: expenses.at })
+    .select({
+      monthly: expenses.monthly,
+      at: expenses.at,
+      category: expenses.category,
+      amount: expenses.amount,
+    })
     .from(expenses)
     .where(and(eq(expenses.tenantId, tenantId), eq(expenses.id, id)));
 
@@ -344,6 +375,14 @@ export async function removeExpense(
   } else {
     await db.delete(expenses).where(and(eq(expenses.tenantId, tenantId), eq(expenses.id, id)));
   }
+
+  await recordActivitySafely({
+    tenantId,
+    type: 'expense.deleted',
+    actorId: byUserId,
+    entityId: id,
+    data: { category: row.category, amount: row.amount, monthly: row.monthly },
+  });
   return true;
 }
 
