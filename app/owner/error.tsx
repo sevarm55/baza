@@ -1,27 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AsyncError } from '@/components/loading';
+import { usePathname } from 'next/navigation';
+
+import { ErrorState } from '@/components/patterns/error-state';
+import { PageHeader } from '@/components/patterns/page-header';
+import { pageTitle } from '@/components/sections';
 import { useT } from '@/lib/i18n/client';
 
 /**
- * Сводка не доехала.
- *
- * Отказ одного прибора страница переживает сама: график ловит свою
- * ошибку и превращает её в состояние панели, всё остальное продолжает
- * отвечать. Сюда попадает случай похуже — не доехали деньги, и показать
- * нечего.
- *
- * Тогда страница остаётся страницей: заголовок, одна строка о том, что
- * случилось, и кнопка повторить. Белый экран вместо сумм читается как
- * «данные пропали», а не как «связь моргнула», и на экране, куда
- * заходят по сорок раз за смену, эта разница дорогая.
- *
- * Ни кода ошибки, ни подробностей: владельцу мойки они ничего не
- * говорят, а испугать успевают. Разбираться с причиной — работа журнала
- * сервера.
+ * Раздел не загрузился. Заголовок берётся по адресу, а не вшит: граница
+ * ошибок одна на весь кабинет, и «Сегодня» над упавшим отчётом врало бы.
+ * Кода ошибки нет: владельцу он ничего не скажет.
  */
-export default function TodayError({
+export default function OwnerError({
   error,
   reset,
 }: {
@@ -29,24 +21,16 @@ export default function TodayError({
   reset: () => void;
 }) {
   const t = useT();
+  const pathname = usePathname();
+
   useEffect(() => {
     console.error(error);
   }, [error]);
 
   return (
-    <>
-      <h1 className="page-title">{t.owner.tabToday}</h1>
-
-      {/* Тот же вид отказа, что у прибора внутри страницы: одно
-          сообщение и одна кнопка, которая сама показывает, что повтор
-          пошёл. Два разных вида ошибки в одном продукте заставляют
-          читать каждый заново. */}
-      <div
-        className="panel-pad mt-[var(--seam)] rounded-[var(--radius-card)]"
-        style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
-      >
-        <AsyncError title={t.today.loadFailed} note={t.common.offlineNote} onRetry={reset} />
-      </div>
-    </>
+    <div className="flex flex-col gap-5">
+      <PageHeader className="mb-0" title={pageTitle(pathname, t) ?? t.owner.tabToday} />
+      <ErrorState title={t.today.loadFailed} description={t.common.offlineNote} onRetry={reset} />
+    </div>
   );
 }

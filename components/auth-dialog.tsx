@@ -1,40 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconClose } from '@/components/icons';
+import { X } from 'lucide-react';
+
 import { Wordmark } from '@/components/wordmark';
 import { AuthSurface } from '@/components/auth-surface';
+import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n/client';
 import type { RememberedWebAccount } from '@/lib/auth';
-import s from './auth-dialog.module.css';
+import { cn } from '@/lib/utils';
 
 export type AuthMode = 'signIn' | 'register';
 
 /**
- * Вход и регистрация — окном, и только окном.
+ * Вход и регистрация окном, и только окном.
  *
- * Отдельных страниц больше нет: `/login` и `/start/…` уводят сюда же.
- * Клик по «Войти» не меняет адрес — витрина под окном не
- * перерисовывается, и между нажатием и появлением формы ничего не
- * мигает.
+ * Отдельных страниц нет: `/login` и `/start/…` уводят сюда же. Клик по
+ * «Войти» не меняет адрес, витрина под окном не перерисовывается.
  *
- * Одна колонка, четыреста точек в ширину. Прежнее окно было широким, с
- * фотографией в половину: снимок объяснял, чей это продукт, — но
- * объяснять это человеку, который уже нажал «Войти», поздно. На
- * телефоне окно становится листом снизу: оно им и является — приходит
- * от края, к которому ближе палец.
+ * Окно живёт на нативном `<dialog>`: затемнение, ловушка фокуса, Escape
+ * и возврат фокуса на кнопку после закрытия приходят от браузера, и свой
+ * каркас поверх него был бы хуже во всём, что касается доступности.
+ * Переключателя языка внутри нет намеренно: окно в верхнем слое, и
+ * выпадающий список оказался бы под ним; язык выбирают в шапке витрины.
  *
- * Переключателя языка внутри НЕТ, и это не забывчивость. Окно открыто
- * через `showModal()`, то есть живёт в верхнем слое браузера, а
- * выпадающий список уходит в `body` — и оказывается ПОД окном. Чинить
- * это порталами ради выбора, который делают один раз в жизни, дороже,
- * чем поставить переключатель в шапку витрины, где он и нужен: язык
- * выбирают до того, как нажали «Войти», а не посреди ввода кода.
- *
- * Что здесь именно про окно, а не про форму: затемнение с размытием,
- * ловушка фокуса, Escape, возврат фокуса на кнопку после закрытия.
- * Первые два даёт нативный `<dialog>` — свой каркас поверх него был бы
- * заведомо хуже во всём, что касается доступности.
+ * На телефоне окно становится листом снизу: приходит от края, к
+ * которому ближе палец.
  */
 export function AuthDialog({
   mode,
@@ -44,7 +35,7 @@ export function AuthDialog({
   onClose,
 }: {
   mode: AuthMode | null;
-  /** ниша для регистрации — с лендинга она известна заранее */
+  /** ниша для регистрации: с витрины она известна заранее */
   niche: string;
   remembered?: RememberedWebAccount | null;
   trialDays: number;
@@ -62,8 +53,8 @@ export function AuthDialog({
     if (mode && !dialog.open) {
       /* Цель фокуса задаётся заранее: `showModal` сначала ищет autofocus
          и только потом берёт первое поле. Без этого на телефоне
-         клавиатура выскакивает поверх окна раньше, чем человек успел
-         прочитать, что ему предлагают. */
+         клавиатура выскакивает раньше, чем человек прочитал, что ему
+         предлагают. */
       panel.current?.setAttribute('autofocus', '');
       dialog.showModal();
       requestAnimationFrame(() => setOpen(true));
@@ -77,7 +68,7 @@ export function AuthDialog({
     window.setTimeout(() => {
       ref.current?.close();
       onClose();
-    }, 220);
+    }, 200);
   }, [onClose]);
 
   if (mode === null && !open) return null;
@@ -85,9 +76,13 @@ export function AuthDialog({
   return (
     <dialog
       ref={ref}
-      className={s.dialog}
       data-open={open ? 'true' : undefined}
       aria-label={mode === 'register' ? t.auth.createTitle : t.auth.welcome}
+      className={cn(
+        'fixed inset-0 m-auto max-h-full w-fit max-w-full overflow-visible bg-transparent p-0 text-foreground',
+        'max-sm:mb-0 max-sm:w-full',
+        'backdrop:bg-black/0 backdrop:transition-colors backdrop:duration-200 data-open:backdrop:bg-black/25 supports-backdrop-filter:backdrop:backdrop-blur-xs',
+      )}
       onCancel={(e) => {
         e.preventDefault();
         dismiss();
@@ -98,36 +93,40 @@ export function AuthDialog({
         if (e.target === ref.current) dismiss();
       }}
     >
-      <div ref={panel} className={s.panel} tabIndex={-1}>
-        <div className={s.form}>
-          <div className={s.top}>
-            {/* Марка набранная, а не картинка со словом рядом.
+      <div
+        ref={panel}
+        tabIndex={-1}
+        className={cn(
+          'flex max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-card p-6 outline-none',
+          'max-sm:max-h-[calc(100dvh-2.5rem)] max-sm:w-full max-sm:rounded-b-none max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+          'translate-y-2 opacity-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+          'in-data-open:translate-y-0 in-data-open:opacity-100',
+        )}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          {/* Марка набранная: знак обязан совпасть с тем, что человек
+              только что читал в шапке витрины. */}
+          <Wordmark className="text-[15px]" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="-my-1 -mr-2 text-muted-foreground"
+            onClick={dismiss}
+            aria-label={t.common.close}
+          >
+            <X aria-hidden />
+          </Button>
+        </div>
 
-                Окно входа — первое, что видит человек, пришедший с
-                витрины, и знак в нём обязан совпасть с тем, который он
-                только что читал в шапке. Квадратная иконка приложения
-                рядом со словом «TETRIN» повторяла его же и делала первую
-                строку окна вдвое тяжелее, чем ей нужно быть: дальше
-                там телефон и код, а не знакомство. */}
-            <Wordmark className="text-[17px]" />
-            <button
-              type="button"
-              className={s.close}
-              onClick={dismiss}
-              aria-label={t.common.close}
-            >
-              <IconClose width={16} height={16} />
-            </button>
-          </div>
-
-          <div className={s.body}>
-            <AuthSurface
-              mode={mode ?? 'signIn'}
-              niche={niche}
-              remembered={remembered}
-              trialDays={trialDays}
-            />
-          </div>
+        {/* Поля прокрутки уводим наружу, чтобы кольцо фокуса не обрезалось. */}
+        <div className="-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6">
+          <AuthSurface
+            mode={mode ?? 'signIn'}
+            niche={niche}
+            remembered={remembered}
+            trialDays={trialDays}
+          />
         </div>
       </div>
     </dialog>

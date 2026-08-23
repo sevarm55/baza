@@ -3,35 +3,41 @@
 import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addStaff, type FormState } from '@/app/actions';
-import { Sheet } from '@/components/sheet';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group';
 import { LoadingButton } from '@/components/loading';
+import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
+import { FormMessage, FormSection } from '@/components/patterns/form';
 import { useT } from '@/lib/i18n/client';
 
 /**
  * Найм.
  *
- * Форма занимала правую колонку страницы всегда — треть ширины под пять
- * полей, которые нужны раз в полгода, — а список людей, ради которого
- * раздел открывают, жил в оставшихся двух третях. Теперь форма приходит
- * по нажатию и уходит.
+ * Форма приходит по нажатию и уходит: пять полей нужны раз в полгода,
+ * а список людей, ради которого раздел открывают, стоит на своём месте.
  *
  * Внутри та же граница, что в карточке сотрудника: сначала кто это,
- * потом чем он входит. Телефон и PIN — не «ещё два поля», а ключ от
+ * потом чем он входит. Телефон и код — не «ещё два поля», а ключ от
  * кабинета, и то, что код диктуют вслух и его не надо запоминать,
  * сказано прямо здесь, а не выясняется потом.
  */
 export function AddStaff({
   staffRole,
-  variant = 'head',
+  variant = 'default',
 }: {
   staffRole: string;
-  /** в заголовке раздела — тихой кнопкой, в пустом месте — главной */
-  variant?: 'head' | 'cta';
+  /** в шапке главной кнопкой, в пустом месте той же, в ряду тихой */
+  variant?: 'default' | 'outline';
 }) {
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(addStaff, null);
   const [open, setOpen] = useState(false);
 
+  /* Лист закрывается, когда сервер подтвердил запись. Сверяем в
+     отрисовке, а не эффектом: эффект показал бы кадр с уже сохранённым,
+     но ещё открытым окном. */
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
     setSeen(state);
@@ -40,36 +46,29 @@ export function AddStaff({
 
   return (
     <>
-      <button
-        type="button"
-        className={variant === 'cta' ? 'btn btn-auto' : 'btn-inline'}
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="size-4" aria-hidden />
+      <Button variant={variant} onClick={() => setOpen(true)}>
+        <Plus data-icon="inline-start" aria-hidden />
         {t.settings.addStaff}
-      </button>
+      </Button>
 
-      {/* Действие в подвале окна, а не в конце формы: на телефоне здесь
-          пять полей, и с поднятой клавиатурой кнопка уезжала под неё.
-          Тем же кончаются окна расхода и услуги. */}
-      <Sheet
+      {/* Действие в подвале листа, а не в конце формы: на телефоне здесь
+          пять полей, и с поднятой клавиатурой кнопка уезжала под неё. */}
+      <EntitySheet
         open={open}
-        onClose={() => setOpen(false)}
-        side
+        onOpenChange={setOpen}
         title={t.settings.addStaff}
         footer={
-          <>
-            <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+          <SheetActions>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               {t.common.cancel}
-            </button>
+            </Button>
             <LoadingButton
               form="staff-new"
-              className="btn btn-auto"
               busy={pending}
               label={t.settings.addStaff}
               busyLabel={t.common.adding}
             />
-          </>
+          </SheetActions>
         }
       >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
@@ -81,77 +80,75 @@ export function AddStaff({
           onSubmit={(e) => {
             if (pending) e.preventDefault();
           }}
-          className="grid gap-3"
+          className="flex flex-col gap-5"
         >
-          <label className="grid gap-1.5">
-            <span className="label">{t.settings.name}</span>
-            <input className="field auth-field" name="name" required autoComplete="off" autoFocus />
-          </label>
+          <FormSection first>
+            <Field>
+              <FieldLabel htmlFor="staff-new-name">{t.settings.name}</FieldLabel>
+              <Input id="staff-new-name" name="name" required autoComplete="off" autoFocus />
+            </Field>
 
-          <label className="grid gap-1.5">
-            <span className="label">
-              {t.settings.percent} · {staffRole}
-            </span>
-            <div className="relative">
-              {/* Знак слева, как «+374» у телефона: все украшения полей в
-                  продукте стоят в начале — справа их взгляд ищет
-                  отдельно, а слева они читаются вместе с первым знаком
-                  числа. */}
-              <input
-                className="field auth-field num !ps-8"
-                name="percent"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={100}
-                defaultValue={40}
-                required
-              />
-              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
-                %
-              </span>
-            </div>
-          </label>
+            <Field>
+              <FieldLabel htmlFor="staff-new-percent">
+                {t.settings.percent} · {staffRole}
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupAddon>
+                  <InputGroupText>%</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="staff-new-percent"
+                  name="percent"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={100}
+                  defaultValue={40}
+                  required
+                  className="num"
+                />
+              </InputGroup>
+            </Field>
+          </FormSection>
 
           {/* Доступ отделён заголовком, а не просто следующим полем: это
               не продолжение анкеты, а ключ от кабинета. */}
-          <h3 className="mt-2 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-            {t.settings.access}
-          </h3>
+          <FormSection title={t.settings.access}>
+            <Field>
+              <FieldLabel htmlFor="staff-new-phone">{t.auth.phone}</FieldLabel>
+              <Input
+                id="staff-new-phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                placeholder="+374 77 123 456"
+                required
+                autoComplete="off"
+                className="num"
+              />
+            </Field>
 
-          <label className="grid gap-1.5">
-            <span className="label">{t.auth.phone}</span>
-            <input
-              className="field auth-field"
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              placeholder="+374 77 123 456"
-              required
-              autoComplete="off"
-            />
-          </label>
+            <Field>
+              <FieldLabel htmlFor="staff-new-pin">
+                {t.auth.staffAccessCode} · {t.auth.pinHint}
+              </FieldLabel>
+              <Input
+                id="staff-new-pin"
+                name="pin"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+                autoComplete="off"
+                className="num"
+              />
+              <FieldDescription className="text-xs">{t.auth.staffAccessCodeNote}</FieldDescription>
+            </Field>
+          </FormSection>
 
-          <label className="grid gap-1.5">
-            <span className="label">
-              {t.auth.staffAccessCode} · {t.auth.pinHint}
-            </span>
-            <input
-              className="field auth-field num !text-center !text-[19px] !font-semibold"
-              name="pin"
-              inputMode="numeric"
-              pattern="\d{6}"
-              maxLength={6}
-              required
-              autoComplete="off"
-            />
-          </label>
-
-          <p className="note">{t.auth.staffAccessCodeNote}</p>
-
-          {state?.error && <p className="alert">{state.error}</p>}
+          {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
         </form>
-      </Sheet>
+      </EntitySheet>
     </>
   );
 }

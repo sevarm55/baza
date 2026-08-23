@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getFeed, getPeriodStats, getTenant, listStaff } from '@/lib/queries';
@@ -10,33 +11,23 @@ import { dayBounds, isDate, localDate } from '@/lib/history';
 import { daysInMonthOf, hhmm } from '@/lib/time';
 import { formatMoney, staffShare } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
-import { Figures, Panel, Plate, signOf } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
-import { PageHead } from '@/components/page-head';
-import { TodayOperations } from '../../today/operations';
-import type { Op } from '../../today/model';
 import { getDict } from '@/lib/i18n/server';
 import type { Dict } from '@/lib/i18n';
 import { intlLocale } from '@/lib/i18n/format';
 import { localizeTenantOrNull, serviceNameTerm, unitCount } from '@/lib/i18n/terms';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Panel, PanelGrid } from '@/components/patterns/panel';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { EmptyState } from '@/components/patterns/states';
+import { PersonAvatar } from '@/components/patterns/person';
+import { StatusBadge } from '@/components/patterns/status-badge';
+import { Button } from '@/components/ui/button';
+import { Journal } from '../../today/journal';
+import type { Op } from '../../today/model';
 
 /**
- * Один день целиком.
- *
- * Отвечает на вопрос, ради которого история и заводилась: кто стоял на
- * смене, кто что помыл, сколько вышло. Смены отдельно от записей —
- * человек мог отстоять день и не намыть ничего, и по одним записям этого
- * не увидеть.
- *
- * ЗДЕСЬ ЖЕ ВПЕРВЫЕ В ВЕБЕ ВИДНА НЕДОСТАЧА. Сдачу наличных продукт пишет
- * с самого начала (`shifts.cash_expected` и `cash_declared`), но в
- * браузере не было ни одного экрана, где её показывают: разницу между
- * «намыл наличными» и «сдал» владелец мог увидеть только на телефоне
- * или в уведомлении. Между тем это главный контроль всего продукта —
- * ради него смена и закрывается вопросом.
- *
- * Считает то же и тем же, что сводка и календарь. День, расходящийся с
- * месяцем, не читают вовсе.
+ * День целиком: кто стоял на смене, что было сделано, что вышло, и
+ * единственное в кабинете место, где видна сдача наличных по смене.
  */
 export default async function DayPage({ params }: { params: Promise<{ date: string }> }) {
   const t = await getDict();
@@ -44,8 +35,6 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   await ensureDb();
 
   const { date } = await params;
-  /* Кривую дату не доводим до базы: «9999-99-99» под шаблон подходит, а
-     границ из неё не собрать, и запрос ушёл бы с `null` (см. isDate). */
   if (!isDate(date)) notFound();
 
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
@@ -58,26 +47,20 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     getPeriodStats(tenant.id, from, to),
     getFeed(tenant.id, from, 200, to),
     shiftsOnDay(tenant.id, from, to),
-    // тот же знаменатель, что у сводки и календаря: длина месяца, в
-    // котором стоит этот день
     getPeriodCosts(tenant.id, from, to, daysInMonthOf(zone, from)),
-    // люди точки — для правки состава совместной записи из меню ленты
     listStaff(tenant.id),
   ]);
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const profit = profitOf(stats.revenue, stats.payroll, costs);
 
-  /* Записи приезжают уже посчитанными: доля исполнителя — `staffShare`
-     из снимка процента в самой записи. Второй раз это не считается
-     нигде. Тот же разбор, что на сводке. */
+  /* Записи уже посчитаны: доля из снимка процента в самой записи. */
   const ops: Op[] = feed.map((o) => {
     const share = o.staffPercent > 0 ? staffShare(o.price, o.staffPercent) : 0;
     return {
       id: o.id,
       time: hhmm(o.createdAt, zone),
       clientKey: o.clientKey,
-      /* Все, кто мыл, с долей каждого — та же форма, что на сводке. */
       crew: o.crew.map((p) => ({
         staffId: p.staffId,
         name: p.name,
@@ -89,8 +72,6 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
       payment: o.payment,
       paymentLabel: paymentLabel(o.payment, t),
       price: o.price,
-      /* Прайс приезжает рядом со взятым и только когда они разошлись:
-         скидка обязана быть видна там, где владелец читает работу. */
       listPrice: o.listPrice !== null && o.listPrice > o.price ? o.listPrice : null,
       percent: o.staffPercent,
       share,
@@ -110,76 +91,72 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const next = shiftDay(date, +1);
 
   return (
-    <>
-      <PageHead
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
         title={title}
-        meta={
-          <Link className="btn-inline" href={`/owner/calendar?m=${date.slice(0, 7)}`}>
-            {t.calendar.title}
-          </Link>
+        back={{ href: `/owner/calendar?m=${date.slice(0, 7)}`, label: t.calendar.title }}
+        actions={
+          <div className="flex items-center gap-1">
+            <DayStep href={`/owner/day/${prev}`} back label={t.common.back} />
+            {/* Вперёд не дальше сегодняшнего: завтрашнего дня ещё не было. */}
+            <DayStep href={`/owner/day/${next}`} enabled={next <= today} label={t.common.next} />
+          </div>
         }
-      >
-        <div className="flex items-center gap-1.5">
-          <DayStep href={`/owner/day/${prev}`} back />
-          {/* Вперёд не дальше сегодняшнего: завтрашнего дня ещё не было,
-              и открывать его пустым значило бы показать ноль там, где
-              нечему быть. */}
-          <DayStep href={`/owner/day/${next}`} enabled={next <= today} />
-        </div>
-      </PageHead>
+      />
 
-      <section
-        className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-        aria-label={t.owner.profit}
-      >
-        <Plate label={t.owner.profit} value={money(profit)} note={title} sign={signOf(profit)} />
-        <Figures
-          items={[
-            { label: t.owner.revenue, value: money(stats.revenue) },
-            { label: t.owner.payrollAccrued, value: money(stats.payroll) },
-            { label: t.expenses.title, value: money(costs.total) },
-          ]}
+      <MetricStrip columns={4}>
+        <Metric
+          size="lg"
+          label={profit >= 0 ? t.owner.profit : t.owner.inTheRed}
+          value={money(Math.abs(profit))}
+          tone={profit < 0 ? 'destructive' : 'default'}
         />
-      </section>
+        <Metric
+          label={t.owner.revenue}
+          value={money(stats.revenue)}
+          hint={
+            <>
+              {unitCount(stats.count, tenant.unitOne, t.locale)}
+              {stats.avgCheck > 0 && ` · ${t.owner.avgCheck} ${money(stats.avgCheck)}`}
+            </>
+          }
+        />
+        <Metric
+          label={t.owner.payrollAccrued}
+          value={stats.payroll > 0 ? `−${money(stats.payroll)}` : money(0)}
+          hint={`${t.payment.cash} ${money(stats.cash)}`}
+        />
+        <Metric
+          label={t.expenses.title}
+          value={costs.total > 0 ? `−${money(costs.total)}` : money(0)}
+        />
+      </MetricStrip>
 
-      <p className="quick">
-        {unitCount(stats.count, tenant.unitOne, t.locale)}
-        {stats.avgCheck > 0 && (
-          <>
-            <i />
-            {t.owner.avgCheck} <b className="num">{money(stats.avgCheck)}</b>
-          </>
-        )}
-        <i />
-        {t.payment.cash} <b className="num">{money(stats.cash)}</b>
-      </p>
-
-      <div className="mt-[var(--seam)] grid gap-[var(--seam)] lg:grid-cols-12">
-        <Panel title={t.day.shifts} count={crew.length} className="lg:col-span-4">
+      <PanelGrid at="xl">
+        <Panel title={t.day.shifts} count={crew.length} className="xl:col-span-4" padded={false}>
           {crew.length === 0 ? (
-            <EmptyState title={t.day.noShifts} note={t.day.noShiftsNote} />
+            <EmptyState compact title={t.day.noShifts} description={t.day.noShiftsNote} />
           ) : (
-            <div className="rows">
+            <ul className="divide-y divide-border">
               {crew.map((s) => (
-                <div key={`${s.userId}-${s.openedAt.getTime()}`} className="setting-row">
-                  <span className="min-w-0">
-                    <span className="setting-row-label" style={{ color: personColor(s.name) }}>
-                      {s.name}
-                    </span>
-                    <span className="setting-row-note num">
+                <li
+                  key={`${s.userId}-${s.openedAt.getTime()}`}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
+                  <PersonAvatar name={s.name} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{s.name}</span>
+                    <span className="num block text-xs text-muted-foreground">
                       {s.closedAt
                         ? t.work.range(hhmm(s.openedAt, zone), hhmm(s.closedAt, zone))
                         : t.work.since(hhmm(s.openedAt, zone))}
                     </span>
                   </span>
-
-                  {/* Сдача наличных.
-
-                      Три разных состояния, и путать их нельзя. Не
-                      отмечал — так и говорим: это не ноль. Сошлось —
-                      называем сумму и молчим. Разошлось — называем
-                      разницу, потому что ради неё смена и закрывается
-                      вопросом. */}
+                  {/* Сдача наличных: три разных состояния, и путать их
+                      нельзя. Не отмечал это не ноль; сошлось: сумма и
+                      тишина; разошлось: разница, ради неё смена и
+                      закрывается вопросом. */}
                   <span className="shrink-0 text-end">
                     <Cash
                       open={s.closedAt === null}
@@ -189,14 +166,14 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
                       t={t}
                     />
                   </span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </Panel>
 
-        <div className="lg:col-span-8">
-          <TodayOperations
+        <div className="min-w-0 xl:col-span-8">
+          <Journal
             ops={ops}
             staff={roster.map((s) => ({ id: s.id, name: s.name }))}
             teamPercent={tenant.teamPercent}
@@ -210,18 +187,11 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             methods={[]}
           />
         </div>
-      </div>
-    </>
+      </PanelGrid>
+    </div>
   );
 }
 
-/**
- * Сколько наличных намыто и сколько сдано.
- *
- * Разница показывается только когда она есть: «−0 ֏» сообщает ровно то
- * же, что её отсутствие, и занимает место. Недостача янтарным, излишек
- * тоже — оба означают, что счёт не сошёлся, и разбираться надо с обоими.
- */
 function Cash({
   open,
   expected,
@@ -229,40 +199,29 @@ function Cash({
   money,
   t,
 }: {
-  /** смена ещё идёт: сдавать нечего, потому что не закончили */
   open: boolean;
   expected: number | null;
   declared: number | null;
   money: (n: number) => string;
   t: Dict;
 }) {
-  /* Открытая смена не «без наличных»: они копятся прямо сейчас, а
-     `cash_expected` появится только при закрытии. Сказать здесь
-     «наличных не было» значило бы соврать про идущую смену — и соврать
-     ровно в том месте, ради которого страница и сделана. */
   if (open) {
     return (
-      <span className="text-[12.5px]" style={{ color: 'var(--good-on-board)' }}>
+      <StatusBadge tone="success" dot>
         {t.day.stillOpen}
-      </span>
+      </StatusBadge>
     );
   }
 
   if (expected === null || expected === 0) {
-    return (
-      <span className="text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-        {t.day.noCash}
-      </span>
-    );
+    return <span className="text-xs text-muted-foreground">{t.day.noCash}</span>;
   }
 
   if (declared === null) {
     return (
       <>
-        <span className="num block text-[14px] font-semibold">{money(expected)}</span>
-        <span className="block text-[12px]" style={{ color: 'var(--board-muted)' }}>
-          {t.day.notDeclared}
-        </span>
+        <span className="num block text-sm font-semibold">{money(expected)}</span>
+        <span className="block text-xs text-muted-foreground">{t.day.notDeclared}</span>
       </>
     );
   }
@@ -270,36 +229,40 @@ function Cash({
   const diff = declared - expected;
   return (
     <>
-      <span className="num block text-[14px] font-semibold">{money(declared)}</span>
-      <span
-        className="num block text-[12px]"
-        style={{ color: diff === 0 ? 'var(--board-muted)' : 'var(--warn-on-board)' }}
-      >
-        {diff === 0
-          ? t.day.cashMatches
-          : `${diff > 0 ? '+' : '−'}${money(Math.abs(diff))}`}
+      <span className="num block text-sm font-semibold">{money(declared)}</span>
+      <span className={`num block text-xs ${diff === 0 ? 'text-muted-foreground' : 'text-warning'}`}>
+        {diff === 0 ? t.day.cashMatches : `${diff > 0 ? '+' : '−'}${money(Math.abs(diff))}`}
       </span>
     </>
   );
 }
 
-function DayStep({ href, enabled = true, back = false }: { href: string; enabled?: boolean; back?: boolean }) {
+function DayStep({
+  href,
+  enabled = true,
+  back = false,
+  label,
+}: {
+  href: string;
+  enabled?: boolean;
+  back?: boolean;
+  label: string;
+}) {
   const Icon = back ? ChevronLeft : ChevronRight;
   if (!enabled) {
     return (
-      <span className="btn-inline" style={{ opacity: 0.35 }} aria-hidden>
-        <Icon className="size-4" />
-      </span>
+      <Button variant="outline" size="icon-sm" aria-disabled aria-label={label} className="opacity-40">
+        <Icon />
+      </Button>
     );
   }
   return (
-    <Link className="btn-inline" href={href}>
-      <Icon className="size-4" aria-hidden />
-    </Link>
+    <Button variant="outline" size="icon-sm" render={<Link href={href} aria-label={label} />}>
+      <Icon />
+    </Button>
   );
 }
 
-/** Соседний день. Через полдень UTC — от края суток далеко в любой зоне. */
 function shiftDay(date: string, by: number): string {
   const [y, m, d] = date.split('-').map(Number);
   const at = new Date(Date.UTC(y, m - 1, d + by, 12));

@@ -2,27 +2,31 @@
 
 import { useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
-import { Panel } from '@/components/board';
+import { Panel } from '@/components/patterns/panel';
+import { Metric } from '@/components/patterns/metric';
+import { StatusBadge } from '@/components/patterns/status-badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatMoney } from '@/lib/money';
 import { StaffRow } from './staff-row';
 import type { DayGroup } from './model';
 import { useT } from '@/lib/i18n/client';
-import { unitCount, staffCount } from '@/lib/i18n/terms';
+import { staffCount, unitCount, unitForms } from '@/lib/i18n/terms';
+
+/** Шапка и ячейки компактной таблицы: одна геометрия на все дни. */
+const HEAD = 'h-9 px-4 text-xs font-medium text-muted-foreground';
 
 /**
- * Рабочий день — блоком.
+ * Рабочий день — панелью.
  *
- * Раньше блок назывался именем человека, а внутри лежали суммы за разные
- * дни, и было непонятно, что закрывает кнопка. Владелец же рассчитывается
- * днями, поэтому блок — это день, а люди внутри него.
- *
- * В шапке стоит то, ради чего блок читают: сколько по этому дню осталось
- * отдать. Не «начислено за день» и не «выплачено» — именно долг: два
- * других числа справочные, и ставить их на то же место значит заставлять
- * выбирать, какое из трёх сейчас важно.
+ * Владелец рассчитывается днями, поэтому панель — это день, а люди
+ * внутри него. В шапке стоит то, ради чего панель читают: сколько по
+ * этому дню осталось отдать. Не «начислено» и не «выплачено» — именно
+ * долг: два других числа справочные, и ставить их на то же место значит
+ * заставлять выбирать, какое из трёх сейчас важно.
  *
  * Закрытый день сворачивается в строку. Он ничего не требует, и занимать
- * им карточку в полный рост — значит хоронить под ним те дни, за которые
+ * им панель в полный рост — значит хоронить под ним те дни, за которые
  * действительно должны.
  */
 export function DayCard({
@@ -57,119 +61,128 @@ export function DayCard({
   const mine = payable.filter((p) => picked.has(p.key));
   const chosen = mine.reduce((sum, p) => sum + p.earned, 0);
 
+  const heading = (
+    <>
+      <span>{group.date}</span>
+      {group.today && <StatusBadge tone="brand">{t.common.today}</StatusBadge>}
+    </>
+  );
+
   if (collapsed && !open) {
     return (
-      <Panel>
-        <button type="button" className="pay-closed" onClick={() => setOpen(true)}>
-          <span className="text-[15px] font-semibold">{group.title}</span>
-          <span className="tag-good">
-            <Check className="me-1 size-3" aria-hidden />
-            {t.payroll.dayAllPaid}
+      <Panel padded={false}>
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-expanded={false}
+          onClick={() => setOpen(true)}
+        >
+          <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold">
+            {heading}
           </span>
-          <span className="num ms-auto text-[15px] font-semibold">{money(group.paid)}</span>
-          <ChevronRight className="size-4 shrink-0" style={{ color: 'var(--faint)' }} aria-hidden />
+          <StatusBadge tone="success">
+            <Check aria-hidden />
+            {t.payroll.dayAllPaid}
+          </StatusBadge>
+          <span className="num ms-auto text-sm font-semibold">{money(group.paid)}</span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         </button>
       </Panel>
     );
   }
 
   return (
-    <Panel>
-      <div className="mb-1 flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-        <div className="min-w-0">
-          {/* Метки «сегодня» рядом с заголовком нет: слово уже стоит в
-              самом заголовке, а плашка, повторяющая соседнее слово, —
-              шум, который приходится прочитать, чтобы понять, что он
-              ничего не добавляет. */}
-          <h2 className="text-[16px] leading-tight font-semibold">{group.title}</h2>
-          <p className="num mt-0.5 text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-            {staffCount(group.people.length, staffRole, t.locale)} ·{' '}
-            {unitCount(group.units, unitOne, t.locale)}
-          </p>
-        </div>
-
-        {/* `ms-auto` держит итог у правого края и после переноса: на
-            телефоне шапка складывается в две строки, и без него сумма
-            дня уезжала бы к левому краю, под заголовок. */}
-        <div className="ms-auto flex items-center gap-6">
-          {/* «Выбрать всех» — тихой подписью, а не второй кнопкой рядом с
+    <Panel
+      padded={false}
+      title={heading}
+      description={
+        <span className="num">
+          {staffCount(group.people.length, staffRole, t.locale)} ·{' '}
+          {unitCount(group.units, unitOne, t.locale)}
+        </span>
+      }
+      actions={
+        <>
+          {/* «Выбрать всех» — тихой кнопкой, а не второй рядом с
               расчётом: закрыть день целиком нужно часто, но выбор делает
               человек, и по умолчанию не отмечено ничего. */}
           {payable.length > 1 && mine.length < payable.length && (
-            <button
-              type="button"
-              className="text-[12.5px] font-medium underline-offset-2 hover:underline"
-              style={{ color: 'var(--board-muted)' }}
+            <Button
+              variant="ghost"
+              size="xs"
               disabled={busy}
               onClick={() => onPickAll(payable.map((p) => p.key))}
             >
               {t.payroll.selectAll}
-            </button>
+            </Button>
           )}
 
-          <div className="text-end">
-            {group.outstanding > 0 ? (
-              <>
-                <div className="num text-[19px] leading-none font-bold tracking-[-0.03em]">
-                  {money(group.outstanding)}
-                </div>
-                <div className="mt-1 text-[11.5px]" style={{ color: 'var(--board-muted)' }}>
-                  {t.payroll.dayToPay}
-                </div>
-              </>
-            ) : (
-              <div
-                className="flex items-center gap-1.5 text-[13px] font-semibold"
-                style={{ color: 'var(--good-on-board)' }}
-              >
-                <Check className="size-4" aria-hidden />
-                {t.payroll.dayAllPaid}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {group.people.length === 0 ? (
-        <p className="py-5 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {t.payroll.dayEmpty}
-        </p>
-      ) : (
-        <div className="board-journal">
-          {group.people.map((entry) => (
-            <StaffRow
-              key={entry.key}
-              entry={entry}
-              currency={currency}
-              unitOne={unitOne}
-              picked={picked.has(entry.key)}
-              onPick={entry.staffId && entry.earned > 0 ? onPick : null}
-              onPay={entry.staffId && entry.earned > 0 ? (key) => onPay([key]) : null}
-              busy={busy}
+          {group.outstanding > 0 ? (
+            <Metric
+              label={t.payroll.dayToPay}
+              value={money(group.outstanding)}
+              size="sm"
+              className="items-end text-right"
             />
-          ))}
-        </div>
+          ) : (
+            <StatusBadge tone="success">
+              <Check aria-hidden />
+              {t.payroll.dayAllPaid}
+            </StatusBadge>
+          )}
+        </>
+      }
+    >
+      {group.people.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.payroll.dayEmpty}</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={`${HEAD} w-10 pr-0`}>
+                <span className="sr-only">{t.payroll.selectAll}</span>
+              </TableHead>
+              {/* Столбец людей назван словом самой мойки («Լվացող»), как
+                  и в журнале: заголовок из словаря спорил бы с ним. */}
+              <TableHead className={HEAD}>{staffRole}</TableHead>
+              <TableHead className={`${HEAD} hidden md:table-cell`}>
+                {unitForms(unitOne, t.locale).many}
+              </TableHead>
+              <TableHead className={`${HEAD} text-right`}>{t.owner.payrollAccrued}</TableHead>
+              <TableHead className={`${HEAD} text-right`}>{t.owner.colPayment}</TableHead>
+              <TableHead className={`${HEAD} w-10 px-2`}>
+                <span className="sr-only">{t.payroll.details}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {group.people.map((entry) => (
+              <StaffRow
+                key={entry.key}
+                entry={entry}
+                currency={currency}
+                unitOne={unitOne}
+                picked={picked.has(entry.key)}
+                onPick={entry.staffId && entry.earned > 0 ? onPick : null}
+                onPay={entry.staffId && entry.earned > 0 ? (key) => onPay([key]) : null}
+                busy={busy}
+              />
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       {/* Полоса расчёта появляется только когда выбрали. Пустая полоса с
           погашенной кнопкой под каждым днём — обещание действия, которого
-          не просили. */}
+          не просили. Сумма стоит на кнопке, а не рядом с ней: число, ради
+          которого нажимают, обязано быть там, куда смотрят перед
+          нажатием. */}
       {mine.length > 0 && (
-        <div className="pay-bar">
-          {/* Сумма стоит на кнопке, а не рядом с ней: число, ради
-              которого нажимают, обязано быть в том месте, куда смотрят
-              перед нажатием, и повторять его дважды незачем. */}
-          <span className="num text-[13px]" style={{ color: 'var(--board-muted)' }}>
-            {t.payroll.selected(mine.length)}
-          </span>
-          <button
-            type="button"
-            className="btn btn-auto"
-            disabled={busy}
-            onClick={() => onPay(mine.map((p) => p.key))}
-          >
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+          <span className="num text-sm text-muted-foreground">{t.payroll.selected(mine.length)}</span>
+          <Button size="sm" disabled={busy} onClick={() => onPay(mine.map((p) => p.key))}>
             {t.payroll.paySum(money(chosen))}
-          </button>
+          </Button>
         </div>
       )}
     </Panel>

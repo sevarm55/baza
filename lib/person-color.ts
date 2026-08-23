@@ -12,7 +12,7 @@
 const COUNT = 6;
 
 export function personColor(name: string | null | undefined): string {
-  if (!name) return 'var(--muted)';
+  if (!name) return 'var(--muted-foreground)';
 
   /* Простая устойчивая свёртка. Криптостойкость тут не нужна, нужна
      одинаковость: имя всегда даёт один и тот же цвет. */

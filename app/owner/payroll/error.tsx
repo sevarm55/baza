@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AsyncError } from '@/components/loading';
+import { ErrorState } from '@/components/patterns/error-state';
+import { PageHeader } from '@/components/patterns/page-header';
 import { useT } from '@/lib/i18n/client';
 
 /**
@@ -9,7 +10,7 @@ import { useT } from '@/lib/i18n/client';
  *
  * Отдельная граница у этой страницы, а не общая на кабинет: здесь считают
  * деньги, и белый экран вместо сумм читается как «данные пропали», а не
- * как «связь моргнула». Поэтому страница остаётся страницей — заголовок,
+ * как «связь моргнула». Поэтому страница остаётся страницей: заголовок,
  * одна строка о том, что случилось, и кнопка попробовать ещё раз.
  *
  * Ни кода ошибки, ни подробностей: владельцу мойки они ничего не говорят,
@@ -28,15 +29,9 @@ export default function PayrollError({
   }, [error]);
 
   return (
-    <>
-      <h1 className="page-title">{t.owner.tabPayroll}</h1>
-
-      <div
-        className="panel-pad mt-[var(--seam)] rounded-[var(--radius-card)]"
-        style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
-      >
-        <AsyncError title={t.payroll.loadFailed} note={t.common.offlineNote} onRetry={reset} />
-      </div>
-    </>
+    <div className="flex flex-col gap-5">
+      <PageHeader className="mb-0" title={t.owner.tabPayroll} />
+      <ErrorState title={t.payroll.loadFailed} description={t.common.offlineNote} onRetry={reset} />
+    </div>
   );
 }

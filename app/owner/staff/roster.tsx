@@ -1,36 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
-import { Panel } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
+import { ChevronRight, Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DataTable, type Column } from '@/components/patterns/data-table';
+import { Panel } from '@/components/patterns/panel';
+import { Person, PersonAvatar } from '@/components/patterns/person';
+import { EmptyState } from '@/components/patterns/states';
+import { StatusBadge } from '@/components/patterns/status-badge';
 import { formatMoney } from '@/lib/money';
+import { formatPhone } from '@/lib/phone';
+import { useT } from '@/lib/i18n/client';
+import { unitForms } from '@/lib/i18n/terms';
 import { AddStaff } from './add-staff';
 import { StaffSheet } from './staff-sheet';
 import type { StaffPerson } from './model';
-import { useT } from '@/lib/i18n/client';
-import { unitCount, unitForms } from '@/lib/i18n/terms';
 
 /**
  * Список людей.
  *
- * Была страница-справочник: имя, телефон, процент — и всё. Она отвечала,
- * кто заведён, и молчала о том, ради чего этих людей держат; за этим
- * владелец шёл на сводку и в зарплаты, а вернувшись, не помнил, у кого
- * какой процент.
+ * Строка отвечает целиком: кто, на смене ли он сейчас, по какой ставке,
+ * сколько машин сделал за месяц и сколько на этом заработал. Телефона и
+ * кода в строке нет — они ключ от кабинета, а не результат работы, и
+ * живут в карточке отдельным разделом.
  *
- * Теперь строка отвечает целиком: кто, на смене ли он сейчас, сколько
- * машин сделал за месяц, сколько на этом заработал и по какой ставке.
- * Телефона и кода в строке нет — они ключ от кабинета, а не результат
- * работы, и живут в карточке отдельным разделом.
- *
- * Точка слева — состояние, а не опознавательный знак: зелёная значит
- * «стоит на мойке прямо сейчас». Цветом человека помечено имя — тот же
- * цвет, что в ленте, во дворе и на зарплатах.
- *
- * На широком экране это таблица, потому что здесь именно сравнивают —
- * у кого больше машин, у кого выше ставка; на телефоне сравнивать нечем,
- * там читают строку за строкой.
+ * Владелец — не строка этого списка: у него нет ни ставки, ни смены, ни
+ * начислений, и в таблице сравнения он давал бы строку из прочерков.
+ * Своей панелью он отвечает на другой вопрос — «под кем этот кабинет».
  */
 export function StaffRoster({
   rows,
@@ -48,169 +44,129 @@ export function StaffRoster({
   const person = rows.find((r) => r.id === open) ?? null;
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
-  /* Владелец — не строка этого списка.
-   *
-   * У него нет ни ставки, ни смены, ни начислений, и в таблице, где
-   * сравнивают именно их, он давал строку из прочерков. Метка роли рядом
-   * с именем не помогала: глаз идёт по столбцам чисел, а не по подписям.
-   * Своей панелью он отвечает на другой вопрос — «под кем этот кабинет», —
-   * и не мешает сравнивать тех, кто моет. Так же и в приложении. */
   const crew = rows.filter((p) => !p.owner);
   const owners = rows.filter((p) => p.owner);
+  const editLabel = (p: StaffPerson) => `${p.name} · ${t.common.edit}`;
 
   if (crew.length === 0 && owners.length === 0) {
     return (
-      <Panel>
-        <EmptyState
-          title={t.settings.staffEmpty}
-          note={t.settings.staffEmptyNote}
-          action={<AddStaff staffRole={staffRole} variant="cta" />}
-        />
-      </Panel>
+      <EmptyState
+        title={t.settings.staffEmpty}
+        description={t.settings.staffEmptyNote}
+        action={<AddStaff staffRole={staffRole} />}
+      />
     );
   }
 
+  const columns: Column<StaffPerson>[] = [
+    {
+      key: 'person',
+      header: t.settings.staff,
+      cell: (p) => (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <PersonAvatar name={p.name} size="sm" />
+          <span className="truncate font-semibold">{p.name}</span>
+          {/* Точка здесь означает состояние, а не человека: цвет
+              человека уже стоит в кружке, а значок говорит, стоит ли он
+              на мойке прямо сейчас. */}
+          {p.present && (
+            <StatusBadge tone="success" dot>
+              {t.owner.onShiftNow}
+            </StatusBadge>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'percent',
+      header: t.settings.percent,
+      align: 'right',
+      hideBelow: 'sm',
+      className: 'text-muted-foreground',
+      cell: (p) => `${p.percent}%`,
+    },
+    {
+      key: 'count',
+      header: unitForms(unitOne, t.locale).many,
+      align: 'right',
+      hideBelow: 'md',
+      className: 'text-muted-foreground',
+      cell: (p) => (p.count > 0 ? String(p.count) : '—'),
+    },
+    {
+      key: 'earned',
+      header: t.owner.payrollAccrued,
+      align: 'right',
+      /* Начислено и долг в одной ячейке: их читают вместе — «за месяц
+         сто тридцать пять, из них не отдано шесть». */
+      cell: (p) => (
+        <span className="flex flex-col items-end">
+          <span className="font-semibold">{money(p.earned)}</span>
+          {p.due > 0 && (
+            <span className="text-xs text-warning">
+              {t.owner.toPay.toLocaleLowerCase(t.locale)} {money(p.due)}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">{t.common.edit}</span>,
+      align: 'right',
+      width: '3rem',
+      className: 'py-1.5',
+      cell: (p) => (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={editLabel(p)}
+          onClick={() => setOpen(p.id)}
+        >
+          <Pencil />
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <>
-      <Panel title={t.settings.staff} count={crew.length}>
-        {/* Телефон: строками. */}
-        <div className="board-journal lg:hidden">
-          {crew.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setOpen(p.id)}
-              className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
-              aria-label={`${p.name} · ${t.common.edit}`}
-            >
-              <span
-                className={`size-2 shrink-0 rounded-full ${p.present ? 'dot-live' : 'dot-idle'}`}
-                aria-label={p.present ? t.owner.onShiftNow : undefined}
-                aria-hidden={p.present ? undefined : true}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate text-[14.5px] font-semibold">{p.name}</span>
-                </span>
-                <span
-                  className="num block truncate text-[12px]"
-                  style={{ color: 'var(--board-muted)' }}
-                >
-                  {unitCount(p.count, unitOne, t.locale)} · {p.percent}%
-                  {p.due > 0 && ` · ${t.owner.toPay.toLocaleLowerCase(t.locale)} ${money(p.due)}`}
-                </span>
-              </span>
+      {crew.length > 0 ? (
+        <DataTable
+          columns={columns}
+          rows={crew}
+          rowKey={(p) => p.id}
+          rowLabel={editLabel}
+          onRowClick={(p) => setOpen(p.id)}
+        />
+      ) : (
+        <EmptyState
+          title={t.settings.staffEmpty}
+          description={t.settings.staffEmptyNote}
+          action={<AddStaff staffRole={staffRole} />}
+        />
+      )}
 
-              <span className="num shrink-0 text-[14px] font-semibold">{money(p.earned)}</span>
-              <ChevronRight
-                className="size-3.5 shrink-0"
-                style={{ color: 'var(--board-muted)' }}
-                aria-hidden
-              />
-            </button>
-          ))}
-        </div>
-
-        <table className="tbl hidden lg:table">
-          <thead>
-            <tr>
-              <th>{t.settings.staff}</th>
-              <th className="end">{unitForms(unitOne, t.locale).many}</th>
-              <th className="end">{t.owner.payrollAccrued}</th>
-              <th className="end">{t.settings.percent}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {crew.map((p) => (
-              /* Без `role` и `tabIndex` на `<tr>`: с ними React молча
-                 бросает гидратацию всего поддерева, и таблица остаётся
-                 мёртвой разметкой. Клавиатуре служит настоящая кнопка в
-                 конце строки. */
-              <tr key={p.id} className="row-click" onClick={() => setOpen(p.id)}>
-                <td>
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    {/* Точка здесь означает состояние, а не человека.
-
-                        Цвет человека — опознавательный знак, он стоит в
-                        ленте и во дворе, где имён нет. Здесь имя написано
-                        целиком, а вопрос другой: стоит ли он на мойке
-                        прямо сейчас. Две точки подряд отвечали бы на два
-                        вопроса сразу и не отвечали ни на один. */}
-                    <span
-                      className={`size-2 shrink-0 rounded-full ${
-                        p.present ? 'dot-live' : 'dot-idle'
-                      }`}
-                      aria-label={p.present ? t.owner.onShiftNow : undefined}
-                      aria-hidden={p.present ? undefined : true}
-                    />
-                    <span className="truncate text-[15px] font-semibold">{p.name}</span>
-                    {/* Метки «на смене» здесь больше нет: слева от имени
-                        уже горит зелёная точка, и она означает ровно это.
-                        Точка и слово рядом — один ответ, записанный
-                        дважды, и вместе они весят больше самого имени. */}
-                  </span>
-                </td>
-
-                <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                  {p.count || '—'}
-                </td>
-
-                {/* Начислено и долг в одной ячейке: их читают вместе —
-                    «за месяц сто тридцать пять, из них не отдано шесть», —
-                    и разнесённые по столбцам они гоняют глаз
-                    туда-обратно. */}
-                <td className="num end">
-                  <span className="block font-semibold">{money(p.earned)}</span>
-                  {p.due > 0 && (
-                    <span className="block text-[12px]" style={{ color: 'var(--warn-on-board)' }}>
-                      {t.owner.toPay.toLocaleLowerCase(t.locale)} {money(p.due)}
-                    </span>
-                  )}
-                </td>
-
-                <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                  {p.percent} %
-                </td>
-
-                <td className="end">
-                  <button
-                    type="button"
-                    onClick={() => setOpen(p.id)}
-                    aria-label={`${p.name} · ${t.common.edit}`}
-                    style={{ color: 'var(--board-muted)' }}
-                  >
-                    <ChevronRight className="size-3.5" aria-hidden />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Panel>
-
-      {/* Владелец — отдельной панелью, без столбцов сравнения: у него
-          нет ни машин, ни ставки, и сравнивать его не с кем. Карточка
-          открывается той же кнопкой: имя и телефон меняют там же, где
-          у остальных. */}
+      {/* Владелец отдельной панелью, без столбцов сравнения. Карточка
+          открывается той же кнопкой: имя правят там же, где у остальных. */}
       {owners.length > 0 && (
-        <Panel title={t.roles.owner}>
-          <div className="board-journal">
+        <Panel title={t.roles.owner} padded={false}>
+          <div className="flex flex-col divide-y divide-border">
             {owners.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setOpen(p.id)}
-                className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
-                aria-label={`${p.name} · ${t.common.edit}`}
+                aria-label={editLabel(p)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
               >
-                <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">
-                  {p.name}
-                </span>
-                <ChevronRight
-                  className="size-3.5 shrink-0"
-                  style={{ color: 'var(--board-muted)' }}
-                  aria-hidden
+                <Person
+                  name={p.name}
+                  note={<span className="num">{formatPhone(p.phone)}</span>}
+                  className="flex-1"
+                  right={
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  }
                 />
               </button>
             ))}

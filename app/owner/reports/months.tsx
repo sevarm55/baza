@@ -1,39 +1,46 @@
 import Link from 'next/link';
-import { Panel, signColor, type Sign } from '@/components/board';
+import { TableShell, cellMuted, cellNum, headNum } from '@/components/patterns/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { getDict } from '@/lib/i18n/server';
-import { unitCount, unitForms } from '@/lib/i18n/terms';
+import { unitForms } from '@/lib/i18n/terms';
+import { cn } from '@/lib/utils';
 
 export type MonthRow = {
   key: string;
   name: string;
   href: string;
   current: boolean;
-  /** в месяце не было ни одной машины: строка сворачивается */
+  /** в месяце не было ни машины, ни расхода: строка сворачивается */
   empty: boolean;
   count: number;
   revenue: string;
   payroll: string;
   costs: string;
   profit: string;
-  /** знак итога: считает `signOf`, а не таблица */
-  sign: Sign;
+  /** итог ушёл в минус: считает страница, а не таблица */
+  loss: boolean;
   kept: number;
 };
 
 /**
  * Месяцы подряд, по строке на каждый.
  *
- * Таблица осталась, но перестала быть главным интерфейсом отчёта: она
- * отвечает на «покажи точные числа», а не на «лучше или хуже стало» —
- * на второе отвечает график выше. Поэтому она внизу.
+ * Таблица отвечает на «покажи точные числа», а не на «лучше или хуже
+ * стало»: на второе отвечает график выше. Поэтому она внизу.
  *
- * Пустой месяц не рисует шесть нулей в ряд. Шесть нулей выглядят как
+ * Пустой месяц не рисует шесть нулей в ряд: шесть нулей выглядят как
  * шесть показаний, и глаз честно пытается их прочитать, прежде чем
- * понять, что мойка тогда не работала. Одна строка словами говорит то же
- * самое и не занимает места.
+ * понять, что мойка тогда не работала. Одна фраза говорит то же самое.
  *
- * Строка открывает свой месяц: из таблицы попадают в разбор, а не
- * наоборот.
+ * Строка открывает свой месяц ссылкой в первой ячейке: у неё и фокус,
+ * и имя, а на `<tr>` ни роли, ни `tabIndex`.
  */
 export async function MonthsTable({
   rows,
@@ -45,99 +52,70 @@ export async function MonthsTable({
   className?: string;
 }) {
   const t = await getDict();
-  return (
-    <Panel title={t.reports.byMonth} count={rows.length} className={className}>
-      {/* Телефон: строками. Шесть колонок на экране в ладонь шириной
-          превращаются либо в горизонтальную прокрутку, где не видно
-          начала строки, либо в кашу. */}
-      <div className="board-journal lg:hidden">
-        {rows.map((m) => (
-          <Link key={m.key} href={m.href} className="flex items-center gap-2.5 px-0.5 py-2.5">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14.5px] font-semibold">{m.name}</span>
-              <span
-                className="num block truncate text-[12px]"
-                style={{ color: 'var(--board-muted)' }}
-              >
-                {m.empty
-                  ? t.reports.emptyMonth
-                  : `${unitCount(m.count, unitOne, t.locale)} · ${m.revenue}`}
-              </span>
-            </span>
-            {!m.empty && (
-              <span className="shrink-0 text-end">
-                <span
-                  className="num block text-[14px] font-semibold"
-                  style={{ color: signColor(m.sign) }}
-                >
-                  {m.profit}
-                </span>
-                <span className="num block text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                  {m.kept}%
-                </span>
-              </span>
-            )}
-          </Link>
-        ))}
-      </div>
+  const head = 'h-9 px-4 text-xs text-muted-foreground';
+  const cell = 'px-4 py-2.5';
 
-      <table className="tbl hidden lg:table">
-        <thead>
-          <tr>
-            <th>{t.reports.month}</th>
-            <th className="end">{unitForms(unitOne, t.locale).many}</th>
-            <th className="end">{t.owner.revenue}</th>
-            <th className="end">{t.owner.payrollAccrued}</th>
-            <th className="end">{t.owner.costs}</th>
-            <th className="end">{t.owner.profit}</th>
-          </tr>
-        </thead>
-        <tbody>
+  return (
+    <TableShell title={t.reports.byMonth} className={className}>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className={head}>{t.reports.month}</TableHead>
+            <TableHead className={cn(head, headNum, 'hidden sm:table-cell')}>
+              {unitForms(unitOne, t.locale).many}
+            </TableHead>
+            <TableHead className={cn(head, headNum)}>{t.owner.revenue}</TableHead>
+            <TableHead className={cn(head, headNum, 'hidden md:table-cell')}>
+              {t.owner.payrollAccrued}
+            </TableHead>
+            <TableHead className={cn(head, headNum, 'hidden md:table-cell')}>
+              {t.owner.costs}
+            </TableHead>
+            <TableHead className={cn(head, headNum)}>{t.owner.profit}</TableHead>
+            <TableHead className={cn(head, headNum)}>{t.owner.kept}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((m) => (
-            /* Без `role` и `tabIndex` на `<tr>`: с ними React молча
-               бросает гидратацию поддерева. Клавиатуре служит ссылка в
-               первой ячейке — у неё и фокус, и имя. */
-            <tr key={m.key} data-on={m.current ? '' : undefined} className="month-row">
-              <td>
-                <Link href={m.href} className="month-open">
+            <TableRow key={m.key} className={cn(m.current && 'bg-primary-soft/40 hover:bg-primary-soft/40')}>
+              <TableCell className={cn(cell, 'font-medium')}>
+                <Link
+                  href={m.href}
+                  aria-current={m.current ? 'page' : undefined}
+                  className="underline-offset-4 hover:text-primary hover:underline"
+                >
                   {m.name}
                 </Link>
-              </td>
+              </TableCell>
 
               {m.empty ? (
-                /* Пустой месяц — одна фраза вместо пяти нулей. */
-                <td colSpan={5} className="text-center" style={{ color: 'var(--board-muted)' }}>
+                <TableCell colSpan={6} className={cn(cell, cellMuted, 'text-center')}>
                   {t.reports.emptyMonth}
-                </td>
+                </TableCell>
               ) : (
                 <>
-                  <td className="num end" style={{ color: 'var(--board-muted)' }}>
+                  <TableCell className={cn(cell, cellNum, cellMuted, 'hidden sm:table-cell')}>
                     {m.count}
-                  </td>
-                  <td className="num end">{m.revenue}</td>
-                  <td className="num end" style={{ color: 'var(--board-muted)' }}>
+                  </TableCell>
+                  <TableCell className={cn(cell, cellNum)}>{m.revenue}</TableCell>
+                  <TableCell className={cn(cell, cellNum, cellMuted, 'hidden md:table-cell')}>
                     {m.payroll}
-                  </td>
-                  <td className="num end" style={{ color: 'var(--board-muted)' }}>
+                  </TableCell>
+                  <TableCell className={cn(cell, cellNum, cellMuted, 'hidden md:table-cell')}>
                     {m.costs}
-                  </td>
-                  {/* Итог месяца и доля в одной ячейке: их читают вместе —
-                      «сто тысяч, это сорок процентов», — и разнесённые по
-                      столбцам они гоняют глаз туда-обратно. */}
-                  <td className="num end">
-                    <span className="block font-semibold" style={{ color: signColor(m.sign) }}>
-                      {m.profit}
-                    </span>
-                    <span className="block text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                      {m.kept}%
-                    </span>
-                  </td>
+                  </TableCell>
+                  <TableCell
+                    className={cn(cell, cellNum, 'font-semibold', m.loss && 'text-destructive')}
+                  >
+                    {m.profit}
+                  </TableCell>
+                  <TableCell className={cn(cell, cellNum, cellMuted)}>{m.kept}%</TableCell>
                 </>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </Panel>
+        </TableBody>
+      </Table>
+    </TableShell>
   );
 }

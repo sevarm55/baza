@@ -1,55 +1,37 @@
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
 import { getPeriodStats, getTenant } from '@/lib/queries';
-import { currencySymbol, formatAmount, toMajor } from '@/lib/money';
+import { currencySymbol, formatAmount, formatMoney, formatShare, toMajor } from '@/lib/money';
 import { expenseHints, getPeriodCosts, listPeriodExpenses } from '@/lib/expenses';
 import { windowFor } from '@/lib/summary-window';
 import { startOfDaysAgo, ymd } from '@/lib/time';
-import { PageHead } from '@/components/page-head';
+import { getDict } from '@/lib/i18n/server';
+import { longDay, monthName } from '@/lib/i18n/format';
+import type { Dict } from '@/lib/i18n';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { Segmented } from '@/components/patterns/segmented';
 import { AddExpense } from './add-expense';
 import { ExpenseList } from './expense-list';
-import { ExpensesSummary } from './summary';
-import { MonthTabs, type MonthKey } from './month-tabs';
 import type { ExpenseDay, ExpenseItem } from './model';
-import { getDict } from '@/lib/i18n/server';
-import { intlLocale } from '@/lib/i18n/format';
-import type { Dict } from '@/lib/i18n';
 
 /**
  * Расходы бизнеса.
  *
- * Страница отвечает на один вопрос: куда уходят деньги. И отвечает в том
- * порядке, в каком его задают:
+ * Страница отвечает на один вопрос: куда уходят деньги. Порядок тот же,
+ * в каком его задают: сколько ушло за месяц, из чего это сложилось,
+ * что уходит каждый месяц само, что потрачено разово, почему именно
+ * столько (карточка расхода).
  *
- *   1. сколько ушло за месяц       → плита наверху;
- *   2. из чего это сложилось       → три слагаемых рядом с ней;
- *   3. что уходит каждый месяц     → постоянные списком;
- *   4. что потрачено разово        → разовые по дням;
- *   5. почему именно столько       → карточка расхода.
- *
- * Раньше это была полоса из трёх равных карточек и один список, где
- * аренда и канистра химии различались словом «ամսական» мелким шрифтом.
- * Между тем это разные деньги: одни уходят каждый месяц сами, другие
- * потрачены один раз и завтра их может не быть, — и решения по ним тоже
- * разные.
- *
- * Считаются расходы календарным месяцем, а не скользящими тридцатью
- * днями. Скользящее окно давало десятого августа июльские траты в
- * списке, и итог складывал их как августовские. Владелец думает
- * месяцами — так он платит аренду и так сверяется с прибылью, — и
- * граница периода должна совпадать с той, которой он считает сам. То же
- * правило работает в приложении.
- *
- * Постоянный расход попадает в месяц, если он в нём ДЕЙСТВОВАЛ: заведён
- * до конца месяца и не закрыт до его начала. Проверять только «не
- * закрыт» нельзя — закрытая в июле аренда обязана остаться в июльском
- * счёте, иначе прошлый месяц задним числом дешевеет.
+ * Считается календарным месяцем, а не скользящими тридцатью днями:
+ * владелец думает месяцами, так он платит аренду и так сверяется с
+ * прибылью. Постоянный расход попадает в месяц, если в нём действовал.
  */
 export default async function ExpensesPage({
   searchParams,
 }: {
-  /* `new` приводит сюда с уже открытой формой: так расход заводят со
-     сводки, одним нажатием вместо двух. */
+  /* `new` приводит сюда с уже открытой формой: расход заводят со
+     сводки одним нажатием вместо двух. */
   searchParams: Promise<{ m?: string; new?: string }>;
 }) {
   const t = await getDict();
@@ -58,10 +40,8 @@ export default async function ExpensesPage({
   if (!tenant) redirect('/session-ended');
 
   const params = await searchParams;
-  const m = params.m;
+  const prev = params.m === 'prev';
   const openNew = params.new === '1';
-  const month: MonthKey = m === 'prev' ? 'prev' : 'current';
-  const prev = month === 'prev';
 
   /* Границы берёт то же окно, что и сводка: у двух разделов одного
      продукта не должно быть двух представлений о том, что такое «этот
@@ -73,29 +53,24 @@ export default async function ExpensesPage({
       activeMonthlyOnly: !prev,
     }),
     getPeriodCosts(tenant.id, period.from, period.to, period.spread),
-    /* Выручка нужна ради одного числа под итогом — доли расходов в ней.
-       Сумма сама по себе не плохая и не хорошая: сто тысяч при выручке
-       в миллион это обычный месяц, а при выручке в двести — беда. */
+    /* Выручка нужна ради одного числа под итогом: доли расходов в ней.
+       Сумма сама по себе не плохая и не хорошая. */
     getPeriodStats(tenant.id, period.from, period.to),
   ]);
 
   const zone = tenant.timezone;
-  // у драма нет копеек, у рубля есть — шаг ввода берём из валюты
+  // у драма нет копеек, у рубля есть: шаг ввода берём из валюты
   const step = toMajor(1, tenant.currency);
   /* Часы читает `lib/time`, а не разметка: `Date.now()` в теле
-     серверного компонента — обращение к изменчивому во время отрисовки. */
+     серверного компонента это обращение к изменчивому во время отрисовки. */
   const todayKey = ymd(startOfDaysAgo(zone, 0), zone);
   const yesterdayKey = ymd(startOfDaysAgo(zone, 1), zone);
 
-  const longDay = new Intl.DateTimeFormat(intlLocale(t.locale), {
-    day: 'numeric',
-    month: 'long',
-    timeZone: zone,
-  });
-  const monthName = new Intl.DateTimeFormat(intlLocale(t.locale), {
-    month: 'long',
-    timeZone: zone,
-  }).format(period.from);
+  const dayFmt = longDay(t.locale, zone);
+  const month = monthName(t.locale, zone).format(period.from);
+  const symbol = currencySymbol(tenant.currency);
+  const hints = expenseHints(t.locale);
+  const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
 
   const toItem = (e: (typeof rows)[number]): ExpenseItem => ({
     id: e.id,
@@ -103,25 +78,24 @@ export default async function ExpensesPage({
     monthly: e.monthly,
     amount: e.amount,
     share: e.share,
-    /* Дневная доля считается от длины месяца — того же знаменателя,
-       которым доля периода посчитана в базе. Делить на прожитые дни
-       нельзя: первого числа аренда стоила бы месячную сумму в сутки. */
+    /* Дневная доля считается от длины месяца, тем же знаменателем,
+       которым доля периода посчитана в базе. */
     perDay: e.monthly ? Math.round(e.amount / period.spread) : 0,
     major: toMajor(e.amount, tenant.currency),
     display: formatAmount(e.amount, tenant.currency, t.locale),
-    day: longDay.format(e.at),
+    day: dayFmt.format(e.at),
     dayKey: ymd(e.at, zone),
     closed: e.endedAt !== null,
-    closedOn: e.endedAt ? t.expenses.until(longDay.format(e.endedAt)) : null,
+    closedOn: e.endedAt ? t.expenses.until(dayFmt.format(e.endedAt)) : null,
     note: e.note,
   });
 
   const monthly = rows.filter((e) => e.monthly).map(toItem);
   const oneOff = rows.filter((e) => !e.monthly).map(toItem);
 
-  /* Разовые собираются по дням в порядке, в каком пришли из базы, —
-     от свежего к старому. Ключ дня в поясе бизнеса: собранный в зоне
-     сервера, он резал бы вечерние траты на два дня. */
+  /* Разовые собираются по дням в порядке из базы, от свежего к старому.
+     Ключ дня в поясе бизнеса: собранный в зоне сервера, он резал бы
+     вечерние траты на два дня. */
   const days: ExpenseDay[] = [];
   for (const item of oneOff) {
     let group = days.find((d) => d.key === item.dayKey);
@@ -141,77 +115,73 @@ export default async function ExpensesPage({
   /* Номинал действующих постоянных: под накопленной долей должно стоять
      то, из чего она набежала. */
   const monthlyNominal = monthly.reduce((sum, e) => sum + e.amount, 0);
+  const share = stats.revenue > 0 ? formatShare(costs.total, stats.revenue) : null;
+  /* Среднее по прожитым дням периода, а не по длине месяца: пятого
+     числа «в день» это пятая часть потраченного, а не тридцатая. */
+  const perDay = period.days > 0 ? Math.round(costs.total / period.days) : 0;
 
   return (
-    <>
-      {/* Своей обёртки здесь больше нет: ряд из кнопок раздела собирает
-          сам `PageHead`, одинаково на всех страницах. */}
-      <PageHead title={t.expenses.title} meta={t.expenses.lead}>
-        <MonthTabs current={month} />
-        {/* В прошлом месяце заводить нечего: запись всё равно легла бы
-            его последним днём и в открытом периоде бы не появилась. */}
-        {!prev && (
-          <AddExpense
-            currencySymbol={currencySymbol(tenant.currency)}
-            hints={expenseHints(t.locale)}
-            today={todayKey}
-            openNew={openNew}
-          />
-        )}
-      </PageHead>
-
-      <ExpensesSummary
-        currency={tenant.currency}
-        total={costs.total}
-        monthlyShare={costs.monthlyShare}
-        monthlyNominal={monthlyNominal}
-        oneOff={costs.oneOff}
-        /* Среднее считается по прожитым дням периода, а не по длине
-           месяца: пятого числа «в день» это пятая часть потраченного, а
-           не тридцатая. */
-        perDay={period.days > 0 ? Math.round(costs.total / period.days) : 0}
-        revenue={stats.revenue}
-        monthName={monthName}
-      />
-
-      {/* Здесь стояла операционная строка: «3 записи · больше всего
-          аренда 154 839 ֏». Она ушла вместе с ещё одним переключателем и
-          вот почему.
-
-          Между заголовком раздела и первой настоящей строкой набралось
-          шесть слоёв: заголовок, пояснение, месяцы, кнопка, плита с
-          полосой, строка фактов и фильтр по виду. Шесть — это не
-          иерархия, это лестница, и по ней глаз спускается вместо того,
-          чтобы прочитать ответ.
-
-          Счётчик записей и так стоит у заголовков обеих панелей, а
-          «больше всего» на списке из трёх строк — это первая же строка,
-          названная второй раз. На списке из тридцати он был бы полезен,
-          но раздел с тридцатью расходами в месяц ещё поискать. */}
-      <div className="mt-[var(--seam)]">
-        <ExpenseList
-          monthly={monthly}
-          days={days}
-          oneOffCount={oneOff.length}
-          currency={tenant.currency}
-          currencySymbol={currencySymbol(tenant.currency)}
-          hints={expenseHints(t.locale)}
-          step={step}
-          today={todayKey}
-          readOnly={prev}
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
+        title={t.expenses.title}
+        description={t.expenses.lead}
+        /* В прошлом месяце заводить нечего: запись всё равно легла бы его
+           последним днём и в открытом периоде бы не появилась. */
+        actions={
+          !prev && (
+            <AddExpense currencySymbol={symbol} hints={hints} today={todayKey} openNew={openNew} />
+          )
+        }
+      >
+        <Segmented
+          label={t.owner.periodLabel}
+          current={prev ? 'prev' : 'current'}
+          items={[
+            { key: 'current', label: t.owner.periodMonth, href: '/owner/expenses' },
+            { key: 'prev', label: t.owner.periodPrevMonth, href: '/owner/expenses?m=prev' },
+          ]}
         />
-      </div>
-    </>
+      </PageHeader>
+
+      <MetricStrip columns={4}>
+        <Metric
+          size="lg"
+          label={t.expenses.title}
+          value={money(costs.total)}
+          hint={share !== null ? `${month} · ${t.expenses.shareOfRevenue(share)}` : month}
+        />
+        <Metric
+          label={t.expenses.monthlyAccrued}
+          value={money(costs.monthlyShare)}
+          /* Под накопленной долей стоит номинал, иначе число не с чем
+             сверить. */
+          hint={monthlyNominal > 0 ? t.expenses.outOf(money(monthlyNominal)) : undefined}
+        />
+        <Metric label={t.expenses.oneOffs} value={money(costs.oneOff)} />
+        <Metric label={t.expenses.perDayAvg} value={money(perDay)} />
+      </MetricStrip>
+
+      <ExpenseList
+        monthly={monthly}
+        days={days}
+        oneOffCount={oneOff.length}
+        currency={tenant.currency}
+        currencySymbol={symbol}
+        hints={hints}
+        step={step}
+        today={todayKey}
+        readOnly={prev}
+      />
+    </div>
   );
 }
 
 /**
  * «Այսօր · 15 օգոստոսի», «Երեկ · 14 օգոստոսի» или просто число.
  *
- * Ближние два дня называются словом, потому что именно так о них и
- * спрашивают: «сколько я потратил сегодня». Дальше слово перестаёт
- * помогать — «позавчера» уже надо перевести в дату, чтобы сверить с
- * чеком, — и остаётся число.
+ * Ближние два дня называются словом, потому что так о них спрашивают:
+ * «сколько я потратил сегодня». Дальше остаётся число.
  */
 function dayTitle(
   key: string,

@@ -1,51 +1,32 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { useActionState, useState, useTransition } from 'react';
+import { Pencil } from 'lucide-react';
 import { archiveService, saveService, type FormState } from '@/app/actions';
-import { Panel } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
-import { Sheet } from '@/components/sheet';
+import { Button } from '@/components/ui/button';
 import { LoadingButton } from '@/components/loading';
+import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
+import { DataTable, type Column } from '@/components/patterns/data-table';
+import { DetailList, DetailRow } from '@/components/patterns/detail-list';
+import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
+import { FormMessage } from '@/components/patterns/form';
+import { EmptyState } from '@/components/patterns/states';
+import { useT } from '@/lib/i18n/client';
 import { AddService } from './add-service';
 import { ServiceFields } from './service-fields';
-import { useT } from '@/lib/i18n/client';
-
-export type ServiceRow = {
-  id: string;
-  name: string;
-  /** цена в крупных единицах — её и правят в поле */
-  price: number;
-  /** та же цена, но уже разбитая на разряды: её читают */
-  display: string;
-  /** сколько раз брали за этот месяц */
-  count: number;
-  /** сколько принесла за месяц, уже деньгами */
-  revenue: string;
-  /** цена на каждый класс, в крупных единицах; 0 — «как базовая» */
-  tierPrices: number[];
-};
+import type { ServiceRow } from './model';
 
 /**
  * Прейскурант.
  *
- * Был списком «название — цена»: он отвечал, сколько стоит, и молчал о
- * том, что из него берут. Цену правили вслепую — поднять на комплексе,
- * который заказывают дважды в месяц, это ничего, а поднять на мойке
- * кузова, которых сорок шесть, — совсем другие деньги.
+ * Список «название — цена» отвечал, сколько стоит, и молчал о том, что
+ * из него берут. Цену правили вслепую: поднять на комплексе, который
+ * заказывают дважды в месяц, это ничего, а поднять на мойке кузова,
+ * которых сорок шесть, — совсем другие деньги. Поэтому рядом с ценой
+ * стоит месяц: сколько раз услугу взяли и сколько она принесла.
  *
- * Поэтому рядом с ценой стоит месяц: сколько раз услугу взяли и сколько
- * она принесла. Цена при этом остаётся тем, что здесь правят, и стоит
- * последней — там, где рука заканчивает читать строку.
- *
- * На широком экране это таблица, потому что здесь именно сравнивают
- * строки между собой; на телефоне сравнивать нечем, там читают строку за
- * строкой.
- *
- * Кнопки «добавить» в заголовке прибора больше нет: она стоит в
- * заголовке раздела, одна на страницу. Две одинаковые кнопки в двадцати
- * пикселях друг от друга заставляют выбирать между ними, хотя делают
- * они одно и то же.
+ * Цена при этом остаётся тем, что здесь правят, и стоит последней из
+ * базовых колонок; классы, если они есть, идут за ней.
  */
 export function ServiceList({
   rows,
@@ -56,23 +37,18 @@ export function ServiceList({
   rows: ServiceRow[];
   step: number;
   currencySymbol: string;
-  /** классы бизнеса; пусто — ряда цен по классам в панели нет */
+  /** классы бизнеса; пусто — ни колонок, ни ряда цен по классам в листе */
   tiers: string[];
 }) {
   const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const service = rows.find((r) => r.id === open) ?? null;
 
-  /* Состояние сохранения живёт здесь, а не в панели, хотя правят там.
-     Панель закрывается, когда сервер подтвердил запись, а закрывает её
-     этот список — здесь лежит `open`. Пока состояние жило в самой
-     панели, она звала родительский `onClose` прямо в отрисовке:
-     запрещённое обновление чужого компонента во время рендера, и React
-     ругался в консоль на каждом сохранении.
-
-     Сверяем именно смену `state`, а не его удачность: иначе панель,
-     открытая второй раз, захлопывалась бы сразу — прошлый успех никуда
-     не девается. */
+  /* Состояние сохранения живёт здесь, а не в листе, хотя правят там.
+     Лист закрывается, когда сервер подтвердил запись, а закрывает его
+     этот список — здесь лежит `open`. Сверяем именно смену `state`, а не
+     его удачность: иначе лист, открытый второй раз, захлопывался бы
+     сразу — прошлый успех никуда не девается. */
   const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
@@ -82,100 +58,84 @@ export function ServiceList({
 
   if (rows.length === 0) {
     return (
-      <Panel title={t.settings.services}>
-        <EmptyState
-          title={t.settings.servicesEmpty}
-          note={t.settings.servicesEmptyNote}
-          action={
-            <AddService variant="cta" currencySymbol={currencySymbol} step={step} tiers={tiers} />
-          }
-        />
-      </Panel>
+      <EmptyState
+        title={t.settings.servicesEmpty}
+        description={t.settings.servicesEmptyNote}
+        action={<AddService currencySymbol={currencySymbol} step={step} tiers={tiers} />}
+      />
     );
   }
 
+  const editLabel = (s: ServiceRow) => `${s.name} · ${t.common.edit}`;
+  const priceCell = (display: string, muted = false) => (
+    <span className={muted ? 'text-muted-foreground' : undefined}>
+      {display} <span className="font-normal text-muted-foreground">{currencySymbol}</span>
+    </span>
+  );
+
+  const columns: Column<ServiceRow>[] = [
+    {
+      key: 'name',
+      header: t.owner.colService,
+      cell: (s) => <span className="font-semibold">{s.name}</span>,
+    },
+    {
+      key: 'count',
+      header: t.owner.timesShort,
+      align: 'right',
+      hideBelow: 'sm',
+      className: 'text-muted-foreground',
+      cell: (s) => (s.count > 0 ? String(s.count) : '—'),
+    },
+    {
+      key: 'revenue',
+      header: t.owner.revenue,
+      align: 'right',
+      hideBelow: 'sm',
+      className: 'text-muted-foreground',
+      cell: (s) => (s.count > 0 ? s.revenue : '—'),
+    },
+    {
+      key: 'price',
+      header: t.settings.price,
+      align: 'right',
+      className: 'font-semibold',
+      cell: (s) => priceCell(s.display),
+    },
+    /* По колонке на класс. Своей цены нет — стоит базовая, тише: так
+       же это понимает форма («пустая клетка — как базовая»). */
+    ...tiers.map(
+      (tier, i): Column<ServiceRow> => ({
+        key: `tier-${i}`,
+        header: tier,
+        align: 'right',
+        hideBelow: 'md',
+        cell: (s) => (s.tierPrices[i] > 0 ? priceCell(s.tierDisplay[i]) : priceCell(s.display, true)),
+      }),
+    ),
+    {
+      key: 'actions',
+      header: <span className="sr-only">{t.common.edit}</span>,
+      align: 'right',
+      width: '3rem',
+      className: 'py-1.5',
+      cell: (s) => (
+        <Button variant="ghost" size="icon-sm" aria-label={editLabel(s)} onClick={() => setOpen(s.id)}>
+          <Pencil />
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    /* Без заголовка: прибор на странице один, и называет его сама
-       страница. «Услуги и цены» под заголовком «Услуги» — это одно и то
-       же слово, написанное дважды подряд, а счётчик стоит строкой выше
-       в перечислении фактов. */
-    <Panel>
-      <div className="board-journal lg:hidden">
-        {rows.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setOpen(s.id)}
-            aria-label={`${s.name} · ${t.common.edit}`}
-            className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14.5px] font-semibold">{s.name}</span>
-              {s.count > 0 && (
-                <span
-                  className="num block truncate text-[12px]"
-                  style={{ color: 'var(--board-muted)' }}
-                >
-                  {s.count} {t.owner.timesShort} · {s.revenue}
-                </span>
-              )}
-            </span>
-            <span className="num shrink-0 text-[14px] font-semibold">
-              {s.display} <span style={{ color: 'var(--board-muted)' }}>{currencySymbol}</span>
-            </span>
-            <ChevronRight
-              className="size-3.5 shrink-0"
-              style={{ color: 'var(--board-muted)' }}
-              aria-hidden
-            />
-          </button>
-        ))}
-      </div>
-
-      <table className="tbl hidden lg:table">
-        <thead>
-          <tr>
-            <th>{t.owner.colService}</th>
-            <th className="end">{t.owner.timesShort}</th>
-            <th className="end">{t.owner.revenue}</th>
-            <th className="end">{t.settings.price}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((s) => (
-            /* Без `role` и `tabIndex` на `<tr>`: с ними React молча
-               бросает гидратацию поддерева. Клавиатуре служит настоящая
-               кнопка в конце строки. */
-            <tr key={s.id} className="row-click" onClick={() => setOpen(s.id)}>
-              <td className="text-[15px] font-semibold">{s.name}</td>
-
-              <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                {s.count || '—'}
-              </td>
-
-              <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                {s.count ? s.revenue : '—'}
-              </td>
-
-              <td className="num end text-[15px] font-semibold">
-                {s.display} <span style={{ color: 'var(--board-muted)' }}>{currencySymbol}</span>
-              </td>
-
-              <td className="end">
-                <button
-                  type="button"
-                  onClick={() => setOpen(s.id)}
-                  aria-label={`${s.name} · ${t.common.edit}`}
-                  style={{ color: 'var(--board-muted)' }}
-                >
-                  <ChevronRight className="size-3.5" aria-hidden />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(s) => s.id}
+        rowLabel={editLabel}
+        onRowClick={(s) => setOpen(s.id)}
+      />
 
       <ServiceEditor
         service={service}
@@ -187,16 +147,17 @@ export function ServiceList({
         pending={pending}
         onClose={() => setOpen(null)}
       />
-    </Panel>
+    </>
   );
 }
 
 /**
  * Правка услуги.
  *
- * Одна панель на весь прейскурант, а не своя у каждой строки: форма тут
+ * Один лист на весь прейскурант, а не свой у каждой строки: форма тут
  * одна и та же, а десять скрытых форм в разметке — это десять состояний
- * без единой причины.
+ * без единой причины. Удаление тише сохранения и в другом углу: сюда
+ * пришли менять цену, а не убирать услугу.
  */
 function ServiceEditor({
   service,
@@ -211,9 +172,8 @@ function ServiceEditor({
   service: ServiceRow | null;
   step: number;
   currencySymbol: string;
-  /** классы бизнеса; пусто — ряда цен по классам в панели нет */
   tiers: string[];
-  /** состояние сохранения — из списка: он же и закрывает панель */
+  /** состояние сохранения — из списка: он же и закрывает лист */
   state: FormState;
   action: (formData: FormData) => void;
   pending: boolean;
@@ -221,53 +181,55 @@ function ServiceEditor({
 }) {
   const t = useT();
 
+  /* Убрать из прайса: подтверждение отдельным окном, сама запись — тем
+     же действием и с тем же полем `id`, что и раньше. */
+  const [confirm, setConfirm] = useState(false);
+  const [removing, startRemove] = useTransition();
+  function remove(id: string) {
+    startRemove(async () => {
+      const fd = new FormData();
+      fd.set('id', id);
+      await archiveService(fd);
+      setConfirm(false);
+      onClose();
+    });
+  }
+
   return (
-    <Sheet
+    <EntitySheet
       open={service !== null}
-      onClose={onClose}
-      side
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       title={service?.name ?? ''}
       footer={
-        <>
-          {/* Удаление тише сохранения и в другом углу: сюда пришли
-              менять цену, а не убирать услугу. В списке этой кнопки нет
-              вовсе — десять кнопок «убрать» в прейскуранте предлагали
-              удалить там, где просто читают. */}
-          <button form="service-remove" className="btn-inline btn-inline-danger me-auto">
-            {t.settings.remove}
-          </button>
-          {/* Отмена рядом с сохранением, а не крестиком в углу: закрыть
-              окно и не сохранить — такое же решение, как сохранить, и
-              приниматься оно должно там же, где второе. */}
-          <button type="button" className="btn-inline" onClick={onClose}>
+        <SheetActions
+          start={
+            <Button variant="destructive-soft" onClick={() => setConfirm(true)}>
+              {t.settings.remove}
+            </Button>
+          }
+        >
+          <Button variant="outline" onClick={onClose}>
             {t.common.cancel}
-          </button>
+          </Button>
           <LoadingButton
             form="service-edit"
-            className="btn btn-auto"
             busy={pending}
             label={t.settings.save}
             busyLabel={t.common.saving}
           />
-        </>
+        </SheetActions>
       }
     >
       {service && (
-        <>
-          {/* Что эта услуга приносит — до того, как трогать её цену.
-              Поднять на той, которую берут дважды в месяц, и на той,
-              которую берут сорок раз, — разные решения. */}
+        <div className="flex flex-col gap-5">
+          {/* Что эта услуга приносит — до того, как трогать её цену. */}
           {service.count > 0 && (
-            <dl className="facts">
-              <div>
-                <dt>{t.owner.timesShort}</dt>
-                <dd className="num">{service.count}</dd>
-              </div>
-              <div>
-                <dt>{t.owner.revenue}</dt>
-                <dd className="num">{service.revenue}</dd>
-              </div>
-            </dl>
+            <DetailList>
+              <DetailRow label={t.owner.timesShort} value={String(service.count)} mono />
+              <DetailRow label={t.owner.revenue} value={service.revenue} mono />
+            </DetailList>
           )}
 
           {/* Ключом стоит услуга: при переходе к другой поля обязаны
@@ -279,7 +241,7 @@ function ServiceEditor({
             onSubmit={(e) => {
               if (pending) e.preventDefault();
             }}
-            className="mt-4 grid gap-3.5"
+            className="flex flex-col gap-4"
           >
             <input type="hidden" name="id" value={service.id} />
 
@@ -294,14 +256,26 @@ function ServiceEditor({
               autoFocus
             />
 
-            {state?.error && <p className="alert">{state.error}</p>}
+            {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
           </form>
 
-          <form key={`rm-${service.id}`} id="service-remove" action={archiveService} className="hidden">
-            <input type="hidden" name="id" value={service.id} />
-          </form>
-        </>
+          <ConfirmDialog
+            open={confirm}
+            onOpenChange={setConfirm}
+            destructive
+            title={t.settings.remove}
+            description={t.settings.removeServiceNote}
+            confirmLabel={t.settings.remove}
+            busyLabel={t.common.deleting}
+            busy={removing}
+            onConfirm={() => remove(service.id)}
+          >
+            <p className="text-sm font-medium">
+              {service.name} · <span className="num">{service.display}</span> {currencySymbol}
+            </p>
+          </ConfirmDialog>
+        </div>
       )}
-    </Sheet>
+    </EntitySheet>
   );
 }

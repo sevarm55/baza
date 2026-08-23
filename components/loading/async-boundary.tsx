@@ -2,29 +2,18 @@
 
 import type { ReactNode } from 'react';
 
-import { AsyncError } from './async-error';
+import { ErrorState } from '@/components/patterns/error-state';
 import { useDelayedFlag } from './use-delayed';
 
 /**
  * Четыре разных ответа на один вопрос «что показывать».
  *
- * Пустой массив и «ещё не приехало» — не одно и то же, и путать их
- * нельзя: раздел, который на успешный пустой ответ показывает вечный
- * загрузчик, выглядит сломанным, а раздел, который на незагруженные
- * данные пишет «расходов пока нет», врёт.
- *
- *   loading  →  скелет по форме этой страницы
+ *   loading  →  скелет по форме этой секции
  *   error    →  что не вышло и кнопка «Повторить»
  *   empty    →  что это за список и откуда в нём берутся строки
  *   data     →  содержимое
  *
- * Пятое состояние — `refreshing` — не заменяет содержимое ничем. Данные
- * уже на экране, идёт сверка; она права на экран не имеет.
- *
- * Компонент нарочно ничего не знает про то, откуда берутся данные: в
- * кабинете их приносит сервер через `page.tsx`, в списках — серверные
- * действия, в мойщике — очередь в localStorage. Переписывать все
- * запросы ради общего вида было бы дороже, чем польза от него.
+ * `refreshing` ничего не заменяет: данные уже на экране, идёт сверка.
  */
 export function AsyncBoundary({
   loading,
@@ -38,13 +27,7 @@ export function AsyncBoundary({
   children,
 }: {
   loading: boolean;
-  /** данные есть, идёт сверка: содержимое остаётся на месте */
   refreshing?: boolean;
-  /**
-   * Что не вышло. Годится и `Error`, и просто признак отказа: половина
-   * запросов в кабинете приходит серверным действием, и объекта ошибки
-   * у них на руках нет — есть только «не получилось».
-   */
   error?: unknown;
   empty?: boolean;
   skeleton: ReactNode;
@@ -53,15 +36,14 @@ export function AsyncBoundary({
   onRetry?: () => void | Promise<void>;
   children: ReactNode;
 }) {
-  /* Быстрый ответ не должен успевать мигнуть скелетом. Порог только на
-     показ загрузки: готовые данные никогда не придерживаются. */
   const showSkeleton = useDelayedFlag(loading);
 
   if (error) {
     return (
-      <AsyncError
+      <ErrorState
+        compact
         title={errorTitle}
-        note={error instanceof Error ? error.message || undefined : undefined}
+        description={error instanceof Error ? error.message || undefined : undefined}
         onRetry={onRetry}
       />
     );
@@ -71,7 +53,7 @@ export function AsyncBoundary({
   if (empty) return <>{emptyState}</>;
 
   return (
-    <div className="async-in" aria-busy={refreshing || undefined}>
+    <div className="page-enter" aria-busy={refreshing || undefined}>
       {children}
     </div>
   );

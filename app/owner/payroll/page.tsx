@@ -1,15 +1,15 @@
 import { redirect } from 'next/navigation';
-import { Clock3 } from 'lucide-react';
 import Link from 'next/link';
+import { Clock3, UserPlus, Wallet } from 'lucide-react';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listStaff } from '@/lib/queries';
 import { getPayrollBoard, type BoardPayment } from '@/lib/payroll-board';
 import { PAYROLL_AFTER_DAYS } from '@/lib/alerts';
 import { daysSince, hhmm, ymd } from '@/lib/time';
-import { personColor } from '@/lib/person-color';
-import { PageHead } from '@/components/page-head';
-import { Panel } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
+import { PageHeader } from '@/components/patterns/page-header';
+import { EmptyState } from '@/components/patterns/states';
+import { StatusBadge } from '@/components/patterns/status-badge';
+import { Button } from '@/components/ui/button';
 import { PayrollSummary } from './summary';
 import { PayrollWorkspace } from './workspace';
 import type { DayGroup, HistoryDay, StaffEntry } from './model';
@@ -29,15 +29,11 @@ import type { Dict } from '@/lib/i18n';
  *
  * Порядок чтения задан вопросами, с которыми сюда заходят:
  *
- *   1. сколько всего раздать сейчас   → плита наверху;
+ *   1. сколько всего раздать сейчас   → первое показание полосы;
  *   2. кому                           → строки внутри дня;
- *   3. за какой день                  → сам блок дня;
+ *   3. за какой день                  → сама панель дня;
  *   4. почему столько                 → разложение по машинам в строке;
  *   5. что уже отдано                 → вкладка «Պատմություն».
- *
- * Первые три помещаются над сгибом. Пятое живёт отдельной вкладкой, а не
- * в конце того же списка: долг и уже отданное — разные вопросы, и один
- * бесконечный список, где они перемешаны, не отвечает ни на один.
  *
  * Считает не эта страница, а `getPayrollBoard` — тот же код, которым
  * отвечает API приложения. Слова остаются здесь: числа обязаны
@@ -56,15 +52,12 @@ export default async function PayrollPage() {
 
   /* Ни одного расчёта за всю жизнь мойки.
    *
-   * Пустой лист зарплат в первый день объяснял ровно ничего: плита с
-   * нулём, три нуля под ней и пустое место там, где ждали людей. Причин
-   * у пустоты две, и они требуют разных ответов — платить некому или
-   * платить пока не за что. Первая ведёт к работникам, вторая просто
+   * Причин у пустоты две, и они требуют разных ответов — платить некому
+   * или платить пока не за что. Первая ведёт к работникам, вторая просто
    * ждёт первой машины, и звать в ней некуда: записывает мойщик.
    *
    * Проверка стоит после доски, а не вместо неё: доска и есть источник
-   * правды о том, было ли начисление, и второго способа это узнать
-   * заводить незачем. */
+   * правды о том, было ли начисление. */
   const nothingYet =
     board.days.length === 0 && board.payments.length === 0 && board.totals.accrued === 0;
 
@@ -73,22 +66,21 @@ export default async function PayrollPage() {
     const hired = staff.some((s) => s.role !== 'owner');
 
     return (
-      <>
-        <PageHead title={t.owner.tabPayroll} meta={t.payroll.lead} />
-        <Panel>
-          <EmptyState
-            title={hired ? t.payroll.emptyNoWork : t.payroll.emptyNoStaff}
-            note={hired ? t.payroll.emptyNoWorkNote : t.payroll.emptyNoStaffNote}
-            action={
-              hired ? undefined : (
-                <Link className="btn btn-auto" href="/owner/staff">
-                  {t.payroll.emptyNoStaffCta}
-                </Link>
-              )
-            }
-          />
-        </Panel>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeader className="mb-0" title={t.owner.tabPayroll} description={t.payroll.lead} />
+        <EmptyState
+          icon={hired ? <Wallet /> : <UserPlus />}
+          title={hired ? t.payroll.emptyNoWork : t.payroll.emptyNoStaff}
+          description={hired ? t.payroll.emptyNoWorkNote : t.payroll.emptyNoStaffNote}
+          action={
+            hired ? undefined : (
+              <Button render={<Link href="/owner/staff" />} nativeButton={false}>
+                {t.payroll.emptyNoStaffCta}
+              </Button>
+            )
+          }
+        />
+      </div>
     );
   }
 
@@ -107,6 +99,7 @@ export default async function PayrollPage() {
   const dayGroups: DayGroup[] = board.days.map((day) => ({
     day: day.day,
     title: day.day === todayKey ? `${t.common.today} · ${longDay(day.day)}` : longDay(day.day),
+    date: longDay(day.day),
     today: day.day === todayKey,
     units: day.units,
     outstanding: day.outstanding,
@@ -116,7 +109,6 @@ export default async function PayrollPage() {
         key: `${p.staffId}|${day.day}`,
         staffId: p.staffId,
         name: p.name ?? '—',
-        color: personColor(p.name),
         count: p.count,
         earned: p.earned,
         rate: rateLabel(p.pctFrom, p.pctTo),
@@ -154,7 +146,6 @@ export default async function PayrollPage() {
       rows: payment.rows.map((r) => ({
         id: r.id,
         name: r.name ?? '—',
-        color: personColor(r.name),
         amount: r.amount,
       })),
     });
@@ -168,21 +159,23 @@ export default async function PayrollPage() {
     board.totals.outstanding > 0 && idleDays !== null && idleDays >= PAYROLL_AFTER_DAYS;
 
   return (
-    <>
-      <PageHead title={t.owner.tabPayroll} meta={t.payroll.lead}>
-        {/* Повод — строкой у заголовка, а не плашкой во всю ширину.
-            Он подсказка, а не показание: занять им первый экран значит
-            отодвинуть вниз число, ради которого сюда пришли. */}
-        {nagging && (
-          <span
-            className="flex items-center gap-1.5 text-[12.5px] font-medium"
-            style={{ color: 'var(--warn-on-board)' }}
-          >
-            <Clock3 className="size-3.5 shrink-0" aria-hidden />
-            {t.alerts.payrollNote(idleDays)}
-          </span>
-        )}
-      </PageHead>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
+        title={t.owner.tabPayroll}
+        description={t.payroll.lead}
+        /* Повод — значком у заголовка, а не плашкой во всю ширину. Он
+           подсказка, а не показание: занять им первый экран значит
+           отодвинуть вниз число, ради которого сюда пришли. */
+        meta={
+          nagging ? (
+            <StatusBadge tone="warning">
+              <Clock3 aria-hidden />
+              {t.alerts.payrollNote(idleDays)}
+            </StatusBadge>
+          ) : undefined
+        }
+      />
 
       <PayrollSummary
         currency={tenant.currency}
@@ -204,7 +197,7 @@ export default async function PayrollPage() {
         history={historyDays}
         todayTitle={`${t.common.today} · ${longDay(todayKey)}`}
       />
-    </>
+    </div>
   );
 }
 

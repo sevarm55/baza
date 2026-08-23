@@ -1,36 +1,36 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronRight, Search } from 'lucide-react';
-import { Panel } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
-import { Segmented } from '@/components/segmented';
+import { History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DataTable, type Column } from '@/components/patterns/data-table';
+import { Segmented } from '@/components/patterns/segmented';
+import { EmptyState } from '@/components/patterns/states';
+import { StatusBadge } from '@/components/patterns/status-badge';
+import { ResetFilters, SearchInput, Toolbar } from '@/components/patterns/toolbar';
 import { compactClientKey } from '@/lib/client-key';
 import { formatMoney } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
+import { useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
 import { ClientSheet } from './client-sheet';
 import type { ClientGroup, ClientRow, ClientSort } from './model';
-import { useT } from '@/lib/i18n/client';
-
 
 /**
  * Клиентская база: кто это, кто возвращается и что с этим делать.
  *
  * Клиентский компонент из-за поиска. Отбор через адрес перезагружал бы
  * страницу на каждой букве, а клиентов на мойке сотни, но не сотни
- * тысяч — они уже все здесь, и фильтровать их на месте и мгновенно
- * дешевле, чем спрашивать сервер.
+ * тысяч: они уже все здесь, и фильтровать их на месте дешевле, чем
+ * спрашивать сервер.
  *
- * Отбор и порядок — две разные вещи, и раньше они были свалены в одну.
- * Порядок отвечает «кто наверху», отбор — «кого показывать»; смешанные в
- * одном ряду кнопок, они заставляют помнить, что из нажатого сейчас
- * действует. Здесь это два ряда: сверху группы, справа от поиска —
- * порядок.
+ * Отбор и порядок — две разные вещи. Порядок отвечает «кто наверху»,
+ * отбор — «кого показывать». Здесь это группы в переключателе и порядок
+ * в выпадающем списке рядом с поиском.
  *
  * Группы не выдуманы: «новый» — один визит, «свой» — больше одного,
- * «пропал» — та же граница, по которой загорается колокольчик. Придумать
- * тут свой порог значило бы, что продукт спорит сам с собой: в
- * колокольчике повод есть, в списке тихо.
+ * «пропал» — та же граница, по которой загорается колокольчик.
  */
 export function ClientsWorkspace({
   rows,
@@ -70,19 +70,10 @@ export function ClientsWorkspace({
   };
 
   /* Пробелы, дефисы и регистр не в счёт: номер диктуют вслух и
-     записывают как придётся — «93LM227», «93 lm 227» и «93-LM-227» это
-     одна машина.
-
-     Приводим тем же `compactClientKey`, которым запись ложится в базу, а
-     не своей строчкой рядом. Своя тут и стояла, и отличалась дважды:
-     дефис не убирала, а русские буквы не переводила в латинские. Номер
-     «22 OO 145», набранный в поиске с русскими О, не находился вовсе —
-     карточка была в списке, на экране выглядела ровно так же, как
-     запрос, и не открывалась. Правило одно, поэтому и функция одна:
-     вторая копия расходится с первой молча.
-
-     Ищем и по имени с телефоном: раз владелец их вписал, он будет искать
-     человека так, как его помнит, а не по номеру машины. */
+     записывают как придётся. Приводим тем же `compactClientKey`, которым
+     запись ложится в базу: правило одно, поэтому и функция одна. Ищем и
+     по имени с телефоном: раз владелец их вписал, он будет искать
+     человека так, как его помнит. */
   const found = useMemo(() => {
     const q = compactClientKey(query);
     const base = rows.filter((r) => {
@@ -90,9 +81,7 @@ export function ClientsWorkspace({
       if (group === 'loyal' && r.visits < 2) return false;
       if (group === 'lost' && r.days <= lostAfter) return false;
       if (!q) return true;
-      return [r.key, r.name ?? '', r.phone ?? ''].some((v) =>
-        compactClientKey(v).includes(q),
-      );
+      return [r.key, r.name ?? '', r.phone ?? ''].some((v) => compactClientKey(v).includes(q));
     });
 
     const sorted = [...base];
@@ -102,14 +91,102 @@ export function ClientsWorkspace({
     return sorted;
   }, [rows, query, sort, group, lostAfter]);
 
+  const activeFilters = (query ? 1 : 0) + (group !== 'all' ? 1 : 0);
+  const openLabel = (c: ClientRow) => `${c.key} · ${t.owner.clientHistory}`;
+
+  const columns: Column<ClientRow>[] = [
+    {
+      key: 'key',
+      header: t.owner.tabClients,
+      cell: (c) => {
+        const contact = contactLine(c.name, c.phone);
+        return (
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="num truncate font-semibold">{c.key}</span>
+              {c.visits > 1 && <StatusBadge tone="brand">{t.owner.clientLoyal}</StatusBadge>}
+            </span>
+            {contact && <span className="num truncate text-xs text-muted-foreground">{contact}</span>}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'visits',
+      header: t.owner.visits,
+      align: 'right',
+      hideBelow: 'sm',
+      className: 'text-muted-foreground',
+      sortValue: (c) => c.visits,
+      cell: (c) => String(c.visits),
+    },
+    {
+      key: 'avg',
+      header: t.owner.clientAvg,
+      align: 'right',
+      hideBelow: 'md',
+      className: 'text-muted-foreground',
+      cell: (c) => money(c.avg),
+    },
+    {
+      key: 'total',
+      header: t.owner.clientsTotalSpent,
+      align: 'right',
+      className: 'font-semibold',
+      sortValue: (c) => c.total,
+      cell: (c) => money(c.total),
+    },
+    {
+      key: 'last',
+      header: t.owner.lastVisit,
+      align: 'right',
+      /* Сортировка по дням: меньше дней — свежее. */
+      sortValue: (c) => c.days,
+      /* «վերջինը՝» обязательно: без него «3 օր առաջ» рядом с числом
+         визитов читается чем угодно. Пропавший — тоном тревоги. */
+      cell: (c) => (
+        <span
+          className={cn(
+            'whitespace-nowrap',
+            c.days > lostAfter ? 'font-medium text-warning' : 'text-muted-foreground',
+          )}
+        >
+          {t.owner.lastVisitPrefix} {c.last}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">{t.owner.clientHistory}</span>,
+      align: 'right',
+      width: '3rem',
+      className: 'py-1.5',
+      cell: (c) => (
+        <Button variant="ghost" size="icon-sm" aria-label={openLabel(c)} onClick={() => setOpen(c.key)}>
+          <History />
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <>
-      <div className="mb-[var(--seam)] flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-4">
+      <Toolbar
+        end={
+          <ResetFilters
+            count={activeFilters}
+            onReset={() => {
+              setQuery('');
+              setGroup('all');
+            }}
+          />
+        }
+      >
+        <SearchInput numeric value={query} onChange={setQuery} placeholder={t.owner.clientsSearch} />
+
         <Segmented
-          id="client-group"
           current={group}
           onSelect={(key) => setGroup(key as ClientGroup)}
-          scroll
           label={t.owner.tabClients}
           items={[
             { key: 'all', label: t.owner.allClients, count: counts.all },
@@ -118,198 +195,65 @@ export function ClientsWorkspace({
             { key: 'lost', label: t.owner.clientsLost, count: counts.lost },
           ]}
         />
-      </div>
 
-      {/* У прибора нет заголовка: его называет выбранная группа строкой
-          выше, и повторять её здесь значило бы написать одно и то же
-          слово с одним и тем же числом дважды подряд. */}
-      <Panel>
-        <div className="mb-3.5 flex flex-wrap items-center gap-2">
-          <label className="op-search min-w-0 flex-1">
-            <Search className="size-3.5 shrink-0" aria-hidden />
-            <input
-              className="num !w-full !max-w-none"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t.owner.clientsSearch}
-              aria-label={t.owner.clientsSearch}
-              autoComplete="off"
-            />
-          </label>
+        {/* Порядок рядом с поиском, а не отдельной полосой: обе настройки
+            относятся к одному списку и меняются вместе. */}
+        <Select
+          value={sort}
+          onValueChange={(value) => {
+            if (value) setSort(value as ClientSort);
+          }}
+          items={SORTS.map((s) => ({ value: s.key, label: s.label }))}
+        >
+          <SelectTrigger aria-label={t.owner.sortRecent}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORTS.map((s) => (
+              <SelectItem key={s.key} value={s.key}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Toolbar>
 
-          {/* Порядок — рядом с поиском, а не отдельной полосой: обе
-              настройки относятся к одному списку и меняются вместе. */}
-          <Segmented
-            id="client-sort"
-            current={sort}
-            onSelect={(key) => setSort(key as ClientSort)}
-            scroll
-            label={t.owner.sortRecent}
-            items={SORTS}
-          />
-        </div>
+      {found.length === 0 ? (
+        <EmptyState
+          title={
+            rows.length === 0
+              ? t.owner.clientsEmpty
+              : query
+                ? t.owner.clientsNotFound
+                : t.common.noResults
+          }
+          description={rows.length === 0 ? t.owner.clientsEmptyNote : undefined}
+        />
+      ) : (
+        /* Ключом стоит порядок из списка: смена порядка сбрасывает
+           сортировку по заголовку, иначе два порядка спорили бы, чей
+           верх. */
+        <DataTable
+          key={sort}
+          columns={columns}
+          rows={found}
+          rowKey={(c) => c.id}
+          rowLabel={openLabel}
+          onRowClick={(c) => setOpen(c.key)}
+        />
+      )}
 
-        {found.length === 0 ? (
-          <EmptyState
-            title={query ? t.owner.clientsNotFound : t.owner.clientsEmpty}
-            note={query ? undefined : t.owner.clientsEmptyNote}
-          />
-        ) : (
-          <>
-            {/* Телефон: строками, а не таблицей.
-
-                Пять колонок на экране в ладонь шириной делят его так, что
-                «վերջինը՝ այսօր» переносится в два слова на строку, а номер
-                машины — то единственное, что здесь ищут глазами, —
-                оказывается зажат между ними. Таблица нужна там, где
-                столбцы сравнивают; на телефоне сравнивать нечем, там
-                читают строку за строкой. */}
-            <div className="board-journal lg:hidden">
-              {found.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setOpen(c.key)}
-                  aria-label={`${c.key} · ${t.owner.clientHistory}`}
-                  className="flex w-full items-center gap-2.5 px-0.5 py-2.5 text-start"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="num flex items-center gap-2">
-                      <span className="shrink-0 text-[14.5px] font-bold tracking-wide">
-                        {c.key}
-                      </span>
-                      {c.visits > 1 && <span className="tag-good">{t.owner.clientLoyal}</span>}
-                      {c.name && (
-                        <span
-                          className="truncate text-[12.5px]"
-                          style={{ color: 'var(--board-muted)' }}
-                        >
-                          {c.name}
-                        </span>
-                      )}
-                    </span>
-
-                    <span
-                      className="num block truncate text-[12px]"
-                      style={{
-                        color: c.days > lostAfter ? 'var(--warn-on-board)' : 'var(--board-muted)',
-                      }}
-                    >
-                      {c.visits} {t.owner.visits} · {t.owner.lastVisitPrefix} {c.last}
-                    </span>
-                  </span>
-
-                  <span className="num shrink-0 text-[14px] font-semibold">{money(c.total)}</span>
-                  <ChevronRight
-                    className="size-3.5 shrink-0"
-                    style={{ color: 'var(--board-muted)' }}
-                    aria-hidden
-                  />
-                </button>
-              ))}
-            </div>
-
-            <table className="tbl hidden lg:table">
-              <thead>
-                <tr>
-                  <th>{t.owner.tabClients}</th>
-                  <th className="end">{t.owner.visits}</th>
-                  <th className="end">{t.owner.clientAvg}</th>
-                  <th className="end">{t.owner.clientsTotalSpent}</th>
-                  <th className="end">{t.owner.lastVisit}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {found.map((c) => {
-                  const gone = c.days > lostAfter;
-                  return (
-                    /* Нажимается вся строка: целиться в шесть символов
-                       номера незачем, открыть надо строку целиком.
-
-                       Без `role` и `tabIndex` на `<tr>`, и это не
-                       забывчивость. С ними React молча бросает гидратацию
-                       поддерева, и таблица остаётся мёртвой разметкой:
-                       не работают ни поиск, ни отбор. Клавиатуре служит
-                       настоящая кнопка в конце строки. */
-                    <tr key={c.id} className="row-click" onClick={() => setOpen(c.key)}>
-                      <td>
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span
-                            className="num shrink-0 text-[15px] font-bold tracking-wide"
-                            style={{ color: 'var(--on-board)' }}
-                          >
-                            {c.key}
-                          </span>
-                          {c.visits > 1 && <span className="tag-good">{t.owner.clientLoyal}</span>}
-                          {contactLine(c.name, c.phone) && (
-                            <span
-                              className="num truncate text-[13px]"
-                              style={{ color: 'var(--board-muted)' }}
-                            >
-                              {contactLine(c.name, c.phone)}
-                            </span>
-                          )}
-                        </span>
-                      </td>
-
-                      <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                        {c.visits}
-                      </td>
-                      <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                        {money(c.avg)}
-                      </td>
-                      <td className="num end font-semibold">{money(c.total)}</td>
-                      <td
-                        className="num end"
-                        style={{
-                          color: gone ? 'var(--warn-on-board)' : 'var(--board-muted)',
-                          fontWeight: gone ? 600 : undefined,
-                        }}
-                      >
-                        {/* «վերջինը՝» обязательно: без него «3 օր առաջ»
-                            рядом с числом визитов читается чем угодно —
-                            сроком, промежутком, давностью первого
-                            приезда. */}
-                        {t.owner.lastVisitPrefix} {c.last}
-                      </td>
-                      <td className="end">
-                        <button
-                          type="button"
-                          onClick={() => setOpen(c.key)}
-                          aria-label={`${c.key} · ${t.owner.clientHistory}`}
-                          style={{ color: 'var(--board-muted)' }}
-                        >
-                          <ChevronRight className="size-3.5" aria-hidden />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </>
-        )}
-      </Panel>
-
-      <ClientSheet
-        plate={open}
-        onClose={() => setOpen(null)}
-        money={money}
-        lostAfter={lostAfter}
-      />
-    </>
+      <ClientSheet plate={open} onClose={() => setOpen(null)} money={money} lostAfter={lostAfter} />
+    </div>
   );
 }
 
 /**
  * «Արամ · +374 77 445 566» — то, что владелец вписал сам.
  *
- * При записи машины телефон не спрашивают: мойщик вводит номер, услугу и
- * оплату мокрыми руками. Контакты появляются позже, из карточки, — и раз
- * уж владелец их вписал, он этого человека так и ищет: имя помнится
- * лучше, чем шесть символов номера. Поэтому они и в строке, и в поиске,
- * а у машин без контактов не занимают места вовсе.
+ * При записи машины телефон не спрашивают. Контакты появляются позже,
+ * из карточки, и раз уж владелец их вписал, он этого человека так и
+ * ищет: имя помнится лучше, чем шесть символов номера.
  */
 function contactLine(name: string | null, phone: string | null): string {
   return [name, phone ? formatPhone(phone) : null].filter(Boolean).join(' · ');

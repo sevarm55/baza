@@ -1,20 +1,18 @@
 'use client';
 
-import { IconMoon, IconSun } from '@/components/icons';
+import { Moon, Sun } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import { setTheme, useTheme } from '@/components/use-theme';
 import { useT } from '@/lib/i18n/client';
 
 /**
- * Переключатель темы в шапке телефона.
+ * Переключатель темы в шапке витрины.
  *
  * Показывает ту тему, в которую переключит, а не текущую: иначе
- * приходится гадать, солнце — это «сейчас светло» или «сделать светло».
- *
- * Тему берёт из общего хранилища (`use-theme`), а не из своего
- * состояния. Раньше здесь был `useState` плюс эффект, читающий документ
- * после монтирования: значок жил своей жизнью и оставался прежним, когда
- * тему меняли из меню пользователя. Заодно исчез третий, «неизвестный»
- * знак — до первой отрисовки тему теперь знает и сервер, и клиент.
+ * приходится гадать, солнце это «сейчас светло» или «сделать светло».
+ * Тему берёт из общего хранилища (`use-theme`), поэтому совпадает с
+ * остальными переключателями продукта.
  */
 export function ThemeToggle() {
   const t = useT();
@@ -22,13 +20,15 @@ export function ThemeToggle() {
   const label = theme === 'light' ? t.common.themeDark : t.common.themeLight;
 
   return (
-    <button
-      className="btn-icon btn-icon-board"
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
       onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
       title={label}
       aria-label={label}
     >
-      {theme === 'light' ? <IconMoon className="size-4" /> : <IconSun className="size-4" />}
-    </button>
+      {theme === 'light' ? <Moon aria-hidden /> : <Sun aria-hidden />}
+    </Button>
   );
 }

@@ -3,27 +3,24 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { Panel } from '@/components/board';
+
 import { hideSetup } from '@/app/onboarding-actions';
-import { useT } from '@/lib/i18n/client';
-import type { Dict } from '@/lib/i18n';
-import type { SetupStepKey } from '@/lib/onboarding';
 import { LoadingButton } from '@/components/loading';
+import { Panel } from '@/components/patterns/panel';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import type { Dict } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/client';
+import type { SetupStepKey } from '@/lib/onboarding';
+import { cn } from '@/lib/utils';
 
 /**
- * «Начало работы» — прибор, а не баннер.
+ * «Начало работы»: панель, а не баннер.
  *
- * Стоит первым на главной, пока настройка не закончена, и собран из того
- * же, из чего собрана вся остальная страница: подложка прибора,
- * заголовок с управлением в углу, строки со списком. Другого набора
- * деталей у онбординга нет намеренно — блок, нарисованный в собственном
- * стиле, читается рекламой внутри продукта, а не его частью.
- *
- * Развёрнута ровно одна строка — следующий шаг. У выполненных остаётся
- * галочка и название, у будущих — название и тихий переход. Показать
- * объяснение сразу у всех четырёх значило бы поставить на главную стену
- * текста в тот единственный день, когда человек ещё ничего про продукт
- * не знает и читать её не станет.
+ * Стоит первой на главной, пока настройка не закончена, и собрана из
+ * того же, из чего вся остальная страница. Развёрнута ровно одна
+ * строка, следующий шаг: у выполненных остаётся галочка и название, у
+ * будущих название и тихий переход.
  */
 
 export type PanelStep = { key: SetupStepKey; done: boolean; href: string };
@@ -42,14 +39,14 @@ export function SetupPanel({
   const t = useT();
   const [hiding, hide] = useTransition();
 
-  /* Убрать блок — тихое действие в углу заголовка, а не кнопка рядом с
-     шагами. Оно ничего не делает с бизнесом и не должно спорить по весу
-     с тем, что делает. Страшного подтверждения тоже нет: настройку
-     всегда можно вернуть со своей страницы. */
+  /* Убрать блок: тихое действие в углу заголовка. Оно ничего не делает
+     с бизнесом и не должно спорить по весу с тем, что делает; вернуть
+     настройку всегда можно со своей страницы. */
   const dismiss = (
     <LoadingButton
       type="button"
-      className="btn-inline btn-inline-danger"
+      variant="ghost"
+      size="xs"
       busy={hiding}
       label={complete ? t.setup.doneHide : t.setup.skip}
       busyLabel={t.common.updating}
@@ -58,79 +55,101 @@ export function SetupPanel({
   );
 
   if (complete) {
-    return (
-      <Panel title={t.setup.doneTitle} actions={dismiss} className="mb-[var(--seam)]">
-        <p className="setup-lead">{t.setup.doneNote}</p>
+    const facts = [
+      { name: t.setup.nextWork, note: t.setup.nextWorkNote },
+      { name: t.setup.nextMoney, note: t.setup.nextMoneyNote },
+      { name: t.setup.nextControl, note: t.setup.nextControlNote },
+      { name: t.setup.nextReports, note: t.setup.nextReportsNote },
+    ];
 
-        {/* Что будет происходить дальше — четыре строки, и ни одна не
-            про кнопки. Это последнее, что онбординг говорит владельцу, и
-            сказать он обязан не про интерфейс, а про то, как теперь
-            устроен его день. */}
-        <p className="setup-next-title">{t.setup.nextTitle}</p>
-        <dl className="facts setup-next">
-          <div>
-            <dt>{t.setup.nextWork}</dt>
-            <dd className="setup-next-note">{t.setup.nextWorkNote}</dd>
-          </div>
-          <div>
-            <dt>{t.setup.nextMoney}</dt>
-            <dd className="setup-next-note">{t.setup.nextMoneyNote}</dd>
-          </div>
-          <div>
-            <dt>{t.setup.nextControl}</dt>
-            <dd className="setup-next-note">{t.setup.nextControlNote}</dd>
-          </div>
-          <div>
-            <dt>{t.setup.nextReports}</dt>
-            <dd className="setup-next-note">{t.setup.nextReportsNote}</dd>
-          </div>
+    return (
+      <Panel title={t.setup.doneTitle} description={t.setup.doneNote} actions={dismiss}>
+        {/* Что будет происходить дальше: последнее, что онбординг
+            говорит владельцу, и говорит он не про кнопки, а про то, как
+            теперь устроен его день. */}
+        <p className="text-sm font-medium">{t.setup.nextTitle}</p>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+          {facts.map((fact) => (
+            <div key={fact.name} className="rounded-md bg-muted/60 px-3 py-2.5">
+              <dt className="text-sm font-medium">{fact.name}</dt>
+              <dd className="mt-0.5 text-xs text-muted-foreground">{fact.note}</dd>
+            </div>
+          ))}
         </dl>
       </Panel>
     );
   }
 
   const next = steps.find((s) => !s.done);
+  const share = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
     <Panel
       title={t.setup.title}
+      description={t.setup.lead}
+      padded={false}
       actions={
-        <div className="setup-head-right">
-          <Progress done={done} total={total} label={t.setup.progress(done, total)} />
+        <div className="flex items-center gap-3">
+          {/* Полоса и число, оба тихие: число нужно, потому что полоса
+              отвечает «примерно половина», а вопрос звучит «сколько
+              осталось». */}
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="num text-xs text-muted-foreground">{t.setup.progress(done, total)}</span>
+            <Progress
+              value={share}
+              aria-label={t.setup.progressAria}
+              className="w-16 flex-nowrap"
+            />
+          </div>
           {dismiss}
         </div>
       }
-      className="mb-[var(--seam)]"
     >
-      <p className="setup-lead">{t.setup.lead}</p>
-
-      <ol className="setup-steps">
+      <ol className="divide-y divide-border">
         {steps.map((step, i) => {
           const words = wordsFor(t, step.key);
           const now = step === next;
           return (
-            <li key={step.key} className="setup-step" data-done={step.done ? '' : undefined}>
-              {/* Номер до выполнения, галочка после. Одного цвета для
-                  этой разницы мало: продукт открывают и на солнце. */}
-              <span className="setup-mark" aria-hidden>
+            <li
+              key={step.key}
+              className={cn(
+                'flex items-center gap-3 px-4 py-3',
+                step.done && 'text-muted-foreground',
+              )}
+            >
+              {/* Номер до выполнения, галочка после: одного цвета для
+                  этой разницы мало, продукт открывают и на солнце. */}
+              <span
+                aria-hidden
+                className={cn(
+                  'num flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                  step.done
+                    ? 'bg-success-soft text-success-soft-foreground'
+                    : now
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground',
+                )}
+              >
                 {step.done ? <Check className="size-3.5" strokeWidth={2.5} /> : i + 1}
               </span>
 
-              <div className="min-w-0">
-                <p className="setup-name">{words.name}</p>
-                {now && <p className="setup-note">{words.note}</p>}
+              <div className="min-w-0 flex-1">
+                <p className={cn('text-sm', !step.done && 'font-medium')}>{words.name}</p>
+                {now && <p className="mt-0.5 text-xs text-muted-foreground">{words.note}</p>}
               </div>
 
-              {/* Действие есть только у невыполненных: у сделанного шага
-                  кнопка «изменить название» тянула бы обратно туда,
-                  откуда человек только что вышел. */}
+              {/* Действие только у невыполненных: у сделанного шага
+                  кнопка тянула бы обратно туда, откуда человек только
+                  что вышел. */}
               {!step.done && (
-                <Link
-                  href={step.href}
-                  className={`btn-inline ${now ? 'btn-inline-primary' : ''} setup-go`}
+                <Button
+                  size="xs"
+                  variant={now ? 'default' : 'outline'}
+                  className="shrink-0"
+                  render={<Link href={step.href} />}
                 >
                   {words.cta}
-                </Link>
+                </Button>
               )}
             </li>
           );
@@ -141,36 +160,8 @@ export function SetupPanel({
 }
 
 /**
- * Прогресс — полоса и число, оба тихие.
- *
- * Ни процентов, ни очков, ни поздравлений: это не игра, а список дел на
- * первый день. Число рядом с полосой нужно, потому что полоса без него
- * отвечает «примерно половина», а вопрос звучит «сколько осталось».
- */
-function Progress({ done, total, label }: { done: number; total: number; label: string }) {
-  const share = total > 0 ? Math.round((done / total) * 100) : 0;
-  return (
-    <span className="setup-progress">
-      <span className="num setup-progress-text">{label}</span>
-      <span
-        className="setup-bar"
-        role="progressbar"
-        aria-valuenow={done}
-        aria-valuemin={0}
-        aria-valuemax={total}
-      >
-        <i style={{ width: `${share}%` }} />
-      </span>
-    </span>
-  );
-}
-
-/**
- * Слова шага.
- *
- * Отдельно от списка шагов нарочно: `lib/onboarding.ts` знает, что
- * выполнено, и не знает ни одного языка — иначе состояние бизнеса
- * пришлось бы считать заново для каждого словаря.
+ * Слова шага. Отдельно от списка шагов нарочно: `lib/onboarding.ts`
+ * знает, что выполнено, и не знает ни одного языка.
  */
 function wordsFor(t: Dict, key: SetupStepKey): { name: string; note: string; cta: string } {
   if (key === 'business') {

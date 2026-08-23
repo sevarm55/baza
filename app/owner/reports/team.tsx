@@ -1,13 +1,13 @@
-import Link from 'next/link';
-import { Panel, Row } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
+import { LinkRow } from '@/components/patterns/detail-list';
+import { Panel } from '@/components/patterns/panel';
+import { PersonAvatar } from '@/components/patterns/person';
+import { EmptyState } from '@/components/patterns/states';
 import { getDict } from '@/lib/i18n/server';
 import { unitCount } from '@/lib/i18n/terms';
 
 export type TeamMember = {
   key: string;
   name: string;
-  color: string;
   count: number;
   /** уже деньгами */
   earned: string;
@@ -17,60 +17,58 @@ export type TeamMember = {
  * Кто сделал этот месяц.
  *
  * Не копия страницы сотрудников: здесь нет ни ставок, ни телефонов, ни
- * управления — только вклад в тот месяц, который открыт. Отчёт отвечает
+ * управления, только вклад в тот месяц, который открыт. Отчёт отвечает
  * «из чего сложился результат», и люди в нём такая же составляющая, как
  * услуги и расходы.
  *
- * Строка ведёт на зарплаты, а не в карточку человека: из отчёта за месяц
- * следующий вопрос про людей всегда один — сколько им осталось отдать.
+ * Строка внизу ведёт на зарплаты, а не в карточку человека: из отчёта
+ * за месяц следующий вопрос про людей всегда один, сколько им осталось
+ * отдать.
  */
 export async function ReportTeam({
   rows,
   unitOne,
-  staffRole,
+  title,
   className,
 }: {
   rows: TeamMember[];
   unitOne: string;
-  staffRole: string;
+  title: string;
   className?: string;
 }) {
   const t = await getDict();
   return (
     <Panel
-      title={staffRole}
+      title={title}
       count={rows.length > 0 ? rows.length : undefined}
+      padded={false}
       className={className}
+      bodyClassName="flex flex-col"
     >
       {rows.length === 0 ? (
-        <EmptyState title={t.reports.emptyMonth} />
+        <EmptyState compact title={t.reports.emptyMonth} />
       ) : (
-        <>
-          <div className="board-journal">
+        /* Ссылка на зарплаты прижата к низу: в ряду с соседними панелями
+           высота общая, и список не обязан её заполнять. */
+        <div className="flex flex-1 flex-col">
+          <ul className="flex-1 divide-y divide-border">
             {rows.map((p) => (
-              <Row key={p.key}>
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ background: p.color }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold" title={p.name}>
-                  {p.name}
+              <li key={p.key} className="flex items-center gap-3 px-4 py-2.5">
+                <PersonAvatar name={p.name} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{p.name}</span>
+                  <span className="num block text-xs text-muted-foreground">
+                    {unitCount(p.count, unitOne, t.locale)}
+                  </span>
                 </span>
-                <span className="num shrink-0 text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                  {unitCount(p.count, unitOne, t.locale)}
-                </span>
-                <span className="num shrink-0 text-end text-[14.5px] font-semibold tabular-nums">
-                  {p.earned}
-                </span>
-              </Row>
+                <span className="num shrink-0 text-sm font-semibold">{p.earned}</span>
+              </li>
             ))}
+          </ul>
+          <div className="border-t border-border">
+            <LinkRow href="/owner/payroll" title={t.reports.toPayroll} />
           </div>
-
-          <Link className="link-row mt-3.5" href="/owner/payroll">
-            {t.reports.toPayroll}
-          </Link>
-        </>
+        </div>
       )}
     </Panel>
   );

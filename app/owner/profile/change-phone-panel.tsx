@@ -1,33 +1,29 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+
 import { changePhoneAction, type ChangePhoneState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
+import { LoadingButton } from '@/components/loading';
+import { FormMessage } from '@/components/patterns/form';
 import { PhoneField } from '@/components/phone-field';
-import { IconCheck } from '@/components/icons';
 import { SignOutButton } from '@/components/sign-out-button';
+import { Button } from '@/components/ui/button';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
-import { LoadingButton } from '@/components/loading';
 
 /**
  * Смена своего номера.
  *
- * Свёрнута в строку, как и PIN рядом: номер меняют раз в жизни, и
- * держать ради этого раскрытую форму на странице, где всё остальное
- * читают каждый день, незачем.
+ * Свёрнута в строку, как и PIN рядом: номер меняют раз в жизни. Шагов
+ * до трёх, и первый появляется не у всех: тому, у кого есть PIN,
+ * доказывать себя кодом не нужно. Кто заводился по SMS, сначала
+ * подтверждает старый номер.
  *
- * Шагов до трёх, и первый появляется не у всех: тому, у кого есть PIN,
- * доказывать себя кодом не нужно — он вводит PIN на том же экране, где
- * называет новый номер. Кто заводился по SMS, сначала подтверждает
- * старый номер: PIN-а у него нет, и без этого шага сменить номер он не
- * смог бы никогда.
- *
- * Последний шаг гасит все сессии, включая эту. Поэтому «готово» здесь не
- * зелёная галочка на секунду, а строка про то, что войти придётся
- * заново: человек, у которого страница молча перестала работать, решит,
- * что сломали мы.
+ * Последний шаг гасит все сессии, включая эту. Поэтому «готово» здесь
+ * не галочка на секунду, а строка про то, что войти придётся заново, и
+ * кнопка выхода.
  */
 export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
   const [state, action, pending] = useActionState<ChangePhoneState, FormData>(
@@ -37,30 +33,23 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
 
-  /* Строка «Телефон» с кнопкой — пока не начали. Отказ нулевого шага
-     показывается здесь же: он случился до того, как форма раскрылась. */
+  /* Строка с кнопкой, пока не начали. Отказ нулевого шага показывается
+     здесь же: он случился до того, как форма раскрылась. */
   if (!open || state?.step === 'idle') {
     return (
-      <div className="grid gap-2.5">
-        <div className="setting-row">
-          <span className="min-w-0">
-            <span className="setting-row-label">{t.auth.changePhone}</span>
-            <span className="setting-row-note">{t.auth.changePhoneNote}</span>
-          </span>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">{t.auth.changePhone}</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.auth.changePhoneNote}</p>
+          </div>
           {hasPin ? (
-            <button
-              type="button"
-              className="btn-inline"
-              onClick={() => {
-                setOpen(true);
-              }}
-            >
+            <Button type="button" variant="outline" size="xs" onClick={() => setOpen(true)}>
               {t.common.edit}
-            </button>
+            </Button>
           ) : (
-            /* Без PIN первое нажатие уже отправляет SMS — значит это
-               форма, а не переключатель: иначе кнопка «изменить»
-               молча слала бы код. */
+            /* Без PIN первое нажатие уже отправляет SMS: это форма, а не
+               переключатель. */
             <form
               action={action}
               onSubmit={(e) => {
@@ -68,7 +57,8 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
               }}
             >
               <LoadingButton
-                className="btn-inline"
+                variant="outline"
+                size="xs"
                 busy={pending}
                 label={t.common.edit}
                 busyLabel={t.auth.sending}
@@ -77,24 +67,20 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
             </form>
           )}
         </div>
-        {state?.step === 'idle' && state.error && <p className="alert">{state.error}</p>}
+        {state?.step === 'idle' && state.error && <FormMessage>{state.error}</FormMessage>}
       </div>
     );
   }
 
   if (state?.step === 'done') {
     return (
-      /* Дверь наружу здесь обязательна. Сессия уже мертва, и любая
-         ссылка на странице уводит на экран входа без объяснений; выход
-         своей кнопкой — единственный способ уйти отсюда осознанно и
-         заодно стереть протухший cookie. */
-      <div className="grid justify-items-start gap-2.5">
-        <p className="hint-good">
-          <IconCheck width={16} height={16} />
-          {t.auth.changePhoneDone}
-        </p>
-        <p className="note">{t.auth.changePhoneDoneNote}</p>
-        <SignOutButton labelled />
+      /* Сессия уже мертва, и любая ссылка уводит на вход без объяснений;
+         выход своей кнопкой единственный способ уйти осознанно и стереть
+         протухший cookie. */
+      <div className="flex flex-col items-start gap-2">
+        <FormMessage tone="success">{t.auth.changePhoneDone}</FormMessage>
+        <p className="text-xs text-muted-foreground">{t.auth.changePhoneDoneNote}</p>
+        <SignOutButton labelled variant="outline" />
       </div>
     );
   }
@@ -102,10 +88,10 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
   /* Шаг последний: код с НОВОГО номера. */
   if (state?.step === 'code') {
     return (
-      <form action={action} className="grid gap-3.5">
+      <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="challengeId" value={state.challengeId} />
         <input type="hidden" name="shown" value={state.phone} />
-        <p className="text-[13.5px] text-muted">{t.auth.otpSent(state.phone)}</p>
+        <p className="text-sm text-muted-foreground">{t.auth.otpSent(state.phone)}</p>
 
         <CodeInput
           name="code"
@@ -119,20 +105,22 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
           invalid={Boolean(state.error)}
         />
 
-        {state.error && <p className="alert">{state.error}</p>}
+        {state.error && <FormMessage>{state.error}</FormMessage>}
 
-        <Foot pending={pending} label={t.auth.otpVerify} onCancel={() => setOpen(false)} t={t} />
+        <Foot pending={pending} label={t.auth.otpVerify} onCancel={() => setOpen(false)} />
       </form>
     );
   }
 
-  /* Нулевой шаг: код на СВОЙ номер — только у кого нет PIN. */
+  /* Нулевой шаг: код на СВОЙ номер, только у кого нет PIN. */
   if (state?.step === 'proof') {
     return (
-      <form action={action} className="grid gap-3.5">
+      <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="proofId" value={state.proofId} />
-        <p className="text-[13.5px] font-semibold">{t.auth.changePhoneProof}</p>
-        <p className="text-[13.5px] text-muted">{t.auth.otpSent(state.phone)}</p>
+        <div>
+          <p className="text-sm font-medium">{t.auth.changePhoneProof}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.auth.otpSent(state.phone)}</p>
+        </div>
 
         <CodeInput
           name="proofCode"
@@ -146,19 +134,19 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
           invalid={Boolean(state.error)}
         />
 
-        {state.error && <p className="alert">{state.error}</p>}
+        {state.error && <FormMessage>{state.error}</FormMessage>}
 
-        <Foot pending={pending} label={t.common.next} onCancel={() => setOpen(false)} t={t} />
+        <Foot pending={pending} label={t.common.next} onCancel={() => setOpen(false)} />
       </form>
     );
   }
 
-  /* Шаг первый: новый номер. Доказательство едет скрытыми полями — код
+  /* Шаг первый: новый номер. Доказательство едет скрытыми полями: код
      на свой номер проверяется один раз, вместе с новым номером. */
   const proof = state?.step === 'phone' ? state : null;
 
   return (
-    <form action={action} className="grid gap-3.5">
+    <form action={action} className="flex flex-col gap-4">
       {proof?.proofId && <input type="hidden" name="proofId" value={proof.proofId} />}
       {proof?.proofCode && <input type="hidden" name="proofCode" value={proof.proofCode} />}
 
@@ -171,8 +159,8 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
         invalid={Boolean(proof?.error)}
       />
 
-      {/* PIN — только у тех, у кого он есть. У остальных себя уже
-          доказали кодом выше. */}
+      {/* PIN только у тех, у кого он есть: остальные себя уже доказали
+          кодом выше. */}
       {hasPin && (
         <CodeInput
           name="pin"
@@ -189,36 +177,30 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
         />
       )}
 
-      {proof?.error && <p className="alert">{proof.error}</p>}
+      {proof?.error && <FormMessage>{proof.error}</FormMessage>}
 
-      <Foot pending={pending} label={t.auth.resetSend} onCancel={() => setOpen(false)} t={t} />
+      <Foot pending={pending} label={t.auth.resetSend} onCancel={() => setOpen(false)} />
     </form>
   );
 }
 
-/** Отмена и действие — одинаковой высоты, как в остальных формах профиля. */
+/** Действие и отмена одной высоты, как в остальных формах профиля. */
 function Foot({
   pending,
   label,
   onCancel,
-  t,
 }: {
   pending: boolean;
   label: string;
   onCancel: () => void;
-  t: ReturnType<typeof useT>;
 }) {
+  const t = useT();
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
-      <button type="button" className="btn-inline" onClick={onCancel}>
+    <div className="flex flex-wrap items-center gap-2">
+      <LoadingButton size="sm" busy={pending} label={label} busyLabel={t.auth.checking} />
+      <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
         {t.common.cancel}
-      </button>
-      <LoadingButton
-        className="btn btn-auto"
-        busy={pending}
-        label={label}
-        busyLabel={t.auth.checking}
-      />
+      </Button>
     </div>
   );
 }

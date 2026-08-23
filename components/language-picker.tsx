@@ -1,108 +1,71 @@
 'use client';
 
 import { Check, ChevronDown, Languages } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Spinner } from '@/components/ui/spinner';
 import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n';
 import { useLocale, useSetLocale, useT } from '@/lib/i18n/client';
-import { TetrinMiniLoader } from '@/components/loading';
 
 /**
- * Выбор языка интерфейса.
- *
- * Строка, а не ряд из трёх кнопок: языков будет больше трёх раньше, чем
- * кажется, а ряд кнопок ломается уже на четвёртой. Слева — «Язык», справа
- * — то, что стоит сейчас, написанное на себе самом.
- *
- * Флагов здесь нет и не будет. Флаг — это страна, а не язык: русский
- * флаг для армянина, который выбирает русский интерфейс, говорит совсем
- * не то, что нужно сказать. Каждый язык подписан своим словом, потому
- * что человек, случайно попавший в чужой язык, ищет глазами СВОЁ слово,
- * а перевод чужого ему не помогает.
- *
- * Переключение мгновенное и без перезагрузки: открытый лист остаётся
- * открытым, набранная сумма — набранной. Выхода из аккаунта не
- * происходит, страница не меняется.
+ * Выбор языка интерфейса. Каждый язык подписан своим словом; флагов
+ * нет: флаг это страна, а не язык. `compact` даёт один значок для
+ * шапки, обычный вид показывает текущий язык словом.
  */
 export function LanguagePicker({ compact = false }: { compact?: boolean }) {
   const t = useT();
   const locale = useLocale();
   const { setLocale, switching } = useSetLocale();
+  const title = `${t.common.language}: ${LOCALE_NAMES[locale]}`;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          /* Два вида одной вещи. В настройках это строка «Язык — Русский»:
-             там есть место и есть контекст. В шапке телефона места нет
-             вовсе, и остаётся один значок рядом с переключателем темы —
-             подпись для него читает только читалка экрана. */
           compact ? (
-            <button
+            <Button
               type="button"
-              /* Смена языка перерисовывает весь кабинет, и до ответа
-                 сервера значок остаётся на месте, а не бледнеет: бледная
-                 кнопка сказала бы «сейчас нельзя», тогда как нажатие уже
-                 принято. */
+              variant="ghost"
+              size="icon-sm"
               aria-busy={switching || undefined}
               aria-disabled={switching || undefined}
-              onClick={(e) => {
-                if (switching) e.preventDefault();
-              }}
-              className="btn-icon btn-icon-board"
-              title={`${t.common.language}: ${LOCALE_NAMES[locale]}`}
-              aria-label={`${t.common.language}: ${LOCALE_NAMES[locale]}`}
-            >
-              {switching ? <TetrinMiniLoader /> : <Languages aria-hidden="true" className="size-4" />}
-            </button>
+              title={title}
+              aria-label={title}
+            />
           ) : (
-            /* Тот же каркас строки, что у темы рядом (`.setting-row`):
-               две соседние настройки в одном приборе, набранные разными
-               размерами и с разными полями, читаются как детали из
-               разных наборов. */
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               aria-busy={switching || undefined}
               aria-disabled={switching || undefined}
-              onClick={(e) => {
-                if (switching) e.preventDefault();
-              }}
-              className="setting-row"
-            >
-              <span className="flex min-w-0 items-center gap-2.5">
-                <Languages aria-hidden="true" className="size-4 shrink-0" />
-                <span className="setting-row-label truncate">{t.common.language}</span>
-              </span>
-              {/* То, что стоит сейчас. Собственное имя языка, не код: «HY»
-                  не читается никем, кроме нас. Рядом шеврон: без знака
-                  строка не отличается от читаемой. */}
-              <span className="flex items-center gap-1.5">
-                <span className="setting-row-value truncate">{LOCALE_NAMES[locale]}</span>
-                <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
-              </span>
-            </button>
+            />
           )
         }
-      />
+      >
+        {switching ? <Spinner /> : <Languages aria-hidden="true" />}
+        {!compact && (
+          <>
+            <span>{LOCALE_NAMES[locale]}</span>
+            <ChevronDown data-icon="inline-end" aria-hidden="true" className="text-muted-foreground" />
+          </>
+        )}
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {LOCALES.map((code: Locale) => (
           <DropdownMenuItem
             key={code}
             nativeButton
             render={
-              <button
-                type="button"
-                className="w-full py-2 text-start"
-                onClick={() => setLocale(code)}
-              />
+              <button type="button" className="w-full text-start" onClick={() => setLocale(code)} />
             }
           >
-            {/* Галочка занимает место всегда, даже когда её нет: иначе
-                строки разъезжаются влево-вправо при переключении. */}
             {code === locale ? (
               <Check aria-hidden="true" className="size-4" />
             ) : (

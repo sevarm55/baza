@@ -1,0 +1,381 @@
+/* ─────────────────────────────────────────────────────────────
+   Витрина: переменные и классы прежнего кабинета.
+
+   Витрина не перерисовывалась вместе с кабинетом: её модули
+   (`landing.module.css`, `landing-mobile.module.css`) и приборы
+   (`landing-board.tsx`) по-прежнему говорят на языке старого
+   `globals.css`: `--board-ink`, `--accent-fill`, `.field`, `.plate`.
+   Из старого файла сюда перенесено ровно то, что витрине нужно, и всё
+   это действует только внутри `.landing` (корень разметки витрины).
+
+   Подключается один раз, из `app/page.tsx`. Порядок слоёв объявлен
+   заново на случай, если этот файл окажется в странице раньше общего:
+   правила лежат в `components`, чтобы модули витрины и утилиты
+   Tailwind перекрывали их так же, как раньше.
+   ───────────────────────────────────────────────────────────── */
+
+@layer theme, base, components, utilities;
+
+/* ───────── переменные, светлая тема ───────── */
+
+.landing {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #f2f1f5;
+  --line: #e3e1e9;
+  --hairline: #ecebf0;
+  --hover: rgb(26 22 38 / 4%);
+
+  --ink: #1a1626;
+  --muted: #56506b;
+  --faint: #8a84a0;
+
+  --field-gray: #f4f4f5;
+  --field-gray-ink: #71717a;
+
+  --accent: #5b21b6;
+  --accent-strong: #7c3aed;
+  --accent-fill: #d7ff00;
+  --accent-on: #2e1065;
+
+  --good: #047857;
+
+  --board: #ffffff;
+  --on-board: #14121a;
+  --board-muted: #6b6577;
+  --board-ink: #14121a;
+  --good-on-board: #0e8a5f;
+  --good-on-dark: #34d399;
+  --bad-on-dark: #f87171;
+
+  --board-surface: #ffffff;
+  --board-surface2: #e7e5e1;
+
+  --accent-ink: #5b21b6;
+  --accent2: #6d28d9;
+  --accent2-on: #ffffff;
+
+  --good-bg: #ecfdf5;
+  --good-ink: #047857;
+
+  --shift-from: #6d28d9;
+  --shift-to: #4c1d95;
+  --shift-ink: #ffffff;
+
+  --radius-card: 12px;
+  --radius-btn: 10px;
+  --radius-chip: 8px;
+  --seam: clamp(14px, 1.15vw, 22px);
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --t-micro: 160ms;
+}
+
+/* ───────── переменные, тёмная тема ───────── */
+
+[data-theme='dark'] .landing {
+  --bg: #120f1a;
+  --surface: #1b1726;
+  --surface2: #262032;
+  --line: #362f47;
+  --hairline: #221d2e;
+  --hover: rgb(255 255 255 / 4%);
+
+  --ink: #f7f5fb;
+  --muted: #a9a2bd;
+  --faint: #7d7694;
+
+  --field-gray: #27272a;
+  --field-gray-ink: #a1a1aa;
+
+  --accent: #a78bfa;
+  --accent-strong: #8b5cf6;
+  --accent-fill: #d7ff00;
+  --accent-on: #2e1065;
+
+  --good: #34d399;
+
+  --board: #0a0a0c;
+  --on-board: #f7f5fb;
+  --board-muted: #8e8899;
+  --board-ink: #f7f5fb;
+  --good-on-board: #34d399;
+
+  --board-surface: #1a191f;
+  --board-surface2: #24232b;
+
+  --accent-ink: #c4b5fd;
+  --accent2: #6d28d9;
+  --accent2-on: #ffffff;
+
+  --good-bg: #10231d;
+  --good-ink: #34d399;
+
+  --shift-from: #4c1d95;
+  --shift-to: #2e1065;
+  --shift-ink: #ffffff;
+}
+
+@layer components {
+  /* Видимый фокус у кнопок и полей показа: грейп, как было в кабинете.
+     Поле исключено: у него своё кольцо. */
+  .landing :is(button, a, select, [tabindex]):focus-visible:not(.field) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ───────── полотно ─────────
+     Внутри него чернила, линии и поля становятся тонами кабинета. */
+  .landing .board {
+    --surface: var(--board-surface);
+    --surface2: var(--board-surface2);
+    --line: color-mix(in srgb, var(--board-ink) 12%, transparent);
+    --hairline: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    --hover: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    --ink: var(--on-board);
+    --muted: var(--board-muted);
+    --faint: color-mix(in srgb, var(--board-muted) 78%, transparent);
+    --field-fill: var(--board-surface);
+
+    background: var(--board);
+    color: var(--on-board);
+    min-height: 100dvh;
+  }
+
+  /* Линия между строками журнала, но не после последней. */
+  .landing .board-journal > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+
+  /* Поле прибора одним объявлением: строкам нужно знать его размер. */
+  .landing .panel-pad {
+    --pad-panel: 1rem;
+    padding: var(--pad-panel);
+  }
+  @media (min-width: 640px) {
+    .landing .panel-pad {
+      --pad-panel: 1.25rem;
+    }
+  }
+
+  /* ───────── поле ─────────
+     Серое поле без рамки; в фокусе одно грейповое кольцо. */
+  .landing .field {
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0.4375rem 0.75rem;
+    line-height: 1.25rem;
+    background: var(--field-fill, var(--field-gray));
+    border: 1px solid transparent;
+    box-shadow: none;
+    border-radius: var(--radius-chip);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    transition:
+      background var(--t-micro) var(--ease),
+      border-color var(--t-micro) var(--ease),
+      box-shadow var(--t-micro) var(--ease);
+  }
+  .landing .field:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 26%, transparent);
+  }
+  .landing .field::placeholder {
+    color: color-mix(in srgb, var(--field-gray-ink) 70%, transparent);
+  }
+  .landing .field::-webkit-outer-spin-button,
+  .landing .field::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  .landing .field[type='number'] {
+    appearance: textfield;
+  }
+  /* На телефоне поле под палец и кегль, при котором Safari не зумит. */
+  @media (max-width: 767px) {
+    .landing .field {
+      min-height: 2.75rem;
+      padding-block: 0.6rem;
+      font-size: 16px;
+    }
+  }
+
+  /* ───────── операционная строка ─────────
+     Три факта предложением; точка-разделитель псевдоэлементом. */
+  .landing .quick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+    margin-top: 0.85rem;
+    font-size: 13px;
+    color: var(--board-muted);
+  }
+  .landing .quick b {
+    font-weight: 600;
+    color: var(--on-board);
+  }
+  .landing .quick i {
+    width: 3px;
+    height: 3px;
+    margin-inline: 0.15rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--board-ink) 25%, transparent);
+    translate: 0 -0.25em;
+  }
+
+  /* ───────── график: линия рисуется слева направо ───────── */
+  .landing .day-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: landing-day-draw 820ms var(--ease) forwards;
+  }
+  .landing .day-area {
+    animation: landing-day-fade 620ms var(--ease) 160ms both;
+  }
+  @keyframes landing-day-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes landing-day-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .landing .day-line {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+    .landing .day-area {
+      animation: none;
+    }
+  }
+
+  /* ───────── плита: тёмная, одно число ───────── */
+  .landing .plate {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.15rem;
+    min-height: 8.5rem;
+    padding: 1.15rem 1.25rem;
+    border-radius: var(--radius-card);
+    background: var(--on-board);
+    color: var(--board);
+  }
+  .landing .plate-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--board) 64%, transparent);
+  }
+  .landing .plate-value {
+    font-size: clamp(30px, 3.4vw, 42px);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--board);
+  }
+  .landing .plate-note {
+    margin-top: 0.35rem;
+    font-size: 12.5px;
+    color: color-mix(in srgb, var(--board) 62%, transparent);
+  }
+  /* Знак красит число; оба цвета «на тёмном» и по теме не меняются. */
+  .landing .plate[data-bad] .plate-value {
+    color: var(--bad-on-dark);
+  }
+  .landing .plate[data-good] .plate-value {
+    color: var(--good-on-dark);
+  }
+  /* Тёмная тема: плита на ступень светлее полотна, число лаймом. */
+  [data-theme='dark'] .landing .plate {
+    background: var(--board-surface2);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-fill) 16%, transparent);
+  }
+  [data-theme='dark'] .landing .plate-value {
+    color: var(--accent-fill);
+  }
+  [data-theme='dark'] .landing .plate[data-bad] .plate-value {
+    color: var(--bad-on-dark);
+  }
+  [data-theme='dark'] .landing .plate[data-good] .plate-value {
+    color: var(--good-on-dark);
+  }
+  [data-theme='dark'] .landing .plate-label,
+  [data-theme='dark'] .landing .plate-note {
+    color: var(--board-muted);
+  }
+
+  /* ───────── слагаемые одной полосой ───────── */
+  .landing .figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: center;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--board-ink) 5%, transparent);
+    padding: 0.9rem 0.35rem;
+  }
+  :root:not([data-theme='dark']) .landing .figures {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board-ink) 7%, transparent);
+  }
+  .landing .figure {
+    min-width: 0;
+    padding-inline: 0.5rem;
+    text-align: center;
+  }
+  .landing .figure + .figure {
+    border-inline-start: 1px solid color-mix(in srgb, var(--board-ink) 8%, transparent);
+  }
+  .landing .figure-value {
+    font-size: clamp(15px, 1.5vw, 21px);
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+  .landing .figure-sign {
+    margin-inline-end: 0.15em;
+    font-weight: 600;
+    color: var(--board-muted);
+  }
+  .landing .figure-label {
+    margin-top: 0.2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--board-muted);
+  }
+  .landing .figure-note {
+    margin-top: 0.1rem;
+    font-size: 11px;
+    color: var(--board-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .landing .figure-open {
+    display: block;
+    border-radius: var(--radius-chip);
+    transition: background var(--t-micro) var(--ease);
+  }
+  .landing .figure-open:hover .figure-label {
+    color: var(--on-board);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}

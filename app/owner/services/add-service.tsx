@@ -3,44 +3,41 @@
 import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { saveService, type FormState } from '@/app/actions';
-import { Sheet } from '@/components/sheet';
+import { Button } from '@/components/ui/button';
 import { LoadingButton } from '@/components/loading';
-import { ServiceFields } from './service-fields';
+import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
+import { FormMessage } from '@/components/patterns/form';
 import { useT } from '@/lib/i18n/client';
+import { ServiceFields } from './service-fields';
 
 /**
  * Новая услуга.
  *
- * Форма приходит по нажатию из заголовка раздела — там, где на неё
- * смотрят, — и уходит. Постоянного места под неё нет: услуги заводят при
- * запуске, а потом трогают раз в год, и держать ради этого прибор под
- * списком значит отодвигать вниз то, ради чего сюда ходят.
- *
- * Действия стоят в подвале окна, как у правки: «отмена» слева от
- * главного, главное справа — там, где рука заканчивает читать. Раньше
- * кнопка жила внутри формы лаймовой полосой во всю ширину, и два окна
- * одного раздела заканчивались по-разному.
+ * Форма приходит по нажатию из шапки раздела и уходит. Постоянного
+ * места под неё нет: услуги заводят при запуске, а потом трогают раз в
+ * год, и держать ради этого панель под списком значит отодвигать вниз
+ * то, ради чего сюда ходят.
  */
 export function AddService({
   currencySymbol,
   step,
   tiers,
-  variant = 'head',
+  variant = 'default',
 }: {
   currencySymbol: string;
   step: number;
   /** классы бизнеса; пусто — ряда цен по классам в форме нет */
   tiers: string[];
-  /** в заголовке раздела — компактной кнопкой, в пустом месте — главной */
-  variant?: 'head' | 'cta';
+  /** в шапке и в пустом месте главной кнопкой, в ряду тихой */
+  variant?: 'default' | 'outline';
 }) {
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveService, null);
   const [open, setOpen] = useState(false);
 
-  /* Окно закрывается, когда сервер подтвердил запись. Состояние
-     сверяется прямо в отрисовке, а не эффектом: эффект успел бы
-     показать кадр с уже сохранённой, но ещё открытой формой. */
+  /* Лист закрывается, когда сервер подтвердил запись. Состояние
+     сверяется прямо в отрисовке, а не эффектом: эффект успел бы показать
+     кадр с уже сохранённой, но ещё открытой формой. */
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
     setSeen(state);
@@ -49,33 +46,27 @@ export function AddService({
 
   return (
     <>
-      <button
-        type="button"
-        className={variant === 'cta' ? 'btn btn-auto' : 'btn-inline btn-inline-primary'}
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="size-4" aria-hidden />
+      <Button variant={variant} onClick={() => setOpen(true)}>
+        <Plus data-icon="inline-start" aria-hidden />
         {t.settings.addService}
-      </button>
+      </Button>
 
-      <Sheet
+      <EntitySheet
         open={open}
-        onClose={() => setOpen(false)}
-        side
+        onOpenChange={setOpen}
         title={t.settings.newService}
         footer={
-          <>
-            <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+          <SheetActions>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               {t.common.cancel}
-            </button>
+            </Button>
             <LoadingButton
               form="service-new"
-              className="btn btn-auto"
               busy={pending}
               label={t.settings.createService}
               busyLabel={t.common.adding}
             />
-          </>
+          </SheetActions>
         }
       >
         {/* Ключом стоит признак открытия: закрыл, не сохранив, и открыл
@@ -87,7 +78,7 @@ export function AddService({
           onSubmit={(e) => {
             if (pending) e.preventDefault();
           }}
-          className="grid gap-3.5"
+          className="flex flex-col gap-4"
         >
           <ServiceFields
             idPrefix="service-new"
@@ -96,9 +87,9 @@ export function AddService({
             tiers={tiers}
             autoFocus
           />
-          {state?.error && <p className="alert">{state.error}</p>}
+          {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
         </form>
-      </Sheet>
+      </EntitySheet>
     </>
   );
 }

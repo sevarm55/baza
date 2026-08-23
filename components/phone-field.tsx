@@ -1,24 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+
+import { Field, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupInput } from '@/components/ui/input-group';
 import { COUNTRIES, country as findCountry, DEFAULT_COUNTRY } from '@/lib/phone';
-import s from './phone-field.module.css';
+import { cn } from '@/lib/utils';
 
 /**
- * Ввод телефона.
+ * Ввод телефона: код страны и номер в одной строке.
  *
  * Три вещи, ради которых это отдельный компонент, а не `input type=tel`:
- *
- *   код страны выбирается, а не нарисован — иначе человек с российским
- *   номером не может ввести его вообще;
- *   номер разбивается на группы прямо во время набора — восемь цифр
- *   подряд глазом не проверить, а человек проверяет свой номер всегда;
- *   в форму уходит нормализованный E.164, а не то, что видно на экране.
- *
- * И отдельно про последнее: красивая строка на экране — это украшение,
- * а не проверка. Сервер нормализует номер заново и заново же решает,
- * настоящий ли он. Здешнее форматирование ничего не гарантирует и
- * гарантировать не должно.
+ * код страны выбирается, а не нарисован; номер разбивается на группы
+ * прямо во время набора; в форму уходят `country` и национальная часть
+ * номера, а нормализует и проверяет их сервер заново.
  */
 export function PhoneField({
   name = 'phone',
@@ -32,6 +28,7 @@ export function PhoneField({
   invalid = false,
   required = true,
   onChange,
+  className,
 }: {
   name?: string;
   countryName?: string;
@@ -44,9 +41,11 @@ export function PhoneField({
   invalid?: boolean;
   required?: boolean;
   onChange?: (nsn: string, countryCode: string) => void;
+  className?: string;
 }) {
   const [code, setCode] = useState(defaultCountry);
   const [raw, setRaw] = useState(defaultValue);
+  const id = useId();
 
   const c = findCountry(code);
   const max = Math.max(...c.nsn);
@@ -66,9 +65,8 @@ export function PhoneField({
 
   function handle(next: string) {
     /* Вставленный номер может прийти с кодом страны, с плюсом, с
-       восьмёркой, со скобками. Оставляем цифры и, если человек вставил
-       номер вместе с кодом выбранной страны, код отрезаем — иначе он
-       уедет в национальную часть и номер станет длиннее настоящего. */
+       восьмёркой. Оставляем цифры и отрезаем код выбранной страны,
+       иначе он уедет в национальную часть. */
     let digits = next.replace(/\D/g, '');
 
     if (digits.length > max) {
@@ -82,32 +80,30 @@ export function PhoneField({
   }
 
   return (
-    <label className="grid gap-2">
-      <span className={s.label}>{label}</span>
+    <Field className={className}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
 
-      <div className={s.row} data-invalid={invalid ? '' : undefined}>
-        <div className={s.country}>
-          <span className={s.flag} aria-hidden>
+      <InputGroup className="h-10">
+        {/* Код страны: родной `select` поверх нарисованной кнопки. Он ищет
+            по буквам, крутится барабаном на iOS и понятен читалке экрана
+            без единого дополнительного атрибута. Флаг только картинка. */}
+        <div
+          data-align="inline-start"
+          className={cn(
+            'relative order-first flex h-full shrink-0 items-center gap-1 rounded-l-lg border-r border-border pr-2 pl-2.5 text-sm font-medium whitespace-nowrap select-none',
+            'has-[select:focus-visible]:bg-muted has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50',
+          )}
+        >
+          <span className="text-base leading-none" aria-hidden>
             {c.flag}
           </span>
-          <span aria-hidden>+{c.dial}</span>
-          <svg className={s.chevron} width="10" height="10" viewBox="0 0 16 16" aria-hidden>
-            <path
-              d="m4 6.5 4 4 4-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <span className="num" aria-hidden>
+            +{c.dial}
+          </span>
+          <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
 
-          {/* Родной select, а не рисованный список: он ищет по буквам,
-              крутится барабаном на iOS и понятен читалке экрана без
-              единого дополнительного атрибута. Флаг — только картинка;
-              сущность здесь телефонный код. */}
           <select
-            className={s.select}
+            className="absolute inset-0 size-full cursor-pointer text-base opacity-0"
             name={countryName}
             value={code}
             aria-label={countryLabel}
@@ -124,8 +120,9 @@ export function PhoneField({
           </select>
         </div>
 
-        <input
-          className={s.input}
+        <InputGroupInput
+          id={id}
+          className="num"
           name={name}
           value={pretty(raw)}
           onChange={(e) => handle(e.target.value)}
@@ -138,7 +135,7 @@ export function PhoneField({
           aria-invalid={invalid || undefined}
           enterKeyHint="next"
         />
-      </div>
-    </label>
+      </InputGroup>
+    </Field>
   );
 }

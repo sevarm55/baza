@@ -2,38 +2,30 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { IconEye, IconEyeOff } from '@/components/icons';
+import { Eye, EyeOff } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import s from './code-input.module.css';
 
 /* Цифра не появляется, а приезжает: снизу, из размытия, за 0.22 с.
-   Смысл не в красоте — движение показывает, КУДА попала цифра, когда
-   клавиатура закрывает половину экрана и смотреть на ряд некогда.
-   Уходит она вверх и быстрее, чтобы забой читался как отмена, а не как
-   вторая такая же цифра. */
+   Движение показывает, КУДА попала цифра, когда клавиатура закрывает
+   половину экрана. Уходит вверх и быстрее, чтобы забой читался как
+   отмена, а не как вторая такая же цифра. */
 const ENTER = { duration: 0.22, ease: [0.23, 1, 0.32, 1] } as const;
 
 /**
- * Поле для кода — PIN или кода из SMS.
+ * Поле для кода: PIN или код из SMS.
  *
  * ГЛАВНОЕ РЕШЕНИЕ: клеток шесть, а поле одно.
  *
- * Шесть отдельных `input` — самый частый способ сделать такое поле и
- * самый плохой. Читалка экрана произносит шесть безымянных полей вместо
- * одного кода. Менеджер паролей не понимает, куда подставлять. Вставка
- * кода из буфера попадает в первую клетку и обрезается. Выделить и
- * стереть всё нельзя. На iOS автозаполнение из SMS кладёт весь код в
- * первую клетку. Каждую из этих поломок потом чинят руками, и каждая
- * возвращается при следующей правке.
+ * Шесть отдельных `input` ломают читалку экрана, менеджер паролей,
+ * вставку из буфера и автозаполнение из SMS. Здесь настоящее поле ровно
+ * одно, прозрачное, во всю площадь ряда, а клетки под ним картинка.
+ * Поэтому само собой работает всё, что работает у обычного поля.
  *
- * Здесь настоящее поле ровно одно, прозрачное, во всю площадь ряда, а
- * клетки под ним — картинка. Поэтому само собой работает всё, что
- * работает у обычного поля: вставка, забой, выделение, `Enter`,
- * `autocomplete="one-time-code"`, менеджеры паролей, VoiceOver, Dynamic
- * Type, физическая клавиатура.
- *
- * Автоотправка по последней цифре — только там, где её просят: вход это
- * повторяющееся движение, и лишнее нажатие в нём стоит дорого; создание
- * PIN при регистрации — нет, там человек ещё думает.
+ * Автоотправка по последней цифре только там, где её просят: вход это
+ * повторяющееся движение, а создание кода нет.
  */
 export function CodeInput({
   name,
@@ -58,16 +50,13 @@ export function CodeInput({
   name: string;
   length?: number;
   /**
-   * Сколько цифр достаточно, чтобы отправить.
-   *
-   * По умолчанию — все. Меньше нужно ровно там, где код ПРОВЕРЯЕТСЯ, а
-   * не создаётся: у людей, зарегистрированных до перехода на шесть
-   * цифр, код четырёхзначный, и требовать от них шесть значило бы
-   * запереть им и смену кода, и удаление бизнеса. Новый код всегда
-   * ровно шесть — это проверяет сервер.
+   * Сколько цифр достаточно, чтобы отправить. По умолчанию все. Меньше
+   * нужно там, где код ПРОВЕРЯЕТСЯ: у зарегистрированных до перехода на
+   * шесть цифр код четырёхзначный. Новый код всегда шесть, это проверяет
+   * сервер.
    */
   minLength?: number;
-  /** подпись, которую произносит читалка экрана: «PIN-код, 6 цифр» */
+  /** подпись для читалки экрана: «Код доступа, 6 цифр» */
   label: string;
   /** видимая подпись над клетками; рядом с ней встаёт глазок */
   title?: string;
@@ -75,14 +64,7 @@ export function CodeInput({
   /** one-time-code для SMS, current-password / new-password для PIN */
   autoComplete?: string;
   submitOnComplete?: boolean;
-  /**
-   * Разбить ряд на группы по столько клеток.
-   *
-   * Ноль — не разбивать. Просвет посреди ряда нужен там, где код
-   * ПЕРЕПИСЫВАЮТ с чужого экрана: 204 815 сверяется взглядом, 204815 —
-   * пересчитывается пальцем. Для PIN, который набирают по памяти,
-   * группировка бессмысленна и только режет узкий ряд в кабинете.
-   */
+  /** разбить ряд на группы по столько клеток; ноль не разбивать */
   groupEvery?: number;
   revealable?: boolean;
   invalid?: boolean;
@@ -105,10 +87,9 @@ export function CodeInput({
   const fired = useRef(false);
   const describedBy = useId();
 
-  /* Раскрытый код не должен пережить уход со страницы: человек нажал
-     глазок, отвернулся, а код остался светиться на чужом мониторе.
-     Скрываем и при потере видимости вкладки, и при потере фокуса окна —
-     это же покрывает сворачивание приложения на телефоне. */
+  /* Раскрытый код не переживает уход со страницы: прячем при потере
+     видимости вкладки и фокуса окна, это же покрывает сворачивание
+     приложения на телефоне. */
   useEffect(() => {
     if (!revealed) return;
     const hide = () => setRevealed(false);
@@ -142,26 +123,23 @@ export function CodeInput({
 
   const cells = Array.from({ length }, (_, i) => value[i] ?? '');
   /* Активна клетка, куда попадёт следующая цифра. Когда код набран
-     целиком, подсвечиваем последнюю — иначе кольцо уезжает за ряд. */
+     целиком, подсвечиваем последнюю. */
   const active = Math.min(value.length, length - 1);
-  /* Код из SMS показывается цифрами: его переписывают с другого экрана,
-     и точки вместо цифр лишили бы человека единственного способа
-     проверить себя. PIN закрыт, пока не нажат глазок. */
+  /* Код из SMS показывается цифрами: его переписывают с другого экрана.
+     PIN закрыт, пока не нажат глазок. */
   const plain = revealed || autoComplete === 'one-time-code';
 
   return (
-    <div className="grid gap-2">
+    <div className="flex flex-col gap-2">
       {(title || revealable) && (
-        <div className={s.head}>
-          {/* Подпись и глазок в одной строке. Глазок сам по себе висел
-              над клетками и читался как отдельный предмет — непонятно
-              чей и непонятно зачем. Рядом с подписью он очевидно
-              относится к полю под ней. */}
-          <span className={s.caption}>{title}</span>
+        <div className="flex min-h-7 items-center justify-between gap-3">
+          <span className="text-sm leading-none font-medium">{title}</span>
           {revealable && (
-            <button
+            <Button
               type="button"
-              className={s.reveal}
+              variant="ghost"
+              size="icon-xs"
+              className="-my-1 -mr-1 text-muted-foreground"
               onClick={() => {
                 setRevealed((v) => !v);
                 // фокус обязан вернуться в поле: иначе следующая цифра уходит в никуда
@@ -171,38 +149,44 @@ export function CodeInput({
               aria-pressed={revealed}
               tabIndex={-1}
             >
-              {revealed ? <IconEyeOff /> : <IconEye />}
-            </button>
+              {revealed ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+            </Button>
           )}
         </div>
       )}
 
       <div
-        className={s.wrap}
+        className="group/code relative w-fit max-w-full"
         data-focus={focused ? '' : undefined}
         data-invalid={invalid ? '' : undefined}
       >
-        <div className={s.cells} aria-hidden>
+        <div className={cn('flex gap-2', invalid && s.shake)} aria-hidden>
           {cells.map((digit, i) => (
             <div
               key={i}
-              className={s.cell}
               data-filled={digit ? '' : undefined}
               data-active={i === active ? '' : undefined}
               data-gap={groupEvery > 0 && i > 0 && i % groupEvery === 0 ? '' : undefined}
+              className={cn(
+                'num relative flex h-11 w-10 items-center justify-center rounded-md border border-input bg-card text-lg font-semibold text-foreground transition-colors',
+                'data-gap:ml-2',
+                'data-filled:border-foreground/30',
+                /* Кольцо на одной клетке, куда попадёт следующая цифра. */
+                'group-data-focus/code:data-active:border-ring group-data-focus/code:data-active:ring-3 group-data-focus/code:data-active:ring-ring/50',
+                /* Ошибка сильнее фокуса: ряд остаётся красным, пока не исправлен. */
+                'group-data-invalid/code:border-destructive group-data-invalid/code:data-active:border-destructive group-data-invalid/code:data-active:ring-destructive/20',
+                disabled && 'opacity-50',
+              )}
             >
-              <span className={s.glyphs}>
+              <span className="absolute inset-0 grid place-items-center">
                 {/* Цифра живёт в своей клетке и меняется на месте:
-                    AnimatePresence на каждую клетку, а не на ряд —
-                    иначе правка одной цифры пересобирала бы все шесть. */}
+                    AnimatePresence на каждую клетку, а не на ряд. */}
                 <AnimatePresence initial={false} mode="popLayout">
                   {digit ? (
                     <motion.span
-                      /* Ключ по тому, что ВИДНО. Под точками цифра
-                         меняется молча: показывать движение там, где
-                         картинка не изменилась, значит врать о вводе. */
+                      /* Ключ по тому, что ВИДНО: под точками цифра меняется молча. */
                       key={plain ? digit : 'dot'}
-                      className={s.glyph}
+                      className="col-start-1 row-start-1 grid place-items-center"
                       initial={reduced ? false : { opacity: 0, scale: 0.97, y: 9, filter: 'blur(6px)' }}
                       animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                       exit={
@@ -212,30 +196,32 @@ export function CodeInput({
                       }
                       transition={reduced ? { duration: 0 } : ENTER}
                     >
-                      {plain ? digit : <span className={s.dot} />}
+                      {plain ? digit : <span className="size-2 rounded-full bg-current" />}
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
 
-                {/* Каретка. Настоящая спрятана — она одна на весь ряд и
-                    стояла бы не в той клетке; эта показывает, куда
-                    попадёт следующая цифра, и только пока поле в фокусе
-                    и клетка пуста. */}
-                {focused && !digit && i === active && !disabled && <span className={s.caret} />}
+                {/* Рисованная каретка: настоящая одна на весь ряд и стояла бы
+                    не в той клетке. Видна только в фокусе и в пустой клетке. */}
+                {focused && !digit && i === active && !disabled && (
+                  <span className="col-start-1 row-start-1 h-[18px] w-0.5 animate-caret-blink rounded-[1px] bg-current duration-1000" />
+                )}
               </span>
             </div>
           ))}
         </div>
 
+        {/* Настоящее поле: прозрачное и во всю площадь клеток, лежит СВЕРХУ,
+            потому что по нему попадает палец. Своя обводка фокуса снята:
+            место ввода показывает сама клетка. */}
         <input
           ref={input}
-          className={s.input}
+          className="absolute inset-0 m-0 size-full cursor-text border-0 bg-transparent p-0 text-transparent caret-transparent outline-none selection:bg-transparent [-webkit-tap-highlight-color:transparent] [-webkit-text-fill-color:transparent] [letter-spacing:2em] [text-indent:-999em] focus-visible:outline-none"
           name={name}
           value={value}
           onChange={(e) => set(e.target.value)}
-          /* Каретка всегда в конце. Внутри ряда клеток её не видно, и
-             редактирование середины выглядело бы как поломка: цифра
-             появляется не там, куда смотрел человек. */
+          /* Каретка всегда в конце: внутри ряда клеток её не видно, и
+             правка середины выглядела бы поломкой. */
           onSelect={(e) => {
             const el = e.currentTarget;
             if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) {
@@ -261,8 +247,7 @@ export function CodeInput({
         />
       </div>
 
-      {/* Прогресс словами — для читалки экрана. Клетки для неё скрыты,
-          и без этой строки человек не знает, сколько уже ввёл. */}
+      {/* Прогресс словами для читалки экрана: клетки для неё скрыты. */}
       <span id={describedBy} className="sr-only" aria-live="polite">
         {enteredLabel?.(value.length, length) ?? `${value.length}/${length}`}
       </span>

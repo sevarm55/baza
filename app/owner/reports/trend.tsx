@@ -1,117 +1,200 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { Panel } from '@/components/board';
-import { Segmented } from '@/components/segmented';
+import { useRouter } from 'next/navigation';
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts';
+
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
+import { Panel } from '@/components/patterns/panel';
+import { Segmented } from '@/components/patterns/segmented';
+import { EmptyState } from '@/components/patterns/states';
 import { formatMoney } from '@/lib/money';
-import type { Metric, TrendPoint } from './model';
 import { useT } from '@/lib/i18n/client';
+import { unitCount, unitForms } from '@/lib/i18n/terms';
+import { cn } from '@/lib/utils';
+import type { Metric, TrendPoint } from './model';
 
 /**
  * Ход бизнеса по месяцам.
  *
- * Отчёт до сих пор отвечал на «сколько» таблицей и молчал о том, ради
- * чего его открывают: лучше или хуже стало. Шесть чисел в столбце
- * сравнивать глазами можно, но это работа, которую продукт уже умеет
- * делать сам — разница в высоте видна раньше, чем прочитано первое
- * число.
+ * Отвечает на то, ради чего отчёт открывают: лучше или хуже стало.
+ * Разница в высоте столбиков видна раньше, чем прочитано первое число.
  *
- * Одна величина за раз, а не четыре линии сразу. Выручка, зарплата,
- * расходы и итог в одних осях отличаются друг от друга в разы: линия
- * расходов ложится на ноль и перестаёт что-либо показывать, а глазу
- * приходится держать легенду. Переключатель отвечает на три разных
- * вопроса по очереди: сколько осталось, сколько пришло, сколько машин.
+ * Одна величина за раз, а не четыре линии сразу: выручка, зарплата и
+ * итог отличаются в разы, и в одних осях меньшая легла бы на ноль.
+ * Переключатель отвечает на три вопроса по очереди: сколько осталось,
+ * сколько пришло, сколько машин.
  *
- * Столбики, а не линия. Месяцы — величина дискретная: между июлем и
- * августом ничего нет, и линия между ними обещала бы плавный переход,
- * которого не существует. Тот же выбор, что у рельефа дня на сводке.
+ * Столбики, а не линия: между июлем и августом ничего нет, и линия
+ * обещала бы плавный переход, которого не существует. Открытый месяц
+ * выделен, убыток уходит вниз от нулевой линии и красный.
  *
- * Нажатие по столбику открывает месяц. Это и есть главный способ ходить
- * по отчёту: увидел провал — открыл и разобрался, из чего он сложился.
+ * Нажатие по столбику открывает месяц. Клавиатуре служат переключатель
+ * месяцев в шапке и ссылки в таблице внизу.
  */
 export function Trend({
   points,
   currency,
   unitOne,
+  className,
 }: {
   /** от старого к новому: график читают слева направо, как время */
   points: TrendPoint[];
   currency: string;
   unitOne: string;
+  className?: string;
 }) {
   const t = useT();
+  const router = useRouter();
   const [metric, setMetric] = useState<Metric>('profit');
 
   const money = (n: number) => formatMoney(n, currency, t.locale);
-  const valueOf = (p: TrendPoint) =>
-    metric === 'profit' ? p.profit : metric === 'revenue' ? p.revenue : p.count;
   const label = (n: number) => (metric === 'count' ? String(n) : money(n));
 
-  const values = points.map(valueOf);
-  /* Ноль всегда внутри шкалы: без него месяц с убытком рисовался бы
-     столбиком вверх от собственного дна, и провал читался бы ростом. */
-  const top = Math.max(0, ...values);
-  const bottom = Math.min(0, ...values);
-  const span = top - bottom || 1;
-  const zero = (top / span) * 100;
-  const empty = top === 0 && bottom === 0;
+  const titles: Record<Metric, string> = {
+    profit: t.owner.profit,
+    revenue: t.owner.revenue,
+    count: unitForms(unitOne, t.locale).many,
+  };
+
+  const data = points.map((p) => ({ ...p, value: p[metric] }));
+  const empty = data.every((p) => p.value === 0);
+  const hasLoss = data.some((p) => p.value < 0);
+
+  const config = {
+    value: { label: titles[metric], color: 'var(--chart-1)' },
+  } satisfies ChartConfig;
+
+  /* Нажатие ловится на всём столбце, а не только на прямоугольнике:
+     у месяца с нулём прямоугольника нет, а открыть его всё равно можно. */
+  const open = (state: { activeTooltipIndex?: number | string | null | undefined }) => {
+    const i = Number(state.activeTooltipIndex ?? NaN);
+    const p = Number.isInteger(i) ? points[i] : undefined;
+    if (p && !p.current) router.push(p.href);
+  };
 
   return (
     <Panel
+      className={className}
       title={t.reports.trend}
-      className="lg:col-span-8"
       actions={
         <Segmented
-          id="report-metric"
+          size="sm"
+          label={t.reports.trend}
           current={metric}
           onSelect={(key) => setMetric(key as Metric)}
-          label={t.reports.trend}
           items={[
-            { key: 'profit', label: t.owner.profit },
-            { key: 'revenue', label: t.owner.revenue },
-            { key: 'count', label: unitOne },
+            { key: 'profit', label: titles.profit },
+            { key: 'revenue', label: titles.revenue },
+            { key: 'count', label: titles.count },
           ]}
         />
       }
     >
-      <div className="trend">
-        {points.map((p, i) => {
-          const v = valueOf(p);
-          /* Ненулевая величина обязана быть видна: столбик в ноль
-             пикселей читается как «данных нет», а данные есть. */
-          const height = empty ? 0 : Math.max(v === 0 ? 0 : 2, (Math.abs(v) / span) * 100);
-          const negative = v < 0;
-
-          return (
-            <Link
-              key={p.key}
-              href={p.href}
-              className="trend-col"
-              data-on={p.current ? '' : undefined}
-              aria-current={p.current ? 'page' : undefined}
-              aria-label={`${p.label} · ${label(v)}`}
-            >
-              <span className="trend-plot">
-                <span
-                  className="trend-bar"
-                  data-down={negative ? '' : undefined}
-                  style={{
-                    // отсчёт от нулевой линии вверх или вниз от неё
-                    top: negative ? `${zero}%` : `${zero - height}%`,
-                    height: `${height}%`,
-                    // столбики поднимаются друг за другом, слева направо
-                    ['--i' as string]: i,
-                  }}
-                  aria-hidden
+      {empty ? (
+        <EmptyState compact title={t.common.empty} className="min-h-56" />
+      ) : (
+        <ChartContainer config={config} className="aspect-auto h-56 w-full">
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 4, bottom: 0, left: 4 }}
+            barCategoryGap="28%"
+            onClick={open}
+            className="cursor-pointer"
+          >
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              interval={0}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis
+              width={44}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v: number) => (metric === 'count' ? String(v) : compact(v))}
+              allowDecimals={false}
+            />
+            {/* Ноль всегда внутри шкалы: без него месяц с убытком
+                рисовался бы столбиком вверх от собственного дна. */}
+            {hasLoss && <ReferenceLine y={0} stroke="var(--border)" />}
+            <ChartTooltip
+              cursor={{ fill: 'var(--muted)' }}
+              content={({ active, payload }) => (
+                <TrendTip
+                  active={!!active}
+                  point={(payload?.[0]?.payload as TrendPoint | undefined) ?? null}
+                  metric={metric}
+                  label={label}
+                  unitOne={unitOne}
                 />
-              </span>
-              <span className="trend-name">{p.label}</span>
-              <span className="num trend-value">{label(v)}</span>
-            </Link>
-          );
-        })}
-      </div>
+              )}
+            />
+            <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={48}>
+              {data.map((p) => (
+                <Cell
+                  key={p.key}
+                  fill={
+                    p.value < 0
+                      ? 'var(--destructive)'
+                      : p.current
+                        ? 'var(--chart-1)'
+                        : 'var(--chart-2)'
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      )}
     </Panel>
+  );
+}
+
+/** «12 000» → «12k»: ось не должна занимать половину ширины. */
+function compact(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '−' : '';
+  if (abs >= 1_000_000) return `${sign}${Math.round(abs / 100_000) / 10}M`;
+  if (abs >= 1_000) return `${sign}${Math.round(abs / 1000)}k`;
+  return `${sign}${abs}`;
+}
+
+/**
+ * Подсказка к столбику: месяц, величина и, у денег, сколько машин
+ * за ней стоит. Открытый месяц назван цветом бренда, как и его столбик.
+ */
+function TrendTip({
+  active,
+  point,
+  metric,
+  label,
+  unitOne,
+}: {
+  active: boolean;
+  point: TrendPoint | null;
+  metric: Metric;
+  label: (n: number) => string;
+  unitOne: string;
+}) {
+  const t = useT();
+  if (!active || !point) return null;
+  const value = point[metric];
+  return (
+    <div className="min-w-36 rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground">
+      <div className={cn('mb-1 font-medium', point.current ? 'text-primary' : 'text-muted-foreground')}>
+        {point.label}
+      </div>
+      <div className={cn('num text-sm font-semibold', value < 0 && 'text-destructive')}>
+        {label(value)}
+      </div>
+      {metric !== 'count' && (
+        <div className="num text-muted-foreground">{unitCount(point.count, unitOne, t.locale)}</div>
+      )}
+    </div>
   );
 }

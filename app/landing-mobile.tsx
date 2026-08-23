@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Figures } from '@/components/board';
-import { NumericText } from '@/components/numeric-text';
+import { Figures } from './landing-board';
+import { NumericText } from '@/components/patterns/numeric-text';
 import { formatMoney } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
 import { useT } from '@/lib/i18n/client';

@@ -22,12 +22,13 @@ export type OrderLine = BoardLine;
 
 /** Человек внутри рабочего дня. */
 export type StaffEntry = {
-  /** `${day}|${staffId}` — по нему идёт выбор и по нему же платят */
+  /** `${staffId}|${day}` — по нему идёт выбор и по нему же платят */
   key: string;
   /** пусто у записей без исполнителя: платить по ним некому */
   staffId: string | null;
+  /* Цвет человека отдельно не везём: кружок с буквой выводит его из
+     имени сам, тем же правилом, что лента и смена. */
   name: string;
-  color: string;
   count: number;
   /** сколько за этот день ещё должны */
   earned: number;
@@ -47,8 +48,10 @@ export type StaffEntry = {
 export type DayGroup = {
   /** `YYYY-MM-DD` в часовом поясе бизнеса */
   day: string;
-  /** «Այսօր · 14 օգոստոսի» или «13 օգոստոսի» */
+  /** «Այսօր · 14 օգոստոսի» или «13 օգոստոսի» — для окна и подписей */
   title: string;
+  /** «14 օգոստոսի» без слова «сегодня»: в шапке дня его несёт значок */
+  date: string;
   today: boolean;
   people: StaffEntry[];
   /** машин за день — по тем людям, что показаны */
@@ -68,7 +71,7 @@ export type HistoryPayment = {
   forWork: string;
   /** машин за тот рабочий день, если это ещё известно */
   units: number | null;
-  rows: { id: string; name: string; color: string; amount: number }[];
+  rows: { id: string; name: string; amount: number }[];
   total: number;
 };
 

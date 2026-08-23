@@ -1,29 +1,26 @@
 import { BRAND } from '@/lib/brand';
+import { cn } from '@/lib/utils';
 
 /**
- * Марка Tetrin, набранная.
- *
- * Последние две буквы стоят в плашке: «TETR» чернилами и «IN» вывороткой
- * на них же. Приём нужен затем же, зачем он нужен любому логотипу из
- * одного слова, — чтобы слово перестало быть подписью и стало знаком.
- * Читается оно при этом ровно так же, а на маленьком размере плашка
- * остаётся заметной, когда сами буквы уже нет.
- *
- * Раскол по последним двум буквам, а не по вписанному «IN»: имя лежит в
- * одном месте (`lib/brand.ts`) и не должно оказаться записанным дважды —
- * там строкой, здесь кусками. Сменят имя — знак соберётся из нового.
- *
- * Компонент, а не разметка на месте: марка стоит в колонке кабинета, в
- * шапке витрины и в колонке показа. Три копии одного знака расходятся
- * на первой же правке, и расхождение читается как подделка.
+ * Марка Tetrin, набранная: «TETR» чернилами и «IN» вывороткой на
+ * грейповой плашке. Имя лежит в одном месте (`lib/brand.ts`), знак
+ * собирается из него.
  */
 export function Wordmark({ className = '' }: { className?: string }) {
   const name = BRAND.toUpperCase();
 
   return (
-    <span className={`wordmark ${className}`} aria-hidden>
+    <span
+      className={cn(
+        'inline-flex items-center font-wordmark text-[13px] leading-none tracking-[0.18em] text-foreground select-none',
+        className,
+      )}
+      aria-hidden
+    >
       {name.slice(0, -2)}
-      <span className="wordmark-in">{name.slice(-2)}</span>
+      <span className="ml-0.5 rounded-[3px] bg-primary px-1 py-0.5 text-primary-foreground">
+        {name.slice(-2)}
+      </span>
     </span>
   );
 }

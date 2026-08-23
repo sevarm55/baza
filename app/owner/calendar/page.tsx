@@ -1,35 +1,32 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getPeriodStats, getRevenueSeries, getTenant, startOfDay } from '@/lib/queries';
 import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { isMonth, localDate, monthBounds } from '@/lib/history';
-import { formatMoney } from '@/lib/money';
-import { Panel, signColor, signOf } from '@/components/board';
-import { PageHead } from '@/components/page-head';
+import { formatCount, formatMoney } from '@/lib/money';
 import { getDict } from '@/lib/i18n/server';
 import { intlLocale } from '@/lib/i18n/format';
-import { localizeTenantOrNull, unitCount } from '@/lib/i18n/terms';
+import { localizeTenantOrNull, unitCount, unitWord } from '@/lib/i18n/terms';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Panel } from '@/components/patterns/panel';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 /**
  * Календарь месяца.
  *
- * ЗАЧЕМ ОН НУЖЕН. Кабинет отвечал «сколько сегодня» и «сколько за месяц»,
- * а вопрос «что было в прошлую субботу» задают постоянно — и ответить на
- * него было нечем. В приложении календарь есть с самого начала, маршруты
- * `/api/v1/calendar` и `/api/v1/day` написаны для него; в браузере до
- * сих пор не было ни того ни другого.
- *
  * Сетка отвечает на один вопрос: где месяц был густым. Цифры в клетку не
  * влезают, а высота столбика читается мгновенно, поэтому в клетке число
- * дня, полоса выручки и число машин мелким. Точные деньги — в карточке
+ * дня, столбик выручки и число машин мелким. Точные деньги в карточке
  * дня, туда и ведёт нажатие.
  *
  * Считает всё то же, что и приложение, тем же кодом: `monthBounds`,
  * `getRevenueSeries`, `getPeriodStats`, `getPeriodCosts`, `profitOf`.
- * Календарь, расходящийся со сводкой хотя бы на драм, не читают вовсе.
  */
 export default async function CalendarPage({
   searchParams,
@@ -45,14 +42,15 @@ export default async function CalendarPage({
 
   const zone = tenant.timezone;
   const asked = (await searchParams).m ?? '';
-  // без месяца — текущий, в зоне бизнеса, а не сервера
-  const month = isMonth(asked) ? asked : localDate(zone).slice(0, 7);
+  /* Без месяца текущий, в зоне бизнеса, а не сервера. Он же предел
+     перехода вперёд. */
+  const thisMonth = localDate(zone).slice(0, 7);
+  const month = isMonth(asked) ? asked : thisMonth;
   const { from, to, days } = monthBounds(month, zone);
 
   /* Аренда начисляется по прожитые дни включительно, а не за месяц
      вперёд: в середине месяца полная сумма показала бы убыток, которого
-     ещё нет. Прошедшие месяцы это не трогает — там граница уже позади.
-     То же правило в `/api/v1/calendar`. */
+     ещё нет. То же правило в `/api/v1/calendar`. */
   const tomorrow = new Date(startOfDay(zone).getTime() + 86_400_000);
   const costsTo = to < tomorrow ? to : tomorrow;
 
@@ -65,9 +63,9 @@ export default async function CalendarPage({
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
   const byDay = new Map(series.map((s) => [s.key.slice(0, 10), s]));
 
-  /* Дни месяца по местному календарю. День строкой `YYYY-MM-DD`, а не
-     объектом Date: в адресе он строкой, в ключе ряда строкой, и
-     превращать его туда-обратно значит трижды рискнуть часовым поясом. */
+  /* Дни месяца по местному календарю. День строкой `YYYY-MM-DD`: в
+     адресе он строкой, в ключе ряда строкой, и превращать его
+     туда-обратно значит трижды рискнуть часовым поясом. */
   const cells = Array.from({ length: days }, (_, i) => {
     const day = `${month}-${String(i + 1).padStart(2, '0')}`;
     const found = byDay.get(day);
@@ -84,130 +82,168 @@ export default async function CalendarPage({
   const peak = Math.max(1, ...cells.map((c) => c.revenue));
   const today = localDate(zone);
 
-  /* Пустые клетки перед первым числом: сетка обязана начинаться с того
-     дня недели, на который месяц пришёлся, иначе субботы окажутся в
-     разных столбцах у соседних месяцев. Понедельник первым — так
-     считают неделю и в Армении, и в России. */
+  /* Пустые клетки перед первым числом: субботы обязаны стоять в одном
+     столбце у соседних месяцев. Понедельник первым. Хвост добивается до
+     полной недели, чтобы сетка оставалась прямоугольником. */
   const firstWeekday = (new Date(`${month}-01T12:00:00Z`).getUTCDay() + 6) % 7;
+  const trailing = (7 - ((firstWeekday + days) % 7)) % 7;
 
-  const title = new Intl.DateTimeFormat(intlLocale(t.locale), {
+  const monthTitle = new Intl.DateTimeFormat(intlLocale(t.locale), {
     month: 'long',
     year: 'numeric',
     timeZone: zone,
-  }).format(from);
+  });
+  const title = monthTitle.format(from);
 
   const weekdays = weekdayNames(t.locale);
+  const first = firstMonth(tenant.createdAt, zone);
+  const prev = shiftMonth(month, -1);
+  const next = shiftMonth(month, +1);
 
   return (
-    <>
-      <PageHead title={t.calendar.title} meta={t.calendar.lead}>
-        <MonthNav month={month} label={title} first={firstMonth(tenant.createdAt, zone)} />
-      </PageHead>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
+        title={t.calendar.title}
+        description={t.calendar.lead}
+        actions={
+          /* Вперёд дальше текущего месяца не ходим, назад не раньше
+             того, в котором завели бизнес: пустые месяцы до его
+             появления это не нули мойки, а месяцы, когда мойки не было. */
+          <div className="flex items-center gap-1">
+            <MonthStep
+              href={`/owner/calendar?m=${prev}`}
+              enabled={prev >= first}
+              back
+              label={monthTitle.format(monthBounds(prev, zone).from)}
+            />
+            <span className="min-w-36 text-center text-sm font-medium">{title}</span>
+            <MonthStep
+              href={`/owner/calendar?m=${next}`}
+              enabled={next <= thisMonth}
+              label={monthTitle.format(monthBounds(next, zone).from)}
+            />
+          </div>
+        }
+      />
 
-      {/* Итог месяца рядом с сеткой: цифры в клетках отвечают «когда
-          густо», а «сколько всего» — только здесь. */}
-      <p className="quick">
-        {unitCount(stats.count, tenant.unitOne, t.locale)}
-        <i />
-        {t.owner.revenue} <b className="num">{money(stats.revenue)}</b>
-        <i />
-        {t.owner.profit}{' '}
-        <b className="num" style={{ color: signColor(signOf(monthProfit)) }}>
-          {money(monthProfit)}
-        </b>
-      </p>
+      {/* Итог месяца рядом с сеткой: клетки отвечают «когда густо», а
+          «сколько всего» только здесь. */}
+      <MetricStrip columns={3}>
+        <Metric label={unitWord(stats.count, tenant.unitOne, t.locale)} value={formatCount(stats.count, t.locale)} />
+        <Metric label={t.owner.revenue} value={money(stats.revenue)} />
+        <Metric
+          label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
+          value={money(Math.abs(monthProfit))}
+          tone={monthProfit < 0 ? 'destructive' : 'default'}
+        />
+      </MetricStrip>
 
-      <div className="mt-[var(--seam)]">
-        <Panel>
-          <div className="cal-grid" role="grid" aria-label={title}>
-            {weekdays.map((name) => (
-              <div key={name} className="cal-weekday" role="columnheader">
-                {name}
-              </div>
-            ))}
+      <Panel padded={false} className="overflow-hidden">
+        {/* Волосяные линии между клетками рисует зазор сетки на подложке
+            цвета границы: так у сетки нет ни двойных линий по краю, ни
+            особых правил для последнего столбца. */}
+        <div role="grid" aria-label={title} className="grid grid-cols-7 gap-px bg-border">
+          {weekdays.map((name) => (
+            <div
+              key={name}
+              role="columnheader"
+              className="bg-card px-2 py-2 text-center text-2xs font-medium tracking-wider text-muted-foreground uppercase"
+            >
+              {name}
+            </div>
+          ))}
 
-            {Array.from({ length: firstWeekday }, (_, i) => (
-              <span key={`gap-${i}`} aria-hidden />
-            ))}
+          {Array.from({ length: firstWeekday }, (_, i) => (
+            <span key={`lead-${i}`} aria-hidden className="bg-card" />
+          ))}
 
-            {cells.map((cell) => (
+          {cells.map((cell) => {
+            const empty = cell.count === 0;
+            const isToday = cell.day === today;
+            const label = `${cell.number} · ${unitCount(cell.count, tenant.unitOne, t.locale)} · ${money(cell.revenue)}`;
+            return (
               <Link
                 key={cell.day}
                 href={`/owner/day/${cell.day}`}
-                className="cal-day"
-                data-today={cell.day === today ? '' : undefined}
-                data-empty={cell.count === 0 ? '' : undefined}
-                aria-label={`${cell.number} · ${unitCount(cell.count, tenant.unitOne, t.locale)} · ${money(cell.revenue)}`}
+                aria-label={label}
+                title={label}
+                className={cn(
+                  'flex min-h-20 flex-col justify-between bg-card p-2 outline-none transition-colors hover:bg-muted focus-visible:bg-muted lg:min-h-24',
+                  empty && 'text-muted-foreground',
+                )}
               >
-                <span className="num cal-num">{cell.number}</span>
-
-                {/* Полоса, а не число: деньги дня в клетку не влезают, а
-                    высоту глаз сравнивает без чтения. Минимум в две
-                    точки у непустого дня — нулевая полоса читалась бы
-                    как «не работали». */}
                 <span
-                  className="cal-bar"
-                  style={{
-                    height: cell.revenue > 0 ? `${Math.max(2, (cell.revenue / peak) * 100)}%` : 0,
-                  }}
-                  aria-hidden
-                />
+                  className={cn(
+                    'num inline-flex size-6 items-center justify-center rounded-md text-xs font-medium',
+                    isToday && 'bg-primary text-primary-foreground',
+                  )}
+                >
+                  {cell.number}
+                </span>
 
-                {cell.count > 0 && <span className="num cal-count">{cell.count}</span>}
+                {/* Столбик, а не число: деньги дня в клетку не влезают, а
+                    высоту глаз сравнивает без чтения. Минимум в две точки
+                    у непустого дня: нулевой столбик читался бы как «не
+                    работали». */}
+                {!empty && (
+                  <span className="flex h-6 items-end gap-1.5">
+                    <span
+                      aria-hidden
+                      className="w-1 shrink-0 rounded-sm bg-primary"
+                      style={{ height: `${Math.max(8, (cell.revenue / peak) * 100)}%` }}
+                    />
+                    <span className="num text-xs leading-none text-muted-foreground">{cell.count}</span>
+                  </span>
+                )}
               </Link>
-            ))}
-          </div>
-        </Panel>
-      </div>
-    </>
-  );
-}
+            );
+          })}
 
-/**
- * Переход по месяцам.
- *
- * Вперёд дальше текущего месяца не ходим, назад — не раньше того, в
- * котором завели бизнес: пустые месяцы до его появления это не нули
- * мойки, а месяцы, когда мойки не было.
- */
-function MonthNav({ month, label, first }: { month: string; label: string; first: string }) {
-  const prev = shiftMonth(month, -1);
-  const next = shiftMonth(month, +1);
-  const canPrev = prev >= first;
-  const canNext = next <= month.slice(0, 7) || next <= todayMonth();
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <MonthStep href={`/owner/calendar?m=${prev}`} enabled={canPrev} back />
-      <span className="min-w-[8.5rem] text-center text-[14px] font-semibold">{label}</span>
-      <MonthStep href={`/owner/calendar?m=${next}`} enabled={canNext} />
+          {Array.from({ length: trailing }, (_, i) => (
+            <span key={`trail-${i}`} aria-hidden className="bg-card" />
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
 
+/**
+ * Шаг по месяцам. Недоступный шаг погашен, а не спрятан: кнопка на
+ * месте говорит, что дальше просто нечего смотреть.
+ */
 function MonthStep({
   href,
   enabled,
   back = false,
+  label,
 }: {
   href: string;
   enabled: boolean;
   back?: boolean;
+  label: string;
 }) {
   const Icon = back ? ChevronLeft : ChevronRight;
-  /* Недоступный шаг — не ссылка вовсе, а погашенный знак: ссылка,
-     которая никуда не ведёт, обещает месяц, которого нет. */
   if (!enabled) {
     return (
-      <span className="btn-inline" style={{ opacity: 0.35 }} aria-hidden>
-        <Icon className="size-4" />
-      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        aria-disabled
+        aria-label={label}
+        tabIndex={-1}
+        className="pointer-events-none opacity-40"
+      >
+        <Icon />
+      </Button>
     );
   }
   return (
-    <Link className="btn-inline" href={href}>
-      <Icon className="size-4" aria-hidden />
-    </Link>
+    <Button variant="outline" size="icon-sm" render={<Link href={href} aria-label={label} />}>
+      <Icon />
+    </Button>
   );
 }
 
@@ -217,27 +253,18 @@ function shiftMonth(month: string, by: number): string {
   return `${at.getUTCFullYear()}-${String(at.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function todayMonth(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 /** Месяц, в котором завели бизнес: раньше него смотреть нечего. */
 function firstMonth(createdAt: Date, timezone: string): string {
   return localDate(timezone, createdAt).slice(0, 7);
 }
 
 /**
- * Дни недели одной буквой, на языке того, кто смотрит.
- *
- * Считаем через `Intl`, а не списком в словаре: три списка по семь слов
- * пришлось бы держать в трёх файлах, а система знает их для всех локалей
- * сразу. Начало недели — понедельник.
+ * Дни недели коротко, на языке того, кто смотрит. Через `Intl`, а не
+ * списком в словаре: система знает их для всех локалей сразу. Начало
+ * недели понедельник.
  */
 function weekdayNames(locale: string): string[] {
   const f = new Intl.DateTimeFormat(intlLocale(locale), { weekday: 'short', timeZone: 'UTC' });
-  // 4 января 1970 — воскресенье; понедельник это +1
-  return Array.from({ length: 7 }, (_, i) =>
-    f.format(new Date(Date.UTC(1970, 0, 5 + i))),
-  );
+  // 5 января 1970 понедельник
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(1970, 0, 5 + i))));
 }

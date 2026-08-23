@@ -10,8 +10,8 @@ import {
   ReceiptText,
   Users,
 } from 'lucide-react';
-import { Figures, Panel, Plate } from '@/components/board';
-import { NumericText } from '@/components/numeric-text';
+import { Figures, Panel, Plate } from './landing-board';
+import { NumericText } from '@/components/patterns/numeric-text';
 import { Wordmark } from '@/components/wordmark';
 import { formatMoney } from '@/lib/money';
 import { personColor } from '@/lib/person-color';
@@ -35,11 +35,9 @@ import s from './landing.module.css';
  * Рабочая панель на витрине.
  *
  * Это не снимок кабинета и не его макет: приборы здесь настоящие — плита
- * итога, полоса слагаемых и панели приезжают из `components/board.tsx`,
- * теми же компонентами, которыми нарисована сводка дня. Числа перекатывает
- * тот же `NumericText`, что и в продукте. Расхождение витрины и кабинета
- * тут невозможно по устройству: чтобы они разошлись, надо сломать сам
- * кабинет.
+ * итога, полоса слагаемых и панели приезжают из `landing-board.tsx`,
+ * числа перекатывает тот же `NumericText`, что и в продукте. Классы
+ * приборов описаны в `landing-legacy.css` и действуют только на витрине.
  *
  * Пять состояний, и вместе они — один рабочий день:
  *
@@ -289,8 +287,8 @@ export function LandingWorkspace({
             </nav>
           </aside>
 
-          {/* `board` из globals.css: внутри него чернила, линии, поля и
-              кнопки становятся полотном кабинета — теми же, что там. */}
+          {/* `board` из landing-legacy.css: внутри него чернила, линии и
+              поля становятся полотном кабинета. */}
           <div className={`board ${s.canvas}`}>
             <header className={s.canvasHead}>
               <h3 className={s.canvasTitle}>{d.nav[scene as keyof typeof d.nav]}</h3>

@@ -3,11 +3,11 @@ import { requireOwner } from '@/lib/auth';
 import { getTenant, listClients } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { LOST_AFTER_DAYS } from '@/lib/alerts';
-import { Figures, Plate } from '@/components/board';
-import { PageHead } from '@/components/page-head';
+import { getDict } from '@/lib/i18n/server';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
 import { ClientsWorkspace } from './workspace';
 import type { ClientGroup, ClientRow } from './model';
-import { getDict } from '@/lib/i18n/server';
 
 /**
  * Клиентская база.
@@ -15,22 +15,19 @@ import { getDict } from '@/lib/i18n/server';
  * Страница отвечает на один вопрос: кто приносит выручку. И отвечает в
  * том порядке, в каком его задают:
  *
- *   1. сколько база принесла всего  → плита наверху;
- *   2. сколько их и кто возвращается → три числа рядом с ней;
+ *   1. сколько база принесла всего  → первое показание полосы;
+ *   2. сколько их и кто возвращается → три числа рядом;
  *   3. кто именно                    → отбор и список;
  *   4. что он у меня брал            → карточка машины.
  *
  * Клиент здесь — это машина, а не человек: при записи мойщик вводит
  * номер, и по нему же машина узнаётся в следующий раз. Имя и телефон
- * появляются позже, из карточки. Придумывать поверх этого «человека с
- * несколькими автомобилями» было бы враньём в модели — продукт такой
- * связи не хранит.
+ * появляются позже, из карточки.
  *
- * Порог «давно не был» берётся из `lib/alerts`, а не задаётся здесь.
- * Раньше это была своя константа с тем же числом; два порога на одно
- * состояние держатся согласованными ровно до первой правки, после
- * которой колокольчик зовёт звонить пятерым, а список показывает
- * троих.
+ * Порог «давно не был» берётся из `lib/alerts`, а не задаётся здесь:
+ * два порога на одно состояние держатся согласованными ровно до первой
+ * правки, после которой колокольчик зовёт звонить пятерым, а список
+ * показывает троих.
  */
 export default async function ClientsPage({
   searchParams,
@@ -52,12 +49,9 @@ export default async function ClientsPage({
 
   const money = (n: number) => formatMoney(n, tenant.currency, t.locale);
 
-  /* Дни молчания приходят из базы: часы читает она, а не страница —
-     иначе число на сервере и в браузере разъезжается. */
   /* Дни молчания приходят из базы уже обрезанными нулём: часы читает
-     она, а не страница, и обрезает она же — приложение получает то же
-     число тем же запросом, и «был −1 день назад» не может появиться ни
-     на одном из двух экранов. */
+     она, а не страница, и приложение получает то же число тем же
+     запросом. */
   const rows: ClientRow[] = clients.map((c) => ({
     id: c.id,
     key: c.key,
@@ -79,53 +73,30 @@ export default async function ClientsPage({
   const avg = rows.length > 0 ? Math.round(lifetime / rows.length) : 0;
 
   return (
-    <>
-      {/* Повод «давно не были» ушёл отсюда, и по той же причине, что долг
-          с сотрудников: он висел у заголовка строкой тревожного цвета, а
-          прямо под ним стоит вкладка с тем же словом и тем же числом —
-          и она вдобавок показывает, КТО именно давно не был. Строка
-          наверху только называла беду и никуда не вела глазами. */}
-      <PageHead title={t.owner.tabClients} meta={t.owner.clientsLead} />
+    <div className="flex flex-col gap-5">
+      <PageHeader className="mb-0" title={t.owner.tabClients} description={t.owner.clientsLead} />
 
-      {/* Полоса отвечает про ДЕНЬГИ, а не про состав базы.
-
-          Раньше в ней стояли «в базе», «постоянные» и «давно не были» —
-          ровно те же три числа, что стоят на вкладках строкой ниже. Там
-          они вдобавок нажимаются и показывают список, здесь только
-          назывались; из четырёх сегментов базы полоса при этом знала
-          три, то есть ещё и врала про полноту.
-
-          Теперь плита говорит, сколько база принесла за всё время, а
-          полоса — из чего эта сумма набежала: сколько было приездов, по
-          какому чеку и сколько выходит с одного клиента. Ни одно из
-          этих чисел ниже не повторяется. */}
-      <section
-        className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-        aria-label={t.owner.clientsLifetime}
-      >
-        <Plate
+      {/* Полоса отвечает про деньги, а не про состав базы: состав стоит
+          на вкладках ниже, и там он вдобавок нажимается. Здесь — сколько
+          база принесла за всё время и из чего эта сумма набежала. */}
+      <MetricStrip columns={4}>
+        <Metric
+          size="lg"
           label={t.owner.clientsLifetime}
           value={money(lifetime)}
-          note={rows.length > 0 ? `${rows.length} ${t.owner.clientOne}` : undefined}
+          hint={rows.length > 0 ? `${rows.length} ${t.owner.clientOne}` : undefined}
         />
+        <Metric label={t.owner.visits} value={String(visits)} />
+        <Metric label={t.owner.avgCheck} value={money(perVisit)} />
+        <Metric label={t.owner.clientPerOne} value={money(avg)} />
+      </MetricStrip>
 
-        <Figures
-          items={[
-            { label: t.owner.visits, value: String(visits) },
-            { label: t.owner.avgCheck, value: money(perVisit) },
-            { label: t.owner.clientPerOne, value: money(avg) },
-          ]}
-        />
-      </section>
-
-      <div className="mt-[var(--seam)]">
-        <ClientsWorkspace
-          rows={rows}
-          initialGroup={group}
-          lostAfter={LOST_AFTER_DAYS}
-          currency={tenant.currency}
-        />
-      </div>
-    </>
+      <ClientsWorkspace
+        rows={rows}
+        initialGroup={group}
+        lostAfter={LOST_AFTER_DAYS}
+        currency={tenant.currency}
+      />
+    </div>
   );
 }

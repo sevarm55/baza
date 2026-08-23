@@ -1,48 +1,38 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+
 import { changePinAction, deletePinAction, type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
-import { ChangePinForm } from './change-pin-form';
+import { LoadingButton } from '@/components/loading';
+import { FormMessage } from '@/components/patterns/form';
+import { StatusBadge } from '@/components/patterns/status-badge';
+import { Button } from '@/components/ui/button';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
-import { LoadingButton } from '@/components/loading';
+import { ChangePinForm } from './change-pin-form';
 
 /**
  * Код доступа в разделе «безопасность».
  *
- * Раньше форма смены стояла раскрытой всегда: на странице профиля
- * постоянно висели двенадцать пустых клеток. Пустой ряд клеток ничего не
- * показывает и ничего не спрашивает — он просто занимает место и
- * читается как сломанный или выключенный элемент, а не как то, что
- * можно сделать.
+ * По умолчанию строка: что это за код и от чего он. Клетки приходят по
+ * нажатию, когда человек решил его менять. Действий три: создать и
+ * изменить это одно действие с разным вопросом про текущий код, а
+ * удалить появилось потому, что код необязателен.
  *
- * Поэтому по умолчанию здесь строка: что это за код и от чего он.
- * Клетки приходят по нажатию — тогда, когда человек решил его менять.
- *
- * Действий три, а не два. «Создать» и «изменить» это одно и то же
- * действие с разным вопросом про текущий код; «удалить» появилось
- * потому, что код доступа необязателен, а убрать однажды заведённый до
- * сих пор было нельзя ничем. Запертым после удаления никто не остаётся:
- * вход по коду из SMS работает на любой номер.
- *
- * Состояние действия живёт здесь, а не в форме, хотя набирают код там.
- * Причина в том, кто закрывает форму: смена кода уводит на вход — сессии
- * погашены, включая эту, — а вот первая установка оставляет человека на
- * месте, и форма после неё обязана свернуться обратно в строку. Решение
- * «свернуться» принимает эта карточка, значит и состояние, по которому
- * оно принимается, должно быть её.
+ * Состояние действия живёт здесь, а не в форме: смена кода уводит на
+ * вход, а первая установка оставляет человека на месте, и форма после
+ * неё обязана свернуться обратно в строку. Решение принимает карточка,
+ * значит и состояние её.
  */
 export function PinCard({ hasPin }: { hasPin: boolean }) {
   const t = useT();
   const [open, setOpen] = useState<'none' | 'edit' | 'delete'>('none');
   const [state, action, pending] = useActionState<FormState, FormData>(changePinAction, null);
 
-  /* Свернуть на удаче — по своему же состоянию, в своей же отрисовке.
-     Эффектом было бы на кадр позже: человек увидел бы пустые клетки уже
-     сделанного дела. Сверяем именно смену `state`, а не его удачность:
-     иначе форма, открытая второй раз, схлопывалась бы сразу — прошлый
-     успех никуда не девается. */
+  /* Свернуть на удаче в своей же отрисовке, сверяя именно смену
+     `state`: иначе форма, открытая второй раз, схлопывалась бы сразу,
+     прошлый успех никуда не девается. */
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
     setSeen(state);
@@ -66,25 +56,27 @@ export function PinCard({ hasPin }: { hasPin: boolean }) {
   }
 
   return (
-    <div className="setting-row">
-      <span className="min-w-0">
-        <span className="setting-row-label">{t.auth.pin}</span>
-        <span className="setting-row-note">{t.profile.pinNote}</span>
-      </span>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          {t.auth.pin}
+          {hasPin && <StatusBadge tone="neutral">{t.settings.pinHidden}</StatusBadge>}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t.profile.pinNote}</p>
+      </div>
 
-      {/* Удаление стоит рядом, а не отдельной строкой ниже: это то же
-          самое дело, что и смена, только в другую сторону. Отдельная
-          строка объявила бы его самостоятельным разделом настроек. */}
-      <span className="flex flex-wrap items-center gap-2.5">
-        {hasPin && (
-          <button type="button" className="btn-inline-danger" onClick={() => setOpen('delete')}>
-            {t.auth.deleteAccessCode}
-          </button>
-        )}
-        <button type="button" className="btn-inline" onClick={() => setOpen('edit')}>
+      {/* Удаление стоит рядом, а не отдельной строкой: это то же дело,
+          что и смена, только в другую сторону. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="xs" onClick={() => setOpen('edit')}>
           {hasPin ? t.auth.changePin : t.auth.setPin}
-        </button>
-      </span>
+        </Button>
+        {hasPin && (
+          <Button type="button" variant="destructive-soft" size="xs" onClick={() => setOpen('delete')}>
+            {t.auth.deleteAccessCode}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -92,28 +84,25 @@ export function PinCard({ hasPin }: { hasPin: boolean }) {
 /**
  * Подтверждение удаления: одно поле и последствие над кнопкой.
  *
- * Текущий код спрашиваем, как и при смене: телефон бывает разблокирован и
- * лежит на мойке, а «убрать вторую дверь» это ровно то действие, которое
- * посторонний рядом сделал бы первым.
- *
- * Своё состояние действия, отдельно от смены: удача здесь всегда уводит
- * на вход, и сворачивать обратно в строку нечего.
+ * Текущий код спрашиваем, как и при смене: телефон бывает разблокирован
+ * и лежит на мойке. Своё состояние действия, отдельно от смены: удача
+ * здесь всегда уводит на вход, и сворачивать обратно в строку нечего.
  */
 function DeletePinForm({ onCancel }: { onCancel: () => void }) {
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(deletePinAction, null);
 
   return (
-    <form action={action} className="grid gap-4">
-      <div className="grid gap-1">
-        <span className="setting-row-label">{t.auth.deleteAccessCodeAsk}</span>
-        <span className="setting-row-note">{t.auth.deleteAccessCodeNote}</span>
+    <form action={action} className="flex flex-col gap-4">
+      <div>
+        <p className="text-sm font-medium">{t.auth.deleteAccessCodeAsk}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t.auth.deleteAccessCodeNote}</p>
       </div>
 
       <CodeInput
         name="current"
         length={PIN_LENGTH}
-        /* Четыре — у всех, кто завёл код до перехода на шесть. Здесь он
+        /* Четыре у всех, кто завёл код до перехода на шесть: здесь он
            сверяется, а не создаётся. */
         minLength={4}
         label={t.auth.currentPin}
@@ -127,18 +116,19 @@ function DeletePinForm({ onCancel }: { onCancel: () => void }) {
         invalid={Boolean(state?.error)}
       />
 
-      {state?.error && <p className="alert">{state.error}</p>}
+      {state?.error && <FormMessage>{state.error}</FormMessage>}
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <button type="button" className="btn-inline" onClick={onCancel}>
-          {t.common.cancel}
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
         <LoadingButton
-          className="btn btn-auto btn-ghost text-bad"
+          variant="destructive"
+          size="sm"
           busy={pending}
           label={t.auth.deleteAccessCode}
           busyLabel={t.common.deleting}
         />
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
       </div>
     </form>
   );

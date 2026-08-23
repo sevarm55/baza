@@ -2,22 +2,17 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+
 import { resumeSetup } from '@/app/onboarding-actions';
-import { useT } from '@/lib/i18n/client';
 import { LoadingButton } from '@/components/loading';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Вернуть «Начало работы» на главную.
  *
- * Дверь обратно нужна по одной причине: пропустить настройку можно
- * случайно и в первый же день, а вспомнить о ней — на третий. Без этой
- * строки единственным способом вернуть список было бы завести бизнес
- * заново.
- *
- * Стоит на своей странице, среди личного: блок убирал человек, а не
- * бизнес, и у второго участника мойки он не пропадал вовсе. После
- * возврата сразу уводим на главную — туда, где список и появится, иначе
- * нажатие выглядит как ничего не сделавшее.
+ * Пропустить настройку можно случайно в первый день, а вспомнить о ней
+ * на третий. После возврата сразу уводим на главную, туда, где список и
+ * появится, иначе нажатие выглядит как ничего не сделавшее.
  */
 export function ResumeSetup() {
   const t = useT();
@@ -27,7 +22,8 @@ export function ResumeSetup() {
   return (
     <LoadingButton
       type="button"
-      className="btn-inline"
+      variant="outline"
+      size="sm"
       busy={pending}
       label={t.setup.resumeCta}
       busyLabel={t.common.updating}

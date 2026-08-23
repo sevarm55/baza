@@ -1,19 +1,18 @@
-import { AfterDelay, SkeletonCard, SkeletonHead } from '@/components/loading';
+import { AfterDelay } from '@/components/loading';
+import { LoadingPage, SkeletonHeader, SkeletonMetrics, SkeletonPanel } from '@/components/patterns/states';
 
 /**
- * Что видно, пока едет месяц.
- *
- * Одно большое поле в клетку. Раскладывать его на строки незачем:
- * календарь читается фигурой целиком, и место под него — прямоугольник
- * той же высоты, что и сам месяц.
+ * Что видно, пока едет месяц: шапка с переходом по месяцам, полоса
+ * итогов и одно большое поле в клетку той же высоты, что сам месяц.
  */
 export default function Loading() {
   return (
     <AfterDelay>
-      <div aria-busy="true" aria-live="polite">
-        <SkeletonHead />
-        <SkeletonCard className="h-[420px] lg:h-[520px]" />
-      </div>
+      <LoadingPage>
+        <SkeletonHeader />
+        <SkeletonMetrics count={3} />
+        <SkeletonPanel className="h-[440px] lg:h-[560px]" />
+      </LoadingPage>
     </AfterDelay>
   );
 }

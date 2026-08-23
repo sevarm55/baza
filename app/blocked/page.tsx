@@ -1,28 +1,28 @@
+import { ChevronDown, Download } from 'lucide-react';
 import { redirect } from 'next/navigation';
+
 import { requireSession } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
-import { PointForm } from '@/components/point-form';
 import { currentAccess } from '@/lib/subscription';
-import { SignOutButton } from '@/components/sign-out-button';
 import { getDict } from '@/lib/i18n/server';
+import { PointForm } from '@/components/point-form';
+import { SignOutButton } from '@/components/sign-out-button';
+import { Wordmark } from '@/components/wordmark';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 /**
  * Стена: срок вышел.
  *
- * Раньше просрочка была мягкой — разделы открывались, закрывалась только
- * запись. Выглядело невнятно: продукт сообщал «время прошло» и тут же
- * пускал ходить по экранам и заводить людей. Теперь вместо всего кабинета
- * один экран.
- *
- * Порядок на нём неслучаен. Сначала — что данные целы: тот, кому закрыли
- * доступ, первым делом боится потерять историю, и пока этот страх не снят,
- * остальное он не читает. Потом — как продолжить. И только в конце —
- * забрать данные или уйти совсем.
- *
- * Сотруднику показываем то же, но без кнопок: платит не он, и распоряжаться
- * судьбой бизнеса ему нечем.
+ * Вместо всего кабинета один экран. Порядок на нём неслучаен: сначала
+ * что данные целы, потом как продолжить, и только в конце забрать
+ * данные или уйти совсем. Сотруднику то же самое, но без кнопок:
+ * платит не он.
  */
 export default async function BlockedPage() {
   const t = await getDict();
@@ -40,8 +40,8 @@ export default async function BlockedPage() {
 
   const isOwner = session.role === 'owner';
   const blocked = access.state === 'blocked';
-  /* Точку завели минуту назад, и «Ժամկետը լրացել է» здесь было бы прямой
-     неправдой: ничего не истекло, оплаты просто ещё не было. */
+  /* Точку завели минуту назад, и «срок вышел» здесь было бы неправдой:
+     оплаты просто ещё не было. */
   const fresh = access.state === 'unpaid';
 
   const me = await getUser(session.tid, session.uid);
@@ -50,49 +50,40 @@ export default async function BlockedPage() {
     : [];
 
   return (
-    <main className="relative flex min-h-dvh w-full flex-col justify-end overflow-hidden">
-      {/* Картинка фоном, а не элементом: она не должна влиять на разметку
-          и обязана обрезаться, а не растягивать страницу вбок. */}
-      <div
-        className="absolute inset-0 bg-[#2E1065] bg-cover bg-top"
-        style={{ backgroundImage: 'url(/expired.jpg)' }}
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-transparent via-[#2E1065]/90 to-[#2E1065]"
-        aria-hidden
-      />
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-background px-4 py-10">
+      <section className="flex w-full max-w-md flex-col gap-6 rounded-lg border border-border bg-card p-6">
+        <span role="img" aria-label={t.app.name} className="flex">
+          <Wordmark />
+        </span>
 
-      <div className="relative mx-auto w-full max-w-[440px] px-6 pb-12">
-        <h1 className="text-[30px] leading-tight font-bold text-white">
-          {fresh ? t.points.freshTitle : blocked ? t.billing.blockedTitle : t.billing.wallTitle}
-        </h1>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.01em]">
+            {fresh ? t.points.freshTitle : blocked ? t.billing.blockedTitle : t.billing.wallTitle}
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {fresh ? t.points.freshText : blocked ? t.billing.blockedText : t.billing.wallLead}
+          </p>
+        </div>
 
-        <p className="mt-3.5 text-[17px] leading-relaxed text-white/80">
-          {fresh ? t.points.freshText : blocked ? t.billing.blockedText : t.billing.wallLead}
-        </p>
-
-        {/* Одна закрытая точка не имеет права запирать открытую. Без этого
-            владелец, заведший вторую мойку, упирался бы в стену и терял
-            доступ к первой — работающей и оплаченной. */}
+        {/* Одна закрытая точка не имеет права запирать открытую: владелец
+            со второй мойкой должен дойти до первой, оплаченной. */}
         {others.length > 0 && (
-          <div className="mt-5 rounded-[10px] border border-white/15 p-[3px]">
+          <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
             {others.map((point) => (
               <PointForm key={point.id} tid={point.id}>
                 <button
                   type="submit"
-                  className="flex w-full items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-left text-white"
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left outline-none transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   <span
-                    className={`size-2 shrink-0 rounded-full ${
-                      point.canRead ? 'bg-emerald-400' : 'bg-amber-400'
-                    }`}
+                    className={cn(
+                      'size-2 shrink-0 rounded-full',
+                      point.canRead ? 'bg-success' : 'bg-warning',
+                    )}
                     aria-hidden
                   />
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                    {point.name}
-                  </span>
-                  <span className="shrink-0 text-[12px] text-white/50">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{point.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {point.canRead ? t.points.go : t.points.needsPayment}
                   </span>
                 </button>
@@ -101,82 +92,74 @@ export default async function BlockedPage() {
           </div>
         )}
 
-        <p className="mt-5 text-[15px] text-white/70">{t.billing.wallContinue}</p>
-        {/* Звонок — главное действие: продолжить пользоваться хотят обе стороны */}
-        {/* Цвета фирменные, а не тематические: экран всегда тёмный —
-            под ним картинка, — и переменные светлой темы дали бы здесь
-            невидимую кнопку. Тот же лайм, что у главной кнопки в
-            приложении. */}
-        <a
-          href="tel:+37499855546"
-          className="mt-2 block rounded-[10px] py-4 text-center text-[17px] font-bold no-underline"
-          style={{ backgroundColor: '#D7FF00', color: '#2E1065' }}
-        >
-          {t.billing.wallPhone}
-        </a>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">{t.billing.wallContinue}</p>
+          {/* Звонок главное действие: продолжить хотят обе стороны. */}
+          <Button size="lg" className="w-full" render={<a href="tel:+37499855546" />}>
+            {t.billing.wallPhone}
+          </Button>
+        </div>
 
         {isOwner && (
-          <>
-            {/* Выгружать у новой точки нечего — она пустая. А удаление
-                оставляем: точку могли завести по ошибке, и без него она
-                висела бы в списке навсегда. */}
-            <div className={`mt-4 flex gap-3 ${fresh ? 'hidden' : ''}`}>
-              {/* За всё время: человек уходит, и отдать ему тридцать дней
-                  вместо всей истории было бы обманом */}
-              <a
-                href="/owner/export?days=all"
-                download
-                className="flex-1 rounded-[10px] border border-white/20 py-3 text-center text-[15px] font-semibold text-white no-underline"
+          <div className="flex flex-col gap-4">
+            {/* Выгружать у новой точки нечего. За всё время: человек
+                уходит, и отдать ему тридцать дней вместо всей истории
+                было бы обманом. */}
+            {!fresh && (
+              <Button
+                variant="outline"
+                className="w-full"
+                render={<a href="/owner/export?days=all" download />}
               >
+                <Download data-icon="inline-start" aria-hidden />
                 {t.billing.wallDownload}
-              </a>
-            </div>
+              </Button>
+            )}
 
             {/* Форма прямо здесь, а не ссылкой в настройки: настройки
-                закрыты вместе со всем кабинетом, и ссылка вела бы обратно
-                на эту же стену. За раскрывающимся заголовком — удаление
-                необратимо и на глаза попадаться не должно. */}
-            <details className="mt-4">
-              <summary className="cursor-pointer text-[15px] font-semibold text-white/70">
+                закрыты вместе со всем кабинетом. За раскрывающимся
+                заголовком: удаление необратимо и на глаза попадаться не
+                должно. */}
+            <Collapsible className="flex flex-col gap-3">
+              <CollapsibleTrigger className="group/delete inline-flex items-center gap-1.5 self-start rounded-md text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
                 {t.billing.wallDelete}
-              </summary>
-
-              <p className="mt-2 text-[13.5px] text-white/45">{t.billing.wallDeleteNote}</p>
-
-              <form
-                method="post"
-                action="/owner/settings/delete"
-                className="mt-3 flex items-center gap-2"
-              >
-                <input
-                  className="field field-sm min-w-0 flex-1"
-                  name="pin"
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]{4,6}"
-                  maxLength={6}
-                  autoComplete="off"
-                  aria-label={t.settings.deletePin}
-                  placeholder={t.settings.deletePin}
-                  required
+                <ChevronDown
+                  className="size-3.5 transition-transform group-data-panel-open/delete:rotate-180"
+                  aria-hidden
                 />
-                <button
-                  className="shrink-0 rounded-[8px] border border-white/25 px-3 py-2 text-[13.5px] font-semibold text-white/80"
-                  name="mode"
-                  value="wipe"
-                >
-                  {t.settings.deleteWipe}
-                </button>
-              </form>
-            </details>
-          </>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="flex flex-col gap-3">
+                <p className="text-xs text-muted-foreground">{t.billing.wallDeleteNote}</p>
+
+                <form method="post" action="/owner/settings/delete" className="flex flex-col gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="wall-delete-pin">{t.settings.deletePin}</FieldLabel>
+                    <Input
+                      id="wall-delete-pin"
+                      name="pin"
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]{4,6}"
+                      maxLength={6}
+                      autoComplete="off"
+                      required
+                    />
+                  </Field>
+                  <Button variant="destructive" className="w-full" name="mode" value="wipe">
+                    {t.settings.deleteWipe}
+                  </Button>
+                </form>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         )}
 
-        <div className="mt-7 flex items-center justify-between">
-          <span className="text-[13.5px] text-white/45">{tenant.name}</span>
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          <span className="truncate text-xs text-muted-foreground">{tenant.name}</span>
           <SignOutButton />
         </div>
-      </div>
+      </section>
     </main>
   );
 }

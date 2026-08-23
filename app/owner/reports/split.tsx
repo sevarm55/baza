@@ -1,26 +1,26 @@
 import Link from 'next/link';
-import { Panel } from '@/components/board';
+import { Panel } from '@/components/patterns/panel';
+import { EmptyState } from '@/components/patterns/states';
 import { formatMoney, formatShare } from '@/lib/money';
 import { getDict } from '@/lib/i18n/server';
+import { cn } from '@/lib/utils';
 
 /**
  * Какая часть выручки куда ушла.
  *
- * Шапка отчёта уже называет три суммы — выручку, зарплату и расходы. Их
- * повторение списком было бы тем самым «одно число дважды», от которого
- * ушла сводка дня. Здесь другой вопрос и другой ответ: не «сколько», а
- * «какая доля». Пропорция читается длиной, а не арифметикой в уме, и
- * именно по ней принимают решения — двадцать процентов на людей это
- * норма, сорок это уже разговор о ставках.
+ * Полоса показаний уже называет три суммы: выручку, зарплату и
+ * расходы. Здесь другой вопрос и другой ответ: не «сколько», а «какая
+ * доля». Пропорция читается длиной, а не арифметикой в уме, и именно
+ * по ней принимают решения: двадцать процентов на людей это норма,
+ * сорок это уже разговор о ставках.
  *
- * Одна полоса, а не три кольца и не составной столбик по месяцам: у
- * сегментов общее начало и общая длина, поэтому сравнивать их между
- * собой можно взглядом. Тот же приём, что в разборе записи на сводке.
+ * Одна полоса, а не три кольца: у сегментов общее начало и общая
+ * длина, поэтому сравнивать их можно взглядом.
  *
- * Знаменатель — выручка, пока она покрывает расходы. Когда не покрывает,
- * знаменателем становится сумма затрат: иначе сегменты вылезли бы за сто
- * процентов, и полоса начала бы врать в тот единственный месяц, когда её
- * читают внимательнее всего.
+ * Знаменатель выручка, пока она покрывает расходы. Когда не покрывает,
+ * знаменателем становится сумма затрат: иначе сегменты вылезли бы за
+ * сто процентов в тот единственный месяц, когда полосу читают
+ * внимательнее всего.
  */
 export async function ProfitSplit({
   currency,
@@ -41,74 +41,81 @@ export async function ProfitSplit({
   const money = (n: number) => formatMoney(n, currency, t.locale);
   const base = Math.max(revenue, payroll + costs);
   const cut = (n: number) => (base > 0 ? (n / base) * 100 : 0);
+  const loss = profit < 0;
 
   const parts = [
     {
       key: 'payroll',
       label: t.owner.payrollAccrued,
       value: payroll,
-      color: 'var(--tone-teal-glow)',
+      color: 'var(--chart-2)',
       href: '/owner/payroll',
+      loss: false,
     },
     {
       key: 'costs',
       label: t.owner.costs,
       value: costs,
-      color: 'var(--tone-amber-glow)',
+      color: 'var(--chart-4)',
       href: '/owner/expenses',
+      loss: false,
     },
     {
       key: 'profit',
-      label: profit >= 0 ? t.owner.profit : t.owner.inTheRed,
+      label: loss ? t.owner.inTheRed : t.owner.profit,
       value: Math.abs(profit),
-      color: profit >= 0 ? 'var(--accent-strong)' : 'var(--bad)',
+      color: loss ? 'var(--destructive)' : 'var(--chart-1)',
       href: null,
+      loss,
     },
   ];
 
   return (
     <Panel title={t.payroll.details} className={className}>
       {base === 0 ? (
-        <p className="py-8 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-          {t.reports.emptyMonth}
-        </p>
+        <EmptyState compact title={t.reports.emptyMonth} />
       ) : (
-        <>
-          <div className="split-bar" aria-hidden>
-            <span style={{ width: `${cut(payroll)}%`, background: 'var(--tone-teal-glow)' }} />
-            <span style={{ width: `${cut(costs)}%`, background: 'var(--tone-amber-glow)' }} />
-            {profit > 0 && (
-              <span style={{ width: `${cut(profit)}%`, background: 'var(--accent-strong)' }} />
-            )}
+        <div className="flex flex-col gap-3">
+          {/* Убыток в полосе не рисуется: затраты уже заняли её целиком,
+              и ему просто негде быть. Он остаётся строкой ниже. */}
+          <div className="flex h-2 w-full overflow-hidden rounded-sm bg-muted" aria-hidden>
+            {parts
+              .filter((p) => p.value > 0 && !p.loss)
+              .map((p) => (
+                <span key={p.key} style={{ width: `${cut(p.value)}%`, background: p.color }} />
+              ))}
           </div>
 
-          <dl className="split-legend">
+          <ul className="flex flex-col gap-1.5">
             {parts.map((p) => (
-              <div key={p.key}>
-                <dt>
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ background: p.color }}
-                    aria-hidden
-                  />
-                  {/* Доли людей и расходов ведут туда, где их правят:
-                      увидел долю — открыл, из чего она сложилась. */}
+              <li key={p.key} className="flex items-center gap-2 text-sm">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: p.color }}
+                  aria-hidden
+                />
+                {/* Доли людей и расходов ведут туда, где их правят:
+                    увидел долю, открыл, из чего она сложилась. */}
+                <span className="min-w-0 flex-1 truncate">
                   {p.href ? (
-                    <Link href={p.href} className="split-open">
+                    <Link
+                      href={p.href}
+                      className="underline-offset-4 hover:text-primary hover:underline"
+                    >
                       {p.label}
                     </Link>
                   ) : (
                     p.label
                   )}
-                </dt>
-                <dd className="num">
+                </span>
+                <span className="num text-muted-foreground">{formatShare(p.value, base)}%</span>
+                <span className={cn('num w-24 text-right font-medium', p.loss && 'text-destructive')}>
                   {money(p.value)}
-                  <b>{formatShare(p.value, base)}%</b>
-                </dd>
-              </div>
+                </span>
+              </li>
             ))}
-          </dl>
-        </>
+          </ul>
+        </div>
       )}
     </Panel>
   );

@@ -1,47 +1,47 @@
-import { AfterDelay, SkeletonCard, SkeletonList } from '@/components/loading';
+import { AfterDelay } from '@/components/loading';
+import { LoadingPage, SkeletonPanel } from '@/components/patterns/states';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * Что видно, пока едет смена.
  *
- * Экран мойщика открывают сорок раз за смену, часто с телефона в
- * подвале, и до сих пор в этот момент не было ничего: пустое полотно,
- * потом сразу цифры. Пустота между нажатием и числами читается как
- * «приложение не открылось», а не как «сейчас будет».
- *
- * Заслонки на весь экран здесь быть не может: шапка со сменой и нижние
- * вкладки уже нарисованы и уже нажимаются. Меняется только рабочая
- * область, и место под неё повторяет её форму: главное число сверху,
- * две плитки под ним, крупная кнопка записи и журнал.
+ * Пустота между нажатием и числами читается как «приложение не
+ * открылось», а не как «сейчас будет». Место под содержимое повторяет
+ * его форму: табло с главным числом сверху, крупная кнопка записи и
+ * журнал под ней.
  */
 export default function Loading() {
   return (
     <AfterDelay>
-      <div className="mx-auto grid w-full max-w-[46rem] gap-[var(--seam)]" aria-busy="true" aria-live="polite">
-        <div className="grid content-start gap-[var(--seam)]">
-          {/* Главное число смены. Высота та же, что у настоящего прибора,
-              иначе кнопка записи прыгнет вверх при подстановке. */}
-          <SkeletonCard className="h-[124px]" />
-
-          <div className="grid grid-cols-2 gap-[var(--seam)]">
-            <SkeletonCard className="h-[104px]" />
-            <SkeletonCard className="h-[104px]" />
-          </div>
-
-          {/* Кнопка записи: та же высота, что у `.btn-big`. Её ищут
-              глазами первой, и место под неё обязано стоять там же. */}
-          <SkeletonCard className="h-[60px] !rounded-[var(--radius-card)]" />
-
-          <div
-            className="panel-pad rounded-[var(--radius-card)]"
-            style={{ background: 'color-mix(in srgb, var(--board-ink) 4%, transparent)' }}
-            aria-hidden
-          >
-            <div className="mb-4">
-              <SkeletonCard className="h-4 w-32" />
+      <div className="mx-auto w-full max-w-3xl px-4 py-5 md:px-6">
+        <LoadingPage>
+          {/* Табло смены: подпись, большое число, строка состояния. */}
+          <div className="rounded-lg border border-border bg-card p-4" aria-hidden>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-2.5 w-28" />
+                <Skeleton className="h-7 w-40" />
+                <Skeleton className="h-5 w-32 rounded-md" />
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-2.5 w-16" />
+                  <Skeleton className="h-5 w-10" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-2.5 w-20" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </div>
             </div>
-            <SkeletonList rows={4} />
           </div>
-        </div>
+
+          {/* Кнопка записи: её ищут глазами первой, и место под неё
+              обязано стоять там же. */}
+          <Skeleton className="h-12 w-full rounded-lg" aria-hidden />
+
+          <SkeletonPanel rows={4} />
+        </LoadingPage>
       </div>
     </AfterDelay>
   );

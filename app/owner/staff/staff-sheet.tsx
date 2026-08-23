@@ -1,35 +1,31 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import Link from 'next/link';
+import { useActionState, useState, useTransition } from 'react';
+import { KeyRound, Wallet } from 'lucide-react';
 import { archiveStaff, resetStaffPinAction, saveStaff, type FormState } from '@/app/actions';
-import { Sheet } from '@/components/sheet';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group';
 import { LoadingButton } from '@/components/loading';
+import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
+import { DetailList, DetailRow, LinkRow } from '@/components/patterns/detail-list';
+import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
+import { FormMessage, FormSection } from '@/components/patterns/form';
+import { Metric } from '@/components/patterns/metric';
 import { formatPhone } from '@/lib/phone';
-import type { StaffPerson } from './model';
 import { useT } from '@/lib/i18n/client';
 import { unitCount } from '@/lib/i18n/terms';
+import type { StaffPerson } from './model';
 
 /**
  * Карточка сотрудника.
  *
- * Одна панель на весь список, а не своя у каждой строки: форма тут одна
- * и та же, а десять скрытых форм в разметке — это десять состояний,
- * которые надо держать согласованными без единой причины.
- *
- * Сверху результат — то, ради чего человека держат: сколько машин он
- * сделал за месяц и сколько на этом заработал. Ниже — данные, которые
- * правят, и отдельно от них доступ в систему.
- *
- * Разделение на «данные» и «доступ» не косметическое. Имя и процент —
- * договорённость между владельцем и работником, её меняют по разговору.
- * Телефон и PIN — ключ от кабинета: по ним человек входит, и смена
- * номера означает не исправление опечатки, а другого человека. Пока они
- * лежали в одной форме, между ними не было видно никакой разницы.
- *
- * PIN не показывается. Он хранится хешем, и достать его нельзя ни здесь,
- * ни где-либо ещё — это не ограничение интерфейса, а устройство продукта:
- * забытый код не восстанавливают, а назначают заново.
+ * Сверху результат — то, ради чего человека держат: машины и заработок
+ * за месяц. Ниже то, что правят по разговору (имя, процент), и отдельно
+ * от него доступ в систему: телефон и код — ключ от кабинета, смена
+ * номера означает другого человека, а код хранится хешем и заново только
+ * назначается.
  */
 export function StaffSheet({
   person,
@@ -37,7 +33,7 @@ export function StaffSheet({
   unitOne,
   onClose,
 }: {
-  /** кто открыт; `null` — панель закрыта */
+  /** кто открыт; `null` — лист закрыт */
   person: StaffPerson | null;
   money: (n: number) => string;
   unitOne: string;
@@ -46,22 +42,40 @@ export function StaffSheet({
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveStaff, null);
 
-  /* Панель закрывается, когда сервер подтвердил запись. Состояние
-     сверяется прямо в отрисовке, а не эффектом: эффект успел бы
-     показать кадр с уже сохранённым, но ещё открытым окном. */
+  /* Лист закрывается, когда сервер подтвердил запись. Сверяем в
+     отрисовке, а не эффектом: эффект показал бы кадр с уже сохранённым,
+     но ещё открытым окном. */
   const [seen, setSeen] = useState(state);
   if (seen !== state) {
     setSeen(state);
     if (state?.ok) onClose();
   }
 
+  /* Отключение: подтверждение отдельным окном, сама запись — тем же
+     действием и с тем же полем `id`, что и раньше. */
+  const [confirm, setConfirm] = useState(false);
+  const [removing, startRemove] = useTransition();
+  function remove(id: string) {
+    startRemove(async () => {
+      const fd = new FormData();
+      fd.set('id', id);
+      await archiveStaff(fd);
+      setConfirm(false);
+      onClose();
+    });
+  }
+
+  const monthWord = t.owner.periodMonth.toLocaleLowerCase(t.locale);
+
   return (
-    <Sheet
+    <EntitySheet
       open={person !== null}
-      onClose={onClose}
-      side
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      width="lg"
       title={person?.name ?? ''}
-      subtitle={
+      description={
         person
           ? person.present
             ? `${person.roleLabel} · ${t.owner.onShiftNow}`
@@ -69,205 +83,203 @@ export function StaffSheet({
           : undefined
       }
       footer={
-        <>
-          {person?.canRemove && (
-            <button form="staff-remove" className="btn-inline btn-inline-danger me-auto">
-              {t.settings.remove}
-            </button>
-          )}
+        <SheetActions
+          start={
+            person?.canRemove && (
+              <Button variant="destructive-soft" onClick={() => setConfirm(true)}>
+                {t.settings.remove}
+              </Button>
+            )
+          }
+        >
+          <Button variant="outline" onClick={onClose}>
+            {t.common.cancel}
+          </Button>
           <LoadingButton
             form="staff-edit"
-            className="btn btn-auto"
             busy={pending}
             label={t.settings.save}
             busyLabel={t.common.saving}
           />
-        </>
+        </SheetActions>
       }
     >
       {person && (
-        <>
-          {/* Результат месяца. Он и есть ответ на вопрос, ради которого
-              карточку открывают: что этот человек приносит. */}
-          <div className="client-total">
-            <span className="client-total-label">{t.owner.payrollAccrued}</span>
-            <span className="num client-total-value">{money(person.earned)}</span>
-            <span className="num client-total-note">
-              {unitCount(person.count, unitOne, t.locale)} · {t.owner.periodMonth.toLocaleLowerCase(t.locale)}
-            </span>
-          </div>
+        <div className="flex flex-col gap-5">
+          {/* Результат месяца — ответ на вопрос, ради которого карточку
+              открывают. */}
+          <Metric
+            size="sm"
+            label={t.owner.payrollAccrued}
+            value={money(person.earned)}
+            hint={`${unitCount(person.count, unitOne, t.locale)} · ${monthWord}`}
+          />
 
-          <dl className="facts mt-3.5">
-            <div>
-              <dt>{t.settings.percent}</dt>
-              <dd className="num">{person.percent}%</dd>
-            </div>
-            <div>
-              <dt>{t.owner.onShift}</dt>
-              <dd>
-                {person.present ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 shrink-0 rounded-full dot-live" aria-hidden />
+          <DetailList>
+            <DetailRow label={t.settings.percent} value={`${person.percent}%`} mono />
+            <DetailRow
+              label={t.owner.onShift}
+              value={
+                person.present ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-success" aria-hidden />
                     {person.since ? t.today.since(person.since) : t.owner.onShiftNow}
                   </span>
                 ) : (
-                  <span style={{ color: 'var(--muted)' }}>{t.owner.offShiftNow}</span>
-                )}
-              </dd>
-            </div>
-            {/* Долг называется, только когда он есть: «0 ֏ к выплате» —
-                это не показание, а пустая строка на месте показания. */}
-            {person.due > 0 && (
-              <div>
-                <dt>{t.owner.toPay}</dt>
-                <dd className="num">{money(person.due)}</dd>
-              </div>
-            )}
-          </dl>
+                  <span className="font-normal text-muted-foreground">{t.owner.offShiftNow}</span>
+                )
+              }
+            />
+            {/* Долг называется только когда он есть: «0 ֏ к выплате» — не
+                показание, а пустая строка на его месте. */}
+            {person.due > 0 && <DetailRow label={t.owner.toPay} value={money(person.due)} mono />}
+          </DetailList>
 
-          {/* Ключом стоит человек: при переходе к другому поля обязаны
-              сброситься, а не донести чужое имя и чужой процент. */}
-          <form
-            key={person.id}
-            id="staff-edit"
-            action={action}
-            onSubmit={(e) => {
-              if (pending) e.preventDefault();
-            }}
-            className="mt-4 grid gap-3"
-          >
-            <input type="hidden" name="id" value={person.id} />
+          <FormSection>
+            {/* Ключом стоит человек: при переходе к другому поля обязаны
+                сброситься, а не донести чужое имя и чужой процент. */}
+            <form
+              key={person.id}
+              id="staff-edit"
+              action={action}
+              onSubmit={(e) => {
+                if (pending) e.preventDefault();
+              }}
+              className="flex flex-col gap-4"
+            >
+              <input type="hidden" name="id" value={person.id} />
 
-            <label className="grid gap-1.5">
-              <span className="label">{t.settings.name}</span>
-              <input className="field" name="name" defaultValue={person.name} required autoFocus />
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="label">{t.settings.percent}</span>
-              <div className="relative">
-                {/* Знак слева, как «+374» у телефона и как в форме найма:
-                    два окна об одном и том же не должны выглядеть
-                    по-разному. */}
-                <input
-                  className="field num !ps-8"
-                  name="percent"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={100}
-                  defaultValue={person.percent}
+              <Field>
+                <FieldLabel htmlFor="staff-edit-name">{t.settings.name}</FieldLabel>
+                <Input
+                  id="staff-edit-name"
+                  name="name"
+                  defaultValue={person.name}
                   required
+                  autoComplete="off"
+                  autoFocus
                 />
-                <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[15px] text-faint">
-                  %
-                </span>
-              </div>
-            </label>
+              </Field>
 
-            <p className="note">{t.settings.percentNote}</p>
-            {state?.error && <p className="alert">{state.error}</p>}
-          </form>
+              <Field>
+                <FieldLabel htmlFor="staff-edit-percent">{t.settings.percent}</FieldLabel>
+                <InputGroup>
+                  <InputGroupAddon>
+                    <InputGroupText>%</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="staff-edit-percent"
+                    name="percent"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    defaultValue={person.percent}
+                    required
+                    className="num"
+                  />
+                </InputGroup>
+                <FieldDescription className="text-xs">{t.settings.percentNote}</FieldDescription>
+              </Field>
 
-          {/* Доступ в систему — отдельным разделом, а не полями формы.
+              {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
+            </form>
+          </FormSection>
 
-              Телефон правке не подлежит: по нему человек входит, и смена
-              номера — это уже другой человек. Раньше он стоял в шапке
-              панели и читался наравне с полями, то есть выглядел полем,
-              которое почему-то нельзя тронуть. */}
-          <section className="mt-5">
-            <h3 className="mb-2 text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-              {t.settings.access}
-            </h3>
+          {/* Доступ в систему — отдельным разделом, а не полями формы:
+              телефон правке не подлежит, код не показывается. */}
+          <FormSection title={t.settings.access}>
+            <DetailList>
+              <DetailRow label={t.auth.phone} value={formatPhone(person.phone)} mono />
+              <DetailRow
+                label={t.auth.staffAccessCode}
+                value={<span className="font-normal text-muted-foreground">{t.settings.pinHidden}</span>}
+              />
+              <DetailRow label={t.settings.role} value={person.roleLabel} />
+            </DetailList>
+            <FieldDescription className="text-xs">{t.settings.staffNote}</FieldDescription>
 
-            <dl className="facts">
-              <div>
-                <dt>{t.auth.phone}</dt>
-                <dd className="num">{formatPhone(person.phone)}</dd>
-              </div>
-              <div>
-                <dt>{t.auth.staffAccessCode}</dt>
-                <dd style={{ color: 'var(--muted)' }}>{t.settings.pinHidden}</dd>
-              </div>
-              <div>
-                <dt>{t.settings.role}</dt>
-                <dd>{person.roleLabel}</dd>
-              </div>
-            </dl>
-
-            <p className="note mt-3">{t.settings.staffNote}</p>
-
-            {/* Выдать новый код.
-
-                Забытый мойщиком код был тупиком: восстановить по SMS он
-                не может (номер ему заводил владелец, подтверждённым он не
-                стал), а сменить его было нечем — оставалось отключить
-                человека и завести заново на другой номер, потеряв связь с
-                его историей.
-
-                Только сотруднику и только тому, кто больше нигде не
-                работает: назначенный здесь код открыл бы его второй
-                бизнес. Отказ на это приходит с сервера словами. */}
+            {/* Новый код — только сотруднику и только тому, кто больше
+                нигде не работает: отказ приходит с сервера словами. */}
             {person.canRemove && !person.owner && (
               <ResetPin id={person.id} key={`pin-${person.id}`} />
             )}
-          </section>
+          </FormSection>
 
-          <Link className="link-row mt-5" href="/owner/payroll">
-            {t.reports.toPayroll}
-          </Link>
+          <div className="rounded-lg border border-border">
+            <LinkRow href="/owner/payroll" title={t.reports.toPayroll} icon={<Wallet />} />
+          </div>
 
-          {/* Форма удаления пустая и скрытая: её кнопка стоит в подвале
-              окна и связана с ней атрибутом `form`. Вкладывать одну форму
-              в другую нельзя, а поднимать всю форму в подвал незачем — в
-              HTML для этого и есть связь по идентификатору. */}
           {person.canRemove && (
-            <form key={`rm-${person.id}`} id="staff-remove" action={archiveStaff} className="hidden">
-              <input type="hidden" name="id" value={person.id} />
-            </form>
+            <ConfirmDialog
+              open={confirm}
+              onOpenChange={setConfirm}
+              destructive
+              title={t.settings.remove}
+              description={t.settings.removeStaffNote}
+              confirmLabel={t.settings.remove}
+              busyLabel={t.common.deleting}
+              busy={removing}
+              onConfirm={() => remove(person.id)}
+            >
+              <p className="text-sm font-medium">
+                {person.name} · {person.roleLabel}
+              </p>
+            </ConfirmDialog>
           )}
-        </>
+        </div>
       )}
-    </Sheet>
+    </EntitySheet>
   );
 }
 
 /**
  * Новый код сотруднику.
  *
- * Свёрнуто по умолчанию, как форма смены своего PIN в профиле: пустой ряд
- * клеток в карточке ничего не показывает и ничего не спрашивает, а
- * читается сломанным элементом. Клетки приходят по нажатию — тогда, когда
- * владелец решил код менять.
- *
- * Код показывается открытым, и это осознанно: владелец придумывает его
- * вслух, стоя рядом с работником, и должен видеть, что набрал. Прятать
- * звёздочками то, что он сам же сейчас продиктует, значит мешать без
- * причины.
+ * Свёрнуто по умолчанию: пустой ряд клеток в карточке ничего не
+ * спрашивает и читается сломанным элементом. Код показывается открытым:
+ * владелец придумывает его вслух, стоя рядом с работником, и должен
+ * видеть, что набрал.
  */
 function ResetPin({ id }: { id: string }) {
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(resetStaffPinAction, null);
   const [open, setOpen] = useState(false);
 
+  /* После удачи форма сворачивается, а подтверждение остаётся строкой
+     под кнопкой. */
+  const [seen, setSeen] = useState(state);
+  if (seen !== state) {
+    setSeen(state);
+    if (state?.ok) setOpen(false);
+  }
+
   if (!open) {
     return (
-      <div className="rows mt-3">
-        <button type="button" className="link-row" onClick={() => setOpen(true)}>
+      <div className="flex flex-col gap-2">
+        <Button variant="ghost" size="sm" className="self-start" onClick={() => setOpen(true)}>
+          <KeyRound data-icon="inline-start" aria-hidden />
           {t.settings.pinReset}
-        </button>
+        </Button>
+        {state?.ok && <FormMessage tone="success">{t.settings.pinResetDone}</FormMessage>}
       </div>
     );
   }
 
   return (
-    <form action={action} className="mt-3 grid gap-2.5">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (pending) e.preventDefault();
+      }}
+      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-3"
+    >
       <input type="hidden" name="id" value={id} />
 
-      <label className="grid gap-1.5">
-        <span className="label">{t.settings.pinReset}</span>
-        <input
-          className="field num"
+      <Field>
+        <FieldLabel htmlFor="staff-pin">{t.settings.pinReset}</FieldLabel>
+        <Input
+          id="staff-pin"
           name="pin"
           inputMode="numeric"
           pattern="[0-9]{6}"
@@ -275,23 +287,18 @@ function ResetPin({ id }: { id: string }) {
           autoComplete="off"
           autoFocus
           required
+          className="num"
         />
-      </label>
+        <FieldDescription className="text-xs">{t.settings.pinResetNote}</FieldDescription>
+      </Field>
 
-      <p className="note">{t.settings.pinResetNote}</p>
-      {state?.error && <p className="alert">{state.error}</p>}
-      {state?.ok && <p className="note note-good">{t.settings.pinResetDone}</p>}
+      {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
 
-      <div className="flex gap-2">
-        <LoadingButton
-          className="btn-inline"
-          busy={pending}
-          label={t.settings.save}
-          busyLabel={t.common.saving}
-        />
-        <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+      <div className="flex items-center gap-2">
+        <LoadingButton size="sm" busy={pending} label={t.settings.save} busyLabel={t.common.saving} />
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
           {t.common.cancel}
-        </button>
+        </Button>
       </div>
     </form>
   );

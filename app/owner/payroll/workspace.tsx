@@ -1,19 +1,21 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
-import { Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 import { settlePayroll } from '@/app/actions';
-import { Panel } from '@/components/board';
-import { Segmented } from '@/components/segmented';
+import { Segmented } from '@/components/patterns/segmented';
+import { EmptyState } from '@/components/patterns/states';
+import { Button } from '@/components/ui/button';
+import { useAsyncAction } from '@/components/loading';
 import { formatMoney } from '@/lib/money';
 import { DayCard } from './day-card';
 import { PayrollHistory } from './history';
 import { ConfirmPayout, type ConfirmGroup } from './confirm-dialog';
-import type { DayGroup, HistoryDay, StaffEntry } from './model';
+import type { DayGroup, HistoryDay, PayItem, StaffEntry } from './model';
 import { useT } from '@/lib/i18n/client';
 
-/** Сколько сообщение о выплате держится на экране. */
-const TOAST_MS = 4000;
+type Tab = 'due' | 'history';
 
 /**
  * Рабочая часть страницы: долг и история под одним переключателем.
@@ -47,19 +49,10 @@ export function PayrollWorkspace({
   todayTitle: string;
 }) {
   const t = useT();
-  const [tab, setTab] = useState<'due' | 'history'>('due');
+  const [tab, setTab] = useState<Tab>('due');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState<string[] | null>(null);
-  /* Не просто текст: у сообщения об удаче и у сообщения об отказе
-     разные знаки, и подставлять галку к слову «не получилось» нельзя. */
-  const [note, setNote] = useState<{ text: string; ok: boolean } | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!note) return;
-    const id = setTimeout(() => setNote(null), TOAST_MS);
-    return () => clearTimeout(id);
-  }, [note]);
+  const [showClosed, setShowClosed] = useState(false);
 
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
@@ -102,33 +95,33 @@ export function PayrollWorkspace({
           }))
           .filter((g) => g.people.length > 0);
 
-  const confirm = () => {
-    if (!asking) return;
-    const items = asking
-      .map((key) => byKey.get(key))
-      .filter((found) => found?.entry.staffId)
-      .map((found) => ({ staffId: found!.entry.staffId!, day: found!.group.day }));
-
-    startTransition(async () => {
-      /* Запрос может не дойти вовсе — связь на мойке не идеальная.
-         Молчать здесь опаснее всего: деньги уже отданы из рук в руки, и
-         человек уверен, что запись легла. */
-      let done: { text: string; ok: boolean };
-      try {
-        const result = await settlePayroll(items);
-        done = result.ok
-          ? { text: t.payroll.done(money(result.paid)), ok: true }
-          : { text: t.payroll.failed, ok: false };
-      } catch {
-        done = { text: t.payroll.failed, ok: false };
-      }
-
+  /* Суммы считает сервер заново; отсюда уезжают только «кто» и «за
+     какой день». Запрос может не дойти вовсе — связь на мойке не
+     идеальная, — и молчать здесь опаснее всего: деньги уже отданы из
+     рук в руки, и человек уверен, что запись легла. */
+  const settle = useAsyncAction(async (items: PayItem[]) => {
+    try {
+      const result = await settlePayroll(items);
+      if (result.ok) toast.success(t.payroll.done(money(result.paid)));
+      else toast.error(t.payroll.failed);
+    } catch {
+      toast.error(t.payroll.failed);
+    } finally {
       setAsking(null);
       /* Отметки снимаются в любом случае: часть расчётов могла лечь до
          сбоя, и оставленная галка предложила бы заплатить второй раз. */
       setPicked(new Set());
-      setNote(done);
-    });
+    }
+  });
+
+  const confirm = () => {
+    if (!asking) return;
+    const items: PayItem[] = [];
+    for (const key of asking) {
+      const found = byKey.get(key);
+      if (found?.entry.staffId) items.push({ staffId: found.entry.staffId, day: found.group.day });
+    }
+    settle.run(items);
   };
 
   /* Дни с долгом — и сегодняшний, даже если он уже закрыт: сегодня ещё
@@ -137,82 +130,59 @@ export function PayrollWorkspace({
 
      Когда долга нет вовсе, под чертой оказываются все дни, включая
      сегодняшний: наверху в этом случае стоит ответ «всё выплачено», и
-     единственная карточка рядом с ним читалась бы исключением из
-     него. */
+     единственная панель рядом с ним читалась бы исключением из него. */
   const open = outstanding > 0 ? days.filter((d) => d.outstanding > 0 || d.today) : [];
   const closed = days.filter((d) => !open.includes(d));
-  const [showClosed, setShowClosed] = useState(false);
+  const busy = settle.running;
 
   return (
-    <div className="mt-[var(--seam)]">
-      {/* Переключатель тем же жёлобом с переезжающей плашкой, что период
-          на сводке: один приём на все переключатели продукта. */}
-      <div className="mb-[var(--seam)]">
-        <Segmented
-          id="payroll-tabs"
-          current={tab}
-          onSelect={(key) => setTab(key as 'due' | 'history')}
-          items={[
-            {
-              key: 'due',
-              /* Суммы на вкладке больше нет. Она стояла здесь третьим
-                 экземпляром одного числа: плита наверху, первое звено
-                 полосы рядом с ней — и вот эта подпись. Вкладка не
-                 показание, она выбор между «кому должен» и «что уже
-                 отдал», и число в ней ничего не добавляло.
-
-                 Галка осталась: это не повтор суммы, а состояние —
-                 «долга нет вовсе», и по ней видно, что вкладку можно не
-                 открывать. */
-              label: (
-                <span className="flex items-center gap-1.5">
-                  {t.payroll.tabDue}
-                  {outstanding === 0 && <Check className="size-3.5" aria-hidden />}
-                </span>
-              ),
-            },
-            { key: 'history', label: t.payroll.tabHistory },
-          ]}
-        />
-      </div>
+    <div className="flex flex-col gap-4">
+      <Segmented
+        label={t.owner.tabPayroll}
+        current={tab}
+        onSelect={(key) => setTab(key as Tab)}
+        items={[
+          {
+            key: 'due',
+            /* Галка у вкладки — не повтор суммы, а состояние: «долга нет
+               вовсе», и по ней видно, что вкладку можно не открывать. */
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                {t.payroll.tabDue}
+                {outstanding === 0 && <Check className="size-3.5 text-success" aria-hidden />}
+              </span>
+            ),
+          },
+          { key: 'history', label: t.payroll.tabHistory },
+        ]}
+      />
 
       {tab === 'due' ? (
-        <div className="grid gap-[var(--seam)]">
+        <div className="flex flex-col gap-4">
           {outstanding === 0 ? (
-            <Panel>
-              <div className="grid justify-items-center gap-1 py-10 text-center">
-                <Check className="size-6" style={{ color: 'var(--good-on-board)' }} aria-hidden />
-                <p className="text-[15px] font-semibold">{t.payroll.dayAllPaid}</p>
-                <p className="text-[13px]" style={{ color: 'var(--board-muted)' }}>
-                  {t.payroll.nothingUnpaid}
-                </p>
-                {history.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn-inline mt-3"
-                    onClick={() => setTab('history')}
-                  >
+            <EmptyState
+              icon={<CheckCircle2 />}
+              title={t.payroll.dayAllPaid}
+              description={t.payroll.nothingUnpaid}
+              action={
+                history.length > 0 ? (
+                  <Button variant="ghost" size="sm" onClick={() => setTab('history')}>
                     {t.payroll.openHistory}
-                  </button>
-                )}
-              </div>
-            </Panel>
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : (
             <>
               {/* Сегодня стоит первым всегда — даже когда мыть ещё не
                   начинали: пустой сегодняшний день это ответ, а не
-                  отсутствие ответа.
-
-                  Но ответ на одну строку, и прибор в полный рост ему не
-                  нужен. Целая панель с заголовком и текстом по центру
-                  занимала сто тридцать точек над днями, в которых
-                  деньги есть, и отодвигала работу вниз ради сообщения
-                  «пока ничего». Теперь это строка: слева день, справа
-                  что в нём. */}
+                  отсутствие ответа. Но ответ на одну строку, и панель в
+                  полный рост ему не нужна. */}
               {!days.some((d) => d.today) && (
-                <p className="quick justify-between px-1.5">
-                  <b>{todayTitle}</b>
-                  <span>{t.payroll.dayEmpty}</span>
+                <p className="px-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{todayTitle}</span>
+                  {' · '}
+                  {t.payroll.dayEmpty}
                 </p>
               )}
 
@@ -227,7 +197,7 @@ export function PayrollWorkspace({
                   onPick={toggle}
                   onPickAll={pickAll}
                   onPay={setAsking}
-                  busy={pending}
+                  busy={busy}
                 />
               ))}
             </>
@@ -238,15 +208,21 @@ export function PayrollWorkspace({
               только его долг. Но и держать их наравне с должными
               незачем — они ничего не требуют. */}
           {closed.length > 0 && (
-            <div className="grid gap-[var(--seam)]">
-              <button
-                type="button"
-                className="justify-self-start text-[12.5px] font-medium underline-offset-2 hover:underline"
-                style={{ color: 'var(--board-muted)' }}
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start text-muted-foreground"
+                aria-expanded={showClosed}
                 onClick={() => setShowClosed((was) => !was)}
               >
+                {showClosed ? (
+                  <ChevronUp data-icon="inline-start" aria-hidden />
+                ) : (
+                  <ChevronDown data-icon="inline-start" aria-hidden />
+                )}
                 {showClosed ? t.payroll.hidePaidDays : t.payroll.showPaidDays(closed.length)}
-              </button>
+              </Button>
 
               {showClosed &&
                 closed.map((group) => (
@@ -260,7 +236,7 @@ export function PayrollWorkspace({
                     onPick={toggle}
                     onPickAll={pickAll}
                     onPay={setAsking}
-                    busy={pending}
+                    busy={busy}
                     collapsed
                   />
                 ))}
@@ -268,52 +244,33 @@ export function PayrollWorkspace({
           )}
         </div>
       ) : (
-        <PayrollHistory days={history} currency={currency} unitOne={unitOne} />
+        <PayrollHistory days={history} currency={currency} unitOne={unitOne} staffRole={staffRole} />
       )}
 
-      {/* Причал на телефоне: полоса расчёта внутри дня уезжает под сгиб
-          вместе с ним, а выбранное должно оставаться под рукой. */}
+      {/* Причал: полоса расчёта внутри дня уезжает под сгиб вместе с
+          ним, а выбранное должно оставаться под рукой. Липнет к нижнему
+          краю внутри рабочей области, а не поверх всего экрана: так он
+          стоит по центру содержимого, а не по центру окна с колонкой. */}
       {chosen.length > 0 && (
-        <div className="pay-dock">
-          <span className="num text-[13px]" style={{ color: 'var(--board-muted)' }}>
-            {t.payroll.selected(chosen.length)}
-          </span>
-          <button
-            type="button"
-            className="btn btn-auto"
-            disabled={pending}
-            onClick={() => setAsking(chosen)}
-          >
-            {t.payroll.paySum(money(chosenSum))}
-          </button>
+        <div className="safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4">
+            <span className="num text-sm text-muted-foreground">
+              {t.payroll.selected(chosen.length)}
+            </span>
+            <Button disabled={busy} onClick={() => setAsking(chosen)}>
+              {t.payroll.paySum(money(chosenSum))}
+            </Button>
+          </div>
         </div>
       )}
 
       <ConfirmPayout
         groups={groups}
         currency={currency}
-        pending={pending}
+        pending={busy}
         onCancel={() => setAsking(null)}
         onConfirm={confirm}
       />
-
-      {/* После расчёта строки исчезают сами, и без единого слова
-          непонятно, случилось это от нажатия или что-то сломалось. */}
-      {note && (
-        <div className="pay-toast" role="status" aria-live="polite">
-          <span data-ok={note.ok ? '' : undefined}>
-            {/* Галка появляется вместе с сообщением и чуть подрастает:
-                короткое подтверждение вместо окна, которое пришлось бы
-                закрывать ещё одним нажатием за то, что всё хорошо. */}
-            {note.ok && (
-              <span className="btn-done">
-                <Check className="size-[1em]" aria-hidden />
-              </span>
-            )}
-            {note.text}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

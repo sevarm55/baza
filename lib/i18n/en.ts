@@ -953,6 +953,7 @@ export const en: Dict = {
   },
 
   nav: {
+    operations: 'WORK',
     finance: 'MONEY',
     management: 'MANAGEMENT',
     system: 'SYSTEM',
@@ -1013,6 +1014,9 @@ export const en: Dict = {
     pinHidden: 'Not shown',
     staffNote:
       'Staff sign in with their own phone and an access code. Read them the code, no password to remember.',
+    removeStaffNote:
+      'The employee will be deactivated and lose access. Records and payroll history stay.',
+    removeServiceNote: 'The service leaves the price list. Existing records stay unchanged.',
     price: 'Price',
     percent: 'Percentage',
     name: 'Name',

@@ -1,43 +1,35 @@
-import type { Access } from '@/lib/subscription';
-import { Panel } from '@/components/board';
+import { Panel } from '@/components/patterns/panel';
+import { StatusBadge, type StatusTone } from '@/components/patterns/status-badge';
 import { getDict } from '@/lib/i18n/server';
+import type { Access } from '@/lib/subscription';
 
 /**
- * Срок подписки — сводкой, а не плиткой.
+ * Срок подписки сводкой, а не плитой.
  *
- * Здесь стоял прибор со свечением: тёмная цветная плита в правой
- * колонке. На своих страницах — на сводке, у зарплат — такая плитка
- * права: там она показание, ради которого экран открыли. В профиле
- * главное — сам человек и ключ от его входа, а срок оплаты владелец
- * видит и без того: за пять дней до конца в шапке каждой страницы
- * кабинета зажигается напоминание (`BillingBanner`). Плита здесь
- * кричала громче имени и громче безопасности.
- *
- * Осталась строка состояния с цветной точкой — тем же знаком, которым в
- * продукте помечен человек на смене: горит спокойным, когда срок в
- * порядке, и янтарным, когда пора платить. Цвет при этом не
- * единственный носитель — рядом стоят слова.
- *
- * Кнопки «управлять подпиской» тут нет, потому что управлять ею внутри
- * продукта нельзя: продление идёт разговором. Обещать несуществующую
- * страницу — хуже, чем промолчать.
+ * В профиле главное сам человек и ключ от его входа, а срок оплаты
+ * владелец видит и без того: за несколько дней до конца в шапке каждой
+ * страницы зажигается напоминание. Здесь строка состояния со значком и
+ * название бизнеса. Кнопки «управлять подпиской» нет: продление идёт
+ * разговором, и обещать несуществующую страницу хуже, чем промолчать.
  */
 export async function SubscriptionSummary({
   access,
   businessName,
   owner,
+  id,
 }: {
   access: Access;
   businessName: string;
-  /** работнику про оплату знать незачем — ему видно только имя бизнеса */
+  /** работнику про оплату знать незачем: ему видно только имя бизнеса */
   owner: boolean;
+  id?: string;
 }) {
   const t = await getDict();
 
   if (!owner) {
     return (
-      <Panel title={t.settings.business}>
-        <div className="text-[15px] font-semibold">{businessName}</div>
+      <Panel id={id} title={t.settings.business} className="scroll-mt-16">
+        <p className="text-sm font-medium">{businessName}</p>
       </Panel>
     );
   }
@@ -49,17 +41,27 @@ export async function SubscriptionSummary({
         ? t.billing.paidLeft(access.daysLeft)
         : t.billing.expiredTitle;
 
+  const tone: StatusTone = !access.canWrite
+    ? 'danger'
+    : access.warn
+      ? 'warning'
+      : access.state === 'trial'
+        ? 'brand'
+        : 'success';
+
   return (
-    <Panel title={t.profile.access}>
-      <p className={access.warn ? 'hint-warn' : 'hint-good'}>{state}</p>
-      <p className="mt-2 text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-        {businessName}
-      </p>
-      {access.warn && (
-        <p className="note mt-3">
-          {t.billing.renew} <span className="num">{t.billing.wallPhone}</span>
-        </p>
-      )}
+    <Panel id={id} title={t.profile.access} className="scroll-mt-16">
+      <div className="flex flex-col items-start gap-2">
+        <StatusBadge tone={tone} dot>
+          {state}
+        </StatusBadge>
+        <p className="text-sm font-medium">{businessName}</p>
+        {access.warn && (
+          <p className="text-xs text-muted-foreground">
+            {t.billing.renew} <span className="num">{t.billing.wallPhone}</span>
+          </p>
+        )}
+      </div>
     </Panel>
   );
 }

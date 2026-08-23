@@ -1,118 +1,113 @@
 'use client';
 
+import { History } from 'lucide-react';
+import { SectionHeader } from '@/components/patterns/page-header';
+import { PersonAvatar } from '@/components/patterns/person';
+import { EmptyState } from '@/components/patterns/states';
+import { TableShell } from '@/components/patterns/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatMoney } from '@/lib/money';
 import type { HistoryDay } from './model';
 import { useT } from '@/lib/i18n/client';
 import { unitCount } from '@/lib/i18n/terms';
 
+/** Шапка и ячейки компактной таблицы: та же геометрия, что у дня. */
+const HEAD = 'h-9 px-4 text-xs font-medium text-muted-foreground';
+const CELL = 'px-4 py-2.5';
+
 /**
  * История выплат.
  *
- * Прежде здесь стояла таблица со столбцом «период»: «13.08 — 14.08».
- * Эта строка не отвечала ни на один вопрос — то ли это дни работы, то
- * ли дни выплат, то ли одна выплата, растянутая на двое суток. Пять
- * строк с одинаковыми датами читались как одна выплата, напечатанная
- * пять раз.
- *
- * Поэтому здесь две разные сущности названы двумя разными способами и
- * стоят в двух разных местах:
- *
- *   когда отдали     → заголовок дня и время слева;
- *   за что отдали    → подпись «за работу 13 августа» под суммой.
+ * Две разные сущности названы двумя разными способами и стоят в двух
+ * разных местах: когда отдали — заголовок дня и время в строке; за что
+ * отдали — подпись «за работу 13 августа» рядом со временем. Одна
+ * таблица с колонкой «период» отвечала бы ни на один из вопросов.
  *
  * Группировка идёт по дню ВЫПЛАТЫ: владелец приходит сюда с вопросом
  * «когда я реально отдал деньги», а не «что было начислено». Расчёт с
- * тремя людьми, сделанный одним нажатием, показан одной записью — тем,
+ * тремя людьми, сделанный одним нажатием, показан одной выпиской — тем,
  * чем он и был.
  */
 export function PayrollHistory({
   days,
   currency,
   unitOne,
+  staffRole,
 }: {
   days: HistoryDay[];
   currency: string;
   unitOne: string;
+  staffRole: string;
 }) {
   const t = useT();
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
   if (days.length === 0) {
-    return (
-      <p className="py-12 text-center text-[13.5px]" style={{ color: 'var(--board-muted)' }}>
-        {t.payroll.historyEmpty}
-      </p>
-    );
+    return <EmptyState icon={<History />} title={t.payroll.historyEmpty} />;
   }
 
   return (
-    <div className="grid gap-[var(--seam)]" aria-label={t.owner.payoutHistory}>
+    <div className="flex flex-col gap-5" aria-label={t.owner.payoutHistory}>
       {days.map((day) => (
         <section key={day.key}>
-          <h2 className="mb-2 px-0.5 text-[13.5px] font-semibold" style={{ color: 'var(--board-muted)' }}>
-            {day.title}
-          </h2>
+          <SectionHeader title={day.title} />
+          <TableShell>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={`${HEAD} w-16`}>{t.owner.colTime}</TableHead>
+                  <TableHead className={HEAD}>{staffRole}</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>{t.payroll.paid}</TableHead>
+                </TableRow>
+              </TableHeader>
 
-          <div className="grid gap-2">
-            {day.payments.map((payment) => (
-              <div
-                key={payment.key}
-                className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-[var(--radius-card)] px-3 py-2.5"
-                style={{ background: 'color-mix(in srgb, var(--board-ink) 5%, transparent)' }}
-              >
-                {/* Время слева отдельной колонкой: по нему история и
-                    читается сверху вниз, как выписка. */}
-                <span
-                  className="num pt-0.5 text-[12.5px] font-semibold"
-                  style={{ color: 'var(--board-muted)' }}
-                >
-                  {payment.time}
-                </span>
+              {/* Каждая выдача — своя группа строк: время и «за какой
+                  день» первой строкой, под ней люди, под ними итог. */}
+              {day.payments.map((payment) => (
+                <TableBody key={payment.key} className="border-b last:border-b-0">
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableCell className={`${CELL} num text-xs font-semibold text-muted-foreground`}>
+                      {payment.time}
+                    </TableCell>
+                    {/* За какой рабочий день — словами, а не второй датой:
+                        две даты подряд снова пришлось бы различать по
+                        порядку, а не по смыслу. */}
+                    <TableCell colSpan={2} className={`${CELL} num text-xs text-muted-foreground`}>
+                      {payment.forWork}
+                      {payment.units !== null &&
+                        payment.units > 0 &&
+                        ` · ${unitCount(payment.units, unitOne, t.locale)}`}
+                    </TableCell>
+                  </TableRow>
 
-                <div className="min-w-0">
                   {payment.rows.map((row) => (
-                    <div key={row.id} className="flex items-center gap-2 py-0.5">
-                      <span
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ background: row.color }}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
-                        {row.name}
-                      </span>
-                      <span className="num shrink-0 text-[14px] font-semibold">
-                        {money(row.amount)}
-                      </span>
-                    </div>
+                    <TableRow key={row.id}>
+                      <TableCell className={CELL} />
+                      <TableCell className={`${CELL} max-w-56`}>
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <PersonAvatar name={row.name} size="sm" />
+                          <span className="truncate font-medium">{row.name}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell className={`${CELL} num text-right font-semibold`}>{money(row.amount)}</TableCell>
+                    </TableRow>
                   ))}
 
                   {/* Итог — только когда людей несколько: под одной
                       строкой он повторял бы её же число. */}
                   {payment.rows.length > 1 && (
-                    <div
-                      className="mt-1 flex items-center justify-between border-t pt-1.5"
-                      style={{ borderColor: 'color-mix(in srgb, var(--board-ink) 10%, transparent)' }}
-                    >
-                      <span className="text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell className={CELL} />
+                      <TableCell className={`${CELL} text-xs font-medium text-muted-foreground`}>
                         {t.common.total}
-                      </span>
-                      <span className="num text-[14.5px] font-bold">{money(payment.total)}</span>
-                    </div>
+                      </TableCell>
+                      <TableCell className={`${CELL} num text-right font-semibold`}>{money(payment.total)}</TableCell>
+                    </TableRow>
                   )}
-
-                  {/* За какой рабочий день — словами, а не второй датой:
-                      две даты подряд снова пришлось бы различать по
-                      порядку, а не по смыслу. */}
-                  <p className="num mt-1 text-[12px]" style={{ color: 'var(--board-muted)' }}>
-                    {payment.forWork}
-                    {payment.units !== null &&
-                      payment.units > 0 &&
-                      ` · ${unitCount(payment.units, unitOne, t.locale)}`}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+                </TableBody>
+              ))}
+            </Table>
+          </TableShell>
         </section>
       ))}
     </div>

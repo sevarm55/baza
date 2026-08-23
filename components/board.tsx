@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
-import { NumericText } from '@/components/numeric-text';
+import { NumericText } from '@/components/patterns/numeric-text';
 
 /**
  * Табло — язык приложения, перенесённый в веб.

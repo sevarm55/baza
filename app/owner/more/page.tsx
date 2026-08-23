@@ -1,50 +1,29 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  Building2,
-  CarFront,
-  ChevronRight,
-  Download,
-  FileChartColumn,
-  ReceiptText,
-  SlidersHorizontal,
-  Tags,
-  TicketCheck,
-  UserRound,
-  Users,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Building2, Download, UserRound } from 'lucide-react';
+
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
 import { listPoints } from '@/lib/accounts';
 import { passesEnabled } from '@/lib/features';
-import { PageHead } from '@/components/page-head';
 import { getDict } from '@/lib/i18n/server';
+import type { Dict } from '@/lib/i18n';
 import { localizeTenantOrNull } from '@/lib/i18n/terms';
+import { sectionGroupsFor } from '@/components/sections';
+import { LinkRow, LinkRows } from '@/components/patterns/detail-list';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Panel } from '@/components/patterns/panel';
 
 /**
- * Карта разделов — то, что не поместилось в четыре вкладки.
+ * Карта разделов: всё, что не поместилось в нижние вкладки телефона.
  *
- * На компьютере этой страницы не нужно: там все девять разделов стоят
- * слева и видны всегда. На телефоне списка нет, а разделов по-прежнему
- * девять, и где-то они обязаны лежать целиком — иначе половина продукта
- * доступна только по прямой ссылке.
- *
- * Экран не список из девяти одинаковых строк. Размер здесь задаёт
- * приоритет, ровно как в приложении: рабочие сущности бизнеса стоят
- * плитками по две в ряд, а обслуживание продукта — филиалы, настройки,
- * моя страница, выгрузка — тихими строками под ними. Зарплат в плитках
- * нет намеренно: они уже вкладка внизу, и второй вход в них означал бы,
- * что человек ищет их в двух местах и в одном не находит.
- *
- * Заходить сюда можно и с компьютера — адрес рабочий, — поэтому мера
- * страницы у́же общей меры кабинета: шесть плиток, растянутых на тысячу
- * триста точек, читались бы баннерами, а не разделами.
+ * На компьютере все разделы стоят слева и видны всегда. На телефоне
+ * колонки нет, и где-то они обязаны лежать целиком, иначе половина
+ * продукта доступна только по прямой ссылке. Список тот же, что в
+ * колонке, в тех же группах и в том же порядке: раздел, забытый там,
+ * не появится и здесь. Ниже то, чего в колонке нет: филиалы, моя
+ * страница и выгрузка.
  */
-
-type Tone = 'violet' | 'teal' | 'amber' | 'lime';
-
 export default async function MorePage() {
   const t = await getDict();
   const session = await requireOwner();
@@ -55,137 +34,102 @@ export default async function MorePage() {
   if (!tenant || !me) redirect('/session-ended');
 
   const points = me.accountId ? await listPoints(me.accountId) : [];
-
-  /* Плитки — сущности бизнеса: кто платит, за что, куда уходит, кто
-     делает и что из этого вышло. Тон берётся из свечения приборов табло,
-     а не из нового набора цветов: продукт уже знает, что фиолетовый это
-     приход, янтарный расход, бирюзовый люди, лайм итог. */
-  const tiles: { href: string; name: string; note: string; icon: ReactNode; tone: Tone }[] = [
-    {
-      href: '/owner/clients',
-      name: t.owner.tabClients,
-      note: t.phone.clientsLead,
-      icon: <CarFront className="size-4" aria-hidden />,
-      tone: 'violet',
-    },
-    {
-      href: '/owner/services',
-      name: t.settings.tabServices,
-      note: t.phone.servicesLead,
-      icon: <Tags className="size-4" aria-hidden />,
-      tone: 'violet',
-    },
-    {
-      href: '/owner/expenses',
-      name: t.expenses.title,
-      note: t.phone.expensesLead,
-      icon: <ReceiptText className="size-4" aria-hidden />,
-      tone: 'amber',
-    },
-    {
-      href: '/owner/staff',
-      name: t.phone.team,
-      note: t.phone.teamLead,
-      icon: <Users className="size-4" aria-hidden />,
-      tone: 'teal',
-    },
-    {
-      href: '/owner/reports',
-      name: t.reports.title,
-      note: t.phone.reportsLead,
-      icon: <FileChartColumn className="size-4" aria-hidden />,
-      tone: 'lime',
-    },
-  ];
-
-  if (passesEnabled()) {
-    tiles.push({
-      href: '/owner/passes',
-      name: t.passes.title,
-      note: t.phone.passesLead,
-      icon: <TicketCheck className="size-4" aria-hidden />,
-      tone: 'teal',
-    });
-  }
+  const groups = sectionGroupsFor(passesEnabled(), t);
 
   return (
-    /* Мера у́же общей меры кабинета, и заметно у́же.
-       Экран собран под телефон: шесть плиток, растянутые на тысячу
-       двести точек, читаются баннерами, а не разделами. Адрес при этом
-       рабочий на любом экране, и выглядеть он должен собранным. */
-    <div className="mx-auto w-full max-w-[46rem]">
-      <PageHead title={t.phone.moreTitle} meta={t.phone.moreLead} />
+    /* Мера у́же общей меры кабинета: экран собран под телефон, и строки,
+       растянутые на полторы тысячи точек, читались бы пустыми. */
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <PageHeader className="mb-0" title={t.phone.moreTitle} description={t.phone.moreLead} />
 
-      <div className="more-grid">
-        {tiles.map((tile) => (
-          <Link key={tile.href} href={tile.href} className="more-tile">
-            <span className="tone-mark" data-tone={tile.tone}>
-              {tile.icon}
-            </span>
-            <span className="more-tile-name">{tile.name}</span>
-            <span className="more-tile-note">{tile.note}</span>
-          </Link>
-        ))}
-      </div>
+      <Panel padded={false}>
+        <div className="divide-y divide-border">
+          {groups.map((group, i) => (
+            <div key={group.key}>
+              {group.label && (
+                <p className="px-4 pt-3 pb-1 text-2xs font-medium tracking-wider text-muted-foreground uppercase">
+                  {group.label}
+                </p>
+              )}
+              <LinkRows>
+                {group.items.map((section) => (
+                  <LinkRow
+                    key={section.href}
+                    href={section.href}
+                    title={section.label}
+                    note={noteFor(section.href, t)}
+                    icon={section.icon}
+                  />
+                ))}
 
-      {/* Обслуживание продукта — строками и тише плиток: это не сущности
-          бизнеса, а то, что трогают раз в год. Волосяные линии между
-          строками рисует `.rows`, тот же класс, что в настройках. */}
-      <div className="rows mt-[var(--seam)]">
-        {/* Филиалы видит только тот, у кого их больше одного: остальные
-            не должны узнать, что вторые бывают. */}
-        {points.length > 1 && (
-          <Link href="/owner/points" className="more-row">
-            <span className="tone-mark" data-tone="teal">
-              <Building2 className="size-4" aria-hidden />
-            </span>
-            <span className="more-row-name">
-              {t.points.title}
-              <span className="more-row-note">{points.length}</span>
-            </span>
-            <ChevronRight className="size-4 shrink-0" style={{ color: 'var(--board-muted)' }} aria-hidden />
-          </Link>
-        )}
+                {/* Обслуживание продукта рядом с настройками: не сущности
+                    бизнеса, а то, что трогают раз в год. */}
+                {i === groups.length - 1 && (
+                  <>
+                    {/* Филиалы видит только тот, у кого их больше одного:
+                        остальные не должны узнать, что вторые бывают. */}
+                    {points.length > 1 && (
+                      <LinkRow
+                        href="/owner/points"
+                        title={t.points.title}
+                        note={<span className="num">{points.length}</span>}
+                        icon={<Building2 aria-hidden />}
+                      />
+                    )}
 
-        <Link href="/owner/settings" className="more-row">
-          <span className="tone-mark" data-tone="violet">
-            <SlidersHorizontal className="size-4" aria-hidden />
-          </span>
-          <span className="more-row-name">
-            {t.owner.tabSettings}
-            <span className="more-row-note">{t.phone.settingsLead}</span>
-          </span>
-          <ChevronRight className="size-4 shrink-0" style={{ color: 'var(--board-muted)' }} aria-hidden />
-        </Link>
+                    {/* Моя страница: вход к языку, теме, PIN и выходу. На
+                        телефоне это единственная дверь к ним. */}
+                    <LinkRow
+                      href="/owner/profile"
+                      title={t.profile.title}
+                      note={t.phone.profileLead}
+                      icon={<UserRound aria-hidden />}
+                    />
 
-        {/* Моя страница — вход к языку, теме, PIN и выходу из кабинета.
-            На компьютере они живут внизу боковой колонки; на телефоне
-            колонки нет, и это единственная дверь к ним. */}
-        <Link href="/owner/profile" className="more-row">
-          <span className="tone-mark" data-tone="teal">
-            <UserRound className="size-4" aria-hidden />
-          </span>
-          <span className="more-row-name">
-            {t.profile.title}
-            <span className="more-row-note">{t.phone.profileLead}</span>
-          </span>
-          <ChevronRight className="size-4 shrink-0" style={{ color: 'var(--board-muted)' }} aria-hidden />
-        </Link>
-
-        {/* Выгрузка приходит файлом и дальше принадлежит человеку:
-            отправить себе в почту, положить в «Файлы», открыть в Excel.
-            Не раздел, поэтому обычная ссылка на файл, а не строка со
-            стрелкой перехода. */}
-        <a href="/owner/export" className="more-row" download>
-          <span className="tone-mark" data-tone="amber">
-            <Download className="size-4" aria-hidden />
-          </span>
-          <span className="more-row-name">
-            {t.settings.export}
-            <span className="more-row-note">{t.phone.exportLead}</span>
-          </span>
-        </a>
-      </div>
+                    {/* Выгрузка приходит файлом и дальше принадлежит
+                        человеку: не раздел, поэтому ссылка на файл без
+                        стрелки перехода. */}
+                    <LinkRow
+                      href="/owner/export"
+                      download
+                      title={t.settings.export}
+                      note={t.phone.exportLead}
+                      icon={<Download aria-hidden />}
+                      right={<span aria-hidden />}
+                    />
+                  </>
+                )}
+              </LinkRows>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
+}
+
+/** Подпись раздела одной строкой там, где у него есть своя. */
+function noteFor(href: string, t: Dict): string | undefined {
+  switch (href) {
+    case '/owner/calendar':
+      return t.calendar.lead;
+    case '/owner/clients':
+      return t.phone.clientsLead;
+    case '/owner/services':
+      return t.phone.servicesLead;
+    case '/owner/staff':
+      return t.phone.teamLead;
+    case '/owner/passes':
+      return t.phone.passesLead;
+    case '/owner/payroll':
+      return t.payroll.lead;
+    case '/owner/expenses':
+      return t.phone.expensesLead;
+    case '/owner/reports':
+      return t.phone.reportsLead;
+    case '/owner/settings':
+      return t.phone.settingsLead;
+    default:
+      return undefined;
+  }
 }

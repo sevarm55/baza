@@ -15,6 +15,9 @@ import { LandingWorkspace } from './landing-workspace';
 import { LandingMobile, MobileCta } from './landing-mobile';
 import { NavShadow } from './landing-motion';
 import s from './landing.module.css';
+/* Переменные и классы прежнего кабинета, на которых держится витрина.
+   Действуют только внутри `.landing`; подключаются здесь и нигде больше. */
+import './landing-legacy.css';
 
 /**
  * Витрина.
@@ -68,7 +71,7 @@ export default async function Home({
   const l = t.landing;
 
   return (
-    <div className={s.page}>
+    <div className={`landing ${s.page}`}>
       <AuthPortal
         initial={opened}
         niche={niche.key}

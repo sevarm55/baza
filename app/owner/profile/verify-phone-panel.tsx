@@ -1,31 +1,27 @@
 'use client';
 
 import { useActionState } from 'react';
+
 import { verifyOwnPhoneAction, type VerifyPhoneState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
-import { IconCheck } from '@/components/icons';
+import { LoadingButton } from '@/components/loading';
+import { FormMessage } from '@/components/patterns/form';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { useT } from '@/lib/i18n/client';
-import { LoadingButton } from '@/components/loading';
 
 /**
- * Подтверждение своего номера — для тех, кто регистрировался до кода из
+ * Подтверждение своего номера для тех, кто регистрировался до кода из
  * SMS.
  *
- * Предложение, а не требование. Заставить владельца подтверждать номер
- * посреди рабочего дня из-за нашего переезда — не тот размен: мойка
- * работает, машины едут, а он ищет телефон. Поэтому здесь нет ни
- * баннера на весь экран, ни блокировки: панель в профиле, одна строка
- * объяснения и кнопка.
- *
- * Объяснение при этом честное и конкретное: без подтверждённого номера
- * PIN не восстановить. Это единственное, что человек теряет, и говорить
- * ему что-то другое незачем.
+ * Предложение, а не требование: ни баннера на весь экран, ни
+ * блокировки. Блок предупреждения в «безопасности», одна строка
+ * объяснения и кнопка. Объяснение честное: без подтверждённого номера
+ * PIN не восстановить, и это единственное, что человек теряет.
  */
 export function VerifyPhonePanel({
   phone,
 }: {
-  /** уже в маскированном виде — на экран, а не в запрос */
+  /** уже в маскированном виде: на экран, а не в запрос */
   phone: string;
 }) {
   const [state, action, pending] = useActionState<VerifyPhoneState, FormData>(
@@ -35,62 +31,56 @@ export function VerifyPhonePanel({
   const t = useT();
 
   if (state?.step === 'done') {
-    return (
-      <p className="hint-good">
-        <IconCheck width={16} height={16} />
-        {t.auth.verified}
-      </p>
-    );
-  }
-
-  if (state?.step === 'code') {
-    return (
-      <form action={action} className="grid gap-3">
-        <input type="hidden" name="challengeId" value={state.challengeId} />
-        <p className="text-[13.5px] text-muted">{t.auth.otpSent(phone)}</p>
-
-        <CodeInput
-          name="code"
-          length={CODE_LENGTH}
-          label={t.auth.otpGroup(CODE_LENGTH)}
-          title={t.auth.otpCode}
-          autoComplete="one-time-code"
-          autoFocus
-          submitOnComplete
-          enteredLabel={t.auth.entered}
-          invalid={Boolean(state.error)}
-        />
-
-        {state.error && <p className="alert">{state.error}</p>}
-
-        <div>
-          <LoadingButton
-            className="btn-inline"
-            busy={pending}
-            label={t.auth.otpVerify}
-            busyLabel={t.auth.checking}
-          />
-        </div>
-      </form>
-    );
+    return <FormMessage tone="success">{t.auth.verified}</FormMessage>;
   }
 
   return (
-    /* Кнопка по содержимому, а не во всю ширину прибора.
+    <div className="rounded-md border border-warning/30 bg-warning-soft p-3">
+      <p className="text-sm font-semibold text-warning-soft-foreground">{t.auth.verifyPhone}</p>
 
-       Пустая обведённая полоса в шестьсот пикселей на светлом приборе
-       читалась не кнопкой, а пустым полем ввода — тем самым, из-за
-       которого профиль и переделывали. Действие здесь предложение, а не
-       главное дело страницы, и занимать столько места ему незачем. */
-    <form action={action} className="grid justify-items-start gap-3">
-      <p className="text-[13.5px] text-muted">{t.auth.verifyPhoneNote}</p>
-      {state?.error && <p className="alert">{state.error}</p>}
-      <LoadingButton
-        className="btn-inline"
-        busy={pending}
-        label={t.auth.verifyNow}
-        busyLabel={t.auth.sending}
-      />
-    </form>
+      {state?.step === 'code' ? (
+        <form action={action} className="mt-2 flex flex-col gap-3">
+          <input type="hidden" name="challengeId" value={state.challengeId} />
+          <p className="text-sm text-muted-foreground">{t.auth.otpSent(phone)}</p>
+
+          <CodeInput
+            name="code"
+            length={CODE_LENGTH}
+            label={t.auth.otpGroup(CODE_LENGTH)}
+            title={t.auth.otpCode}
+            autoComplete="one-time-code"
+            autoFocus
+            submitOnComplete
+            enteredLabel={t.auth.entered}
+            invalid={Boolean(state.error)}
+          />
+
+          {state.error && <FormMessage>{state.error}</FormMessage>}
+
+          <div>
+            <LoadingButton
+              size="sm"
+              busy={pending}
+              label={t.auth.otpVerify}
+              busyLabel={t.auth.checking}
+            />
+          </div>
+        </form>
+      ) : (
+        /* Кнопка по содержимому, а не во всю ширину: действие здесь
+           предложение, а не главное дело страницы. */
+        <form action={action} className="mt-1 flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">{t.auth.verifyPhoneNote}</p>
+          {state?.error && <FormMessage>{state.error}</FormMessage>}
+          <LoadingButton
+            variant="outline"
+            size="sm"
+            busy={pending}
+            label={t.auth.verifyNow}
+            busyLabel={t.auth.sending}
+          />
+        </form>
+      )}
+    </div>
   );
 }

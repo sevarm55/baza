@@ -1,42 +1,42 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { CircleAlert, MessageSquare, Phone } from 'lucide-react';
 import { requireOwner } from '@/lib/auth';
 import { getClientHistory, getTenant } from '@/lib/queries';
 import { formatMoney } from '@/lib/money';
 import { LOST_AFTER_DAYS } from '@/lib/alerts';
-import { Figures, Panel, Plate } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
-import { PageHead } from '@/components/page-head';
-import { personColor } from '@/lib/person-color';
 import { formatPhone } from '@/lib/phone';
 import { dayMonth, hhmm } from '@/lib/time';
 import { getDict } from '@/lib/i18n/server';
 import { localizeTenantOrNull, serviceNameTerm } from '@/lib/i18n/terms';
 import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PageHeader } from '@/components/patterns/page-header';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { Panel, PanelGrid } from '@/components/patterns/panel';
+import { DetailList, DetailRow } from '@/components/patterns/detail-list';
+import { PersonDot } from '@/components/patterns/person';
+import { EmptyState } from '@/components/patterns/states';
+import { TableShell, cellNum, headNum } from '@/components/patterns/table';
 
 /**
  * История одной машины — отдельной страницей.
  *
- * Внутри списка ту же историю показывает выдвижная панель: она не
- * уводит со страницы и не теряет набранный поиск. Эта страница — путь
- * СНАРУЖИ: на неё ссылаются, её открывают из ленты и из адреса, и адрес
- * с номером машины сам по себе полезная вещь.
+ * Внутри списка ту же историю показывает лист справа: он не уводит со
+ * страницы и не теряет набранный поиск. Эта страница — путь снаружи:
+ * на неё ссылаются, её открывают из ленты и из адреса.
  *
  * Обе считают одно и то же одной функцией и отвечают одними и теми же
- * словами. Расходись они хоть в одном числе — и владелец, открывший
- * машину двумя способами, перестал бы верить обоим.
- *
- * Отменённых записей здесь нет: клиент за них не платил, и в его итоге
- * их нет — покажи мы их, сумма в шапке перестала бы сходиться с лентой
- * под ней.
+ * словами. Отменённых записей здесь нет: клиент за них не платил, и в
+ * его итоге их нет.
  */
 export default async function ClientPage({ params }: { params: Promise<{ key: string }> }) {
   const t = await getDict();
   const session = await requireOwner();
-  /* Слова бизнеса — на языке того, кто смотрит. Переводятся только
-     заводские: своё название владельца проходит насквозь (см. terms.ts).
-     Копия уходит ТОЛЬКО на экран, в базу отсюда ничего не пишется. */
+  /* Слова бизнеса — на языке того, кто смотрит; своё название владельца
+     проходит насквозь (см. terms.ts). В базу отсюда ничего не пишется. */
   const tenant = localizeTenantOrNull(await getTenant(session.tid), t.locale);
   if (!tenant) redirect('/session-ended');
 
@@ -45,9 +45,6 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   if (!found) notFound();
 
   const { client } = found;
-  /* Названия услуг в истории машины — на языке того, кто смотрит.
-     Переводится только заводское, своё название владельца проходит
-     насквозь (см. terms.ts). */
   const orders = found.orders.map((o) => ({
     ...o,
     serviceName: serviceNameTerm(o.serviceName, t.locale),
@@ -57,6 +54,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   const avg = client.visits > 0 ? Math.round(client.total / client.visits) : 0;
   const lost = days > LOST_AFTER_DAYS;
   const last = days === 0 ? t.owner.lastVisitToday : t.owner.lastVisitAgo(days);
+  const contact = contactLine(client.name, client.phone);
 
   const longDay = new Intl.DateTimeFormat(intlLocale(t.locale), {
     day: 'numeric',
@@ -66,10 +64,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   });
 
   const service = topOf(orders.map((o) => o.serviceName));
-  /* Кто чаще мыл эту машину. Считаем по участникам, а не по
-     авторам записей: совместную мойку записывает один, а работают все,
-     и «чаще всего мыл Арман» по авторству назвало бы того, у кого
-     телефон под рукой. */
+  /* Кто чаще мыл эту машину: по участникам, а не по авторам записей. */
   const staff = topOf(
     orders.flatMap((o) =>
       o.crew.length > 0
@@ -82,167 +77,135 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
   const payment = topOf(orders.map((o) => paymentLabel(o.payment, t)));
 
   return (
-    <>
-      <PageHead
-        title={client.key}
-        meta={
-          /* Только на компьютере: на телефоне ровно та же стрелка стоит
-             в шапке экрана, и вторая под ней спрашивала бы, чем они
-             отличаются. */
-          <Link
-            href="/owner/clients"
-            className="hidden md:inline"
-            style={{ color: 'var(--board-muted)' }}
-          >
-            ← {t.owner.tabClients}
-          </Link>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
+        back={{ href: '/owner/clients', label: t.owner.tabClients }}
+        title={<span className="num">{client.key}</span>}
+        description={contact || undefined}
+        actions={
+          client.phone ? (
+            <>
+              <Button variant="outline" nativeButton={false} render={<a href={`tel:${client.phone}`} />}>
+                <Phone data-icon="inline-start" aria-hidden />
+                {t.owner.clientCall}
+              </Button>
+              <Button variant="outline" nativeButton={false} render={<a href={`sms:${client.phone}`} />}>
+                <MessageSquare data-icon="inline-start" aria-hidden />
+                {t.owner.clientWrite}
+              </Button>
+            </>
+          ) : undefined
         }
-      >
-        {client.phone && (
-          <div className="flex flex-wrap items-center gap-2">
-            <a className="btn-inline btn-inline-primary" href={`tel:${client.phone}`}>
-              {t.owner.clientCall}
-            </a>
-            <a className="btn-inline" href={`sms:${client.phone}`}>
-              {t.owner.clientWrite}
-            </a>
-          </div>
-        )}
-      </PageHead>
+      />
 
-      <section
-        className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-        aria-label={t.owner.clientsTotalSpent}
-      >
-        <Plate
-          label={t.owner.clientsTotalSpent}
-          value={money(client.total)}
-          note={contactLine(client.name, client.phone) || undefined}
+      <MetricStrip columns={3}>
+        <Metric size="lg" label={t.owner.clientsTotalSpent} value={money(client.total)} />
+        <Metric
+          label={t.owner.visits}
+          value={String(client.visits)}
+          hint={`${t.owner.lastVisitPrefix} ${last}`}
         />
-
-        <Figures
-          items={[
-            { label: t.owner.visits, value: String(client.visits) },
-            { label: t.owner.clientAvg, value: money(avg) },
-            { label: t.owner.lastVisit, value: last },
-          ]}
-        />
-      </section>
+        <Metric label={t.owner.clientAvg} value={money(avg)} />
+      </MetricStrip>
 
       {/* Пропавшему — строкой у показаний, а не плашкой во всю ширину:
           это повод позвонить, а не тревога. */}
-      {lost && <p className="signal mt-3.5">{t.owner.clientLostHint}</p>}
+      {lost && (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-soft px-3 py-2.5 text-sm text-warning-soft-foreground"
+        >
+          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {t.owner.clientLostHint}
+        </p>
+      )}
 
-      <div className="mt-[var(--seam)] grid gap-[var(--seam)]">
+      <PanelGrid>
         {orders.length > 0 && (
-          <Panel title={t.owner.clientHabits}>
-            <dl className="facts">
-              <div>
-                <dt>{t.owner.clientFirstVisit}</dt>
-                <dd className="num">{longDay.format(client.firstSeenAt)}</dd>
-              </div>
+          <Panel title={t.owner.clientHabits} className="lg:col-span-4">
+            <DetailList>
+              <DetailRow label={t.owner.clientFirstVisit} value={longDay.format(client.firstSeenAt)} mono />
               {service && (
-                <div>
-                  <dt>{t.owner.clientOftenTakes}</dt>
-                  <dd className="truncate">{service}</dd>
-                </div>
+                <DetailRow label={t.owner.clientOftenTakes} value={<span className="truncate">{service}</span>} />
               )}
-              {payment && (
-                <div>
-                  <dt>{t.owner.clientOftenPays}</dt>
-                  <dd>{payment}</dd>
-                </div>
-              )}
+              {payment && <DetailRow label={t.owner.clientOftenPays} value={payment} />}
               {staff && (
-                <div>
-                  <dt>{t.owner.clientOftenServed}</dt>
-                  <dd className="truncate">{staff}</dd>
-                </div>
+                <DetailRow label={t.owner.clientOftenServed} value={<span className="truncate">{staff}</span>} />
               )}
-            </dl>
+            </DetailList>
           </Panel>
         )}
 
-        <Panel title={t.owner.clientHistory} count={orders.length}>
+        <TableShell
+          className={orders.length > 0 ? 'lg:col-span-8' : 'lg:col-span-12'}
+          title={
+            <span className="flex items-center gap-2">
+              {t.owner.clientHistory}
+              {orders.length > 0 && (
+                <span className="num rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {orders.length}
+                </span>
+              )}
+            </span>
+          }
+        >
           {orders.length === 0 ? (
-            <EmptyState title={t.common.empty} />
+            <EmptyState compact title={t.common.empty} />
           ) : (
-            <>
-              {/* Телефон: строками, как и в списке клиентов. */}
-              <div className="board-journal lg:hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-9 px-4 text-xs text-muted-foreground">{t.owner.colService}</TableHead>
+                  <TableHead className="h-9 px-4 text-xs text-muted-foreground">{tenant.staffRole}</TableHead>
+                  <TableHead className="hidden h-9 px-4 text-xs text-muted-foreground sm:table-cell">
+                    {t.owner.colPayment}
+                  </TableHead>
+                  <TableHead className={`h-9 px-4 text-xs text-muted-foreground ${headNum}`}>
+                    {t.owner.colPrice}
+                  </TableHead>
+                  <TableHead className={`h-9 px-4 text-xs text-muted-foreground ${headNum}`}>
+                    {t.owner.colTime}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {orders.map((o) => (
-                  <div key={o.id} className="flex items-center gap-2.5 px-0.5 py-2.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold">
-                        {o.serviceName}
+                  <TableRow key={o.id}>
+                    <TableCell className="px-4 py-2.5 font-medium">{o.serviceName}</TableCell>
+                    <TableCell className="px-4 py-2.5">
+                      <span className="flex items-center gap-2">
+                        <PersonDot name={o.crew[0]?.name ?? o.staffName} />
+                        <span className="truncate">{crewNames(o)}</span>
                       </span>
-                      <span
-                        className="num flex items-center gap-1.5 truncate text-[12px]"
-                        style={{ color: 'var(--board-muted)' }}
-                      >
-                        <span
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ background: personColor(o.crew[0]?.name ?? o.staffName) }}
-                          aria-hidden
-                        />
-                        {crewNames(o)} · {paymentLabel(o.payment, t)} ·{' '}
-                        {dayMonth(o.createdAt, tenant.timezone)}
-                      </span>
-                    </span>
-                    <span className="num shrink-0 text-[14px] font-semibold">{money(o.price)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <table className="tbl hidden lg:table">
-                <thead>
-                  <tr>
-                    <th>{t.owner.colService}</th>
-                    <th>{tenant.staffRole}</th>
-                    <th>{t.owner.colPayment}</th>
-                    <th className="end">{t.owner.colPrice}</th>
-                    <th className="end">{t.owner.colTime}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((o) => (
-                    <tr key={o.id}>
-                      <td className="font-medium">{o.serviceName}</td>
-                      <td>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ background: personColor(o.crew[0]?.name ?? o.staffName) }}
-                            aria-hidden
-                          />
-                          <span className="truncate">{crewNames(o)}</span>
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-2.5 sm:table-cell">
+                      <Badge variant="muted">{paymentLabel(o.payment, t)}</Badge>
+                    </TableCell>
+                    <TableCell className={`px-4 py-2.5 font-semibold ${cellNum}`}>
+                      {o.listPrice !== null && o.listPrice > o.price && (
+                        <span className="mr-1.5 font-normal text-muted-foreground line-through">
+                          {money(o.listPrice)}
                         </span>
-                      </td>
-                      <td>
-                        <span className="tag">{paymentLabel(o.payment, t)}</span>
-                      </td>
-                      <td className="num end font-semibold">{money(o.price)}</td>
-                      <td className="num end" style={{ color: 'var(--board-muted)' }}>
-                        {dayMonth(o.createdAt, tenant.timezone)} ·{' '}
-                        {hhmm(o.createdAt, tenant.timezone)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+                      )}
+                      {money(o.price)}
+                    </TableCell>
+                    <TableCell className={`px-4 py-2.5 text-muted-foreground ${cellNum}`}>
+                      {dayMonth(o.createdAt, tenant.timezone)} · {hhmm(o.createdAt, tenant.timezone)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </Panel>
-      </div>
-    </>
+        </TableShell>
+      </PanelGrid>
+    </div>
   );
 }
 
 /**
- * Что встречается чаще всего.
- *
- * Пусто, когда выбирать не из чего: «обычно берёт комплекс» после
- * единственного визита — это не привычка, а пересказ той же строки.
+ * Что встречается чаще всего. Пусто, когда выбирать не из чего.
  */
 function topOf(values: string[]): string | null {
   if (values.length < 2) return null;
@@ -266,12 +229,7 @@ function paymentLabel(p: string, t: Dict): string {
 }
 
 /**
- * Кто мыл — одной строкой.
- *
- * Все участники, а не автор записи: совместную мойку вносит один
- * человек, а работают несколько, и назвать одного значило бы соврать про
- * остальных. У одиночной записи участник ровно один, и строка выглядит
- * ровно как выглядела.
+ * Кто мыл — одной строкой. Все участники, а не автор записи.
  */
 function crewNames(order: { crew: { name: string | null }[]; staffName: string | null }): string {
   const names = order.crew.map((p) => p.name).filter((n): n is string => Boolean(n));

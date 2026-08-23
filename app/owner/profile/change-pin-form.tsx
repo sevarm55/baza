@@ -1,31 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+
 import { type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
+import { LoadingButton } from '@/components/loading';
+import { FormMessage } from '@/components/patterns/form';
+import { Button } from '@/components/ui/button';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
-import { LoadingButton } from '@/components/loading';
 
 /**
- * Смена PIN.
+ * Смена PIN: текущий, новый и повтор нового.
  *
- * Три шага, а не два: текущий, новый и повтор нового.
+ * Повтор сервер не спрашивает: он проверяется здесь, до отправки.
+ * Удачная смена гасит все сессии, включая эту, и опечатка в
+ * единственном поле «новый» означала бы выход из всех устройств с
+ * кодом, которого человек не знает.
  *
- * Повтор сервер не спрашивает и знать о нём не должен — он проверяется
- * здесь, до отправки. Причина в последствии: удачная смена гасит все
- * сессии, включая эту. Опечатка в единственном поле «новый» означала бы
- * выход из всех устройств с кодом, которого человек не знает, — то есть
- * потерю кабинета до восстановления по SMS. Второе поле стоит одного
- * лишнего движения раз в год.
- *
- * Ошибка — одна на всю форму, а не своя под каждой клеткой: клетки
- * набирают как одно поле, и шесть отдельных сообщений под одним рядом
- * читаются как шесть разных поломок.
- *
- * Клетки те же, что на входе, и это не украшательство: код набирают в
- * одном виде и вводят в другом ровно до первой ошибки. Одинаковое поле
- * в обоих местах — самая дешёвая правильная подсказка.
+ * Состояние действия приходит сверху: сворачивает форму родитель, и
+ * решать это он должен по своему состоянию (см. pin-card.tsx).
  */
 export function ChangePinForm({
   hasPin = true,
@@ -35,17 +29,6 @@ export function ChangePinForm({
   onCancel,
 }: {
   hasPin?: boolean;
-  /**
-   * Состояние действия приходит сверху, а не заводится здесь.
-   *
-   * Успешная первая установка обязана свернуть форму обратно в строку —
-   * иначе на странице остаётся раскрытый ряд пустых клеток от уже
-   * сделанного дела. Но сворачивает форму родитель, и решать это он
-   * должен по своему состоянию: пока `useActionState` жил здесь, форма
-   * дёргала родительский `onCancel` прямо в отрисовке, а это запрещённое
-   * обновление чужого компонента во время рендера — React ругался в
-   * консоль на каждой установке кода.
-   */
   state: FormState;
   action: (formData: FormData) => void;
   pending: boolean;
@@ -54,42 +37,39 @@ export function ChangePinForm({
 }) {
   const t = useT();
 
-  /* Новый и повтор — под нашим присмотром: их надо сравнить. Текущий
-     остаётся обычным неуправляемым полем, сравнивать его не с чем. */
+  /* Новый и повтор под нашим присмотром: их надо сравнить. Текущий
+     остаётся обычным неуправляемым полем. */
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
   const [mismatch, setMismatch] = useState(false);
 
-  /* Расходятся ли уже набранные части. Пока повтор короче нового,
-     молчим: ругаться на второй цифре из шести значит ругаться на
-     человека, который ещё печатает. */
+  /* Пока повтор короче нового, молчим: ругаться на второй цифре из
+     шести значит ругаться на человека, который ещё печатает. */
   const diverged = repeat.length >= next.length && repeat.length > 0 && next !== repeat;
   const error = state?.error ?? (mismatch || diverged ? t.auth.pinMismatch : null);
 
   return (
     <form
       action={action}
-      className="grid gap-4"
+      className="flex flex-col gap-4"
       onSubmit={(e) => {
         if (next !== repeat) {
-          /* Отправку останавливаем здесь: `action` сработал бы прямо
-             после этого обработчика и унёс бы на сервер код с
-             опечаткой. */
+          /* Отправку останавливаем здесь: `action` сработал бы сразу
+             после обработчика и унёс бы на сервер код с опечаткой. */
           e.preventDefault();
           setMismatch(true);
         }
       }}
     >
       <div className={hasPin ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'}>
-        {/* Текущий код спрашивается, только если он есть. У тех, кто
-            завёл мойку по коду из SMS, его нет вовсе, и пустое поле
-            «введите текущий» было бы тупиком. */}
+        {/* Текущий код спрашивается, только если он есть: у заведённых
+            по коду из SMS его нет вовсе. */}
         {hasPin && (
           <CodeInput
             name="current"
             length={PIN_LENGTH}
             /* Текущий код у старых аккаунтов четырёхзначный: здесь он
-               сверяется, а не создаётся. Новый ниже — строго шесть. */
+               сверяется, а не создаётся. Новый ниже строго шесть. */
             minLength={4}
             label={t.auth.currentPin}
             title={t.auth.currentPin}
@@ -141,24 +121,24 @@ export function ChangePinForm({
         />
       </div>
 
-      {/* Предупреждение о выходе всех устройств стоит ДО кнопки — это
+      {/* Предупреждение о выходе всех устройств стоит до кнопки: это
           последствие, а не сноска. */}
-      <p className="note">{hasPin ? t.auth.pinChangedNote : t.auth.setPinNote}</p>
+      <p className="text-xs text-muted-foreground">{hasPin ? t.auth.pinChangedNote : t.auth.setPinNote}</p>
 
-      {error && <p className="alert">{error}</p>}
+      {error && <FormMessage>{error}</FormMessage>}
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        {onCancel && (
-          <button type="button" className="btn-inline" onClick={onCancel}>
-            {t.common.cancel}
-          </button>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
         <LoadingButton
-          className="btn btn-auto"
+          size="sm"
           busy={pending}
           label={hasPin ? t.auth.resetSave : t.auth.setPin}
           busyLabel={t.common.saving}
         />
+        {onCancel && (
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+            {t.common.cancel}
+          </Button>
+        )}
       </div>
     </form>
   );

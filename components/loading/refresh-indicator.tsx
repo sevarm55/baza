@@ -1,39 +1,14 @@
 'use client';
 
+import { Spinner } from '@/components/ui/spinner';
 import { useDelayedFlag } from './use-delayed';
 
 /**
  * Точка рядом с заголовком: данные на экране сверяются с сервером.
- *
- * Первая загрузка и фоновое обновление — разные состояния, и до сих пор
- * они путались. Когда числа уже на экране, подменять их скелетом нельзя:
- * скелет говорит «ничего нет», а всё есть, просто чуть устарело. И
- * блокировать страницу нельзя тоже: работа, о которой человек не просил,
- * не имеет права отнимать у него экран.
- *
- * Остаётся одна точка размером с точку над «i». Кто ждал обновления,
- * тот её заметит; кто не ждал, тому она не помешает.
+ * Содержимое остаётся на месте; только кто ждал обновления, заметит её.
  */
-export function RefreshIndicator({
-  active,
-  label,
-}: {
-  active: boolean;
-  /** что скажет чтец экрана; без него точка для него не существует */
-  label?: string;
-}) {
-  /* Сверка чаще всего занимает десятые доли секунды. Точка, мигнувшая
-     на сто миллисекунд, читается как дефект отрисовки, а не как
-     сообщение. */
+export function RefreshIndicator({ active, label }: { active: boolean; label?: string }) {
   const show = useDelayedFlag(active);
   if (!show) return null;
-
-  return (
-    <span
-      className="refresh-dot"
-      role={label ? 'status' : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-    />
-  );
+  return <Spinner className="size-3.5 text-muted-foreground" aria-label={label} />;
 }

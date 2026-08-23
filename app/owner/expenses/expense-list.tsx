@@ -1,33 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { Panel } from '@/components/board';
-import { EmptyState } from '@/components/empty-state';
+import { Panel, PanelGrid } from '@/components/patterns/panel';
+import { EmptyState } from '@/components/patterns/states';
 import { formatMoney } from '@/lib/money';
+import { useT } from '@/lib/i18n/client';
 import { AddExpense } from './add-expense';
 import { ExpenseSheet } from './expense-sheet';
 import type { ExpenseDay, ExpenseItem } from './model';
-import { useT } from '@/lib/i18n/client';
 
 /**
  * Расходы списком: постоянные отдельно, разовые по дням.
  *
- * Раньше это был один список, в котором аренда и канистра химии
- * различались словом «ամսական» мелким шрифтом под названием — то есть
- * не различались вовсе. Между тем это разные деньги и разные решения:
- * постоянный уходит каждый месяц сам и его либо терпят, либо
- * пересматривают договор; разовый случился один раз и завтра его может
- * не быть.
+ * Аренда и канистра химии это разные деньги и разные решения:
+ * постоянный уходит каждый месяц сам, разовый случился один раз. Поэтому
+ * две панели рядом, а не один список с пометкой мелким шрифтом.
  *
- * Постоянные стоят первыми и без дат: у них нет «когда», у них есть
- * «сколько в месяц». В строке два числа — номинал справа и то, что уже
- * набежало, тише под названием: одного номинала мало десятого числа,
- * одной доли мало всегда.
- *
- * Разовые собраны по дням, как записи на зарплатах: «сегодня потратил
- * столько» — вопрос, который задают вслух, а список без дат на него не
- * отвечает. Дата стоит в заголовке дня, а не повторяется в каждой
- * строке.
+ * Постоянные стоят без дат: у них нет «когда», у них есть «сколько в
+ * месяц». В строке два числа: номинал справа и то, что уже набежало,
+ * тише под названием. Разовые собраны по дням: «сегодня потратил
+ * столько» это вопрос, который задают вслух.
  */
 export function ExpenseList({
   monthly,
@@ -61,96 +53,91 @@ export function ExpenseList({
 
   if (all.length === 0) {
     return (
-      <Panel>
-        <EmptyState
-          title={t.expenses.empty}
-          note={t.expenses.emptyNote}
-          action={
-            readOnly ? undefined : (
-              <AddExpense
-                variant="cta"
-                currencySymbol={currencySymbol}
-                hints={hints}
-                today={today}
-              />
-            )
-          }
-        />
-      </Panel>
+      <EmptyState
+        title={t.expenses.empty}
+        description={t.expenses.emptyNote}
+        action={
+          !readOnly && (
+            <AddExpense
+              variant="outline"
+              currencySymbol={currencySymbol}
+              hints={hints}
+              today={today}
+            />
+          )
+        }
+      />
     );
   }
 
-  /* Переключателя вида здесь больше нет, и это не упрощение ради
-     упрощения.
-
-     Он стоял над двумя панелями, которые обе видны на экране, и прятал
-     одну из них. Фильтр, который ничего не находит, а только убирает с
-     глаз то, что и так помещается, приходится прочитать и попробовать,
-     чтобы понять, что он не нужен. На странице, где над ним уже стояли
-     месяцы, получалось два ряда вкладок подряд — и первый вопрос к
-     экрану был не «куда ушли деньги», а «чем эти вкладки отличаются».
-
-     Постоянные и разовые теперь просто стоят рядом: слева то, что
-     уходит каждый месяц само, справа то, что потратили руками. Разница
-     между ними — это разные колонки, а не разные состояния фильтра. */
+  /* Пустая панель не рисуется: соседняя занимает всю ширину. */
   const showMonthly = monthly.length > 0;
   const showOneOff = oneOffCount > 0;
 
   return (
-    <div className="grid items-start gap-[var(--seam)] lg:grid-cols-12">
-      {showMonthly && (
-        <Panel
-          title={t.expenses.monthlyOnes}
-          count={monthly.length}
-          className={showOneOff ? 'lg:col-span-5' : 'lg:col-span-12'}
-        >
-          <div className="rows">
-            {monthly.map((e) => (
-              <Line
-                key={e.id}
-                item={e}
-                currency={currency}
-                currencySymbol={currencySymbol}
-                onOpen={() => setOpen(e.id)}
-              />
-            ))}
-          </div>
+    <>
+      <PanelGrid className="items-start">
+        {showMonthly && (
+          <Panel
+            title={t.expenses.monthlyOnes}
+            count={monthly.length}
+            padded={false}
+            className={showOneOff ? 'lg:col-span-5' : 'lg:col-span-12'}
+          >
+            <div className="divide-y divide-border">
+              {monthly.map((e) => (
+                <ExpenseRow
+                  key={e.id}
+                  item={e}
+                  currencySymbol={currencySymbol}
+                  money={money}
+                  onOpen={() => setOpen(e.id)}
+                />
+              ))}
+            </div>
+            {/* Как считается постоянный расход: сноской под теми строками,
+                к которым она относится. */}
+            <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
+              {t.expenses.note}
+            </p>
+          </Panel>
+        )}
 
-          {/* Как считается постоянный расход — сноской под теми строками,
-              к которым она относится, а не подписью раздела наверху. */}
-          <p className="note mt-3">{t.expenses.note}</p>
-        </Panel>
-      )}
-
-      {showOneOff && (
-        <Panel
-          title={t.expenses.oneOffs}
-          count={oneOffCount}
-          className={showMonthly ? 'lg:col-span-7' : 'lg:col-span-12'}
-        >
-          {days.map((day) => (
-            <section key={day.key} className="expense-day">
-              {/* Итог дня — только когда трат в нём несколько: под одной
-                  строкой он повторял бы её же число. */}
-              <h3 className="day-head">
-                <span>{day.title}</span>
-                {day.items.length > 1 && <b className="num">{money(day.total)}</b>}
-              </h3>
-              <div className="rows">
-                {day.items.map((e) => (
-                  <Line
-                    key={e.id}
-                    item={e}
-                    currency={currency}
-                    currencySymbol={currencySymbol}
-                    onOpen={() => setOpen(e.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </Panel>
-      )}
+        {showOneOff && (
+          <Panel
+            title={t.expenses.oneOffs}
+            count={oneOffCount}
+            padded={false}
+            className={showMonthly ? 'lg:col-span-7' : 'lg:col-span-12'}
+          >
+            <div className="divide-y divide-border">
+              {days.map((day) => (
+                <section key={day.key}>
+                  {/* Итог дня только когда трат несколько: под одной
+                      строкой он повторял бы её же число. */}
+                  <h3 className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
+                    <span className="truncate">{day.title}</span>
+                    {day.items.length > 1 && (
+                      <span className="num shrink-0">{money(day.total)}</span>
+                    )}
+                  </h3>
+                  <div className="divide-y divide-border border-t border-border">
+                    {day.items.map((e) => (
+                      <ExpenseRow
+                        key={e.id}
+                        item={e}
+                        currencySymbol={currencySymbol}
+                        money={money}
+                        onOpen={() => setOpen(e.id)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </Panel>
+        )}
+      </PanelGrid>
 
       <ExpenseSheet
         item={item}
@@ -161,68 +148,60 @@ export function ExpenseList({
         readOnly={readOnly}
         onClose={() => setOpen(null)}
       />
-    </div>
+    </>
   );
 }
 
 /**
  * Строка расхода.
  *
- * У постоянного справа стоит номинал — то, о чём договорились с
- * арендодателем, — а под названием то, что из него уже набежало и
- * сколько это в сутки. У разового справа сама трата, и второй строки
- * нет: день назван заголовком группы, и повторять его под каждой
- * строкой значит написать одну и ту же дату шесть раз подряд.
+ * У постоянного справа номинал, а под названием то, что из него уже
+ * набежало и сколько это в сутки. У разового справа сама трата, и
+ * второй строки нет: день назван заголовком группы.
+ *
+ * Открывается и в закрытом месяце: править там нечего, но карточка
+ * отвечает, с какого дня действовал расход и сколько из него набежало.
  */
-function Line({
+function ExpenseRow({
   item,
-  currency,
   currencySymbol,
+  money,
   onOpen,
 }: {
   item: ExpenseItem;
-  currency: string;
   currencySymbol: string;
+  money: (n: number) => string;
   onOpen: () => void;
 }) {
   const t = useT();
-  const money = (n: number) => formatMoney(n, currency, t.locale);
-
-  const body = (
-    <>
-      <span className="min-w-0">
-        <span className="block truncate text-[15px] font-medium">{item.category}</span>
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{item.category}</span>
         {item.monthly ? (
-          <span className="num block truncate text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
+          <span className="num block truncate text-xs text-muted-foreground">
             {t.expenses.accrued} {money(item.share)} · {t.expenses.perDay} {money(item.perDay)}
             {item.closedOn && ` · ${item.closedOn}`}
           </span>
         ) : (
           item.note && (
-            <span className="block truncate text-[12.5px]" style={{ color: 'var(--board-muted)' }}>
-              {item.note}
-            </span>
+            <span className="block truncate text-xs text-muted-foreground">{item.note}</span>
           )
         )}
       </span>
 
-      <span className="num shrink-0 text-end text-[15px]">
-        {item.display} <span className="text-faint">{currencySymbol}</span>
+      <span className="shrink-0 text-right">
+        <span className="num block text-sm font-semibold">
+          {item.display} <span className="font-normal text-muted-foreground">{currencySymbol}</span>
+        </span>
         {item.monthly && (
-          <span className="block text-[11.5px] font-normal" style={{ color: 'var(--board-muted)' }}>
-            {t.expenses.perMonth}
-          </span>
+          <span className="block text-xs text-muted-foreground">{t.expenses.perMonth}</span>
         )}
       </span>
-    </>
-  );
-
-  /* Открывается и в закрытом месяце. Править там нечего, но карточка
-     отвечает на то, чего в строке нет: с какого дня действовал расход,
-     сколько из него набежало и почему он вообще попал в этот месяц. */
-  return (
-    <button type="button" className="row-open" onClick={onOpen} aria-label={item.category}>
-      {body}
     </button>
   );
 }

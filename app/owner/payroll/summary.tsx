@@ -1,24 +1,15 @@
 import { formatMoney } from '@/lib/money';
-import { Figures, Plate } from '@/components/board';
+import { Metric, MetricStrip } from '@/components/patterns/metric';
 import { getDict } from '@/lib/i18n/server';
 import { staffCount, unitWord } from '@/lib/i18n/terms';
 
 /**
  * Показания наверху страницы.
  *
- * Четыре одинаковые карточки здесь были бы неправдой: три из четырёх
- * чисел на этой странице — справка, и только одно требует действия.
- * Поэтому «к выплате» стоит плитой, а начислено, выплачено и машины —
- * полосой втрое тише. Иерархия задана размером и заливкой, а не
- * подписями: какое число главное, видно раньше, чем прочитано слово.
- *
- * Пятого цвета здесь нет и быть не может: плита тёмная, полоса
- * нейтральная. Раскрашивать справочные числа значит превращать верх
- * страницы в светофор, по которому нечего читать.
- *
- * Сами приборы живут в `components/board.tsx`: той же парой начинается
- * сводка дня, и две похожие, но разные шапки внутри одного продукта
- * читались бы как разный расчёт.
+ * Четыре числа в одной полосе, но не четыре равных: три из них справка,
+ * и только одно требует действия. Поэтому «к выплате» стоит крупнее и
+ * окрашено, пока долг есть, а начислено, выплачено и машины идут тише.
+ * Какое число главное, видно раньше, чем прочитано слово.
  */
 export async function PayrollSummary({
   currency,
@@ -45,29 +36,19 @@ export async function PayrollSummary({
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
   return (
-    <section
-      /* Порог тот же, что у сводки дня: до 1024 плита и полоса идут
-         друг под другом, иначе числа и подписи в них обрезаются. */
-      className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-      aria-label={t.owner.payrollDue}
-    >
-      <Plate
-        label={t.owner.toPay}
-        value={money(outstanding)}
-        note={
-          outstanding > 0
-            ? staffCount(owedTo, staffRole, t.locale)
-            : t.payroll.dayAllPaid
-        }
-      />
-
-      <Figures
-        items={[
-          { label: t.owner.payrollAccrued, value: money(accrued) },
-          { label: t.payroll.paid, value: money(settled) },
-          { label: unitWord(units, unitOne, t.locale), value: String(units) },
-        ]}
-      />
+    <section aria-label={t.owner.payrollDue}>
+      <MetricStrip columns={4}>
+        <Metric
+          label={t.owner.toPay}
+          value={money(outstanding)}
+          size="lg"
+          tone={outstanding > 0 ? 'warning' : 'default'}
+          hint={outstanding > 0 ? staffCount(owedTo, staffRole, t.locale) : t.payroll.dayAllPaid}
+        />
+        <Metric label={t.owner.payrollAccrued} value={money(accrued)} />
+        <Metric label={t.payroll.paid} value={money(settled)} />
+        <Metric label={unitWord(units, unitOne, t.locale)} value={String(units)} />
+      </MetricStrip>
     </section>
   );
 }

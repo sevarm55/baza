@@ -4,6 +4,7 @@ import './globals.css';
 import { THEME_SCRIPT } from '@/lib/theme-script';
 import { ServiceWorker } from '@/components/service-worker';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
 import { getDict, getLocale } from '@/lib/i18n/server';
 import { I18nProvider } from '@/lib/i18n/client';
 
@@ -80,8 +81,8 @@ export const viewport: Viewport = {
   // цвет строки состояния на телефоне должен совпадать с фоном страницы,
   // иначе сверху висит полоса чужого цвета
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#14120f' },
-    { media: '(prefers-color-scheme: light)', color: '#faf9f7' },
+    { media: '(prefers-color-scheme: dark)', color: '#121016' },
+    { media: '(prefers-color-scheme: light)', color: '#f8f8fa' },
   ],
   // интерфейс сотрудника живёт на телефоне: зум при тапе по полю недопустим
   width: 'device-width',
@@ -143,6 +144,7 @@ export default async function RootLayout({
           <TooltipProvider>
             {children}
             {modal}
+            <Toaster />
           </TooltipProvider>
         </I18nProvider>
         <ServiceWorker />

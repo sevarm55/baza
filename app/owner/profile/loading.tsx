@@ -1,32 +1,32 @@
-import { AfterDelay, SkeletonCard, SkeletonHead } from '@/components/loading';
+import { AfterDelay } from '@/components/loading';
+import { LoadingPage, SkeletonHeader, SkeletonPanel } from '@/components/patterns/states';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * Что видно, пока едет профиль.
- *
- * Страница целиком собрана из приборов-настроек разной высоты, и
- * никаких чисел на ней нет. Скелет сводки с плитой выручки наверху
- * обещал бы здесь ровно то, чего не будет.
+ * Что видно, пока едет профиль: оглавление слева и стопка панелей
+ * настроек без чисел.
  */
 export default function Loading() {
   return (
     <AfterDelay>
-      <div aria-busy="true" aria-live="polite">
-        <SkeletonHead tools={false} />
-
-        <div className="grid gap-[var(--seam)] lg:grid-cols-12">
-          <div className="grid gap-[var(--seam)] lg:col-span-7">
-            <SkeletonCard className="h-[230px]" />
-            <SkeletonCard className="h-[300px]" />
+      <LoadingPage>
+        <SkeletonHeader tools={false} />
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+          <div className="hidden shrink-0 flex-col gap-3 lg:flex lg:w-48" aria-hidden>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="mx-2 h-3 w-24" />
+            ))}
           </div>
-          <div className="grid gap-[var(--seam)] lg:col-span-5">
-            <SkeletonCard className="h-[148px]" />
-            <SkeletonCard className="h-[132px]" />
-            <SkeletonCard className="h-[142px]" />
-            <SkeletonCard className="h-[172px]" />
-            <SkeletonCard className="h-[126px]" />
+          <div className="flex max-w-3xl flex-1 flex-col gap-4">
+            <SkeletonPanel rows={2} />
+            <SkeletonPanel rows={3} />
+            <SkeletonPanel rows={2} />
+            <SkeletonPanel rows={2} />
+            <SkeletonPanel rows={2} />
+            <SkeletonPanel className="h-28" />
           </div>
         </div>
-      </div>
+      </LoadingPage>
     </AfterDelay>
   );
 }

@@ -30,15 +30,15 @@ function subscribe(onStoreChange: () => void) {
 }
 
 function read(): Theme {
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 }
 
 /* На сервере темы нет: разметка отдаётся одна на обе, а настоящую
-   ставит скрипт в `<head>` до первого кадра. Тёмная как ответ сервера —
+   ставит скрипт в `<head>` до первого кадра. Светлая как ответ сервера —
    то же значение, что по умолчанию у `read()`, иначе первый клиентский
    кадр расходился бы с серверным. */
 function readOnServer(): Theme {
-  return 'dark';
+  return 'light';
 }
 
 /** Тема, которая стоит сейчас. Перерисовывает всех, кто её спросил. */

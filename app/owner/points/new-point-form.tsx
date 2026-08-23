@@ -2,8 +2,12 @@
 
 import { useActionState } from 'react';
 import { createPoint, type FormState } from '@/app/actions';
-import { useT } from '@/lib/i18n/client';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { LoadingButton } from '@/components/loading';
+import { FormMessage } from '@/components/patterns/form';
+import { useT } from '@/lib/i18n/client';
 
 /**
  * Новая точка: название и ниша, больше ничего.
@@ -16,7 +20,8 @@ export function NewPointForm({
   niches,
   disabled,
 }: {
-  niches: { key: string; name: string; icon: string }[];
+  niches: { key: string; name: string }[];
+  /** потолок точек достигнут: кнопка видна, но не нажимается */
   disabled: boolean;
 }) {
   const t = useT();
@@ -29,41 +34,39 @@ export function NewPointForm({
       onSubmit={(e) => {
         if (pending) e.preventDefault();
       }}
-      className="grid gap-2.5"
+      className="flex flex-col gap-4"
     >
-      <label className="grid gap-1">
-        <span className="label">{t.onboarding.bizName}</span>
-        <input className="field field-sm" name="businessName" required autoComplete="off" />
-      </label>
+      <Field>
+        <FieldLabel htmlFor="point-name">{t.onboarding.bizName}</FieldLabel>
+        <Input id="point-name" name="businessName" required autoComplete="off" />
+      </Field>
 
-      {/* Ниша одна — выбирать не из чего, и селект с единственным
+      {/* Ниша одна — выбирать не из чего, и список с единственным
           вариантом только просит нажать на себя зря. */}
       {only ? (
         <input type="hidden" name="niche" value={only.key} />
       ) : (
-        <label className="grid gap-1">
-          <span className="label">{t.onboarding.chooseNiche}</span>
-          <select className="field field-sm" name="niche" required defaultValue="">
-            <option value="" disabled>
-              —
-            </option>
+        <Field>
+          <FieldLabel htmlFor="point-niche">{t.onboarding.chooseNiche}</FieldLabel>
+          <NativeSelect id="point-niche" name="niche" required defaultValue="" className="w-full">
+            <NativeSelectOption value="" disabled>
+              {t.onboarding.chooseNiche}
+            </NativeSelectOption>
             {niches.map((n) => (
-              <option key={n.key} value={n.key}>
+              <NativeSelectOption key={n.key} value={n.key}>
                 {n.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </label>
+          </NativeSelect>
+        </Field>
       )}
 
-      {state?.error && <p className="alert mt-1">{state.error}</p>}
+      {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
 
-      {/* `justify-self` сам по себе ничего не делал: у `.btn` ширина
-          100%, и кнопка всё равно растягивалась во всю колонку. Точку
-          заводят раз в год — обещать этим действием размер главной
-          кнопки экрана незачем. */}
+      {/* Точку заводят раз в год: кнопка своей ширины, а не во всю
+          колонку. */}
       <LoadingButton
-        className="btn !w-auto justify-self-start px-7"
+        className="self-start"
         busy={pending}
         disabled={disabled}
         label={t.points.add}

@@ -27,8 +27,10 @@ import { createHash } from 'node:crypto';
  * Правка текста скрипта автоматически меняет хеш: разойтись они не
  * могут по построению.
  */
+/* Светлая — вид продукта по умолчанию; тёмная ставится только если её
+   выбрали руками и выбор сохранился. */
 export const THEME_SCRIPT =
-  `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='light'?'light':'dark'}catch(e){}})();`;
+  `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='dark'?'dark':'light'}catch(e){}})();`;
 
 /** `sha256-…` для `script-src`. Считается один раз при загрузке модуля. */
 export const THEME_SCRIPT_HASH = `'sha256-${createHash('sha256')

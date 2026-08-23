@@ -3,39 +3,33 @@
 import { useActionState, useState } from 'react';
 import { Layers, Plus, X } from 'lucide-react';
 import { saveTiersAction, type FormState } from '@/app/actions';
-import { Sheet } from '@/components/sheet';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { LoadingButton } from '@/components/loading';
-import { FormField } from '@/components/form-field';
+import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
+import { FormMessage } from '@/components/patterns/form';
 import { useT } from '@/lib/i18n/client';
 
 /**
  * Классы машин.
  *
- * ЗАЧЕМ ЭТО ЗДЕСЬ. Джип и седан стоят по-разному, и продукт это умеет:
- * у услуги может быть своя цена на каждый класс. Но включалось свойство
- * только с телефона — кабинет умел классы показывать при записи и не
- * умел их завести. Бизнес, настроенный через браузер, не получал их
- * никогда.
- *
- * Место выбрано не случайно: классы меняют прайс целиком, поэтому живут
- * рядом с прайсом, а не в настройках бизнеса. Свойство редкое, поэтому
- * не прибор на странице, а строка в заголовке раздела — как «добавить
- * услугу».
+ * Джип и седан стоят по-разному, и продукт это умеет: у услуги может
+ * быть своя цена на каждый класс. Классы меняют прайс целиком, поэтому
+ * живут рядом с прайсом, а не в настройках бизнеса. Свойство редкое,
+ * поэтому не панель на странице, а кнопка в шапке раздела.
  *
  * Пустой список выключает классы. Один запрещён на сервере, и отказ
  * приходит словами: один вариант — это отсутствие вариантов, поданное
- * как выбор, и мойщик жал бы единственную кнопку сорок раз за смену.
+ * как выбор.
  */
 export function TiersEditor({
   label,
   tiers,
-  unitOne,
 }: {
   /** как бизнес называет свойство: «Դաս», «Тип кузова» */
   label: string;
   tiers: string[];
-  /** «մեքենա» — слово ниши, им объясняем, к чему классы */
-  unitOne: string;
 }) {
   const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(saveTiersAction, null);
@@ -45,7 +39,7 @@ export function TiersEditor({
      вверх — человек стёр бы «Джип», а исчез бы «Седан». */
   const [rows, setRows] = useState<string[]>(tiers);
 
-  /* Окно закрывается, когда сервер подтвердил. Сверяем в отрисовке, а не
+  /* Лист закрывается, когда сервер подтвердил. Сверяем в отрисовке, а не
      эффектом: эффект успел бы показать кадр с сохранённым, но ещё
      открытым окном. */
   const [seen, setSeen] = useState(state);
@@ -68,30 +62,28 @@ export function TiersEditor({
 
   return (
     <>
-      <button type="button" className="btn-inline" onClick={start}>
-        <Layers className="size-4" aria-hidden />
+      <Button variant="outline" onClick={start}>
+        <Layers data-icon="inline-start" aria-hidden />
         {t.settings.tiers}
-      </button>
+      </Button>
 
-      <Sheet
+      <EntitySheet
         open={open}
-        onClose={() => setOpen(false)}
-        side
+        onOpenChange={setOpen}
         title={t.settings.tiers}
-        subtitle={t.settings.tiersLead}
+        description={t.settings.tiersLead}
         footer={
-          <>
-            <button type="button" className="btn-inline" onClick={() => setOpen(false)}>
+          <SheetActions>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               {t.common.cancel}
-            </button>
+            </Button>
             <LoadingButton
               form="tiers"
-              className="btn btn-auto"
               busy={pending}
               label={t.common.save}
               busyLabel={t.common.saving}
             />
-          </>
+          </SheetActions>
         }
       >
         <form
@@ -100,71 +92,69 @@ export function TiersEditor({
           onSubmit={(e) => {
             if (pending) e.preventDefault();
           }}
-          className="grid gap-3.5"
+          className="flex flex-col gap-5"
         >
-          <FormField id="tiers-label" label={t.settings.tiersLabel} hint={t.settings.tiersLabelHint}>
-            <input
-              id="tiers-label"
-              className="field auth-field"
-              name="label"
-              defaultValue={label}
-              maxLength={40}
-              autoComplete="off"
-            />
-          </FormField>
+          <Field>
+            <FieldLabel htmlFor="tiers-label">{t.settings.tiersLabel}</FieldLabel>
+            <Input id="tiers-label" name="label" defaultValue={label} maxLength={40} autoComplete="off" />
+            <FieldDescription className="text-xs">{t.settings.tiersLabelHint}</FieldDescription>
+          </Field>
 
-          <div className="grid gap-2">
-            <span className="label">{t.settings.tierName}</span>
+          <FieldSet>
+            <FieldLegend variant="label">{t.settings.tierName}</FieldLegend>
 
-            {rows.map((value, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  className="field auth-field flex-1"
-                  name="tier"
-                  value={value}
-                  onChange={(e) =>
-                    setRows((cur) => cur.map((r, at) => (at === i ? e.target.value : r)))
-                  }
-                  maxLength={24}
-                  autoComplete="off"
-                  aria-label={`${t.settings.tierName} ${i + 1}`}
-                />
-                {/* Убрать строку. Цену услуги это не сотрёт: она
-                    останется лежать и вернётся вместе с классом. */}
-                <button
+            <div className="flex flex-col gap-2">
+              {rows.map((value, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    name="tier"
+                    value={value}
+                    onChange={(e) =>
+                      setRows((cur) => cur.map((r, at) => (at === i ? e.target.value : r)))
+                    }
+                    maxLength={24}
+                    autoComplete="off"
+                    aria-label={`${t.settings.tierName} ${i + 1}`}
+                  />
+                  {/* Убрать строку. Цену услуги это не сотрёт: она
+                      останется лежать и вернётся вместе с классом. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setRows((cur) => cur.filter((_, at) => at !== i))}
+                    aria-label={t.expenses.remove}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ))}
+
+              {rows.length < LIMIT && (
+                <Button
                   type="button"
-                  className="btn-inline"
-                  onClick={() => setRows((cur) => cur.filter((_, at) => at !== i))}
-                  aria-label={t.expenses.remove}
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setRows((cur) => [...cur, ''])}
                 >
-                  <X className="size-4" aria-hidden />
-                </button>
-              </div>
-            ))}
+                  <Plus data-icon="inline-start" aria-hidden />
+                  {t.settings.addTier}
+                </Button>
+              )}
+            </div>
 
-            {rows.length < LIMIT && (
-              <button
-                type="button"
-                className="btn-inline self-start"
-                onClick={() => setRows((cur) => [...cur, ''])}
-              >
-                <Plus className="size-4" aria-hidden />
-                {t.settings.addTier}
-              </button>
-            )}
-          </div>
+            {/* Что произойдёт после сохранения — до нажатия, а не после.
+                Выключение классов человек делает опустошением списка, и
+                узнать об этом он должен заранее. */}
+            <FieldDescription className="text-xs">
+              {clean.length === 0 ? t.settings.tiersOff : t.settings.tiersOn(clean.length)}
+            </FieldDescription>
+          </FieldSet>
 
-          {/* Что произойдёт после сохранения — до нажатия, а не после.
-              Выключение классов человек делает опустошением списка, и
-              узнать об этом он должен заранее. */}
-          <p className="note">
-            {clean.length === 0 ? t.settings.tiersOff : t.settings.tiersOn(clean.length)}{' '}
-            {clean.length > 0 && unitOne}
-          </p>
-
-          {state?.error && <p className="alert">{state.error}</p>}
+          {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
         </form>
-      </Sheet>
+      </EntitySheet>
     </>
   );
 }

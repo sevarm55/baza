@@ -1,36 +1,26 @@
-import { AfterDelay, SkeletonCard, SkeletonHead, SkeletonList, SkeletonText } from '@/components/loading';
+import { AfterDelay } from '@/components/loading';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage, SkeletonHeader, SkeletonMetrics, SkeletonTable } from '@/components/patterns/states';
 
 /**
- * Что видно, пока едет база клиентов.
- *
- * Плита пожизненной суммы, слагаемые рядом, под ними жёлоб вкладок
- * («в базе», «постоянные», «давно не были») и длинный список машин.
- * Список — то, ради чего раздел открывают, и мест под строки здесь
- * больше, чем в остальных разделах.
+ * Что видно, пока едет база клиентов: шапка без кнопок, полоса из
+ * четырёх показаний, ряд инструментов (поиск, группы, порядок) и длинный
+ * список машин. Список — то, ради чего раздел открывают, и мест под
+ * строки здесь больше, чем в остальных разделах.
  */
 export default function Loading() {
   return (
     <AfterDelay>
-      <div aria-busy="true" aria-live="polite">
-        <SkeletonHead tools={false} />
-
-        <div className="grid gap-[var(--seam)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-          <SkeletonCard className="h-[136px]" />
-          <SkeletonCard className="h-[136px]" />
+      <LoadingPage>
+        <SkeletonHeader tools={false} />
+        <SkeletonMetrics count={4} />
+        <div className="flex flex-wrap items-center gap-2" aria-hidden>
+          <Skeleton className="h-9 w-full sm:w-64" />
+          <Skeleton className="h-9 w-72" />
+          <Skeleton className="h-9 w-36" />
         </div>
-
-        <div
-          className="panel-pad mt-[var(--seam)] rounded-[var(--radius-card)]"
-          style={{ background: 'color-mix(in srgb, var(--board-ink) 4%, transparent)' }}
-          aria-hidden
-        >
-          <div className="mb-4 flex flex-wrap items-center gap-2.5">
-            <SkeletonText className="h-8 w-[260px] !rounded-[8px]" />
-            <SkeletonText className="ms-auto h-8 w-[180px] !rounded-[8px]" />
-          </div>
-          <SkeletonList rows={7} />
-        </div>
-      </div>
+        <SkeletonTable rows={7} />
+      </LoadingPage>
     </AfterDelay>
   );
 }
