@@ -121,138 +121,123 @@ export const en: Dict = {
 
   landing: {
     nav: {
-      /* Служебные подписи для клавиатуры и читалки экрана. */
-      skip: 'Skip to main content',
+      skip: 'Skip to content',
       navAria: 'Main navigation',
-      homeAria: 'Tetrin home page',
+      homeAria: 'Tetrin home',
       footerAria: 'Legal and support',
-
-      product: 'Product',
       how: 'How it works',
+      features: 'Features',
       price: 'Pricing',
+      faq: 'FAQ',
       start: 'Start',
     },
 
     hero: {
-      eyebrow: 'Operations for small business',
-      title: 'Every car, on the record.',
-      lead: 'Cars, money, staff and costs in one place.',
-      cta: 'Start free',
-      secondary: 'See how it works',
+      eyebrow: 'Car wash management',
+      title: 'Run your car wash without spreadsheets, notebooks and chaos.',
+      lead: 'Washers record cars from their phone, the owner sees revenue, payroll and expenses right now. One location or several, from a phone or a computer.',
+      cta: 'Try for free',
+      secondary: 'How it works',
       note: (days: number) => `${days} days free · no card`,
+      demo: 'demo',
     },
 
-    demo: {
-      business: 'Alik Car Wash',
-      point: 'Centre',
-      demoBadge: 'DEMO',
-      live: 'live',
-      updated: 'updated just now',
-      nav: {
-        overview: 'Overview',
-        units: 'Cars',
-        staff: 'Staff',
-        payroll: 'Payroll',
-        expenses: 'Costs',
-        clients: 'Clients',
-        reports: 'Reports',
-      },
-
-      services: ['Full wash', 'Exterior', 'Interior'],
-      crew: ['Arman', 'Gor', 'Hayk'],
-      payments: ['Cash', 'Card', 'Transfer'],
-      categories: ['Rent', 'Chemicals', 'Electricity', 'Water'],
-
-      newUnit: 'New car',
-      plate: 'Plate',
-      platePlaceholder: '35 AA 777',
-      service: 'Service',
-      payment: 'Payment',
-      price: 'Price',
-      add: 'Add',
-      registered: 'is on the record',
-      taps: 'Three taps on the washer’s phone',
-
-      units: 'Cars',
-      avgCheck: 'Average ticket',
-      onShift: 'on shift',
-      flow: 'Through the day',
-      lastUnits: 'Latest cars',
-      perHour: 'per hour',
-
-      team: 'Team',
-      autoPayroll: 'Payroll adds itself up',
-      rate: 'rate',
-      brought: 'brought in',
-      activity: 'Shift activity',
-      feedAdded: (plate: string) => `added ${plate}`,
-      feedOpened: 'opened the shift',
-
-      newCost: 'Add a cost',
-      category: 'Category',
-      amount: 'Amount',
-      comment: 'Note',
-      commentPlaceholder: 'August',
-      addCost: 'Add cost',
-      costsToday: 'Costs today',
-      netBecomes: 'What you keep becomes',
-
-      periods: ['Today', 'Week', 'Month'],
-      report: 'Report',
+    problem: {
+      title: 'What breaks without a system',
+      items: [
+        { title: 'Cars are written down by hand', body: 'A notebook or a chat: by the evening half of the records are lost and nobody remembers who washed the blue sedan.' },
+        { title: 'Nobody knows who earned what', body: 'Percentages are counted in the head at the end of the shift, and every month starts with a payroll argument.' },
+        { title: 'Expenses live separately', body: 'Chemicals, water, rent sit in receipts and in memory. Monthly profit stays a guess.' },
+        { title: 'The owner cannot see the wash without calling', body: 'To know what is going on you have to come or call. Neither scales.' },
+      ],
     },
 
-    beats: [
-      {
-        label: 'Capture',
-        title: 'Whoever does the work keeps the record.',
-        body: 'Plate, service, payment. The washer logs it himself, because that is where he sees his own cut.',
+    how: {
+      title: 'How Tetrin works',
+      lead: 'One record travels the whole way by itself: from a plate number to a line in the report.',
+      steps: [
+        { title: 'Car', body: 'the plate in three taps' },
+        { title: 'Service', body: 'from your own price list' },
+        { title: 'Washer', body: 'who recorded it, or the whole crew' },
+        { title: 'Payment', body: 'cash, card, transfer' },
+        { title: 'Analytics', body: 'revenue, payroll, profit at once' },
+      ],
+    },
+
+    sections: {
+      title: 'What is inside',
+      shift: {
+        label: 'Shift',
+        title: 'A washer records a car in three taps',
+        body: 'Plate, service, payment. The record shows up for the owner the same second, and the washer sees their own earnings for the day and hands over cash at the end of the shift.',
       },
-      {
-        label: 'The day',
-        title: 'The day is visible now.',
-        body: 'Cars, cash and crew update as the work happens. Nothing to recall in the evening.',
+      today: {
+        label: 'Today',
+        title: 'The owner sees the wash without coming',
+        body: 'How much is earned, how many cars, who is on shift and what is happening right now. The live feed updates by itself.',
       },
-      {
-        label: 'The crew',
-        title: 'Payroll without a calculator.',
-        body: 'Every record carries a name, the percentage adds itself up. No arguments at month end.',
+      payroll: {
+        label: 'Payroll',
+        title: 'Payroll counts itself',
+        body: 'Every record carries a name and a percent. Nothing to argue about at the end of the month: the amount is already counted per day, and a payout closes it in one tap.',
       },
-      {
-        label: 'Costs',
-        title: 'Costs do not go missing.',
-        body: 'Water, chemicals, electricity. The moment one is logged, profit is recalculated.',
+      expenses: {
+        label: 'Expenses',
+        title: 'Expenses do not get lost',
+        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. The net result recalculates immediately.',
       },
-      {
-        label: 'The result',
-        title: 'One number is left at the end.',
-        body: 'Day, week, month use the same arithmetic. Revenue minus payroll and costs.',
+      reports: {
+        label: 'Reports',
+        title: 'Analytics, not a single chart',
+        body: 'Revenue, payroll, expenses and net result for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
       },
-    ],
+      branches: {
+        label: 'Locations',
+        title: 'Several washes, one workspace',
+        body: 'Switch between locations in one tap, compare them over the same period or look at all of them together.',
+      },
+    },
 
     app: {
-      title: 'Tetrin goes with you.',
-      lead: 'Run the business and watch the numbers straight from your iPhone.',
+      title: 'Tetrin is always with you',
+      lead: 'An iPhone app for the owner and the washer: shift, today, payroll, calendar. The same data as in the browser.',
       appStore: 'Download on the App Store',
-      android: 'Android soon',
+      android: 'Android coming soon',
     },
 
     price: {
-      title: 'All of it',
+      title: 'One price for everything',
       per: 'per month',
-      point: 'for one location',
+      point: 'per location',
+      includes: [
+        'No limits on cars or staff',
+        'Web workspace and iPhone app',
+        'Several locations in one workspace',
+        'Updates at no extra cost',
+      ],
       trial: (days: number) => `${days} days free`,
-      note: 'One product, one price. No card needed.',
+      note: 'No card needed. The trial is given once, a second location is paid separately.',
+    },
+
+    faq: {
+      title: 'Questions owners ask',
+      items: [
+        { q: 'Do I need a computer at the wash?', a: 'No. Washers record cars from a phone, and the owner needs only a phone or any browser.' },
+        { q: 'What if a washer forgets to record a car?', a: 'The owner sees every record in the feed at once and can add a missed car or cancel an extra one. A washer only sees earnings for recorded cars, so recording pays off for them.' },
+        { q: 'How is payroll counted?', a: 'Every employee has their own percent, a shared wash has a team percent. The percent is stored at the moment of the record, so past days do not change when you change the rate.' },
+        { q: 'Can I take my data with me?', a: 'Yes, any time: export all records to CSV from the workspace.' },
+        { q: 'What happens after the trial?', a: 'The workspace switches to read-only until payment. Data is kept, nothing is deleted.' },
+      ],
     },
 
     closing: {
-      title: 'The day is over.',
-      titleAccent: 'The numbers are already in.',
-      note: (days: number) => `${days} days free`,
+      title: 'Start with one car.',
+      lead: 'Record the first car today and see the day’s result in the evening.',
+      note: (days: number) => `${days} days free · no card`,
     },
 
-    footer: 'Operations for service businesses',
+    footer: 'car wash management',
   },
-
   errors: {
     required: 'Fill in every field',
     badPhone: 'Invalid phone number',
