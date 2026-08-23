@@ -2252,7 +2252,6 @@ async function main() {
      клиентская. Ошибка здесь не всплывёт ни у кого: клиент своих цифр не
      видит, а мы увидим неверную сумму и поверим ей. */
   const billing = await import('../lib/admin-billing');
-  const audit = await import('../lib/admin-audit');
 
   const now = new Date();
   const thisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10));
@@ -2280,25 +2279,30 @@ async function main() {
      Мы смотрим в чужие книги, и на вопрос «кто открывал мои цифры»
      нужен ответ. Он бесполезен, если состоит из сотни одинаковых строк
      после каждого обновления страницы. */
-  const seen = await audit.logTenantView(tenant.id, owner.id);
-  const seenAgain = await audit.logTenantView(tenant.id, owner.id);
-  check('первый заход записан', seen === true);
-  check('повторный в те же полчаса — нет', seenAgain === false);
-  const later = await audit.logTenantView(
-    tenant.id,
-    owner.id,
-    new Date(Date.now() + 31 * 60 * 1000),
-  );
-  check('через полчаса — снова записан', later === true);
+  /* ---------- журнал админки ----------
+     Мы смотрим в чужие книги, и на вопрос «кто открывал мои цифры»
+     нужен ответ. Он бесполезен, если состоит из сотни одинаковых строк
+     после каждого обновления страницы. */
+  const adminAuth = await import('../lib/admin-auth');
+  const { platformAdmins } = await import('../lib/db/schema');
+  const adminAccount = await (await import('../lib/accounts')).accountOf(owner);
+  const [adminRow] = await db
+    .insert(platformAdmins)
+    .values({ accountId: adminAccount.id, name: 'Проверка', role: 'owner' })
+    .returning();
+  const by = { admin: adminRow, role: 'owner' as const, sessionId: 'smoke', phone: owner.phone };
+  const view = (now?: Date) =>
+    adminAuth.logAdminAction({ by, action: 'tenant.view', targetType: 'tenant', targetId: tenant.id, targetLabel: tenant.name, ip: null, now });
+  check('первый заход записан', (await view()) === true);
+  check('повторный в те же полчаса — нет', (await view()) === false);
+  check('через полчаса — снова записан', (await view(new Date(Date.now() + 31 * 60 * 1000))) === true);
 
-  const journal = await audit.adminJournal();
-  check('в журнале только наши действия', journal.every((r) => r.action.startsWith('tenant_') || r.action === 'subscription_extend'), journal.map((r) => r.action));
-  // имя берём из тенанта, а не из снимка: бизнес переименовывают, и в
-  // журнале должно стоять то, как он называется сейчас, — иначе на звонок
-  // «это Комитас» в ленте не найдётся ничего похожего
+  const adminQueries = await import('../lib/admin-queries');
+  const journal = await adminQueries.listAdminAudit();
+  check('в журнале только действия админов', journal.every((r) => r.action.includes('.')), journal.map((r) => r.action));
   check(
-    'строка журнала подписана бизнесом',
-    journal[0]?.tenantId === tenant.id && !!journal[0]?.tenantName,
+    'строка журнала подписана целью и админом',
+    journal[0]?.targetId === tenant.id && journal[0]?.targetLabel === tenant.name && journal[0]?.adminName === 'Проверка',
     journal[0],
   );
 

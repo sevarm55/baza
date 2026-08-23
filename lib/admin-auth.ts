@@ -361,6 +361,15 @@ export async function listAdminSessions(adminId: string) {
 
 /* ----------------------------- журнал ----------------------------- */
 
+/** Адрес из запроса; вне запроса (скрипт) его нет, и это не ошибка. */
+async function requestIp(): Promise<string | null> {
+  try {
+    return clientIp(await headers());
+  } catch {
+    return null;
+  }
+}
+
 export type AdminAction =
   | 'subscription.extend'
   | 'tenant.block'
@@ -389,12 +398,16 @@ export async function logAdminAction(input: {
   targetLabel?: string | null;
   reason?: string | null;
   data?: Record<string, unknown>;
+  /** адрес вызывающего; вне запроса (скрипты, проверки) можно не передавать */
+  ip?: string | null;
+  now?: Date;
 }): Promise<boolean> {
+  const now = input.now ?? new Date();
   /* Просмотр пишется раз в полчаса на цель: иначе журнал состоял бы из
      сотни «открыл» подряд после каждого обновления страницы, и найти в
      нём продление стало бы невозможно. */
   if ((input.action === 'tenant.view' || input.action === 'account.view') && input.targetId) {
-    const since = new Date(Date.now() - 30 * 60_000);
+    const since = new Date(now.getTime() - 30 * 60_000);
     const [recent] = await db
       .select({ id: adminAudit.id })
       .from(adminAudit)
@@ -410,7 +423,7 @@ export async function logAdminAction(input: {
     if (recent) return false;
   }
 
-  const ip = clientIp(await headers());
+  const ip = input.ip !== undefined ? input.ip : await requestIp();
   await db.insert(adminAudit).values({
     adminId: input.by.admin.id,
     adminName: input.by.admin.name,
@@ -421,6 +434,7 @@ export async function logAdminAction(input: {
     reason: input.reason?.trim().slice(0, 500) || null,
     data: input.data ?? null,
     ip,
+    createdAt: now,
   });
   if (input.action !== 'tenant.view' && input.action !== 'account.view') {
     await logSecurity({
