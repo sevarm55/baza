@@ -59,7 +59,7 @@ export function Metric({
       {/* На телефоне подпись набрана обычным регистром: капсом с
           разрядкой набирают ярлыки таблиц, а здесь это подпись
           показания — та же, что в приложении. */}
-      <div className="truncate text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:text-[12.5px] max-md:font-medium max-md:tracking-normal max-md:text-m-muted max-md:normal-case">
+      <div className="truncate text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:text-[length:var(--m-t-note)] max-md:font-medium max-md:tracking-normal max-md:text-m-muted max-md:normal-case">
         {label}
       </div>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -71,8 +71,8 @@ export function Metric({
                ответ должен читаться раньше, чем прочитана подпись. */
             size === 'lg' &&
               'text-[26px] max-md:text-[clamp(34px,11vw,44px)] max-md:font-bold max-md:tracking-[-0.03em] xl:text-[30px]',
-            size === 'md' && 'text-[22px] max-md:text-[23px] max-md:font-bold xl:text-[24px]',
-            size === 'sm' && 'text-[18px] max-md:text-[19px] max-md:font-bold',
+            size === 'md' && 'text-[22px] max-md:text-[length:var(--m-t-stat)] max-md:font-bold xl:text-[24px]',
+            size === 'sm' && 'text-[18px] max-md:text-[length:var(--m-t-section)] max-md:font-bold',
             VALUE_TONE[tone],
           )}
         >
@@ -81,7 +81,7 @@ export function Metric({
         {delta}
       </div>
       {hint && (
-        <div className="text-xs text-muted-foreground max-md:text-[11.5px] max-md:text-m-faint">
+        <div className="text-xs text-muted-foreground max-md:text-[length:var(--m-t-note)] max-md:text-m-faint">
           {hint}
         </div>
       )}

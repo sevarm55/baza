@@ -29,7 +29,7 @@ export function MReading({
 }) {
   return (
     <div className={cn('flex min-w-0 flex-col px-1', className)}>
-      <span className="text-[13.5px] leading-tight font-medium text-m-muted">{label}</span>
+      <span className="text-[length:var(--m-t-lead)] leading-tight font-medium text-m-muted">{label}</span>
       <span
         className={cn(
           'num mt-1.5 leading-[1.02] font-bold tracking-[-0.035em]',

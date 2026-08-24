@@ -54,6 +54,10 @@ export function useTheme(): Theme {
  */
 export function setTheme(next: Theme) {
   document.documentElement.dataset.theme = next;
+  /* Строка состояния телефона красится тем же цветом, что лист под
+     ней: без этого при смене темы сверху остаётся полоса прежней. */
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', next === 'dark' ? '#0b0614' : '#ffffff');
   try {
     localStorage.setItem(THEME_KEY, next);
   } catch {

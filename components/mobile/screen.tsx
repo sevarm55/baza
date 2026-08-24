@@ -118,7 +118,7 @@ export function MSection({
       {(title !== undefined || action !== undefined) && (
         <div className="flex min-w-0 items-center gap-2 px-1">
           {title !== undefined && (
-            <h2 className="truncate text-[17px] leading-tight font-bold tracking-[-0.01em] text-m-ink">
+            <h2 className="truncate text-[length:var(--m-t-section)] leading-tight font-bold tracking-[-0.01em] text-m-ink">
               {title}
             </h2>
           )}
@@ -148,7 +148,7 @@ export function MLink({
     <a
       {...rest}
       className={cn(
-        'm-press text-[14px] font-semibold text-m-grape outline-none',
+        'm-press text-[length:var(--m-t-note)] font-semibold text-m-grape outline-none',
         'focus-visible:ring-2 focus-visible:ring-m-grape/40 rounded-m-chip',
         className,
       )}

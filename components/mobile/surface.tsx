@@ -193,7 +193,7 @@ export function MStatTile({
       <div className="mt-auto flex min-w-0 flex-col">
         <div
           className={cn(
-            'flex items-center gap-1.5 text-[12.5px] leading-tight font-medium',
+            'flex items-center gap-1.5 text-[length:var(--m-t-note)] leading-tight font-medium',
             dark ? 'text-white/70' : tone === 'lime' ? 'text-[#170b2b]/65' : 'text-m-muted',
           )}
         >
@@ -202,7 +202,7 @@ export function MStatTile({
           )}
           <span className="truncate">{label}</span>
         </div>
-        <div className="num mt-1 truncate text-[23px] leading-tight font-bold tracking-[-0.02em]">
+        <div className="num mt-1 truncate text-[length:var(--m-t-stat)] leading-tight font-bold tracking-[-0.02em]">
           {value}
         </div>
         {note && (

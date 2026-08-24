@@ -65,11 +65,11 @@ export function PageHeader({
               {back.label}
             </Link>
           )}
-          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em] max-md:text-[30px] max-md:font-bold max-md:tracking-[-0.03em]">
+          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em] max-md:text-[length:var(--m-t-title)] max-md:font-bold max-md:tracking-[-0.03em]">
             {title}
           </h1>
           {(description || meta) && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground max-md:mt-1.5 max-md:text-[13.5px] max-md:text-m-muted">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground max-md:mt-1.5 max-md:text-[length:var(--m-t-lead)] max-md:text-m-muted">
               {description}
               {meta}
             </div>
@@ -84,7 +84,7 @@ export function PageHeader({
                  кнопке в тридцать шесть точек мокрым пальцем не
                  попасть. */
               'max-md:w-full max-md:[&>*]:min-h-[52px] max-md:[&>*]:flex-1',
-              'max-md:[&>*]:rounded-m-row max-md:[&>*]:text-[16px]',
+              'max-md:[&>*]:rounded-m-row max-md:[&>*]:text-[length:var(--m-t-field)]',
             )}
           >
             {actions}

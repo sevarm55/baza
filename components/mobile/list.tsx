@@ -92,11 +92,13 @@ export function MRow({
     <>
       {lead}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[15.5px] leading-tight font-semibold text-m-ink">
+        <span className="truncate text-[length:var(--m-t-row)] leading-tight font-semibold text-m-ink">
           {title}
         </span>
         {note && (
-          <span className="mt-0.5 truncate text-[12.5px] leading-tight text-m-muted">{note}</span>
+          <span className="mt-0.5 truncate text-[length:var(--m-t-note)] leading-tight text-m-muted">
+            {note}
+          </span>
         )}
         {extra && (
           <span className="num mt-0.5 truncate text-[11.5px] leading-tight text-m-faint">
@@ -107,7 +109,9 @@ export function MRow({
       {(value !== undefined || hint !== undefined) && (
         <span className="flex shrink-0 flex-col items-end">
           {value !== undefined && (
-            <span className="num text-[15.5px] leading-tight font-bold text-m-ink">{value}</span>
+            <span className="num text-[length:var(--m-t-row)] leading-tight font-bold text-m-ink">
+              {value}
+            </span>
           )}
           {hint !== undefined && (
             <span className="num mt-0.5 text-[11.5px] leading-tight text-m-faint">{hint}</span>
@@ -192,7 +196,9 @@ export function MNavRow({
     <>
       {icon && <MBadge icon={icon} size="sm" />}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[15.5px] leading-tight font-medium text-m-ink">{title}</span>
+        <span className="truncate text-[length:var(--m-t-row)] leading-tight font-medium text-m-ink">
+          {title}
+        </span>
         {note && (
           <span className="mt-0.5 truncate text-[12px] leading-tight text-m-muted">{note}</span>
         )}

@@ -59,7 +59,7 @@ export function StatusBadge({
       variant={VARIANT[tone]}
       className={cn(
         'gap-1.5',
-        'max-md:h-8 max-md:rounded-full max-md:border-0 max-md:px-3 max-md:text-[13px] max-md:font-semibold',
+        'max-md:h-8 max-md:rounded-full max-md:border-0 max-md:px-3 max-md:text-[length:var(--m-t-note)] max-md:font-semibold',
         M_TONE[tone],
         className,
       )}

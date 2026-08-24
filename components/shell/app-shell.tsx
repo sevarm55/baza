@@ -76,6 +76,10 @@ export async function AppShell({
       </div>
 
       <SidebarInset
+        /* Признак мобильной оболочки: по нему `body` на телефоне
+           становится белым листом. Без этого за отскоком прокрутки и
+           под панелью браузера видно полотно кабинета. */
+        data-mobile-shell=""
         className="min-w-0 bg-background max-md:bg-m-bg"
         style={
           {
