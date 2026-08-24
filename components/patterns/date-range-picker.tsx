@@ -37,6 +37,7 @@ export function DateRangePicker({
   to,
   active = false,
   onApply,
+  onReset,
   className,
 }: {
   from?: string | null;
@@ -44,6 +45,8 @@ export function DateRangePicker({
   /** этот режим выбран сейчас: кнопка выглядит как выбранный сегмент */
   active?: boolean;
   onApply: (from: string, to: string) => void;
+  /** вернуть обычный период: кнопка появляется, когда выбран свой отрезок */
+  onReset?: () => void;
   className?: string;
 }) {
   const t = useT();
@@ -92,6 +95,21 @@ export function DateRangePicker({
           defaultMonth={range?.from ?? new Date()}
         />
         <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2">
+          {active && onReset && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-auto text-muted-foreground"
+              onClick={() => {
+                setRange(undefined);
+                setOpen(false);
+                onReset();
+              }}
+            >
+              {t.common.clear}
+            </Button>
+          )}
           <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
             {t.common.cancel}
           </Button>

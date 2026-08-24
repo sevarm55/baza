@@ -67,6 +67,10 @@ export default async function ActivityPage({
       </PageHeader>
 
       <ActivityList
+        /* Ключ по фильтрам: список копит строки в своём состоянии, и без
+           ключа смена периода или группы оставила бы на экране прежнюю
+           выборку до перезагрузки. */
+        key={`${period}|${group}|${actor}`}
         initial={rows}
         pageSize={PAGE}
         currency={tenant.currency}

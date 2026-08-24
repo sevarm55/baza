@@ -76,6 +76,7 @@ export function ReportToolbar({
           to={query.to}
           active={query.r === 'custom'}
           onApply={(from, to) => router.push(href({ r: 'custom', from, to }))}
+          onReset={() => router.push(href({ r: 'month', from: null, to: null }))}
         />
 
         <div className="ml-auto flex flex-wrap items-center gap-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
-import { Fragment, useMemo, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
+import { DetailList, DetailRow } from '@/components/patterns/detail-list';
 import { EmptyState } from '@/components/patterns/states';
 import { PersonDot } from '@/components/patterns/person';
 import { Segmented } from '@/components/patterns/segmented';
@@ -10,6 +11,14 @@ import { TableShell } from '@/components/patterns/table';
 import { SearchInput } from '@/components/patterns/toolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -21,8 +30,7 @@ import {
 } from '@/components/ui/table';
 import { formatMoney } from '@/lib/money';
 import { useT } from '@/lib/i18n/client';
-import { staffCount, unitCount } from '@/lib/i18n/terms';
-import { cn } from '@/lib/utils';
+import { unitCount } from '@/lib/i18n/terms';
 import { OrderActions } from './order-actions';
 import type { Op, OpWorker } from './model';
 
@@ -31,8 +39,8 @@ import type { Op, OpWorker } from './model';
  *
  * Таблица отвечает «что», а не «сколько всего»: итог внизу считается
  * по видимым строкам, чтобы после фильтра по способу оплаты сумма
- * совпадала с тем, что на экране. Строка раскрывается и показывает,
- * кому сколько досталось и что осталось бизнесу.
+ * совпадала с тем, что на экране. Нажатие на строку открывает окно
+ * записи: кому сколько досталось и что осталось бизнесу.
  */
 export function Journal({
   ops,
@@ -62,7 +70,10 @@ export function Journal({
   const t = useT();
   const [method, setMethod] = useState<string>('all');
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState<string | null>(null);
+  /* Запись в окне держится отдельно от признака «окно открыто»: при
+     закрытии содержимое остаётся на месте до конца анимации. */
+  const [detail, setDetail] = useState<Op | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
@@ -163,11 +174,13 @@ export function Journal({
                 key={o.id}
                 op={o}
                 money={money}
-                staffRole={staffRole}
                 staff={staff}
                 teamPercent={teamPercent}
-                open={open === o.id}
-                onToggle={() => setOpen((was) => (was === o.id ? null : o.id))}
+                selected={detailOpen && detail?.id === o.id}
+                onOpen={() => {
+                  setDetail(o);
+                  setDetailOpen(true);
+                }}
               />
             ))}
           </TableBody>
@@ -193,6 +206,10 @@ export function Journal({
           </TableFooter>
         </Table>
       )}
+
+      {detail && (
+        <OpDetails op={detail} open={detailOpen} money={money} onClose={() => setDetailOpen(false)} />
+      )}
     </TableShell>
   );
 }
@@ -200,137 +217,174 @@ export function Journal({
 function Line({
   op,
   money,
-  staffRole,
   staff,
   teamPercent,
-  open,
-  onToggle,
+  selected,
+  onOpen,
 }: {
   op: Op;
   money: (n: number) => string;
-  staffRole: string;
   staff: { id: string; name: string }[];
   teamPercent: number | null;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <TableRow
+      data-state={selected ? 'selected' : undefined}
+      className="cursor-pointer"
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest('button, a, [role=menuitem]')) onOpen();
+      }}
+    >
+      <TableCell className="num hidden px-4 py-2.5 text-muted-foreground sm:table-cell">{op.time}</TableCell>
+      <TableCell className="num truncate px-3 py-2.5 font-semibold sm:px-4">{op.clientKey ?? '—'}</TableCell>
+      <TableCell className="px-4 py-2.5">
+        <Crew crew={op.crew} />
+      </TableCell>
+      <TableCell className="hidden px-4 py-2.5 text-muted-foreground md:table-cell">
+        <span className="block truncate" title={op.serviceName}>
+          {op.serviceName}
+        </span>
+      </TableCell>
+      <TableCell className="hidden px-4 py-2.5 xl:table-cell">
+        <Badge variant="muted">{op.paymentLabel}</Badge>
+      </TableCell>
+      <TableCell className="num px-3 py-2.5 text-right font-semibold sm:px-4">
+        {op.listPrice !== null && (
+          <span className="mr-1.5 text-xs font-normal text-muted-foreground line-through">
+            {money(op.listPrice)}
+          </span>
+        )}
+        {money(op.price)}
+      </TableCell>
+      <TableCell className="num hidden px-4 py-2.5 text-right text-muted-foreground xl:table-cell">
+        {op.share > 0 ? money(op.share) : '—'}
+      </TableCell>
+      <TableCell className="num hidden px-4 py-2.5 text-right 2xl:table-cell">{money(op.yours)}</TableCell>
+      <TableCell className="px-1 py-1.5 sm:px-2">
+        <span className="flex items-center justify-end gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-haspopup="dialog"
+            aria-label={`${op.clientKey ?? ''} · ${money(op.price)}`}
+            onClick={onOpen}
+          >
+            <ChevronRight aria-hidden />
+          </Button>
+          <OrderActions
+            orderId={op.id}
+            clientKey={op.clientKey}
+            crew={op.crew}
+            staff={staff}
+            teamPercent={teamPercent}
+            detail={`${op.serviceName} · ${money(op.price)}`}
+          />
+        </span>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+/**
+ * Окно записи: то, что раньше раскрывалось строкой внутри таблицы.
+ *
+ * Окно вмещает всё и на телефоне, где половина колонок скрыта: время,
+ * услугу, способ оплаты, цену со скидкой и делёж между людьми и
+ * бизнесом. Полоса долей та же, что была в раскрытии.
+ */
+function OpDetails({
+  op,
+  open,
+  money,
+  onClose,
+}: {
+  op: Op;
   open: boolean;
-  onToggle: () => void;
+  money: (n: number) => string;
+  onClose: () => void;
 }) {
   const t = useT();
   const cut = op.price > 0 ? Math.round((op.share / op.price) * 100) : 0;
   const shared = op.crew.length > 1;
 
   return (
-    <Fragment>
-      <TableRow
-        data-state={open ? 'selected' : undefined}
-        className="cursor-pointer"
-        onClick={(e) => {
-          if (!(e.target as HTMLElement).closest('button, a, [role=menuitem]')) onToggle();
-        }}
-      >
-        <TableCell className="num hidden px-4 py-2.5 text-muted-foreground sm:table-cell">{op.time}</TableCell>
-        <TableCell className="num truncate px-3 py-2.5 font-semibold sm:px-4">{op.clientKey ?? '—'}</TableCell>
-        <TableCell className="px-4 py-2.5">
-          <Crew crew={op.crew} />
-        </TableCell>
-        <TableCell className="hidden px-4 py-2.5 text-muted-foreground md:table-cell">
-          <span className="block truncate" title={op.serviceName}>
-            {op.serviceName}
-          </span>
-        </TableCell>
-        <TableCell className="hidden px-4 py-2.5 xl:table-cell">
-          <Badge variant="muted">{op.paymentLabel}</Badge>
-        </TableCell>
-        <TableCell className="num px-3 py-2.5 text-right font-semibold sm:px-4">
-          {op.listPrice !== null && (
-            <span className="mr-1.5 text-xs font-normal text-muted-foreground line-through">
-              {money(op.listPrice)}
-            </span>
-          )}
-          {money(op.price)}
-        </TableCell>
-        <TableCell className="num hidden px-4 py-2.5 text-right text-muted-foreground xl:table-cell">
-          {op.share > 0 ? money(op.share) : '—'}
-        </TableCell>
-        <TableCell className="num hidden px-4 py-2.5 text-right 2xl:table-cell">{money(op.yours)}</TableCell>
-        <TableCell className="px-1 py-1.5 sm:px-2">
-          <span className="flex items-center justify-end gap-0.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-expanded={open}
-              aria-label={`${op.clientKey ?? ''} · ${money(op.price)}`}
-              onClick={onToggle}
-            >
-              <ChevronDown className={cn('transition-transform', open && 'rotate-180')} aria-hidden />
-            </Button>
-            <OrderActions
-              orderId={op.id}
-              clientKey={op.clientKey}
-              crew={op.crew}
-              staff={staff}
-              teamPercent={teamPercent}
-              detail={`${op.serviceName} · ${money(op.price)}`}
-            />
-          </span>
-        </TableCell>
-      </TableRow>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-baseline gap-x-2">
+            {op.clientKey ? <span className="num">{op.clientKey}</span> : <span>{op.serviceName}</span>}
+            <span className="num text-sm font-normal text-muted-foreground">{op.time}</span>
+          </DialogTitle>
+          <DialogDescription>
+            {op.clientKey ? `${op.serviceName} · ${op.paymentLabel}` : op.paymentLabel}
+          </DialogDescription>
+        </DialogHeader>
 
-      {open && (
-        <TableRow className="bg-muted/40 hover:bg-muted/40">
-          <TableCell colSpan={9} className="px-4 py-3">
-            <div className="flex flex-col gap-2 text-xs">
-              <div className="text-muted-foreground">
-                {t.today.clientPaid} <b className="num text-foreground">{money(op.price)}</b>
-                {shared && (
-                  <>
-                    {' · '}
-                    {t.crew.title} · {staffCount(op.crew.length, staffRole, t.locale)} · {t.crew.pool}{' '}
-                    <b className="num text-foreground">{money(op.share)}</b>
-                  </>
-                )}
-              </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="text-xs text-muted-foreground">{t.today.clientPaid}</div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+              <span className="num text-2xl font-semibold">{money(op.price)}</span>
+              {op.listPrice !== null && (
+                <span className="num text-sm text-muted-foreground line-through">{money(op.listPrice)}</span>
+              )}
+            </div>
+          </div>
 
-              {/* Полоса долей: сегмент на каждого участника и остаток
-                  бизнеса. */}
-              <div className="flex h-1.5 w-full max-w-xl overflow-hidden rounded-sm bg-muted" aria-hidden>
-                {op.crew.map((p, i) => (
-                  <span
-                    key={p.staffId ?? `noname-${i}`}
-                    style={{ width: `${op.price > 0 ? (p.earned / op.price) * 100 : 0}%`, background: p.color }}
-                  />
-                ))}
-                <span style={{ width: `${100 - cut}%`, background: 'var(--chart-2)' }} />
-              </div>
+          {/* Полоса долей: сегмент на каждого участника и остаток
+              бизнеса. */}
+          <div className="flex h-2 w-full overflow-hidden rounded-sm bg-muted" aria-hidden>
+            {op.crew.map((p, i) => (
+              <span
+                key={p.staffId ?? `noname-${i}`}
+                style={{ width: `${op.price > 0 ? (p.earned / op.price) * 100 : 0}%`, background: p.color }}
+              />
+            ))}
+            <span style={{ width: `${100 - cut}%`, background: 'var(--chart-2)' }} />
+          </div>
 
-              <div className="flex flex-wrap gap-x-5 gap-y-1">
-                {op.crew.map((p, i) => (
-                  <span key={p.staffId ?? `noname-${i}`} className="inline-flex items-center gap-1.5">
+          <DetailList>
+            {op.crew.map((p, i) => (
+              <DetailRow
+                key={p.staffId ?? `noname-${i}`}
+                label={
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="size-2 shrink-0 rounded-full" style={{ background: p.color }} aria-hidden />
                     {p.name ?? '—'}
-                    <b className="num">{money(p.earned)}</b>
-                    {!shared && op.percent > 0 && (
-                      <span className="num text-muted-foreground">{op.percent}%</span>
-                    )}
                   </span>
-                ))}
+                }
+                value={
+                  <>
+                    {money(p.earned)}
+                    {!shared && op.percent > 0 && (
+                      <span className="ml-1.5 font-normal text-muted-foreground">{op.percent}%</span>
+                    )}
+                  </>
+                }
+                mono
+              />
+            ))}
+            <DetailRow
+              label={
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 shrink-0 rounded-full" style={{ background: 'var(--chart-2)' }} aria-hidden />
                   {t.today.toBusiness}
-                  <b className="num">{money(op.yours)}</b>
                 </span>
-              </div>
+              }
+              value={money(op.yours)}
+              mono
+            />
+            {shared && <DetailRow label={t.crew.pool} value={money(op.share)} mono />}
+            {shared && op.authorName && <DetailRow label={t.crew.author} value={op.authorName} />}
+          </DetailList>
+        </div>
 
-              {shared && op.authorName && (
-                <div className="text-muted-foreground">
-                  {t.crew.author} {op.authorName}
-                </div>
-              )}
-            </div>
-          </TableCell>
-        </TableRow>
-      )}
-    </Fragment>
+        <DialogFooter showCloseButton />
+      </DialogContent>
+    </Dialog>
   );
 }
 

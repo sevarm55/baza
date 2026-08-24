@@ -188,7 +188,6 @@ export function ExpenseSheet({
                     defaultValue={item.category}
                     required
                     autoComplete="off"
-                    autoFocus
                   />
                 </Field>
 
