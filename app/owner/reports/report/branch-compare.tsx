@@ -2,7 +2,7 @@
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
+import { DesktopOnly, MobileOnly, MRow, MRows } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -29,26 +29,26 @@ export function BranchCompare({
     <ChartPanel className={className} title={c.branches} description={c.branchesNote} padded={false} height="h-40">
       {/* На телефоне филиалы строками: главное — выручка и что от неё
           осталось; объём работы, зарплаты и расходы идут пояснением. */}
-      <MobileOnly className="px-4 pb-1">
-        <MobileDataList>
+      <MobileOnly className="px-4 pb-4">
+        <MRows>
           {rows.map((r) => (
-            <MobileDataRow
+            <MRow
               key={r.id}
-              title={
-                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
-              }
-              note={`${unitLabel} ${r.count} · ${k.avgCheck} ${money(r.avgCheck)}`}
-              extra={`${k.payroll} ${money(r.payroll)} · ${k.costs} ${money(r.costs)}`}
+              title={r.name}
+              note={`${unitLabel} ${r.count} · ${k.avgCheck} ${money(r.avgCheck)} · ${k.payroll} ${money(r.payroll)}`}
               value={money(r.revenue)}
-              sub={
+              hint={
                 <span className={r.profit < 0 ? 'text-m-bad' : undefined}>
                   {k.net} {money(r.profit)}
                 </span>
               }
-              className={r.current ? 'bg-primary/6' : undefined}
+              /* Филиал, на который смотрит владелец, залит грейпом в
+                 десять процентов: он не «выбран», он тот, в котором
+                 сейчас работают. */
+              className={r.current ? 'bg-m-grape/10' : undefined}
             />
           ))}
-        </MobileDataList>
+        </MRows>
       </MobileOnly>
 
       <DesktopOnly>

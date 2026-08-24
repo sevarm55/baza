@@ -1,25 +1,26 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { LogIn, LogOut } from 'lucide-react';
 
 import { toggleShiftAction } from '@/app/actions';
-import {
-  MobileButton,
-  MobileField,
-  MobileInput,
-  MobileSheet,
-} from '@/components/mobile';
+import { MButton, MField, MInput, MSheet } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { currencySymbol, formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 /**
- * «Я на смене» — переключатель, закреплённый сверху экрана.
+ * Начать смену и закрыть смену — одна кнопка, меняющая смысл.
  *
- * Встать на смену — первое действие дня, и оно не должно уезжать за
- * край при прокрутке. Владельцу переключатель показывает, кто на мойке,
- * ещё до того как появится первая запись: человека, который вышел час
- * назад и пока ничего не намыл, по записям не видно вовсе.
+ * Не тумблер: тумблер показывает состояние, а состояние уже названо
+ * живой фишкой под заработком, и второй его носитель на том же экране
+ * означал бы, что человек читает одно и то же дважды. Здесь стоит
+ * действие, и оно каждый раз ровно одно.
+ *
+ * Вне смены кнопка грейповая и стоит первой: встать на смену — первое
+ * действие дня и единственное, ради которого экран открывают до первой
+ * машины. На смене она становится тихой и уходит вниз: закрываются раз
+ * в день, и в середине дня эта кнопка — самая опасная на экране.
  *
  * Встаём молча, уходим с вопросом. На входе спрашивать нечего; уход —
  * единственный момент, когда деньги переходят из рук в руки, и другого
@@ -65,69 +66,28 @@ export function ShiftToggleMobile({
 
   return (
     <>
-      <div
-        className="sticky z-20 -mx-4 bg-m-board/92 px-4 pt-1 pb-2 backdrop-blur-xl md:hidden"
-        style={{ top: 'calc(var(--m-safe-top) + var(--m-top-h))' }}
+      <MButton
+        block
+        tone={onShift ? 'quiet' : 'grape'}
+        icon={onShift ? LogOut : LogIn}
+        disabled={pending}
+        aria-busy={pending || undefined}
+        className={cn('md:hidden', onShift && 'text-m-muted')}
+        onClick={() => {
+          if (onShift) {
+            setAsking(true);
+            return;
+          }
+          startTransition(async () => void (await toggle(true)));
+        }}
       >
-        <button
-          type="button"
-          role="switch"
-          aria-checked={onShift}
-          aria-busy={pending || undefined}
-          disabled={pending}
-          onClick={() => {
-            if (onShift) {
-              setAsking(true);
-              return;
-            }
-            startTransition(async () => void (await toggle(true)));
-          }}
-          className={cn(
-            /* Не капсула: капсульных скруглений в продукте нет нигде,
-               и переключатель смены не исключение. Двадцать две точки
-               дают ту же мягкость, не превращая строку в пилюлю. */
-            'm-press flex min-h-[46px] w-full items-center gap-2.5 rounded-m-card bg-m-inset py-2 pr-3 pl-4',
-            'outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-            pending && 'opacity-70',
-          )}
-        >
-          {/* Точка никогда не единственный носитель смысла: рядом с ней
-              всегда слово. */}
-          <span
-            aria-hidden
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              onShift ? 'bg-m-good' : 'bg-m-muted/50',
-            )}
-          />
-          <span className="min-w-0 flex-1 truncate text-left text-[14px] font-semibold text-m-ink">
-            {onShift ? t.work.onShift : t.work.shiftNotStarted}
-          </span>
-
-          {/* Тумблер отрисован кнопкой, а не `input`: касание принимает
-              вся строка, а не двадцать точек справа. */}
-          <span
-            aria-hidden
-            className={cn(
-              'relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200',
-              onShift ? 'bg-m-good' : 'bg-m-divider',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-[2px] left-[2px] size-[27px] rounded-full bg-white transition-transform duration-200',
-                onShift && 'translate-x-5',
-              )}
-              style={{ boxShadow: '0 1px 3px rgb(0 0 0 / 0.2)' }}
-            />
-          </span>
-        </button>
-      </div>
+        {onShift ? t.work.endConfirm : t.work.startShift}
+      </MButton>
 
       {/* Лист сдачи: три числа, после которых решение принимается за
           секунду, и поле наличных. Поле не обязательное — закрыться
           человек должен уметь всегда. */}
-      <MobileSheet
+      <MSheet
         open={asking}
         onOpenChange={(next) => !pending && setAsking(next)}
         title={t.work.endTitle}
@@ -137,21 +97,20 @@ export function ShiftToggleMobile({
           /* Два равноправных выхода одного размера: разницу несёт
              заливка, а не габарит. */
           <div className="grid grid-cols-2 gap-2">
-            <MobileButton tone="quiet" onClick={() => setAsking(false)} disabled={pending}>
+            <MButton tone="quiet" onClick={() => setAsking(false)} disabled={pending}>
               {t.work.endStay}
-            </MobileButton>
-            <MobileButton
-              loading={pending}
-              busyTitle={t.work.endingShift}
+            </MButton>
+            <MButton
+              disabled={pending}
               onClick={() => startTransition(async () => void (await toggle(false, declared)))}
             >
-              {t.work.endConfirm}
-            </MobileButton>
+              {pending ? t.work.endingShift : t.work.endConfirm}
+            </MButton>
           </div>
         }
       >
         <div className="flex flex-col gap-4 pt-1">
-          <div className="overflow-hidden rounded-m-card border border-m-hair bg-m-surface">
+          <div className="overflow-hidden rounded-m-tile bg-m-tile">
             <Line label={unitOne} value={String(count)} />
             <Line label={t.work.worksTotal} value={money(revenue)} />
             {/* Свои деньги последними и крупнее: из трёх строк это та,
@@ -159,48 +118,48 @@ export function ShiftToggleMobile({
             <Line label={t.work.earnedToday} value={money(earned)} strong />
           </div>
 
-          <MobileField
+          <MField
             label={t.work.handOver}
             hint={t.work.cashInShift(money(cash))}
             htmlFor="m-shift-cash"
           >
             <div className="relative">
-              <MobileInput
+              <MInput
                 id="m-shift-cash"
-                className="num pr-10 text-right"
+                className="num pr-11 text-right"
                 value={declared}
                 onChange={(e) => setDeclared(e.target.value.replace(/\D/g, ''))}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={pending}
               />
-              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[14px] text-m-muted">
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[15px] text-m-muted">
                 {currencySymbol(currency)}
               </span>
             </div>
-          </MobileField>
+          </MField>
 
           {/* Расхождение называем до нажатия: увидеть недостачу, пока
               ещё можно пересчитать деньги в руках. */}
           {differs && (
-            <p className="px-1 text-[13px] font-medium text-m-warn">
+            <p className="px-1 text-[13.5px] font-semibold text-m-warn">
               {t.work.handOverDiff(money(Math.abs(Number(declared) - cash)))}
             </p>
           )}
         </div>
-      </MobileSheet>
+      </MSheet>
     </>
   );
 }
 
 function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex min-h-[48px] items-center justify-between gap-3 px-4 py-2.5 [&+*]:border-t [&+*]:border-m-hair">
-      <span className="truncate text-[14px] text-m-muted">{label}</span>
+    <div className="flex min-h-[52px] items-center justify-between gap-3 px-4 py-2.5 [&+*]:border-t [&+*]:border-m-hair">
+      <span className="truncate text-[14.5px] text-m-muted">{label}</span>
       <span
         className={cn(
           'num shrink-0 text-m-ink',
-          strong ? 'text-[17px] font-bold' : 'text-[15px] font-semibold',
+          strong ? 'text-[19px] font-bold' : 'text-[16px] font-semibold',
         )}
       >
         {value}

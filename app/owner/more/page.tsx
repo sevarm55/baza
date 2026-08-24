@@ -1,5 +1,22 @@
 import { redirect } from 'next/navigation';
-import { Building2, Download, LogOut, UserRound } from 'lucide-react';
+import type { ComponentType } from 'react';
+import {
+  Banknote,
+  Building2,
+  CalendarDays,
+  CarFront,
+  ChartNoAxesCombined,
+  ClipboardList,
+  Download,
+  FileChartColumn,
+  LogOut,
+  ReceiptText,
+  SlidersHorizontal,
+  Tags,
+  TicketCheck,
+  UserRound,
+  Users,
+} from 'lucide-react';
 
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
@@ -14,7 +31,7 @@ import { sectionGroupsFor } from '@/components/sections';
 import { LinkRow, LinkRows } from '@/components/patterns/detail-list';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Panel } from '@/components/patterns/panel';
-import { MobileTitle } from '@/components/mobile';
+import { DesktopOnly, MGroup, MNavRow, MobileOnly, MTitle } from '@/components/mobile';
 import { SignOutButton } from '@/components/sign-out-button';
 import { WeekStrip } from './week-strip';
 
@@ -57,16 +74,67 @@ export default async function MorePage() {
     /* Мера у́же общей меры кабинета: экран собран под телефон, и строки,
        растянутые на полторы тысячи точек, читались бы пустыми. */
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
-      <PageHeader className="mb-0" title={t.phone.moreTitle} description={t.phone.moreLead} />
+      <DesktopOnly>
+        <PageHeader className="mb-0" title={t.phone.moreTitle} description={t.phone.moreLead} />
+      </DesktopOnly>
 
       {/* На телефоне это корень вкладки, и шапка над ним показывает
           филиал, а не название страницы: заголовок нужен свой. Повтор
           имени вкладки здесь не лишний — вкладка это где я нахожусь,
           заголовок это с чего начинается страница. */}
-      <MobileTitle title={t.phone.moreTitle} lead={t.phone.moreLead} className="md:hidden" />
+      <MTitle title={t.phone.moreTitle} lead={t.phone.moreLead} className="md:hidden" />
 
       <WeekStrip days={week} timezone={tenant.timezone} todayKey={todayKey} />
 
+      {/* На телефоне разделы лежат группами inset-списков — тем же
+          списком, что в настройках телефона: он опознаётся мгновенно, и
+          каждая строка со значком и стрелкой честно обещает переход. */}
+      <MobileOnly className="flex flex-col gap-5">
+        {groups.map((group, i) => (
+          <MGroup key={group.key} title={group.label ?? undefined}>
+            {group.items.map((section) => (
+              <MNavRow
+                key={section.href}
+                href={section.href}
+                title={section.label}
+                note={noteFor(section.href, t)}
+                icon={ICONS[section.href]}
+              />
+            ))}
+
+            {/* Обслуживание продукта рядом с настройками: не сущности
+                бизнеса, а то, что трогают раз в год. */}
+            {i === groups.length - 1 && (
+              <>
+                {/* Филиалы видит только тот, у кого их больше одного:
+                    остальные не должны узнать, что вторые бывают. */}
+                {points.length > 1 && (
+                  <MNavRow
+                    href="/owner/points"
+                    title={t.points.title}
+                    icon={Building2}
+                    value={points.length}
+                  />
+                )}
+                <MNavRow
+                  href="/owner/profile"
+                  title={t.profile.title}
+                  note={t.phone.profileLead}
+                  icon={UserRound}
+                />
+                <MNavRow
+                  href="/owner/export"
+                  title={t.settings.export}
+                  note={t.phone.exportLead}
+                  icon={Download}
+                />
+              </>
+            )}
+          </MGroup>
+        ))}
+      </MobileOnly>
+
+      <DesktopOnly>
       <Panel padded={false}>
         <div className="divide-y divide-border">
           {groups.map((group, i) => (
@@ -129,6 +197,7 @@ export default async function MorePage() {
           ))}
         </div>
       </Panel>
+      </DesktopOnly>
 
       {/* Выход — единственное действие на экране, где всё остальное
           места, куда переходят. Поэтому он стоит последним и за
@@ -136,8 +205,8 @@ export default async function MorePage() {
 
           Знак приглушённый, а не красный: красный в продукте значит
           ровно «удалить», и путать эти два сигнала нельзя. */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface">
-        <div className="flex min-h-[60px] items-center gap-3.5 px-4 py-2 max-md:gap-3.5">
+      <div className="overflow-hidden rounded-lg border border-border bg-card max-md:rounded-m-tile max-md:border-0 max-md:bg-m-tile">
+        <div className="flex min-h-[60px] items-center gap-3.5 px-4 py-2 max-md:min-h-[56px]">
           <LogOut aria-hidden className="size-[19px] shrink-0 text-muted-foreground" />
           <SignOutButton labelled variant="ghost" />
         </div>
@@ -145,6 +214,27 @@ export default async function MorePage() {
     </div>
   );
 }
+
+/**
+ * Значки разделов для мобильных строк.
+ *
+ * Отдельной таблицей, а не из `sections.tsx`: там значок объявлен уже
+ * готовым узлом с чужими размерами, а строке нужен сам компонент —
+ * подложку и кегль она задаёт сама.
+ */
+const ICONS: Record<string, ComponentType<{ className?: string; strokeWidth?: number }>> = {
+  '/owner': ChartNoAxesCombined,
+  '/owner/calendar': CalendarDays,
+  '/work': ClipboardList,
+  '/owner/clients': CarFront,
+  '/owner/services': Tags,
+  '/owner/staff': Users,
+  '/owner/passes': TicketCheck,
+  '/owner/payroll': Banknote,
+  '/owner/expenses': ReceiptText,
+  '/owner/reports': FileChartColumn,
+  '/owner/settings': SlidersHorizontal,
+};
 
 /** Подпись раздела одной строкой там, где у него есть своя. */
 function noteFor(href: string, t: Dict): string | undefined {

@@ -536,129 +536,153 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Мобильный слой: композиция приложения, а не сжатый кабинет.
+   Мобильный слой Tetrin: белый лист, два цвета, крупные предметы.
 
-   Ниже 768px продукт перестаёт быть сайтом с колонкой разделов и
-   становится тем же приложением, что стоит на iPhone: полотно табло,
-   белые карточки на нём, полоса вкладок внизу, листы снизу вверх.
-   Значения взяты один в один из `ios/Tetr/Design/Theme.swift` — там же
-   лежат объяснения, почему каждое такое.
+   Ниже 768px продукт перестаёт быть кабинетом с колонкой разделов и
+   становится приложением: белое полотно без единой рамки вокруг,
+   мягкие сиреневые плитки на нём, плавающая полоса вкладок внизу,
+   листы снизу вверх.
+
+   Цветов ровно два, и оба несут смысл. Грейп — действие и выбранное.
+   Лайм — «здесь и сейчас»: главное действие, живая метка, ваша доля.
+   Всё остальное — тот же грейп, разбавленный белым: тихий текст, грань
+   плитки, подложка поля. Отдельного серого в системе нет намеренно —
+   серый рядом с фиолетовым выглядит грязным, а грейп в четыре процента
+   даёт ту же тишину и остаётся частью марки.
 
    Собственный набор имён (`--m-*`), а не правка общих токенов: десктоп
    продолжает жить на shadcn-шкале, и ни один его пиксель отсюда не
-   меняется. Марка при этом общая — грейп и лайм берутся из `--primary`
-   и `--lime`, иначе один продукт разговаривал бы двумя фиолетовыми.
+   меняется.
    ───────────────────────────────────────────────────────────── */
 
 :root {
-  /* Полотно табло и бумага на нём (Brand.board / Brand.boardSurface). */
-  --m-board: #f3f2f0;
-  --m-surface: #ffffff;
-  /* Тёплая бумага под действие, а не под раздел (Brand.warmCard). */
-  --m-warm: #fcf8ef;
+  /* Марка. Те же два цвета, что во всём продукте. */
+  --m-grape: #471b8c;
+  --m-lime: #d5ff02;
 
-  /* Знаки на полотне (Brand.onBoard / Brand.boardMuted). */
-  --m-ink: #14121a;
-  --m-muted: #6b6577;
+  /* Полотно и знаки на нём. Чернила — не чёрные: это грейп, доведённый
+     почти до чёрного, и на белом он теплее и мягче настоящего чёрного. */
+  --m-bg: #ffffff;
+  --m-ink: #170b2b;
+  --m-muted: #6e6580;
+  --m-faint: #9c94aa;
 
-  /* Чернила подложек: грань карточки, заливка поля, разделитель.
-     В iOS это `Brand.boardInk.opacity(...)` — здесь те же доли. */
-  --m-hair: rgb(20 18 26 / 0.07);
-  --m-inset: rgb(20 18 26 / 0.07);
-  --m-inset-soft: rgb(20 18 26 / 0.045);
-  --m-divider: rgb(20 18 26 / 0.1);
+  /* Плитка — не белая карточка на сером, а сиреневая подложка на белом.
+     Так лист остаётся листом: границ нет вовсе, предметы держит тон. */
+  --m-tile: #f6f3fb;
+  --m-tile-strong: #eee9f7;
+  --m-hair: rgb(71 27 140 / 0.1);
 
-  /* Невыбранная плашка переключателя: тёплая, а не серая (Brand.chipRest). */
-  --m-chip: #e7e2d8;
-  /* Графит: плашка «кто на площадке», строка наличных (Tone.slate.base). */
-  --m-slate: #22212a;
+  /* Лайм по белому не виден (контраст 1.1) — он живёт только заливкой
+     под тёмный текст. Для точки и подписи на белом есть его чернила. */
+  --m-lime-ink: #5f7300;
 
-  /* Знаки состояния на полотне. */
-  --m-good: #0e8a5f;
-  --m-warn: #b45309;
-  --m-bad: #dc2626;
+  /* Ступени грейпа для полос, колец и графиков. Разбавляются тоном
+     плитки, а не белым: в тёмной теме белая примесь давала бы почти
+     белые куски, светящиеся на чёрном листе сильнее самого грейпа. */
+  --m-step-2: color-mix(in srgb, var(--m-grape) 62%, var(--m-tile));
+  --m-step-3: color-mix(in srgb, var(--m-grape) 38%, var(--m-tile));
+  --m-step-4: color-mix(in srgb, var(--m-grape) 24%, var(--m-tile));
+  --m-step-5: color-mix(in srgb, var(--m-grape) 14%, var(--m-tile));
 
-  /* Спокойные краски смысла: мята — объём работы, лаванда — деньги
-     людям, кобальт — расходы. Ими нельзя красить кнопки и состояние. */
-  --m-mint: #e3eee9;
-  --m-mint-ink: #176b59;
-  --m-lavender: #ece8f3;
-  --m-lavender-ink: #66557f;
-  --m-sand: #e8f0fd;
-  --m-sand-ink: #2563c9;
+  /* Знаки состояния. Их трое, они редкие и приглушённые: цвет в этой
+     системе принадлежит марке, а не палитре смыслов. */
+  --m-good: #1a7f5a;
+  --m-warn: #9a6410;
+  --m-bad: #c62f45;
+
+  /* Материал закреплённых слоёв: полоса вкладок, шапка при прокрутке,
+     подложка листа. */
+  --m-glass: rgb(255 255 255 / 0.72);
+  --m-scrim: rgb(23 11 43 / 0.32);
+
+  /* Тень плавающего слоя. Единственная тень системы: она поднимает
+     полосу вкладок и лист над листом, и потому у неё есть работа. */
+  --m-lift: 0 18px 40px -18px rgb(23 11 43 / 0.28), 0 2px 8px -4px rgb(23 11 43 / 0.12);
 }
 
 :root[data-theme='dark'] {
-  --m-board: #0a0a0c;
-  --m-surface: #1a191f;
-  --m-warm: #1c1826;
+  --m-grape: #7a44da;
+  --m-lime: #d5ff02;
 
-  --m-ink: #f7f5fb;
-  --m-muted: #8e8899;
+  --m-bg: #0b0614;
+  --m-ink: #f7f4fc;
+  --m-muted: #a79fb8;
+  --m-faint: #7b7389;
 
-  --m-hair: rgb(247 245 251 / 0.09);
-  --m-inset: rgb(247 245 251 / 0.08);
-  --m-inset-soft: rgb(247 245 251 / 0.05);
-  --m-divider: rgb(247 245 251 / 0.12);
+  --m-tile: #171024;
+  --m-tile-strong: #1f1731;
+  --m-hair: rgb(214 199 245 / 0.12);
 
-  --m-chip: #232029;
-  --m-slate: #22212a;
+  --m-lime-ink: #c3e63a;
 
   --m-good: #34d399;
-  --m-warn: #fbbf24;
-  --m-bad: #f87171;
+  --m-warn: #f2b544;
+  --m-bad: #ff6b81;
 
-  --m-mint: #152b27;
-  --m-mint-ink: #78d8bf;
-  --m-lavender: #282231;
-  --m-lavender-ink: #c9b8e3;
-  --m-sand: #17253d;
-  --m-sand-ink: #6ea8ff;
+  --m-glass: rgb(23 16 36 / 0.76);
+  --m-scrim: rgb(4 2 8 / 0.55);
+
+  --m-lift: 0 20px 44px -20px rgb(0 0 0 / 0.7), 0 2px 10px -4px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
-  --color-m-board: var(--m-board);
-  --color-m-surface: var(--m-surface);
-  --color-m-warm: var(--m-warm);
+  --color-m-bg: var(--m-bg);
   --color-m-ink: var(--m-ink);
   --color-m-muted: var(--m-muted);
+  --color-m-faint: var(--m-faint);
+  --color-m-grape: var(--m-grape);
+  --color-m-lime: var(--m-lime);
+  --color-m-lime-ink: var(--m-lime-ink);
+  --color-m-tile: var(--m-tile);
+  --color-m-tile-strong: var(--m-tile-strong);
   --color-m-hair: var(--m-hair);
-  --color-m-inset: var(--m-inset);
-  --color-m-inset-soft: var(--m-inset-soft);
-  --color-m-divider: var(--m-divider);
-  --color-m-chip: var(--m-chip);
-  --color-m-slate: var(--m-slate);
   --color-m-good: var(--m-good);
   --color-m-warn: var(--m-warn);
   --color-m-bad: var(--m-bad);
-  --color-m-mint: var(--m-mint);
-  --color-m-mint-ink: var(--m-mint-ink);
-  --color-m-lavender: var(--m-lavender);
-  --color-m-lavender-ink: var(--m-lavender-ink);
-  --color-m-sand: var(--m-sand);
-  --color-m-sand-ink: var(--m-sand-ink);
 
-  /* Шкала скруглений приложения. На телефоне она заметно крупнее
-     десктопной: там карточка — строка таблицы, здесь предмет в руке. */
-  --radius-m-hero: 28px;
-  --radius-m-card: 22px;
-  --radius-m-box: 20px;
-  --radius-m-tile: 18px;
-  --radius-m-row: 14px;
-  --radius-m-chip: 12px;
-  --radius-m-pill: 9px;
+  /* Скругления. На телефоне предмет держат в руке, и шкала здесь
+     заметно крупнее десктопных 8–12: плитка почти круглая по углам,
+     мелочь внутри неё — вдвое меньше, и промежуточных значений нет. */
+  --radius-m-sheet: 30px;
+  --radius-m-card: 26px;
+  --radius-m-tile: 22px;
+  --radius-m-row: 18px;
+  --radius-m-chip: 14px;
+}
+
+/**
+ * Графики на телефоне говорят теми же двумя цветами.
+ *
+ * Серии переопределяются здесь, а не в каждом графике: `ChartContainer`
+ * и все панели отчёта уже берут цвет из `--chart-*`, и достаточно
+ * подменить сам токен ниже 768px. Десктоп живёт выше этой границы, и
+ * его палитра не меняется ни на пиксель.
+ */
+@media (max-width: 767px) {
+  :root {
+    --chart-1: var(--m-grape);
+    --chart-2: var(--m-step-2);
+    --chart-3: var(--m-step-3);
+    --chart-4: var(--m-step-4);
+    --chart-5: var(--m-step-5);
+  }
 }
 
 /* ─────────────── размеры мобильной оболочки ─────────────── */
 :root {
-  /* Поле страницы. 16 — то же, что `.padding(.horizontal, 16)` в iOS. */
+  /* Поле страницы. */
   --m-pad: 16px;
-  /* Между блоками экрана смены. */
-  --m-gap: 10px;
-  /* Полоса вкладок: 49 точек панели iOS плюс подписи. */
-  --m-tab-h: 56px;
-  /* Липкая шапка раздела. */
-  --m-top-h: 48px;
+  /* Между блоками экрана. */
+  --m-gap: 12px;
+  /* Плавающая полоса вкладок: высота капсулы и её отступ от низа. */
+  --m-tab-h: 62px;
+  --m-tab-gap: 12px;
+  /* Шапка внутреннего экрана. */
+  --m-top-h: 56px;
+  /* Кнопки и поля: палец ищет не меньше 44, система даёт 52. */
+  --m-control-h: 52px;
+
   /* Безопасные зоны телефона — читаются здесь один раз. */
   --m-safe-top: env(safe-area-inset-top, 0px);
   --m-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -666,53 +690,62 @@
   --m-safe-right: env(safe-area-inset-right, 0px);
 
   /**
-   * Сколько занято снизу: домашняя черта плюс вкладки, если они есть.
-   *
-   * Одно значение на всех, кто прибит к низу, — место в конце
-   * прокрутки, полоса действия, полоса «нет связи». Оболочка владельца
+   * Сколько занято снизу: домашняя черта плюс полоса вкладок, если она
+   * есть. Одно значение на всех, кто прибит к низу, — место в конце
+   * прокрутки, полоса итога, полоса «нет связи». Оболочка владельца
    * поднимает его на высоту вкладок, у мойщика вкладок нет и оно
-   * остаётся равным безопасной зоне. Без общего токена каждый из троих
-   * считал бы по-своему, и на экране мойщика полоса действия висела бы
-   * на пятьдесят шесть точек выше, чем нужно.
+   * остаётся равным безопасной зоне.
    */
   --m-bottom-inset: var(--m-safe-bottom);
 }
 
 @layer components {
-  /* Полотно приложения на всю страницу. Ставится на <body> с телефона,
-     иначе за отскоком прокрутки видно белое полотно десктопа. */
+  /* Белый лист на всю страницу. Ставится на <body> с телефона, иначе за
+     отскоком прокрутки видно полотно десктопа. */
   @media (max-width: 767px) {
     body:has([data-mobile-shell]) {
-      background: var(--m-board);
+      background: var(--m-bg);
     }
   }
 
-
-  /* Приход содержимого раздела: те же 240мс, что у десктопа. */
+  /* Приход содержимого экрана. */
   .m-enter {
-    animation: m-enter 240ms var(--ease-out-soft) backwards;
+    animation: m-enter 260ms var(--ease-out-soft) backwards;
   }
   @keyframes m-enter {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(10px);
     }
     to {
       opacity: 1;
       transform: none;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .m-enter {
-      animation: m-fade 200ms ease-out backwards;
+
+  /* Лист снизу и его подложка. */
+  .m-rise {
+    animation: m-rise 300ms var(--ease-out-soft) backwards;
+  }
+  @keyframes m-rise {
+    from {
+      transform: translateY(14%);
+      opacity: 0.6;
     }
-    @keyframes m-fade {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  .m-veil {
+    animation: m-veil 220ms ease-out backwards;
+  }
+  @keyframes m-veil {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 
@@ -723,14 +756,36 @@
   @keyframes m-fresh {
     0%,
     45% {
-      background-color: color-mix(in srgb, var(--lime) 16%, transparent);
+      background-color: color-mix(in srgb, var(--m-lime) 26%, transparent);
     }
     100% {
       background-color: transparent;
     }
   }
+
+  /* Живая точка «сейчас»: лайм дышит, а не мигает. */
+  .m-live {
+    animation: m-live 2.4s ease-in-out infinite;
+  }
+  @keyframes m-live {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(0.86);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .m-fresh {
+    .m-enter,
+    .m-rise {
+      animation: m-veil 200ms ease-out backwards;
+    }
+    .m-fresh,
+    .m-live {
       animation: none;
     }
   }
@@ -794,33 +849,24 @@
 }
 
 /**
- * Место под полосу вкладок в конце прокрутки: содержимое должно
- * кончаться над ней, а не под ней.
+ * Нажатие как у предмета, а не как у ссылки.
  *
- * Объявлено `@utility`, а не классом в `@layer components`: варианты
- * (`max-md:`) работают только у настоящих утилит Tailwind, а оба этих
- * поля нужны ровно ниже 768px. Классом они молча не применялись бы, и
- * страница ездила бы вбок ровно на ширину поля.
- */
-/**
- * Нажатие как у плитки, а не как у ссылки.
+ * Два процента и короткая пружина. Отклик есть в момент касания, а не
+ * после ответа сервера, и на мокром экране это единственный честный
+ * ответ «касание засчитано».
  *
- * Два процента и короткая пружина — тот же отклик, что даёт
- * `PressStyle` в приложении. Он есть в момент касания, а не после
- * ответа сервера, и на мокром экране это единственный честный ответ
- * «касание засчитано».
- *
- * `@utility`, потому что нажатие бывает нужно только на телефоне
- * (`max-md:m-press`), а варианты работают лишь у настоящих утилит.
+ * `@utility`, а не класс в `@layer components`: варианты (`max-md:`)
+ * работают только у настоящих утилит Tailwind, и без этого нажатие
+ * молча не применялось бы там, где оно нужно ровно на телефоне.
  */
 @utility m-press {
   transition:
-    transform 110ms var(--ease-out-soft),
-    opacity 110ms var(--ease-out-soft);
+    transform 120ms var(--ease-out-soft),
+    opacity 120ms var(--ease-out-soft);
 
   &:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: scale(0.97);
+    opacity: 0.92;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -832,14 +878,46 @@
   }
 }
 
+/**
+ * Место под плавающую полосу вкладок в конце прокрутки: содержимое
+ * должно кончаться над ней, а не под ней.
+ */
 @utility m-tabs-space {
-  padding-bottom: calc(var(--m-bottom-inset) + 14px);
+  padding-bottom: calc(var(--m-bottom-inset) + 16px);
 }
 
 /** Боковое поле страницы с учётом чёлки в повороте. */
 @utility m-pad-x {
   padding-left: max(var(--m-pad), var(--m-safe-left));
   padding-right: max(var(--m-pad), var(--m-safe-right));
+}
+
+/**
+ * Лента вбок: катится пальцем, полосы прокрутки не показывает и
+ * останавливается на предмете, а не между двумя.
+ */
+@utility m-rail {
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/**
+ * Материал закреплённого слоя: полоса вкладок, шапка при прокрутке,
+ * лист. Размытие дорогое, поэтому слоёв с ним в системе три, и все три
+ * честно работают без `backdrop-filter` там, где его нет.
+ */
+@utility m-glass {
+  background: var(--m-glass);
+
+  @supports (backdrop-filter: blur(1px)) {
+    backdrop-filter: blur(20px) saturate(1.6);
+  }
 }
 
 @utility scrollbar-thin {

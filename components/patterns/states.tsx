@@ -98,9 +98,9 @@ export function SkeletonMetrics({ count = 3, className }: { count?: number; clas
         'grid divide-y divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-flow-col sm:auto-cols-fr sm:divide-x sm:divide-y-0',
         /* Та же форма, что у настоящей полосы показаний на телефоне:
            главное во всю ширину, остальное по двое. */
-        'max-md:grid-cols-2 max-md:divide-y-0 max-md:rounded-m-hero max-md:border-m-hair max-md:bg-m-surface',
-        'max-md:[&>*:first-child]:col-span-2 max-md:[&>*:first-child]:border-b max-md:[&>*]:border-m-hair',
-        'max-md:[&>*:nth-child(even)]:border-r max-md:[&>*:nth-child(n+4)]:border-t',
+        'max-md:grid-cols-2 max-md:gap-2.5 max-md:divide-y-0 max-md:rounded-none max-md:border-0 max-md:bg-transparent',
+        'max-md:[&>*]:rounded-m-tile max-md:[&>*]:border-0 max-md:[&>*]:bg-m-tile',
+        'max-md:[&>*:first-child]:col-span-2',
         className,
       )}
       aria-hidden
@@ -125,7 +125,7 @@ export function SkeletonHeader({ tools = true }: { tools?: boolean }) {
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-3 w-56" />
       </div>
-      {tools && <Skeleton className="h-9 w-32 max-md:h-[46px] max-md:w-full max-md:rounded-m-tile" />}
+      {tools && <Skeleton className="h-9 w-32 max-md:h-[52px] max-md:w-full max-md:rounded-m-row" />}
     </div>
   );
 }
@@ -136,7 +136,7 @@ export function SkeletonPanel({ className, rows = 0 }: { className?: string; row
     <div
       className={cn(
         'rounded-lg border border-border bg-card p-4',
-        'max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface',
+        'max-md:rounded-m-card max-md:border-0 max-md:bg-m-tile',
         className,
       )}
       aria-hidden

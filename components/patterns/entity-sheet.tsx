@@ -73,11 +73,13 @@ export function EntitySheet({
           at === 'bottom' && 'max-h-[92svh] rounded-t-xl',
           /* Геометрия листа приложения: крупное скругление сверху,
              полотно табло вместо белого листа. */
-          'max-md:rounded-t-m-hero max-md:border-m-hair max-md:bg-m-board',
+          'max-md:rounded-t-m-sheet max-md:border-0 max-md:bg-m-bg',
         )}
       >
         <SheetHeader className="pr-12 max-md:px-4 max-md:pt-4">
-          <SheetTitle className="truncate max-md:text-[17px] max-md:font-bold">{title}</SheetTitle>
+          <SheetTitle className="truncate max-md:text-[22px] max-md:font-bold max-md:tracking-[-0.02em]">
+            {title}
+          </SheetTitle>
           {description ? (
             <SheetDescription className="text-xs max-md:text-[12.5px]">
               {description}
@@ -95,7 +97,7 @@ export function EntitySheet({
           {children}
         </div>
         {footer && (
-          <SheetFooter className="safe-bottom max-md:border-t max-md:border-m-hair max-md:bg-m-board max-md:px-4">
+          <SheetFooter className="safe-bottom max-md:border-0 max-md:bg-m-bg max-md:px-4 max-md:pb-4">
             {footer}
           </SheetFooter>
         )}

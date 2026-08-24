@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { WifiOff } from 'lucide-react';
 
 import { useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
 
 /**
  * Полоса «нет связи» на нижней кромке. Не заслонка: всё, что уже
@@ -32,7 +33,16 @@ export function OfflineBar() {
        она легла бы поверх них, и половина разделов перестала бы
        нажиматься ровно тогда, когда связь и так пропала. */
     <div
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning-soft px-4 py-2 text-sm font-medium text-warning-soft-foreground max-md:bottom-[var(--m-bottom-inset)] max-md:pb-2"
+      className={cn(
+        'safe-bottom fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2',
+        'border-t border-warning/30 bg-warning-soft px-4 py-2 text-sm font-medium text-warning-soft-foreground',
+        /* На телефоне это не полоса во всю ширину, а фишка над
+           плавающими вкладками: полоса поверх капсулы отрезала бы у неё
+           верх ровно тогда, когда связь и так пропала. */
+        'max-md:inset-x-auto max-md:left-1/2 max-md:-translate-x-1/2 max-md:rounded-full',
+        'max-md:border-0 max-md:bg-m-ink max-md:px-4 max-md:py-2.5 max-md:text-[13.5px] max-md:text-m-bg',
+        'max-md:bottom-[calc(var(--m-bottom-inset)+8px)] max-md:pb-2.5',
+      )}
       role="status"
       aria-live="polite"
     >

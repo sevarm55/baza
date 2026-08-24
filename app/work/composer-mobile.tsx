@@ -3,14 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { Percent, Ticket } from 'lucide-react';
 
-import {
-  MobileButton,
-  MobileChip,
-  MobileCover,
-  MobileField,
-  MobileInput,
-  MobileQuietButton,
-} from '@/components/mobile';
+import { MButton, MChip, MCover, MField, MInput, MPlateInput } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { currencySymbol, formatMoney } from '@/lib/money';
 import { staffCount } from '@/lib/i18n/terms';
@@ -32,9 +25,9 @@ import { PAYMENTS } from './payment-icons';
  * машина, потом решили, что с ней делают, потом взяли деньги. Итог и
  * оплата прибиты к низу, у большого пальца руки, которой держат телефон.
  *
- * Клавиатура не перекрывает ни поле, ни кнопку: лист живёт в
- * `100dvh` — единице, которая на телефоне уменьшается вместе с
- * появлением клавиатуры, — а его середина прокручивается сама.
+ * Клавиатура не перекрывает ни поле, ни кнопку: лист живёт в `100dvh` —
+ * единице, которая на телефоне уменьшается вместе с появлением
+ * клавиатуры, — а его середина прокручивается сама.
  */
 export function ComposerMobile({
   c,
@@ -79,7 +72,7 @@ export function ComposerMobile({
   const sum = usingPass ? t.payment.pass : formatMoney(c.charged, currency, t.locale);
 
   return (
-    <MobileCover
+    <MCover
       open={c.step === 'compose'}
       onOpenChange={(next) => {
         if (!next && !c.pending) c.close();
@@ -87,20 +80,20 @@ export function ComposerMobile({
       title={t.work.newUnit(unitOne)}
       closeLabel={t.common.close}
       footer={
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-3">
           {/* Сумма появляется сразу после выбора услуги: считать в уме
               мойщик не должен. */}
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[13px] text-m-muted">{t.work.toPay}</span>
+            <span className="text-[14px] font-medium text-m-muted">{t.work.toPay}</span>
             <span className="flex items-baseline gap-2">
               {c.discounted && !usingPass && (
-                <span className="num text-[14px] text-m-muted line-through">
+                <span className="num text-[15px] text-m-faint line-through">
                   {formatMoney(c.listTotal, currency, t.locale)}
                 </span>
               )}
               <span
                 className={cn(
-                  'num text-[26px] leading-none font-bold tracking-[-0.02em]',
+                  'num text-[30px] leading-none font-bold tracking-[-0.03em]',
                   c.discounted && !usingPass ? 'text-m-warn' : 'text-m-ink',
                 )}
               >
@@ -120,15 +113,15 @@ export function ComposerMobile({
                 c.setPassId(activePass.id);
               }}
               className={cn(
-                'm-press flex min-h-[52px] w-full items-center justify-between gap-2 rounded-m-tile px-4',
-                usingPass ? 'bg-m-ink text-m-board' : 'bg-m-inset text-m-ink',
+                'm-press flex min-h-[54px] w-full items-center justify-between gap-2 rounded-m-row px-4',
+                usingPass ? 'bg-m-grape text-white' : 'bg-m-tile text-m-ink',
               )}
             >
-              <span className="flex items-center gap-2 text-[15px] font-semibold">
-                <Ticket aria-hidden className="size-[18px]" />
+              <span className="flex items-center gap-2 text-[15.5px] font-semibold">
+                <Ticket aria-hidden className="size-[19px]" />
                 {t.payment.pass}
               </span>
-              <span className="num text-[13px] opacity-80">
+              <span className="num text-[13.5px] opacity-80">
                 {t.passes.remaining} {activePass.remaining}
               </span>
             </button>
@@ -147,46 +140,43 @@ export function ComposerMobile({
                     c.setPassId(null);
                   }}
                   className={cn(
-                    'm-press flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-m-tile px-2',
-                    on ? 'bg-m-ink text-m-board' : 'bg-m-inset text-m-ink',
+                    'm-press flex min-h-[66px] flex-col items-center justify-center gap-1.5 rounded-m-row px-2',
+                    on ? 'bg-m-grape text-white' : 'bg-m-tile text-m-ink',
                   )}
                 >
-                  <p.Icon aria-hidden className="size-[17px]" />
-                  <span className="w-full truncate text-[12px] font-semibold">{t.payment[p.key]}</span>
+                  <p.Icon aria-hidden className="size-[18px]" />
+                  <span className="w-full truncate text-[12.5px] font-semibold">
+                    {t.payment[p.key]}
+                  </span>
                 </button>
               );
             })}
           </div>
 
           {c.error && (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-[13.5px] font-semibold text-m-bad">
               {c.error}
             </p>
           )}
 
           {/* Последнее движение, и на нём написано, что произойдёт и за
-              сколько. Пока номера, услуги или оплаты нет, кнопка бледнеет;
-              занятая остаётся в полном цвете и показывает, что делает. */}
-          <MobileButton
-            onClick={c.submit}
-            disabled={!c.ready}
-            loading={c.pending}
-            busyTitle={t.work.recording}
-          >
-            {t.work.addFor(addLabel, sum)}
-          </MobileButton>
+              сколько. Лаймовое: это то самое действие, ради которого
+              экран открыли. Пока номера, услуги или оплаты нет, кнопка
+              бледнеет. */}
+          <MButton tone="lime" block onClick={c.submit} disabled={!c.ready || c.pending}>
+            {c.pending ? t.work.recording : t.work.addFor(addLabel, sum)}
+          </MButton>
         </div>
       }
     >
       <div className="flex flex-col gap-5 pt-1">
         {/* Номер первым: сначала подъехала машина, потом решают, что с
-            ней делают. Набор крупный — это опознавательный знак записи,
+            ней делают. Набор огромный — это опознавательный знак записи,
             и его перечитывают, прежде чем нажать «записать». */}
-        <MobileField label={clientIdLabel} htmlFor="m-order-key">
-          <MobileInput
+        <MField label={clientIdLabel} htmlFor="m-order-key">
+          <MPlateInput
             id="m-order-key"
             ref={inputRef}
-            className="num h-[60px] text-[24px] font-bold uppercase"
             value={c.clientKey}
             onChange={(e) =>
               c.setClientKey(
@@ -197,19 +187,19 @@ export function ComposerMobile({
             }
             onBlur={() => c.setClientKey(c.resolvedClientKey)}
             inputMode={clientIdType === 'phone' ? 'tel' : 'text'}
-            autoComplete="off"
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
           />
-        </MobileField>
+        </MField>
 
         {/* Узнавание постоянного прямо при наборе — то, ради чего экран и
             существует: мойщик видит, что машина уже была, до того как
             назовёт цену. */}
         {c.known && (
-          <p className="-mt-3 px-1 text-[12.5px] font-medium text-m-good">
-            {t.work.knownClient(c.known.visits, agoLabel(c.known.lastSeenAt, t), c.money(c.known.total))}
+          <p className="-mt-3 px-1 text-[13px] font-semibold text-m-grape">
+            {t.work.knownClient(
+              c.known.visits,
+              agoLabel(c.known.lastSeenAt, t),
+              c.money(c.known.total),
+            )}
           </p>
         )}
 
@@ -220,24 +210,19 @@ export function ComposerMobile({
           <Group label={tierLabel}>
             <div className="flex flex-wrap gap-2" role="group" aria-label={tierLabel}>
               {tiers.map((name, i) => (
-                <MobileChip
-                  key={name}
-                  selected={c.tier === i}
-                  onClick={() => c.setPicked(i)}
-                  className="min-h-[44px] px-4 text-[14.5px]"
-                >
+                <MChip key={name} selected={c.tier === i} onClick={() => c.setPicked(i)}>
                   {name}
-                </MobileChip>
+                </MChip>
               ))}
             </div>
           </Group>
         )}
 
-        {/* Услуги плитками в поток, а не списком строк: список во всю
-            ширину показывал четыре услуги на экран и заставлял
-            прокручивать. Повторное касание снимает выбор. */}
+        {/* Услуги крупными плитками по две в ряд: список во всю ширину
+            показывал четыре услуги на экран и заставлял прокручивать.
+            Повторное касание снимает выбор. */}
         <Group label={t.work.stepService}>
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t.work.stepService}>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label={t.work.stepService}>
             {services.map((s) => {
               const on = c.chosen.some((x) => x.id === s.id);
               return (
@@ -254,12 +239,12 @@ export function ComposerMobile({
                     }
                   }}
                   className={cn(
-                    'm-press flex min-h-[56px] min-w-0 flex-col items-start justify-center gap-0.5 rounded-m-tile px-3.5 py-2.5 text-left',
-                    on ? 'bg-lime text-lime-foreground' : 'bg-m-inset text-m-ink',
+                    'm-press flex min-h-[74px] min-w-0 flex-col items-start justify-center gap-1 rounded-m-tile px-4 py-3 text-left',
+                    on ? 'bg-m-grape text-white' : 'bg-m-tile text-m-ink',
                   )}
                 >
-                  <span className="text-[14.5px] leading-snug font-semibold">{s.name}</span>
-                  <span className={cn('num text-[12px]', on ? 'opacity-70' : 'text-m-muted')}>
+                  <span className="w-full text-[15px] leading-snug font-semibold">{s.name}</span>
+                  <span className={cn('num text-[13px]', on ? 'text-white/75' : 'text-m-muted')}>
                     {formatMoney(c.priceOf(s), currency, t.locale)}
                   </span>
                 </button>
@@ -274,11 +259,11 @@ export function ComposerMobile({
         {c.chosen.length > 0 &&
           !usingPass &&
           (c.showDiscount ? (
-            <MobileField label={t.work.discounted} htmlFor="m-order-discount">
+            <MField label={t.work.discounted} htmlFor="m-order-discount">
               <div className="relative">
-                <MobileInput
+                <MInput
                   id="m-order-discount"
-                  className="num pr-10 text-right"
+                  className="num pr-11 text-right"
                   value={c.discountText}
                   onChange={(e) => c.setDiscountText(e.target.value.replace(/\D/g, ''))}
                   inputMode="numeric"
@@ -286,16 +271,20 @@ export function ComposerMobile({
                   autoComplete="off"
                   autoFocus
                 />
-                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[14px] text-m-muted">
+                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[15px] text-m-muted">
                   {currencySymbol(currency)}
                 </span>
               </div>
-            </MobileField>
+            </MField>
           ) : (
-            <MobileQuietButton className="-ml-2" onClick={() => c.setShowDiscount(true)}>
-              <Percent aria-hidden className="size-4" />
+            <button
+              type="button"
+              onClick={() => c.setShowDiscount(true)}
+              className="m-press flex h-11 items-center gap-2 self-start rounded-full bg-m-tile px-4 text-[14.5px] font-semibold text-m-grape"
+            >
+              <Percent aria-hidden className="size-[17px]" strokeWidth={2.2} />
               {t.work.giveDiscount}
-            </MobileQuietButton>
+            </button>
           ))}
 
         {/* Кто мыл: между услугами и оплатой, потому что меняет сумму
@@ -325,14 +314,15 @@ export function ComposerMobile({
               (c.working.length === 0 ? (
                 /* Коллеги есть, но все вне смены: пустой список читался
                    бы поломкой, а причина рабочая и поправимая. */
-                <p className="px-1 pt-2.5 text-[12.5px] font-medium text-m-warn">
+                <p className="px-1 pt-2.5 text-[13px] font-semibold text-m-warn">
                   {t.crew.nobodyOnShift}
                 </p>
               ) : (
-                <div className="flex flex-col gap-2.5 pt-2.5">
+                <div className="flex flex-col gap-3 pt-2.5">
                   <div className="flex flex-wrap gap-2" role="group" aria-label={t.crew.together}>
                     {c.working.map((m) => {
                       const on = c.crewIds.includes(m.id);
+                      const full = !on && c.crewSize >= c.maxCrew;
                       return (
                         <button
                           key={m.id}
@@ -340,21 +330,21 @@ export function ComposerMobile({
                           aria-pressed={on}
                           /* Потолок стоит и здесь, и на сервере: отказ не
                              должен прилетать после «добавить». */
-                          disabled={!on && c.crewSize >= c.maxCrew}
+                          disabled={full}
                           onClick={() =>
                             c.setHelpers((cur) =>
                               on ? cur.filter((id) => id !== m.id) : [...cur, m.id],
                             )
                           }
                           className={cn(
-                            'm-press flex min-h-[44px] items-center gap-2 rounded-m-row px-3.5 text-[14px] font-semibold',
-                            on ? 'bg-lime text-lime-foreground' : 'bg-m-inset text-m-ink',
-                            !on && c.crewSize >= c.maxCrew && 'opacity-45',
+                            'm-press flex h-11 items-center gap-2 rounded-full px-4 text-[14.5px] font-semibold',
+                            on ? 'bg-m-grape text-white' : 'bg-m-tile text-m-ink',
+                            full && 'opacity-45',
                           )}
                         >
                           <span
                             aria-hidden
-                            className="size-2 shrink-0 rounded-full"
+                            className="size-2.5 shrink-0 rounded-full"
                             style={{ background: personColor(m.name) }}
                           />
                           {m.name}
@@ -368,9 +358,9 @@ export function ComposerMobile({
                       совместную запись, иначе вечером он узнает её из
                       ведомости и решит, что его обсчитали. */}
                   {c.crewIds.length === 0 ? (
-                    <p className="px-1 text-[12.5px] text-m-muted">{t.crew.percentHint}</p>
+                    <p className="px-1 text-[13px] text-m-muted">{t.crew.percentHint}</p>
                   ) : (
-                    <div className="flex flex-col gap-1.5 rounded-m-tile bg-m-inset p-3.5 text-[13.5px]">
+                    <div className="flex flex-col gap-2 rounded-m-tile bg-m-tile p-4 text-[14px]">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="font-semibold text-m-ink">
                           {staffCount(c.crewSize, staffRole, t.locale)}
@@ -381,13 +371,13 @@ export function ComposerMobile({
                       </div>
                       <div className="flex items-baseline justify-between gap-3 text-m-muted">
                         <span>{t.crew.pool}</span>
-                        <span className="num font-medium text-m-ink">
+                        <span className="num font-semibold text-m-ink">
                           {formatMoney(c.split.pool, currency, t.locale)}
                         </span>
                       </div>
                       <div className="flex items-baseline justify-between gap-3 text-m-muted">
                         <span>{t.crew.yours}</span>
-                        <span className="num font-bold text-m-ink">
+                        <span className="num text-[16px] font-bold text-m-ink">
                           {formatMoney(c.split.shares[0] ?? 0, currency, t.locale)}
                         </span>
                       </div>
@@ -398,7 +388,7 @@ export function ComposerMobile({
           </Group>
         )}
       </div>
-    </MobileCover>
+    </MCover>
   );
 }
 
@@ -406,7 +396,7 @@ export function ComposerMobile({
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="px-1 text-[12px] font-semibold text-m-muted">{label}</span>
+      <span className="px-1 text-[13px] font-semibold text-m-muted">{label}</span>
       {children}
     </div>
   );
@@ -428,8 +418,8 @@ function Choice({
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'm-press flex min-h-[48px] items-center justify-center rounded-m-tile px-3 py-2 text-center text-[14px] font-semibold',
-        on ? 'bg-lime text-lime-foreground' : 'bg-m-inset text-m-ink',
+        'm-press flex min-h-[52px] items-center justify-center rounded-m-row px-3 py-2 text-center text-[15px] font-semibold',
+        on ? 'bg-m-grape text-white' : 'bg-m-tile text-m-ink',
       )}
     >
       {children}

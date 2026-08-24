@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MobileDataList, MobileDataRow, DesktopOnly, MobileOnly } from '@/components/mobile';
+import { DesktopOnly, MobileOnly, MRow, MRows } from '@/components/mobile';
 import { cn } from '@/lib/utils';
 import { TableShell } from './table';
 
@@ -249,11 +249,13 @@ export function DataTable<T>({
       {/* На телефоне тот же список строками на полотне: номер крупно,
           пояснение под ним, деньги у правого края на одной высоте —
           список не читают, его просматривают. */}
-      <MobileOnly className="flex flex-col">
+      <MobileOnly className="flex flex-col gap-2.5">
         {(title || mobileTools) && (
-          <div className="flex flex-col gap-2 px-1 pt-1 pb-1.5">
+          <div className="flex flex-col gap-2.5">
             {title && (
-              <h2 className="text-[13px] leading-tight font-semibold text-m-muted">{title}</h2>
+              <h2 className="px-1 text-[17px] leading-tight font-bold tracking-[-0.01em] text-m-ink">
+                {title}
+              </h2>
             )}
             {mobileTools}
           </div>
@@ -262,42 +264,29 @@ export function DataTable<T>({
         {sorted.length === 0 && empty !== undefined ? (
           empty
         ) : (
-          <MobileDataList>
-            {sorted.map((row) => {
-              const body = (
-                <MobileDataRow
-                  lead={mobile.lead?.(row)}
-                  title={mobile.title(row)}
-                  note={mobile.note?.(row)}
-                  extra={mobile.extra?.(row)}
-                  value={mobile.value?.(row)}
-                  sub={mobile.sub?.(row)}
-                  action={mobile.action?.(row)}
-                  className={cn('min-h-[58px]', rowClassName?.(row))}
-                />
-              );
-              return onRowClick ? (
-                <button
-                  key={rowKey(row)}
-                  type="button"
-                  aria-label={rowLabel?.(row)}
-                  onClick={(e) => {
-                    const el = e.target as HTMLElement;
-                    if (el.closest('button, a, input, [role=menuitem], [data-no-row-click]')) return;
-                    onRowClick(row);
-                  }}
-                  className="m-press w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:-outline-offset-2"
-                >
-                  {body}
-                </button>
-              ) : (
-                <div key={rowKey(row)}>{body}</div>
-              );
-            })}
-          </MobileDataList>
+          <MRows>
+            {sorted.map((row) => (
+              <MRow
+                key={rowKey(row)}
+                lead={mobile.lead?.(row)}
+                title={mobile.title(row)}
+                note={mobile.note?.(row)}
+                extra={mobile.extra?.(row)}
+                value={mobile.value?.(row)}
+                hint={mobile.sub?.(row)}
+                trailing={mobile.action?.(row)}
+                onClick={
+                  onRowClick
+                    ? () => onRowClick(row)
+                    : undefined
+                }
+                className={rowClassName?.(row)}
+              />
+            ))}
+          </MRows>
         )}
 
-        {footer && <p className="px-1 pt-2.5 text-[11.5px] text-m-muted">{footer}</p>}
+        {footer && <p className="px-1 pt-1 text-[12px] text-m-faint">{footer}</p>}
       </MobileOnly>
 
       <DesktopOnly>{table}</DesktopOnly>

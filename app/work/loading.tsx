@@ -1,4 +1,5 @@
 import { AfterDelay } from '@/components/loading';
+import { DesktopOnly, MBone, MobileOnly } from '@/components/mobile';
 import { LoadingPage, SkeletonPanel } from '@/components/patterns/states';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -16,6 +17,25 @@ export default function Loading() {
       {/* Поле на телефоне даёт оболочка; здесь оно только для
           компьютера, иначе отступ удваивается. */}
       <div className="mx-auto w-full max-w-3xl px-4 py-5 max-md:px-0 max-md:py-0 md:px-6">
+        {/* На телефоне место повторяет форму экрана смены: приветствие,
+            крупное число, фишка состояния, две плитки, кнопка, журнал. */}
+        <MobileOnly className="flex flex-col gap-3" aria-hidden>
+          <MBone height={20} width="45%" />
+          <div className="flex flex-col gap-2">
+            <MBone height={16} width="35%" />
+            <MBone height={48} width="65%" />
+          </div>
+          <MBone height={40} width={200} radius="full" />
+          <div className="grid grid-cols-2 gap-2.5">
+            <MBone height={116} radius="tile" />
+            <MBone height={116} radius="tile" />
+          </div>
+          <MBone height={52} radius="tile" />
+          <MBone height={70} radius="tile" />
+          <MBone height={70} radius="tile" />
+        </MobileOnly>
+
+        <DesktopOnly>
         <LoadingPage>
           {/* Табло смены: подпись, большое число, строка состояния. */}
           <div className="rounded-lg border border-border bg-card p-4" aria-hidden>
@@ -44,6 +64,7 @@ export default function Loading() {
 
           <SkeletonPanel rows={4} />
         </LoadingPage>
+        </DesktopOnly>
       </div>
     </AfterDelay>
   );

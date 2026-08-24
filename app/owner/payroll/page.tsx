@@ -7,6 +7,7 @@ import { getPayrollBoard, type BoardPayment } from '@/lib/payroll-board';
 import { PAYROLL_AFTER_DAYS } from '@/lib/alerts';
 import { daysSince, hhmm, ymd } from '@/lib/time';
 import { PageHeader } from '@/components/patterns/page-header';
+import { MTitle } from '@/components/mobile';
 import { EmptyState } from '@/components/patterns/states';
 import { StatusBadge } from '@/components/patterns/status-badge';
 import { Button } from '@/components/ui/button';
@@ -176,7 +177,11 @@ export default async function PayrollPage() {
   })();
 
   return (
-    <div className="flex flex-col gap-5 max-md:gap-3">
+    <div className="flex flex-col gap-5 max-md:gap-4">
+      {/* На телефоне это корень вкладки: название экрана звучит крупным
+          заголовком, а в полосе вкладок под ним стоит только значок. */}
+      <MTitle title={t.owner.tabPayroll} lead={t.payroll.lead} className="md:hidden" />
+
       <PageHeader
         className="mb-0 max-md:hidden"
         title={t.owner.tabPayroll}

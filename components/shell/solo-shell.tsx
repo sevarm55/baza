@@ -47,7 +47,7 @@ export async function SoloShell({
   const many = points.length > 1;
 
   return (
-    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-board">
+    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-bg">
       <div className="hidden md:contents">
         <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
           <span className="flex shrink-0 items-center" aria-label={t.app.name} role="img">
@@ -79,7 +79,7 @@ export async function SoloShell({
         shiftOpen={shiftOpen}
       />
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 max-md:m-pad-x max-md:m-tabs-space max-md:pt-3 md:px-6">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 max-md:m-pad-x max-md:m-tabs-space max-md:pt-2 md:px-6">
         <BillingBanner access={access} role="staff" />
         <PageFade>{children}</PageFade>
       </main>

@@ -4,7 +4,7 @@ import { AppSidebar } from '@/components/shell/app-sidebar';
 import { BillingBanner } from '@/components/shell/billing-banner';
 import { TopBar } from '@/components/shell/top-bar';
 import { MobileAppBar } from '@/components/mobile/app-bar';
-import { MobileTabBar } from '@/components/mobile/tab-bar';
+import { MTabBar } from '@/components/mobile/chrome';
 import { OfflineBar, PageFade } from '@/components/loading';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Point } from '@/lib/accounts';
@@ -68,8 +68,13 @@ export function AppShell({
       </div>
 
       <SidebarInset
-        className="min-w-0 bg-background max-md:bg-m-board"
-        style={{ '--m-bottom-inset': 'calc(var(--m-tab-h) + var(--m-safe-bottom))' } as React.CSSProperties}
+        className="min-w-0 bg-background max-md:bg-m-bg"
+        style={
+          {
+            '--m-bottom-inset':
+              'calc(var(--m-tab-h) + var(--m-tab-gap) * 2 + var(--m-safe-bottom))',
+          } as React.CSSProperties
+        }
       >
         <div className="hidden md:contents">
           <TopBar
@@ -86,7 +91,6 @@ export function AppShell({
           tenantName={tenantName}
           points={points}
           currentTid={currentTid}
-          canManage
           alerts={alerts}
           userName={userName}
           roleLabel={roleLabel}
@@ -101,7 +105,7 @@ export function AppShell({
         <main
           className={cn(
             'mx-auto w-full min-w-0 flex-1',
-            'max-md:m-pad-x max-md:m-tabs-space max-md:pt-3',
+            'max-md:m-pad-x max-md:m-tabs-space max-md:pt-2',
             'md:px-6 md:py-6',
             narrow ? 'max-w-3xl' : 'max-w-(--page-max)',
           )}
@@ -113,7 +117,7 @@ export function AppShell({
         <OfflineBar />
       </SidebarInset>
 
-      <MobileTabBar passes={passes} />
+      <MTabBar />
     </SidebarProvider>
   );
 }

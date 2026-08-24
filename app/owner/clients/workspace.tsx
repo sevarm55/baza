@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DataTable, type Column } from '@/components/patterns/data-table';
 import {
   DesktopOnly,
-  MobileChipRow,
-  MobileEmpty,
+  MChip,
+  MChipRow,
+  MEmpty,
   MobileOnly,
-  MobileSearch,
-  MobileSelect,
+  MSearch,
+  MSelect,
 } from '@/components/mobile';
 import { Segmented } from '@/components/patterns/segmented';
 import { EmptyState } from '@/components/patterns/states';
@@ -189,32 +190,38 @@ export function ClientsWorkspace({
      системный барабан человек уже умеет крутить, а нарисованный список
      внутри страницы приходится учиться листать заново. */
   const mobileTools = (
-    <div className="flex flex-col gap-2">
-      <MobileSearch
-        numeric
+    <div className="flex flex-col gap-2.5">
+      <MSearch
+        inputMode="numeric"
         value={query}
         onChange={setQuery}
         placeholder={t.owner.clientsSearch}
         clearLabel={t.common.clear}
       />
-      <MobileChipRow
-        items={groups}
-        value={group}
-        onChange={(key) => setGroup(key as ClientGroup)}
-        label={t.owner.tabClients}
-      />
-      <MobileSelect
+      <MChipRow ariaLabel={t.owner.tabClients}>
+        {groups.map((g) => (
+          <MChip
+            key={g.key}
+            selected={group === g.key}
+            count={g.count}
+            onClick={() => setGroup(g.key as ClientGroup)}
+          >
+            {g.label}
+          </MChip>
+        ))}
+      </MChipRow>
+      <MSelect
         aria-label={t.owner.sortRecent}
         value={sort}
         onChange={(e) => setSort(e.target.value as ClientSort)}
-        className="h-[42px] text-[14px]"
+        className="h-12 text-[15px]"
       >
         {SORTS.map((s) => (
           <option key={s.key} value={s.key}>
             {s.label}
           </option>
         ))}
-      </MobileSelect>
+      </MSelect>
     </div>
   );
 
@@ -273,7 +280,7 @@ export function ClientsWorkspace({
         <>
           <MobileOnly className="flex flex-col gap-3">
             {mobileTools}
-            <MobileEmpty
+            <MEmpty
               title={
                 rows.length === 0
                   ? t.owner.clientsEmpty

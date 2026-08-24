@@ -63,12 +63,12 @@ export function ReportToolbar({
   const ranges: RangeKey[] = ['today', 'week', 'month', 'prevmonth'];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {/* На телефоне управление отчётом разворачивается в столбик:
           период, даты, сравнение и выгрузка — четыре разных решения, и
           втиснутые в одну строку они превращаются в четыре цели по
           восемьдесят точек, по которым не попасть. */}
-      <div className="flex flex-wrap items-center gap-2 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:flex-col max-md:flex-nowrap max-md:items-stretch max-md:gap-2.5">
         <Segmented
           label={t.reports.period}
           size="sm"
@@ -83,7 +83,7 @@ export function ReportToolbar({
           onReset={() => router.push(href({ r: 'month', from: null, to: null }))}
         />
 
-        <div className="ml-auto flex flex-wrap items-center gap-3 max-md:ml-0 max-md:w-full max-md:justify-between">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center gap-3 max-md:ml-0 max-md:w-full max-md:justify-between">
           <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <Switch
               size="sm"

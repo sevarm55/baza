@@ -37,8 +37,15 @@ import { ShiftClock } from './shift-clock';
 import { OrderFlow } from './order-flow';
 import { FirstRunBar } from './first-run-bar';
 
-export default async function WorkPage() {
+export default async function WorkPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ add?: string }>;
+}) {
   const t = await getDict();
+  /* Лаймовый круг в полосе вкладок ведёт сюда с меткой `add`: экран
+     открывается сразу с формой записи. Метку снимает сам `OrderFlow`. */
+  const { add } = await searchParams;
   const session = await requireSession();
   await ensureDb();
 
@@ -156,18 +163,6 @@ export default async function WorkPage() {
      которое сейчас на экране. */
   const body = (
     <div className="flex flex-col gap-4 max-md:gap-2.5">
-      <MobileOnly className="-mt-1">
-        <ShiftToggleMobile
-          onShift={onShift}
-          count={shift.count}
-          revenue={shift.revenue}
-          earned={shift.earned}
-          cash={cashSoFar}
-          currency={tenant.currency}
-          unitOne={unitForms(tenant.unitOne, t.locale).nom}
-        />
-      </MobileOnly>
-
       {/* Плашка сценария: что сделать здесь и как вернуться владельцем.
           Состояние считает сервер по тем же данным, что и сам экран,
           поэтому после открытия смены и после первой машины она
@@ -203,6 +198,21 @@ export default async function WorkPage() {
           currency={tenant.currency}
           unitOne={tenant.unitOne}
         />
+
+        {/* Начать смену или закрыть её — одной кнопкой под числами.
+            Вне смены она главная на экране и грейповая, на смене
+            становится тихой: закрываются раз в день. */}
+        <div className="mt-3">
+          <ShiftToggleMobile
+            onShift={onShift}
+            count={shift.count}
+            revenue={shift.revenue}
+            earned={shift.earned}
+            cash={cashSoFar}
+            currency={tenant.currency}
+            unitOne={unitForms(tenant.unitOne, t.locale).nom}
+          />
+        </div>
       </MobileOnly>
 
       <DesktopOnly>
@@ -269,6 +279,8 @@ export default async function WorkPage() {
 
       <OrderFlow
         highlightAdd={previewing && shift.count === 0}
+        solo={!owner}
+        autoOpen={add === '1'}
         canWrite={access.canWrite && onShift}
         shiftOpen={onShift}
         /* Цены по классам приезжают уже посчитанными, по одной на класс

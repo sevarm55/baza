@@ -131,7 +131,7 @@ export function FirstRunFlow({
       {/* На телефоне коробка шага — та же бумага, что во всём
           мобильном слое: сценарий первого запуска не должен выглядеть
           другим продуктом. */}
-      <section className="rounded-lg border border-border bg-card max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface">
+      <section className="rounded-lg border border-border bg-card max-md:rounded-m-card max-md:border-0 max-md:bg-m-tile">
         <AnimatePresence mode="wait" initial={false}>
           {flash ? (
             <motion.div

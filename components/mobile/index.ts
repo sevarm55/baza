@@ -1,31 +1,40 @@
 /**
  * Мобильный слой Tetrin.
  *
- * Ниже 768px продукт показывает не сжатый кабинет, а то же приложение,
- * что стоит на iPhone: полотно табло, белая бумага на нём, полоса
- * вкладок внизу, листы снизу вверх. Композиция, отступы, кегли и
- * скругления перенесены из `ios/Tetr/` — там же лежат объяснения,
- * почему каждое такое.
+ * Ниже 768px продукт — не сжатый кабинет, а приложение: белый лист без
+ * рамок, мягкие сиреневые плитки на нём, плавающая полоса вкладок
+ * внизу, листы снизу вверх. Цветов ровно два: грейп — действие и
+ * выбранное, лайм — «здесь и сейчас».
  *
  * Одна система на весь мобильный веб. Страница, которая рисует свою
  * карточку своими классами, через месяц перестаёт быть частью этого
  * продукта; поэтому всё, что повторяется дважды, живёт здесь.
  */
 
-export { MobileOnly, DesktopOnly, MobileSection } from './layout';
-export { MobileCard, MobileReading, MobileDelta } from './card';
-export { MobileTabBar } from './tab-bar';
-export { MobileTopBar, MobileBackHeader, MobileTitle } from './header';
-export { MobileButton, MobileChip, MobileQuietButton, MobileActionBar } from './button';
-export { MobileDataRow, MobileDataList, MobileAvatar } from './list';
-export { MobileStatRow, MobileSplitBar, MobileSplitLegend } from './stats';
-export { MobileEmpty } from './states';
-export { MobileSheet, MobileCover } from './sheet';
+export { MobileOnly, DesktopOnly, MScreen, MSection, MLink } from './screen';
+export { MTile, MGrid, MBadge, MArrow, MStatTile, mSurface, type MTone } from './surface';
+export { MTabBar, MTopBar, MNav, MTitle } from './chrome';
 export {
-  MobileField,
-  MobileInput,
-  MobileSelect,
-  MobileSegmented,
-  MobileSegmentedLinks,
+  MButton,
+  MButtonLink,
+  MIconButton,
+  MIconLink,
+  MChip,
+  MChipLink,
+  MChipRow,
+  MActionBar,
+} from './controls';
+export { MRows, MGroup, MRow, MNavRow, MAvatar, MAvatarStack } from './list';
+export { MReading, MDelta, MSplitBar, MLegend, MRing, M_SERIES, mSeries } from './stats';
+export { MSheet, MCover } from './sheet';
+export { MEmpty, MBone, MScreenSkeleton } from './states';
+export {
+  MField,
+  MInput,
+  MTextarea,
+  MSelect,
+  MPlateInput,
+  MSegmented,
+  MSwitch,
+  MSearch,
 } from './field';
-export { MobileSearch, MobileChipRow } from './toolbar';

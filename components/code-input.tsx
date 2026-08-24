@@ -173,9 +173,9 @@ export function CodeInput({
                    но видеть, куда встанет следующая цифра, всё равно
                    нужно. */
                 'num relative flex h-11 w-10 items-center justify-center rounded-md border border-input bg-card text-lg font-semibold text-foreground transition-colors',
-                'max-md:h-[54px] max-md:w-[46px] max-md:rounded-m-tile max-md:text-[22px]',
+                'max-md:h-[60px] max-md:w-[48px] max-md:rounded-m-row max-md:border-m-hair max-md:bg-m-bg max-md:text-[24px] max-md:font-bold',
                 'data-gap:ml-2',
-                'data-filled:border-foreground/30',
+                'data-filled:border-foreground/30 max-md:data-filled:border-m-grape/45',
                 /* Кольцо на одной клетке, куда попадёт следующая цифра. */
                 'group-data-focus/code:data-active:border-ring group-data-focus/code:data-active:ring-3 group-data-focus/code:data-active:ring-ring/50',
                 /* Ошибка сильнее фокуса: ряд остаётся красным, пока не исправлен. */

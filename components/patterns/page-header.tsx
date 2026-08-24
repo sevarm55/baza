@@ -65,11 +65,11 @@ export function PageHeader({
               {back.label}
             </Link>
           )}
-          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em] max-md:text-[26px] max-md:font-bold">
+          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em] max-md:text-[30px] max-md:font-bold max-md:tracking-[-0.03em]">
             {title}
           </h1>
           {(description || meta) && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground max-md:mt-1.5 max-md:text-[13.5px] max-md:text-m-muted">
               {description}
               {meta}
             </div>
@@ -79,7 +79,12 @@ export function PageHeader({
           <div
             className={cn(
               'flex max-w-full flex-wrap items-center gap-2',
-              'max-md:w-full max-md:[&>*]:min-h-[46px] max-md:[&>*]:flex-1',
+              /* На телефоне действия становятся кнопками системы: рост
+                 пятьдесят две точки и скругление восемнадцать — по
+                 кнопке в тридцать шесть точек мокрым пальцем не
+                 попасть. */
+              'max-md:w-full max-md:[&>*]:min-h-[52px] max-md:[&>*]:flex-1',
+              'max-md:[&>*]:rounded-m-row max-md:[&>*]:text-[16px]',
             )}
           >
             {actions}
@@ -90,7 +95,13 @@ export function PageHeader({
           (полоса из шести фильтров) растягивает ряд, ряд растягивает
           страницу, и весь экран начинает ездить вбок. */}
       {children && (
-        <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
+        <div
+          /* `flex-nowrap` на телефоне обязателен: колоночный flex с
+             переносом раскладывает детей по КОЛОНКАМ, и ширину ряду
+             задаёт самый широкий из них — лента фильтров растягивает
+             страницу вбок вместо того, чтобы кататься внутри себя. */
+          className="flex min-w-0 flex-wrap items-center gap-2 max-md:flex-col max-md:flex-nowrap max-md:items-stretch max-md:gap-2.5"
+        >
           {children}
         </div>
       )}

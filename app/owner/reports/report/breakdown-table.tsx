@@ -1,7 +1,7 @@
 'use client';
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
-import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
+import { DesktopOnly, MobileOnly, MRow, MRows } from '@/components/mobile';
 import { Delta } from '@/components/patterns/metric';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useT } from '@/lib/i18n/client';
@@ -53,20 +53,18 @@ export function ServicesTable({
       {/* На телефоне строками: услуга, сколько раз и на сколько.
           Средний чек и доля идут пояснением — по ним не решают, их
           читают вторым взглядом. */}
-      <MobileOnly className="px-4 pb-1">
-        <MobileDataList>
+      <MobileOnly className="px-4 pb-4">
+        <MRows>
           {shown.map((r) => (
-            <MobileDataRow
+            <MRow
               key={r.key}
-              title={
-                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
-              }
+              title={r.name}
               note={`${c.times} ${r.count} · ${c.avgCheck} ${money(r.avg)}`}
               value={money(r.revenue)}
-              sub={`${Math.round(r.share * 100)}%`}
+              hint={`${Math.round(r.share * 100)}%`}
             />
           ))}
-        </MobileDataList>
+        </MRows>
       </MobileOnly>
 
       <DesktopOnly>
@@ -127,15 +125,15 @@ export function CostsTable({
       height="h-56"
       padded={false}
     >
-      <MobileOnly className="px-4 pb-1">
-        <MobileDataList>
+      <MobileOnly className="px-4 pb-4">
+        <MRows>
           {rows.map((r) => (
-            <MobileDataRow
+            <MRow
               key={r.key}
-              title={<span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>}
+              title={r.name}
               note={`${r.monthly ? t.expenses.perMonth : t.expenses.oneOff} · ${Math.round(r.share * 100)}%`}
               value={money(r.amount)}
-              sub={
+              hint={
                 compare
                   ? r.prev === null
                     ? c.new
@@ -144,7 +142,7 @@ export function CostsTable({
               }
             />
           ))}
-        </MobileDataList>
+        </MRows>
       </MobileOnly>
 
       <DesktopOnly>

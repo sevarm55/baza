@@ -1,20 +1,13 @@
 'use client';
 
-import { Banknote, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react';
+import { RefreshCw, TriangleAlert, WifiOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-import {
-  MobileCard,
-  MobileDataList,
-  MobileDataRow,
-  MobileEmpty,
-  MobileQuietButton,
-  MobileSection,
-} from '@/components/mobile';
+import { MEmpty, MRow, MRows, MSection, MTile } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { staffCount } from '@/lib/i18n/terms';
 import { hhmm } from '@/lib/time';
 import { drop, retry } from '@/lib/offline';
-import { useRouter } from 'next/navigation';
 import { paymentLabel, type Recent } from './order-model';
 import type { Composer } from './use-composer';
 import { RevokeOrder } from './revoke-order';
@@ -25,6 +18,9 @@ import { RevokeOrder } from './revoke-order';
  * Номер машины крупно, услуга и оплата под ним. Из сорока записей за
  * смену «Комплекс» встречается двадцать раз, а номер один: искать свою
  * ошибку по названию услуги — это читать список целиком.
+ *
+ * Каждая запись — своя плитка, а не строка таблицы: это предмет со
+ * своей жизнью, его открывают, отменяют, повторяют.
  *
  * Отвергнутые записи стоят первыми и с разбором: молча выбросить работу
  * человека нельзя, а решить, повторить её или отменить, может только он
@@ -49,11 +45,11 @@ export function ShiftJournalMobile({
   const nothingYet = recent.length === 0 && c.queue.length === 0;
 
   /* Вне смены и без единой записи журнала нет вовсе: состояние уже
-     названо строкой под заработком и подписью под кнопкой. */
+     названо фишкой под заработком и подписью под кнопкой. */
   if (!shiftOpen && nothingYet) return null;
 
   return (
-    <MobileSection
+    <MSection
       title={t.work.recent}
       count={nothingYet ? undefined : recent.length + c.queue.length}
     >
@@ -61,86 +57,81 @@ export function ShiftJournalMobile({
         /* Пусто до смены и пусто на смене — разные ответы. Первый
            говорит, что делать; второй — что всё в порядке и первая
            машина просто ещё не приехала. */
-        <MobileEmpty
-          compact
+        <MEmpty
           title={shiftOpen ? t.work.emptyOpen : t.work.emptyOff}
           note={shiftOpen ? t.work.emptyOpenNote : t.work.emptyOffNote}
         />
       ) : (
-        <MobileDataList>
+        <MRows>
           {c.stuck.map((q) => (
-            <div key={q.ref} className="flex flex-col gap-3 py-3">
+            <MTile key={q.ref} radius="row" className="gap-3">
               <div className="flex items-start gap-2.5">
-                <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-m-warn" />
+                <TriangleAlert aria-hidden className="mt-0.5 size-[18px] shrink-0 text-m-warn" />
                 <div className="min-w-0 flex-1">
-                  <div className="num truncate text-[14px] font-semibold text-m-ink">
+                  <div className="num truncate text-[15.5px] font-bold text-m-ink">
                     {q.clientKey}
                   </div>
-                  <div className="truncate text-[11.5px] text-m-muted">
+                  <div className="truncate text-[12.5px] text-m-muted">
                     {[q.serviceName, q.failure].filter(Boolean).join(' · ')}
                   </div>
                 </div>
-                <span className="num shrink-0 text-[14px] font-semibold text-m-ink">
+                <span className="num shrink-0 text-[15.5px] font-bold text-m-ink">
                   {c.money(q.price)}
                 </span>
               </div>
               <div className="flex gap-2">
-                <MobileQuietButton
-                  className="rounded-m-pill bg-m-inset px-3"
+                <button
+                  type="button"
                   onClick={() => {
                     retry(q.ref);
                     router.refresh();
                   }}
+                  className="m-press h-10 flex-1 rounded-full bg-m-grape text-[14px] font-semibold text-white"
                 >
                   {t.payroll.retry}
-                </MobileQuietButton>
-                <MobileQuietButton
-                  tone="muted"
-                  className="rounded-m-pill bg-m-inset px-3"
+                </button>
+                <button
+                  type="button"
                   onClick={() => drop(q.ref)}
+                  className="m-press h-10 flex-1 rounded-full bg-m-bg text-[14px] font-semibold text-m-muted"
                 >
                   {t.expenses.remove}
-                </MobileQuietButton>
+                </button>
               </div>
-            </div>
+            </MTile>
           ))}
 
           {c.queued.map((q) => (
-            <MobileDataRow
+            <MRow
               key={q.ref}
               lead={
-                <span className="flex size-[34px] items-center justify-center rounded-full bg-m-inset text-m-muted">
-                  <WifiOff aria-hidden className="size-4" />
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-m-bg text-m-muted">
+                  <WifiOff aria-hidden className="size-[17px]" />
                 </span>
               }
-              title={
-                <span className="num truncate text-[15px] font-semibold text-m-ink">
-                  {q.clientKey}
-                </span>
-              }
+              title={<span className="num">{q.clientKey}</span>}
               note={[q.serviceName, t.work.pending].join(' · ')}
               value={c.money(q.price)}
-              sub={hhmm(q.at, timezone)}
+              hint={hhmm(q.at, timezone)}
             />
           ))}
 
           {recent.map((o) => {
             const shared = o.crew > 1;
             return (
-              <MobileDataRow
+              <MRow
                 key={o.id}
-                title={
-                  <span className="num truncate text-[15.5px] font-semibold text-m-ink">
-                    {o.clientKey ?? o.serviceName}
-                  </span>
-                }
-                note={[
-                  o.clientKey ? o.serviceName : null,
-                  paymentLabel(o.payment, t),
+                title={<span className="num">{o.clientKey ?? o.serviceName}</span>}
+                note={[o.clientKey ? o.serviceName : null, paymentLabel(o.payment, t)]
+                  .filter(Boolean)
+                  .join(' · ')}
+                /* Время и состав — третьей строкой, самой тихой: на
+                   вопрос «что было» они отвечают последними. Совместная
+                   работа названа словом и числом людей, иначе строка
+                   нечитаема: цена 12 000, а заработок 1 800, и почему,
+                   неизвестно. */
+                extra={[
                   hhmm(o.at, timezone),
-                  /* Совместная работа названа словом и числом людей: без
-                     них строка нечитаема — цена 12 000, а заработок
-                     1 800, и почему, неизвестно. */
                   shared ? `${t.crew.joint} · ${staffCount(o.crew, staffRole, t.locale)}` : null,
                 ]
                   .filter(Boolean)
@@ -149,8 +140,8 @@ export function ShiftJournalMobile({
                 /* Своя доля — только у совместной. У одиночной она и так
                    вся наверху экрана, и вторая строка под ценой
                    повторяла бы одно число дважды. */
-                sub={shared ? c.money(o.earned) : undefined}
-                action={
+                hint={shared ? c.money(o.earned) : undefined}
+                trailing={
                   o.mine ? (
                     <RevokeOrder
                       orderId={o.id}
@@ -162,40 +153,9 @@ export function ShiftJournalMobile({
               />
             );
           })}
-        </MobileDataList>
+        </MRows>
       )}
-    </MobileSection>
-  );
-}
-
-/**
- * Сколько наличных на руках и что с ними будет.
- *
- * Графит, а не бумага: это единственное число экрана, которое
- * превращается в действие — столько с человека спросят при закрытии
- * смены. И только на тёмном в этом продукте можно пустить лайм: по
- * светлому он даёт контраст 1.06 и не виден вовсе. Сумма лаймом,
- * поэтому её видно раньше подписи.
- */
-export function CashRow({ cash }: { cash: string }) {
-  const t = useT();
-  return (
-    <MobileCard tone="slate" radius="box" padded={false} className="px-3.5 py-3">
-      <div className="flex items-center gap-3">
-        <span className="flex size-[38px] shrink-0 items-center justify-center rounded-m-chip bg-white/10">
-          <Banknote aria-hidden className="size-4 text-lime" />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[14.5px] leading-tight font-semibold text-white">
-            {t.payment.cash}
-          </span>
-          <span className="truncate text-[11.5px] leading-tight text-white/60">
-            {t.work.toHandOver}
-          </span>
-        </span>
-        <span className="num shrink-0 text-[20px] font-bold text-lime">{cash}</span>
-      </div>
-    </MobileCard>
+    </MSection>
   );
 }
 
@@ -203,7 +163,7 @@ export function CashRow({ cash }: { cash: string }) {
 export function SyncMark({ active, label }: { active: boolean; label: string }) {
   if (!active) return null;
   return (
-    <span className="flex items-center gap-1.5 text-[12px] text-m-muted" role="status">
+    <span className="flex items-center gap-1.5 text-[12.5px] text-m-muted" role="status">
       <RefreshCw aria-hidden className="size-3.5 animate-spin" />
       {label}
     </span>

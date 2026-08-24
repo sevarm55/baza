@@ -1116,6 +1116,7 @@ export const en: Dict = {
     tabPayroll: 'Payroll',
     tabMore: 'More',
     tabsAria: 'Main sections',
+    tabAdd: 'Add a car',
 
     moreTitle: 'More',
     moreLead: 'The map of your business',

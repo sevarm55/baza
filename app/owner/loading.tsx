@@ -1,10 +1,18 @@
 import { AfterDelay } from '@/components/loading';
+import { DesktopOnly, MobileOnly, MScreenSkeleton } from '@/components/mobile';
 import { LoadingPage, SkeletonHeader, SkeletonMetrics, SkeletonPanel, SkeletonTable } from '@/components/patterns/states';
 
 /** Что видно, пока едет сводка: по форме настоящей страницы. */
 export default function Loading() {
   return (
     <AfterDelay>
+      {/* Форма мобильной сводки: заголовок, крупное число, фишки
+          периода, четыре плитки, строки журнала. */}
+      <MobileOnly>
+        <MScreenSkeleton />
+      </MobileOnly>
+
+      <DesktopOnly>
       <LoadingPage>
         <SkeletonHeader />
         <SkeletonMetrics count={4} />
@@ -17,6 +25,7 @@ export default function Loading() {
         </div>
         <SkeletonTable rows={6} />
       </LoadingPage>
+      </DesktopOnly>
     </AfterDelay>
   );
 }

@@ -20,7 +20,7 @@ import { DetailList, DetailRow } from '@/components/patterns/detail-list';
 import { PersonDot } from '@/components/patterns/person';
 import { EmptyState } from '@/components/patterns/states';
 import { TableShell, cellNum, headNum } from '@/components/patterns/table';
-import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
+import { DesktopOnly, MobileOnly, MRow, MRows } from '@/components/mobile';
 
 /**
  * История одной машины — отдельной страницей.
@@ -162,16 +162,12 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
             {/* На телефоне визиты строками: услуга и кто мыл слева, цена
                 и когда — справа. Пять колонок на трёхстах шестидесяти
                 точках сжались бы до нечитаемого. */}
-            <MobileOnly className="px-4 pb-1">
-              <MobileDataList>
+            <MobileOnly className="px-4 pb-4">
+              <MRows>
                 {orders.map((o) => (
-                  <MobileDataRow
+                  <MRow
                     key={o.id}
-                    title={
-                      <span className="truncate text-[15.5px] font-semibold text-m-ink">
-                        {o.serviceName}
-                      </span>
-                    }
+                    title={o.serviceName}
                     note={`${crewNames(o)} · ${paymentLabel(o.payment, t).toLocaleLowerCase(t.locale)}`}
                     extra={`${dayMonth(o.createdAt, tenant.timezone)} · ${hhmm(o.createdAt, tenant.timezone)}`}
                     value={
@@ -186,7 +182,7 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                     }
                   />
                 ))}
-              </MobileDataList>
+              </MRows>
             </MobileOnly>
 
             <DesktopOnly>

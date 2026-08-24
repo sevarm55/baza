@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Car, ChevronLeft, ChevronRight, Coins, Wallet } from 'lucide-react';
 
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
@@ -11,6 +11,7 @@ import { formatCount, formatMoney } from '@/lib/money';
 import { getDict } from '@/lib/i18n/server';
 import { intlLocale } from '@/lib/i18n/format';
 import { localizeTenantOrNull, unitCount, unitWord } from '@/lib/i18n/terms';
+import { DesktopOnly, MGrid, MobileOnly, MStatTile } from '@/components/mobile';
 import { Metric, MetricStrip } from '@/components/patterns/metric';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Panel } from '@/components/patterns/panel';
@@ -110,14 +111,16 @@ export default async function CalendarPage({
           /* Вперёд дальше текущего месяца не ходим, назад не раньше
              того, в котором завели бизнес: пустые месяцы до его
              появления это не нули мойки, а месяцы, когда мойки не было. */
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 max-md:w-full max-md:justify-between max-md:gap-2">
             <MonthStep
               href={`/owner/calendar?m=${prev}`}
               enabled={prev >= first}
               back
               label={monthTitle.format(monthBounds(prev, zone).from)}
             />
-            <span className="min-w-36 text-center text-sm font-medium">{title}</span>
+            <span className="min-w-36 text-center text-sm font-medium max-md:min-w-0 max-md:flex-1 max-md:text-[17px] max-md:font-bold">
+              {title}
+            </span>
             <MonthStep
               href={`/owner/calendar?m=${next}`}
               enabled={next <= thisMonth}
@@ -129,33 +132,65 @@ export default async function CalendarPage({
 
       {/* Итог месяца рядом с сеткой: клетки отвечают «когда густо», а
           «сколько всего» только здесь. */}
-      <MetricStrip columns={3}>
-        <Metric label={unitWord(stats.count, tenant.unitOne, t.locale)} value={formatCount(stats.count, t.locale)} />
-        <Metric label={t.owner.revenue} value={money(stats.revenue)} />
-        <Metric
-          label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
-          value={money(Math.abs(monthProfit))}
-          tone={monthProfit < 0 ? 'destructive' : 'default'}
-        />
-      </MetricStrip>
+      {/* На телефоне первым идёт денежное число, а не счётчик машин:
+          экран открывают с вопросом «сколько было в этом месяце».
+          Отдельной разметкой, а не порядком в общей полосе: десктопный
+          вид остаётся ровно тем, что был. */}
+      <MobileOnly className="flex flex-col gap-2.5">
+        <MStatTile icon={Coins} label={t.owner.revenue} value={money(stats.revenue)} />
+        <MGrid>
+          <MStatTile
+            icon={Wallet}
+            label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
+            value={money(Math.abs(monthProfit))}
+          />
+          <MStatTile
+            icon={Car}
+            label={unitWord(stats.count, tenant.unitOne, t.locale)}
+            value={formatCount(stats.count, t.locale)}
+          />
+        </MGrid>
+      </MobileOnly>
 
-      <Panel padded={false} className="overflow-hidden">
+      <DesktopOnly>
+        <MetricStrip columns={3}>
+          <Metric
+            label={unitWord(stats.count, tenant.unitOne, t.locale)}
+            value={formatCount(stats.count, t.locale)}
+          />
+          <Metric label={t.owner.revenue} value={money(stats.revenue)} />
+          <Metric
+            label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
+            value={money(Math.abs(monthProfit))}
+            tone={monthProfit < 0 ? 'destructive' : 'default'}
+          />
+        </MetricStrip>
+      </DesktopOnly>
+
+      <Panel padded={false} className="overflow-hidden max-md:rounded-none max-md:bg-transparent">
         {/* Волосяные линии между клетками рисует зазор сетки на подложке
             цвета границы: так у сетки нет ни двойных линий по краю, ни
             особых правил для последнего столбца. */}
-        <div role="grid" aria-label={title} className="grid grid-cols-7 gap-px bg-border">
+        {/* На телефоне линий между клетками нет: их место занимает
+            зазор и заливка клетки по величине выручки — та же шкала,
+            что у ленты недели на «Ещё». */}
+        <div
+          role="grid"
+          aria-label={title}
+          className="grid grid-cols-7 gap-px bg-border max-md:gap-1 max-md:bg-transparent max-md:p-1"
+        >
           {weekdays.map((name) => (
             <div
               key={name}
               role="columnheader"
-              className="bg-card px-2 py-2 text-center text-2xs font-medium tracking-wider text-muted-foreground uppercase"
+              className="bg-card px-2 py-2 text-center text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:bg-transparent max-md:px-0 max-md:pt-1 max-md:pb-2 max-md:text-[10.5px] max-md:tracking-normal max-md:text-m-faint"
             >
               {name}
             </div>
           ))}
 
           {Array.from({ length: firstWeekday }, (_, i) => (
-            <span key={`lead-${i}`} aria-hidden className="bg-card" />
+            <span key={`lead-${i}`} aria-hidden className="bg-card max-md:bg-transparent" />
           ))}
 
           {cells.map((cell) => {
@@ -170,13 +205,28 @@ export default async function CalendarPage({
                 title={label}
                 className={cn(
                   'flex min-h-20 flex-col justify-between bg-card p-2 outline-none transition-colors hover:bg-muted focus-visible:bg-muted lg:min-h-24',
+                  'max-md:m-press max-md:min-h-[54px] max-md:items-center max-md:justify-center max-md:gap-1 max-md:rounded-m-chip max-md:p-1',
+                  /* Заливка клетки по величине выручки — та же шкала,
+                     что у ленты недели на «Ещё». Утилитой, а не
+                     правилом в globals: `bg-card` победил бы правило по
+                     порядку слоёв, и клетка осталась бы белой. */
+                  'max-md:bg-[color-mix(in_srgb,var(--m-grape)_var(--m-heat),var(--m-tile))]',
+                  /* Сегодня обведён лаймом: «вы здесь» — ровно тот
+                     смысл, за который в системе отвечает второй цвет. */
+                  isToday && 'max-md:ring-2 max-md:ring-m-lime',
                   empty && 'text-muted-foreground',
                 )}
+                style={
+                  {
+                    '--m-heat': `${cell.count === 0 ? 0 : 8 + 40 * Math.sqrt(Math.min(1, cell.revenue / peak))}%`,
+                  } as React.CSSProperties
+                }
               >
                 <span
                   className={cn(
                     'num inline-flex size-6 items-center justify-center rounded-md text-xs font-medium',
-                    isToday && 'bg-primary text-primary-foreground',
+                    'max-md:size-auto max-md:text-[15px] max-md:font-bold max-md:text-m-ink',
+                    isToday && 'bg-primary text-primary-foreground max-md:bg-transparent max-md:text-m-ink',
                   )}
                 >
                   {cell.number}
@@ -187,13 +237,18 @@ export default async function CalendarPage({
                     у непустого дня: нулевой столбик читался бы как «не
                     работали». */}
                 {!empty && (
-                  <span className="flex h-6 items-end gap-1.5">
+                  <span className="flex h-6 items-end gap-1.5 max-md:h-auto max-md:items-center max-md:gap-0">
                     <span
                       aria-hidden
-                      className="w-1 shrink-0 rounded-sm bg-primary"
+                      className="w-1 shrink-0 rounded-sm bg-primary max-md:hidden"
                       style={{ height: `${Math.max(8, (cell.revenue / peak) * 100)}%` }}
                     />
-                    <span className="num text-xs leading-none text-muted-foreground">{cell.count}</span>
+                    {/* На телефоне столбика нет: величину дня несёт сама
+                        заливка клетки, а под числом остаётся число
+                        машин — ответ на другой вопрос. */}
+                    <span className="num text-xs leading-none text-muted-foreground max-md:text-[10.5px] max-md:font-semibold max-md:text-m-muted">
+                      {cell.count}
+                    </span>
                   </span>
                 )}
               </Link>
@@ -201,7 +256,7 @@ export default async function CalendarPage({
           })}
 
           {Array.from({ length: trailing }, (_, i) => (
-            <span key={`trail-${i}`} aria-hidden className="bg-card" />
+            <span key={`trail-${i}`} aria-hidden className="bg-card max-md:bg-transparent" />
           ))}
         </div>
       </Panel>

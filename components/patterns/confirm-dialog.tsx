@@ -55,7 +55,7 @@ export function ConfirmDialog({
           вопроса, на который надо ответить, прежде чем что-то
           произойдёт. Лист снизу для этого не годится — его закрывают
           движением, а вопрос закрывать движением нельзя. */}
-      <AlertDialogContent className="sm:max-w-md max-md:rounded-m-box">
+      <AlertDialogContent className="sm:max-w-md max-md:rounded-m-card">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? (

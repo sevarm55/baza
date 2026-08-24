@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 
 import {
-  MobileButton,
-  MobileCard,
-  MobileEmpty,
-  MobileQuietButton,
-  MobileSection,
+  MAvatarStack,
+  MButton,
+  MEmpty,
+  MReading,
+  MSection,
+  MTile,
 } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { formatMoney } from '@/lib/money';
@@ -18,17 +19,16 @@ import { cn } from '@/lib/utils';
 import type { DayGroup, HistoryDay, StaffEntry } from './model';
 
 /**
- * Зарплаты на телефоне — то же табло, что в приложении.
+ * Зарплаты на телефоне.
  *
  * Экран начинается не с показания прибора, а с людей: сводка отвечает
  * «сколько получилось», и её место по оси экрана; зарплаты отвечают
  * «кому раздать», и начинаться они должны с тех, кому должны.
  *
- * Поэтому наверху стопка кружков — каждый своим цветом, тем же, каким
- * его имя набрано в ленте, в команде и в строке ниже. Кружки
- * перекрывают друг друга, как принято показывать группу, и при пятерых
- * последним встаёт счётчик остатка. Блок прижат влево: асимметрия и
- * есть то, чем этот экран отличается от сводки с первого взгляда.
+ * Поэтому наверху стопка лиц — каждое своим цветом, тем же, каким его
+ * имя набрано в ленте, в команде и в строке ниже. Лица перекрывают друг
+ * друга, как принято показывать группу, и при пятерых последним встаёт
+ * счётчик остатка.
  */
 export function PayrollHeroMobile({
   outstanding,
@@ -63,48 +63,28 @@ export function PayrollHeroMobile({
     parts.push(`${t.payroll.paid} ${money(settled)}`);
   }
 
-  const shown = people.slice(0, 4);
-  const rest = people.length - shown.length;
-
   return (
-    <div className="flex flex-col px-1 pt-2 pb-1">
-      {shown.length > 0 && (
-        <div className="mb-3 flex" aria-hidden>
-          {shown.map((person, i) => (
-            <span
-              key={person.name}
-              className="flex size-9 items-center justify-center rounded-full text-[15px] font-bold text-white ring-[2.5px] ring-m-board"
-              style={{
-                background: personColor(person.name),
-                marginLeft: i === 0 ? 0 : -11,
-              }}
-            >
-              {person.name.slice(0, 1).toUpperCase()}
-            </span>
-          ))}
-          {rest > 0 && (
-            <span
-              className="num flex size-9 items-center justify-center rounded-full bg-m-inset text-[13px] font-bold text-m-muted ring-[2.5px] ring-m-board"
-              style={{ marginLeft: -11 }}
-            >
-              +{rest}
-            </span>
-          )}
-        </div>
+    <div className="flex flex-col gap-4">
+      {people.length > 0 && (
+        <MAvatarStack
+          people={people.map((p) => ({ name: p.name, color: personColor(p.name) }))}
+          size={40}
+          className="px-1"
+        />
       )}
 
-      <span className="text-[10px] font-black tracking-[0.135em] text-m-muted uppercase">
-        {t.owner.toPay}
-      </span>
       {/* Долг набран чернилами, а не грейпом: это показание, а не
           действие, и красить его фирменным цветом значит обещать
           нажатие, которого нет. */}
-      <span className="num mt-0.5 text-[clamp(30px,11vw,44px)] leading-[1.05] font-bold tracking-[-0.02em] text-m-ink">
-        {money(outstanding)}
-      </span>
-      <span className="num mt-1 truncate text-[12.5px] text-m-muted">
-        {outstanding > 0 ? parts.join(' · ') : t.payroll.dayAllPaid}
-      </span>
+      <MReading
+        label={t.owner.toPay}
+        value={money(outstanding)}
+        under={
+          <span className="num truncate text-[13px] text-m-muted">
+            {outstanding > 0 ? parts.join(' · ') : t.payroll.dayAllPaid}
+          </span>
+        }
+      />
     </div>
   );
 }
@@ -117,10 +97,10 @@ export function PayrollHeroMobile({
  * долг: два других числа справочные, и ставить их на то же место значит
  * заставлять выбирать, какое из трёх сейчас важно.
  *
- * Таблицы здесь нет и быть не может: пять колонок на 360 точках либо
- * едут вбок, либо сжимаются до нечитаемого. Человек — строка с кружком,
+ * Таблицы здесь нет и быть не может: пять колонок на 375 точках либо
+ * едут вбок, либо сжимаются до нечитаемого. Человек — строка с лицом,
  * именем, фактами и суммой; нажатие по ней раскрывает разложение по
- * машинам, нажатие по кружку отмечает к выплате.
+ * машинам, нажатие по лицу отмечает к выплате.
  */
 export function DayCardMobile({
   group,
@@ -161,47 +141,47 @@ export function DayCardMobile({
         type="button"
         aria-expanded={false}
         onClick={() => setOpen(true)}
-        className="m-press flex w-full items-center gap-2.5 rounded-m-card border border-m-hair bg-m-surface px-4 py-3.5 text-left"
+        className="m-press flex w-full items-center gap-2.5 rounded-m-row bg-m-tile px-4 py-3.5 text-left"
       >
-        <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-m-ink">
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-m-ink">
           {group.date}
         </span>
-        <Check aria-hidden className="size-4 shrink-0 text-m-good" />
-        <span className="num shrink-0 text-[14px] font-semibold text-m-muted">
+        <Check aria-hidden className="size-[17px] shrink-0 text-m-good" strokeWidth={2.4} />
+        <span className="num shrink-0 text-[14.5px] font-semibold text-m-muted">
           {money(group.paid)}
         </span>
-        <ChevronDown aria-hidden className="size-4 shrink-0 text-m-muted" />
+        <ChevronDown aria-hidden className="size-[17px] shrink-0 text-m-faint" />
       </button>
     );
   }
 
   return (
-    <MobileCard radius="card" padded={false} className="overflow-hidden">
-      <div className="flex items-start gap-3 px-4 pt-3.5 pb-2.5">
+    <MTile radius="card" padded={false} className="overflow-hidden">
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[16px] leading-tight font-bold text-m-ink">
+            <span className="truncate text-[17px] leading-tight font-bold text-m-ink">
               {group.date}
             </span>
             {group.today && (
-              <span className="shrink-0 rounded-m-pill bg-primary/12 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <span className="shrink-0 rounded-full bg-m-lime px-2 py-0.5 text-[11.5px] font-bold text-[#170b2b]">
                 {t.common.today}
               </span>
             )}
           </div>
-          <div className="num mt-0.5 truncate text-[11.5px] text-m-muted">
+          <div className="num mt-1 truncate text-[12px] text-m-muted">
             {staffCount(group.people.length, staffRole, t.locale)} ·{' '}
             {unitCount(group.units, unitOne, t.locale)}
           </div>
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-[10px] font-medium tracking-wider text-m-muted uppercase">
+          <div className="text-[10.5px] font-semibold tracking-[0.06em] text-m-faint uppercase">
             {group.outstanding > 0 ? t.owner.toPay : t.payroll.paid}
           </div>
           <div
             className={cn(
-              'num text-[17px] leading-tight font-bold',
+              'num mt-0.5 text-[19px] leading-tight font-bold',
               group.outstanding > 0 ? 'text-m-ink' : 'text-m-muted',
             )}
           >
@@ -228,17 +208,18 @@ export function DayCardMobile({
           нужно мокрым большим пальцем, а не прицеливаться в мелкую
           кнопку в углу шапки. */}
       {payable.length > 0 && (
-        <div className="flex items-center gap-2 border-t border-m-hair px-3 py-3">
+        <div className="flex items-center gap-2 border-t border-m-hair p-3">
           {payable.length > 1 && mine.length < payable.length && (
-            <MobileQuietButton
+            <button
+              type="button"
               disabled={busy}
               onClick={() => onPickAll(payable.map((p) => p.key))}
-              className="shrink-0"
+              className="m-press h-11 shrink-0 rounded-full bg-m-bg px-4 text-[14px] font-semibold text-m-grape"
             >
               {t.payroll.selectAll}
-            </MobileQuietButton>
+            </button>
           )}
-          <MobileButton
+          <MButton
             size="md"
             tone={mine.length > 0 ? 'lime' : 'quiet'}
             disabled={busy || mine.length === 0}
@@ -248,10 +229,10 @@ export function DayCardMobile({
             {mine.length > 0
               ? t.payroll.paySum(money(mine.reduce((s, p) => s + p.earned, 0)))
               : t.payroll.pay}
-          </MobileButton>
+          </MButton>
         </div>
       )}
-    </MobileCard>
+    </MTile>
   );
 }
 
@@ -260,7 +241,7 @@ export function DayCardMobile({
  *
  * Слева направо ровно теми словами, которыми владелец думает: «Валод,
  * три машины, двадцать процентов, шесть с половиной тысяч, ещё не
- * отдавал». Нажимаемого в строке два: кружок отмечает к выплате, сама
+ * отдавал». Нажимаемого в строке два: лицо отмечает к выплате, сама
  * строка раскрывает разложение суммы по машинам.
  */
 function PersonRow({
@@ -287,11 +268,12 @@ function PersonRow({
   const facts = [unitCount(entry.count, unitOne, t.locale), entry.rate].filter(Boolean).join(' · ');
 
   return (
-    <div className={cn('[&+*]:border-t [&+*]:border-m-hair', picked && 'bg-primary/6')}>
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        {/* Отметка — на самом кружке человека: цель в тридцать восемь
-            точек, по которой попадают, не прицеливаясь, и одновременно
-            лицо, по которому его узнают. */}
+    <div className={cn('[&+*]:border-t [&+*]:border-m-hair', picked && 'bg-m-grape/8')}>
+      <div className="flex items-center gap-3 px-3.5 py-3">
+        {/* Отметка — на самом лице человека: цель в сорок точек, по
+            которой попадают, не прицеливаясь, и одновременно лицо, по
+            которому его узнают. Отмеченное лицо становится грейповым с
+            галочкой: это выбор, а выбор в системе всегда грейповый. */}
         <button
           type="button"
           role="checkbox"
@@ -300,24 +282,24 @@ function PersonRow({
           disabled={!onPick || busy}
           onClick={() => onPick?.(entry.key, !picked)}
           className={cn(
-            'm-press relative flex size-[38px] shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white',
-            'outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            'm-press relative flex size-10 shrink-0 items-center justify-center rounded-full text-[16px] font-bold text-white',
+            'outline-none focus-visible:ring-2 focus-visible:ring-m-grape/40',
             !onPick && 'opacity-45',
           )}
-          style={{ background: closed ? 'var(--m-inset)' : personColor(entry.name) }}
+          style={{
+            background: picked
+              ? 'var(--m-grape)'
+              : closed
+                ? 'var(--m-tile-strong)'
+                : personColor(entry.name),
+          }}
         >
           {picked ? (
-            <Check aria-hidden className="size-[18px]" strokeWidth={3} />
+            <Check aria-hidden className="size-5" strokeWidth={3} />
           ) : (
             <span className={closed ? 'text-m-muted' : undefined}>
               {entry.name.slice(0, 1).toUpperCase()}
             </span>
-          )}
-          {picked && (
-            <span
-              aria-hidden
-              className="absolute inset-0 rounded-full ring-[2.5px] ring-primary ring-offset-2 ring-offset-m-surface"
-            />
           )}
         </button>
 
@@ -331,13 +313,13 @@ function PersonRow({
           <span className="flex min-w-0 flex-1 flex-col">
             <span
               className={cn(
-                'truncate text-[15px] leading-tight font-semibold',
+                'truncate text-[15.5px] leading-tight font-semibold',
                 closed ? 'text-m-muted' : 'text-m-ink',
               )}
             >
               {entry.name}
             </span>
-            <span className="num truncate text-[11.5px] leading-tight text-m-muted">
+            <span className="num mt-0.5 truncate text-[12px] leading-tight text-m-muted">
               {closed && entry.paidAt ? `${t.payroll.paid} ${entry.paidAt}` : facts}
             </span>
           </span>
@@ -345,7 +327,7 @@ function PersonRow({
           <span className="flex shrink-0 items-center gap-1.5">
             <span
               className={cn(
-                'num text-[15px] leading-tight font-bold',
+                'num text-[15.5px] leading-tight font-bold',
                 owed ? 'text-m-ink' : 'text-m-muted',
               )}
             >
@@ -358,7 +340,7 @@ function PersonRow({
               <ChevronDown
                 aria-hidden
                 className={cn(
-                  'size-4 shrink-0 text-m-muted transition-transform duration-150',
+                  'size-[17px] shrink-0 text-m-faint transition-transform duration-150',
                   open && 'rotate-180',
                 )}
               />
@@ -370,9 +352,9 @@ function PersonRow({
       {/* Почему столько: разложение по машинам. Раскрывается по строке —
           спор о зарплате кончается ровно здесь, на списке номеров. */}
       {open && entry.lines && (
-        <ul className="flex flex-col gap-1.5 bg-m-inset-soft px-3 py-2.5">
+        <ul className="flex flex-col gap-2 bg-m-bg px-4 py-3">
           {entry.lines.map((line) => (
-            <li key={line.id} className="flex items-center gap-2 text-[12.5px]">
+            <li key={line.id} className="flex items-center gap-2 text-[13px]">
               <span className="num min-w-0 flex-1 truncate text-m-ink">{line.title}</span>
               {/* Совместную мойку без числа людей не объяснить: под
                   машиной за 12 000 стоит 45 % и 1 800 ֏, и первое со
@@ -381,7 +363,7 @@ function PersonRow({
               <span className="num shrink-0 text-m-muted">
                 {line.crew > 1 ? `${line.percent}% ÷ ${line.crew}` : `${line.percent}%`}
               </span>
-              <span className="num w-16 shrink-0 text-right font-semibold text-m-ink">
+              <span className="num w-16 shrink-0 text-right font-bold text-m-ink">
                 {money(line.earned)}
               </span>
             </li>
@@ -412,30 +394,33 @@ export function HistoryMobile({
   const t = useT();
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
-  if (history.length === 0) return <MobileEmpty title={emptyTitle} note={emptyNote} />;
+  if (history.length === 0) return <MEmpty title={emptyTitle} note={emptyNote} />;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       {history.map((day) => (
-        <MobileSection key={day.key} title={day.title}>
-          <MobileCard radius="card" padded={false} className="overflow-hidden">
+        <MSection key={day.key} title={day.title}>
+          <MTile radius="card" padded={false} className="overflow-hidden">
             {day.payments.map((payment) => (
-              <div key={payment.key} className="flex flex-col gap-1.5 px-4 py-3 [&+*]:border-t [&+*]:border-m-hair">
+              <div
+                key={payment.key}
+                className="flex flex-col gap-2 px-4 py-3.5 [&+*]:border-t [&+*]:border-m-hair"
+              >
                 <div className="flex items-baseline gap-2">
-                  <span className="num shrink-0 text-[12px] text-m-muted">{payment.time}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-m-muted">
+                  <span className="num shrink-0 text-[12.5px] text-m-faint">{payment.time}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-m-muted">
                     {payment.forWork}
                   </span>
-                  <span className="num shrink-0 text-[15px] font-bold text-m-ink">
+                  <span className="num shrink-0 text-[16px] font-bold text-m-ink">
                     {money(payment.total)}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                   {payment.rows.map((row) => (
-                    <span key={row.id} className="flex items-center gap-1.5 text-[12.5px]">
+                    <span key={row.id} className="flex items-center gap-1.5 text-[13px]">
                       <span
                         aria-hidden
-                        className="size-1.5 shrink-0 rounded-full"
+                        className="size-2 shrink-0 rounded-full"
                         style={{ background: personColor(row.name) }}
                       />
                       <span className="text-m-ink">{row.name}</span>
@@ -445,8 +430,8 @@ export function HistoryMobile({
                 </div>
               </div>
             ))}
-          </MobileCard>
-        </MobileSection>
+          </MTile>
+        </MSection>
       ))}
     </div>
   );

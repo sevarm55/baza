@@ -12,7 +12,7 @@ import { hhmm } from '@/lib/time';
 import { staffCount } from '@/lib/i18n/terms';
 import { cn } from '@/lib/utils';
 import { LoadingButton, RefreshIndicator } from '@/components/loading';
-import { MobileActionBar, MobileButton, MobileOnly, DesktopOnly } from '@/components/mobile';
+import { MActionBar, MButton, MobileOnly, DesktopOnly } from '@/components/mobile';
 import { Panel } from '@/components/patterns/panel';
 import { EmptyState } from '@/components/patterns/states';
 import { FormMessage } from '@/components/patterns/form';
@@ -75,6 +75,8 @@ export function OrderFlow({
   teamPercent,
   staffRole,
   highlightAdd = false,
+  solo = false,
+  autoOpen = false,
 }: OrderFlowProps) {
   const t = useT();
   const router = useRouter();
@@ -132,6 +134,15 @@ export function OrderFlow({
   useEffect(() => {
     if (step === 'compose' && !isMobile) inputRef.current?.focus();
   }, [step, isMobile]);
+
+  /* Пришли по лаймовому кругу из полосы вкладок: форма открывается
+     сразу, а метка в адресе снимается. Иначе «назад» и обновление
+     страницы открывали бы форму заново, и уйти с неё было бы нельзя. */
+  useEffect(() => {
+    if (!autoOpen) return;
+    if (canWrite) setStep('compose');
+    router.replace('/work', { scroll: false });
+  }, [autoOpen, canWrite, router, setStep]);
 
   /* ------------------------------ журнал ------------------------------ */
 
@@ -690,12 +701,12 @@ export function OrderFlow({
           одновременно, — номер, услуги и оплата. */}
       <MobileOnly className="flex flex-col gap-3">
         {saved && (
-          <p className="px-1 text-[13px] font-semibold text-m-good" role="status">
+          <p className="px-1 text-[13.5px] font-semibold text-m-good" role="status">
             {t.work.saved}
           </p>
         )}
         {queued.length > 0 && (
-          <p className="px-1 text-[13px] font-medium text-m-warn" role="status">
+          <p className="px-1 text-[13.5px] font-semibold text-m-warn" role="status">
             {t.work.waitingToSend(queued.length)}
           </p>
         )}
@@ -708,30 +719,41 @@ export function OrderFlow({
           staffRole={staffRole}
         />
 
-        {/* Место под прибитую кнопку: без него последняя запись журнала
-            навсегда осталась бы под ней. */}
-        <div aria-hidden className="h-[76px]" />
+        {/* Кнопка записи прибита к низу только у мойщика: у него нет
+            полосы вкладок, и низ экрана свободен. У владельца запись
+            живёт лаймовым кругом посреди полосы, и вторая такая же
+            кнопка над ней означала бы два главных действия сразу.
 
-        <MobileActionBar>
-          {/* Вне смены записывать нельзя, и кнопка показывает это собой,
-              а не окошком с отказом. Причина не в дисциплине: машина,
-              записанная вне смены, не попадает в сдачу наличных при
-              закрытии — деньги за неё работник уносит, ничего не
-              нарушив, а владелец недосчитывается и не понимает почему. */}
-          {!canWrite && (
-            <p className="text-center text-[12.5px] text-m-muted">{t.work.needShift}</p>
-          )}
-          <MobileButton
-            disabled={!canWrite}
-            onClick={() => setStep('compose')}
-            className={cn(
-              highlightAdd && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-m-board',
-            )}
-          >
-            <Plus aria-hidden className="size-[18px]" />
-            {addLabel}
-          </MobileButton>
-        </MobileActionBar>
+            Вне смены записывать нельзя, и кнопка показывает это собой,
+            а не окошком с отказом. Причина не в дисциплине: машина,
+            записанная вне смены, не попадает в сдачу наличных при
+            закрытии — деньги за неё работник уносит, ничего не нарушив,
+            а владелец недосчитывается и не понимает почему. */}
+        {solo && (
+          <>
+            {/* Место под прибитую кнопку: без него последняя запись
+                журнала навсегда осталась бы под ней. */}
+            <div aria-hidden className="h-[80px]" />
+
+            <MActionBar>
+              {!canWrite ? (
+                <p className="flex-1 text-center text-[13px] text-m-muted">{t.work.needShift}</p>
+              ) : (
+                <MButton
+                  block
+                  tone="lime"
+                  icon={Plus}
+                  onClick={() => setStep('compose')}
+                  className={cn(
+                    highlightAdd && 'ring-2 ring-m-grape/35 ring-offset-2 ring-offset-m-bg',
+                  )}
+                >
+                  {addLabel}
+                </MButton>
+              )}
+            </MActionBar>
+          </>
+        )}
       </MobileOnly>
 
       {/* Форма выбирается в браузере, и мигнуть чужой раскладкой не

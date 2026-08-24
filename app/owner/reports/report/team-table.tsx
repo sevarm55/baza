@@ -1,13 +1,7 @@
 'use client';
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
-import {
-  DesktopOnly,
-  MobileAvatar,
-  MobileDataList,
-  MobileDataRow,
-  MobileOnly,
-} from '@/components/mobile';
+import { DesktopOnly, MAvatar, MobileOnly, MRow, MRows } from '@/components/mobile';
 import { PersonAvatar } from '@/components/patterns/person';
 import { personColor } from '@/lib/person-color';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,28 +48,26 @@ export function TeamTable({
           шестидесяти точках либо едут вбок, либо сжимаются до
           нечитаемого. Главное — кто и сколько ему начислено; объём
           работы и доля в фонде идут пояснением. */}
-      <MobileOnly className="px-4 pb-1">
-        <MobileDataList>
+      <MobileOnly className="px-4 pb-4">
+        <MRows>
           {rows.map((r) => (
-            <MobileDataRow
+            <MRow
               key={r.key}
-              lead={<MobileAvatar name={r.name} color={personColor(r.name)} />}
-              title={
-                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
-              }
-              note={[`${r.percent}%`, `${unitLabel} ${r.count}`, `${c.revenue} ${money(r.revenue)}`]
+              lead={<MAvatar name={r.name} color={personColor(r.name)} size={38} />}
+              title={r.name}
+              note={[
+                `${r.percent}%`,
+                `${unitLabel} ${r.count}`,
+                `${c.revenue} ${money(r.revenue)}`,
+                hasShifts && r.shifts > 0 ? `${c.shifts} ${r.shifts}` : null,
+              ]
                 .filter(Boolean)
                 .join(' · ')}
-              extra={
-                hasShifts && r.shifts > 0
-                  ? `${c.shifts} ${r.shifts} · ${c.perShift} ${money(r.earned / r.shifts)}`
-                  : undefined
-              }
               value={money(r.earned)}
-              sub={`${c.share} ${Math.round(r.share * 100)}%`}
+              hint={`${c.share} ${Math.round(r.share * 100)}%`}
             />
           ))}
-        </MobileDataList>
+        </MRows>
       </MobileOnly>
 
       <DesktopOnly>

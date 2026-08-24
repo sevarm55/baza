@@ -105,10 +105,10 @@ export default async function FirstRunPage() {
   }
 
   return (
-    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-board">
+    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-bg">
       {/* Минимальная полоса: марка и две тихие кнопки. Ни колонки, ни
           разделов — основной интерфейс не должен отвлекать от шага. */}
-      <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-3 max-md:h-[var(--m-top-h)] max-md:border-m-hair max-md:bg-m-board md:px-4">
+      <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-3 max-md:h-[var(--m-top-h)] max-md:border-transparent max-md:bg-m-bg md:px-4">
         <span className="flex shrink-0 items-center" aria-label={t.app.name} role="img">
           <Wordmark />
         </span>

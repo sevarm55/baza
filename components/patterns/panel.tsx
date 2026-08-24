@@ -46,7 +46,7 @@ export function Panel({
          грани белое на светлом полотне перестаёт быть карточкой. */
       className={cn(
         'flex min-w-0 flex-col rounded-lg border border-border bg-card',
-        'max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface',
+        'max-md:rounded-m-card max-md:border-0 max-md:bg-m-tile',
         className,
       )}
     >
@@ -57,7 +57,7 @@ export function Panel({
         <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-3 max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:pt-4 max-md:pb-2.5">
           <div className="min-w-0">
             {title !== undefined && (
-              <h2 className="flex items-center gap-2 text-sm leading-tight font-semibold max-md:text-[16px]">
+              <h2 className="flex items-center gap-2 text-sm leading-tight font-semibold max-md:text-[17px] max-md:text-m-ink">
                 {title}
                 {count !== undefined && (
                   <span className="num rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -67,7 +67,7 @@ export function Panel({
               </h2>
             )}
             {description && (
-              <p className="mt-0.5 text-xs text-muted-foreground max-md:text-[12.5px]">{description}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground max-md:text-[13px] max-md:text-m-muted">{description}</p>
             )}
           </div>
           {actions && (

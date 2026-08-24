@@ -95,9 +95,10 @@ export function FlowChartMobile({
               key={`${point.label}-${i}`}
               className={cn(
                 'block min-w-0 flex-1 rounded-[4px] transition-colors duration-150',
-                lit
-                  ? 'bg-gradient-to-b from-lime to-lime/55'
-                  : 'bg-gradient-to-b from-m-ink/22 to-m-ink/11',
+                /* Столбик под пальцем лаймовый, остальные грейповые в
+                   четверть силы: у графика два состояния, и оба взяты
+                   из двух цветов продукта. */
+                lit ? 'bg-m-lime' : 'bg-m-grape/25',
               )}
               /* Пустой час остаётся видимой полоской в три пикселя: ноль
                  значит «машин не было», а не «данных нет», и разница
@@ -113,7 +114,7 @@ export function FlowChartMobile({
           <span
             key={`${i}-${slot}`}
             className={cn(
-              'num min-w-0 flex-1 truncate text-[11px] text-m-muted/85',
+              'num min-w-0 flex-1 truncate text-[11px] text-m-faint',
               slot === 0 ? 'text-left' : slot === picks.length - 1 ? 'text-right' : 'text-center',
             )}
           >

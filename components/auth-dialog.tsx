@@ -98,7 +98,11 @@ export function AuthDialog({
         tabIndex={-1}
         className={cn(
           'flex max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-card p-6 outline-none',
+          /* На телефоне окно входа — тот же лист снизу, что и всюду в
+             мобильном слое: белый, с крупным скруглением сверху и полем
+             под домашнюю черту. */
           'max-sm:max-h-[calc(100dvh-2.5rem)] max-sm:w-full max-sm:rounded-b-none max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+          'max-md:rounded-t-m-sheet max-md:border-0 max-md:bg-m-bg max-md:px-4',
           'translate-y-2 opacity-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
           'in-data-open:translate-y-0 in-data-open:opacity-100',
         )}
@@ -120,7 +124,7 @@ export function AuthDialog({
         </div>
 
         {/* Поля прокрутки уводим наружу, чтобы кольцо фокуса не обрезалось. */}
-        <div className="-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6">
+        <div className="-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6 max-md:-mx-4 max-md:px-4">
           <AuthSurface
             mode={mode ?? 'signIn'}
             niche={niche}

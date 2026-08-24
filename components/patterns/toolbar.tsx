@@ -35,7 +35,7 @@ export function Toolbar({
        восемьдесят точек каждая — промахнуться проще, чем попасть. */
     <div
       className={cn(
-        'flex min-w-0 flex-wrap items-center gap-2 max-md:w-full max-md:flex-col max-md:items-stretch max-md:gap-2.5',
+        'flex min-w-0 flex-wrap items-center gap-2 max-md:w-full max-md:flex-col max-md:flex-nowrap max-md:items-stretch max-md:gap-2.5',
         className,
       )}
     >
@@ -67,7 +67,7 @@ export function SearchInput({
   const t = useT();
   const label = placeholder ?? t.common.search;
   return (
-    <InputGroup className={cn('w-full sm:w-64', 'max-md:h-[46px] max-md:rounded-m-tile', className)}>
+    <InputGroup className={cn('w-full sm:w-64', 'max-md:h-[54px] max-md:rounded-m-row', className)}>
       <InputGroupAddon>
         <Search aria-hidden />
       </InputGroupAddon>

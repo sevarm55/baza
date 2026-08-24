@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/patterns/data-table';
-import { MobileAvatar } from '@/components/mobile';
+import { MAvatar } from '@/components/mobile';
 import { personColor } from '@/lib/person-color';
 import { Panel } from '@/components/patterns/panel';
 import { Person, PersonAvatar } from '@/components/patterns/person';
@@ -153,11 +153,9 @@ export function StaffRoster({
                имя. Зелёная точка на нём означает состояние, а не
                человека: стоит ли он на мойке прямо сейчас. */
             lead: (p) => (
-              <MobileAvatar name={p.name} color={personColor(p.name)} present={p.present} />
+              <MAvatar name={p.name} color={personColor(p.name)} present={p.present} size={38} />
             ),
-            title: (p) => (
-              <span className="truncate text-[15.5px] font-semibold text-m-ink">{p.name}</span>
-            ),
+            title: (p) => p.name,
             note: (p) =>
               [
                 `${p.percent}%`,

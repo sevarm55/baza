@@ -39,8 +39,10 @@ export function PaymentDonut({
       emptyTitle={c.noData}
       height="h-56"
     >
-      <div className="flex items-center gap-4">
-        <ChartContainer config={config} className="aspect-square h-36 w-36 shrink-0">
+      {/* На телефоне кольцо и легенда встают друг под друга: рядом
+          подписи способов сжимаются до огрызков вроде «Пере…». */}
+      <div className="flex items-center gap-4 max-md:flex-col max-md:items-stretch max-md:gap-4">
+        <ChartContainer config={config} className="aspect-square h-36 w-36 shrink-0 max-md:mx-auto max-md:h-44 max-md:w-44">
           <PieChart>
             <ChartTooltip
               content={({ active, payload }) => {
@@ -75,13 +77,13 @@ export function PaymentDonut({
             </Pie>
           </PieChart>
         </ChartContainer>
-        <ul className="flex min-w-0 flex-1 flex-col gap-2">
+        <ul className="flex min-w-0 flex-1 flex-col gap-2 max-md:gap-2.5">
           {rows.map((r) => (
-            <li key={r.key} className="flex items-center gap-2 text-sm">
+            <li key={r.key} className="flex items-center gap-2 text-sm max-md:text-[15px]">
               <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: r.color }} />
               <span className="min-w-0 flex-1 truncate">{r.label}</span>
-              <span className="num text-xs text-muted-foreground">{r.share}%</span>
-              <span className="num font-medium">{money(r.revenue)}</span>
+              <span className="num text-xs text-muted-foreground max-md:text-[13px] max-md:text-m-faint">{r.share}%</span>
+              <span className="num font-medium max-md:font-bold">{money(r.revenue)}</span>
             </li>
           ))}
         </ul>

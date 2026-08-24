@@ -5,13 +5,7 @@ import { Check, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { settlePayroll } from '@/app/actions';
 import { Segmented } from '@/components/patterns/segmented';
-import {
-  DesktopOnly,
-  MobileEmpty,
-  MobileOnly,
-  MobileQuietButton,
-  MobileSegmented,
-} from '@/components/mobile';
+import { DesktopOnly, MEmpty, MobileOnly, MSegmented } from '@/components/mobile';
 import { EmptyState } from '@/components/patterns/states';
 import { Button } from '@/components/ui/button';
 import { useAsyncAction } from '@/components/loading';
@@ -182,13 +176,13 @@ export function PayrollWorkspace({
   const tabs = (
     <>
       <MobileOnly>
-        <MobileSegmented
+        <MSegmented
           value={tab}
-          label={t.owner.tabPayroll}
+          ariaLabel={t.owner.tabPayroll}
           onChange={(key) => setTab(key)}
           options={[
-            { key: 'due', label: outstanding === 0 ? t.payroll.dayAllPaid : t.payroll.tabDue },
-            { key: 'history', label: t.payroll.tabHistory },
+            { value: 'due', label: outstanding === 0 ? t.payroll.dayAllPaid : t.payroll.tabDue },
+            { value: 'history', label: t.payroll.tabHistory },
           ]}
         />
       </MobileOnly>
@@ -225,14 +219,19 @@ export function PayrollWorkspace({
           {outstanding === 0 ? (
             <>
               <MobileOnly>
-                <MobileEmpty
+                <MEmpty
+                  icon={CheckCircle2}
                   title={t.payroll.dayAllPaid}
                   note={t.payroll.nothingUnpaid}
                   action={
                     history.length > 0 ? (
-                      <MobileQuietButton className="mx-auto" onClick={() => setTab('history')}>
+                      <button
+                        type="button"
+                        onClick={() => setTab('history')}
+                        className="m-press h-11 rounded-full bg-m-bg px-5 text-[14.5px] font-semibold text-m-grape"
+                      >
                         {t.payroll.openHistory}
-                      </MobileQuietButton>
+                      </button>
                     ) : undefined
                   }
                 />
@@ -355,14 +354,14 @@ export function PayrollWorkspace({
           className="safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center max-md:bottom-[calc(var(--m-bottom-inset)+10px)] max-md:pb-0"
           style={{ paddingBottom: undefined }}
         >
-          <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4 max-md:w-full max-md:gap-3 max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface max-md:p-2.5 max-md:pl-4">
-            <span className="num text-sm text-muted-foreground max-md:text-[13px] max-md:text-m-muted">
+          <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4 max-md:w-full max-md:gap-3 max-md:rounded-full max-md:border-0 max-md:bg-m-grape max-md:p-2 max-md:pl-5 max-md:shadow-[var(--m-lift)]">
+            <span className="num text-sm text-muted-foreground max-md:text-[13.5px] max-md:font-semibold max-md:text-white/75">
               {t.payroll.selected(chosen.length)}
             </span>
             <Button
               disabled={busy}
               onClick={() => setAsking(chosen)}
-              className="max-md:h-[46px] max-md:min-w-0 max-md:flex-1 max-md:rounded-m-tile max-md:bg-lime max-md:text-[15px] max-md:font-bold max-md:text-lime-foreground"
+              className="max-md:h-12 max-md:min-w-0 max-md:flex-1 max-md:rounded-full max-md:bg-m-lime max-md:text-[15px] max-md:font-bold max-md:text-[#170b2b]"
             >
               {t.payroll.paySum(money(chosenSum))}
             </Button>

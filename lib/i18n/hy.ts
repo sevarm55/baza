@@ -1495,6 +1495,7 @@ export const hy = {
     tabPayroll: 'Աշխատավարձ',
     tabMore: 'Ավելին',
     tabsAria: 'Հիմնական բաժինները',
+    tabAdd: 'Գրանցել մեքենա',
 
     moreTitle: 'Ավելին',
     moreLead: 'Ձեր բիզնեսի քարտեզը',

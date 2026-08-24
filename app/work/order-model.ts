@@ -102,6 +102,10 @@ export type OrderFlowProps = {
   staffRole: string;
   /** сценарий первого запуска: тихое кольцо на кнопке записи */
   highlightAdd?: boolean;
+  /** экран без полосы вкладок (мойщик): запись живёт кнопкой внизу */
+  solo?: boolean;
+  /** пришли по «+» из полосы вкладок: форма открывается сразу */
+  autoOpen?: boolean;
 };
 
 export function paymentLabel(p: string, t: Dict): string {

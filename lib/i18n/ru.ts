@@ -1159,6 +1159,7 @@ export const ru: Dict = {
     tabPayroll: 'Зарплата',
     tabMore: 'Ещё',
     tabsAria: 'Основные разделы',
+    tabAdd: 'Записать машину',
 
     moreTitle: 'Ещё',
     moreLead: 'Карта вашего бизнеса',

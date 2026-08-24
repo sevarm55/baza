@@ -23,7 +23,7 @@ import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { shiftsOnDay, whoIsOnShift } from '@/lib/shifts';
 import { countActivity, listActivity, type ActivityType } from '@/lib/activity';
 import { LiveActivity } from '@/components/patterns/live-activity';
-import { DesktopOnly, MobileOnly, MobileSegmentedLinks } from '@/components/mobile';
+import { DesktopOnly, MChipLink, MChipRow, MobileOnly, MTitle } from '@/components/mobile';
 import { Attention, type Signal } from './today/attention';
 import { personColor } from '@/lib/person-color';
 import { PageHeader } from '@/components/patterns/page-header';
@@ -309,27 +309,24 @@ export default async function TodayPage({
           экрана, строка вычитания под ним, факты строкой, люди лентой,
           журнал строками. Данные те же — их посчитал этот же серверный
           компонент выше, и разойтись двум представлениям негде. */}
-      <MobileOnly className="flex flex-col gap-3">
-        {/* Период прилипает под шапкой: на него смотрят, дочитав экран
-            до низа, и возвращаться за ним наверх не должны. */}
-        <div
-          className="sticky z-20 -mx-4 bg-m-board/92 px-4 pt-1 pb-2 backdrop-blur-xl"
-          style={{ top: 'calc(var(--m-safe-top) + var(--m-top-h))' }}
-        >
-          <MobileSegmentedLinks
-            current={period}
-            label={t.owner.periodLabel}
-            items={periods(t).map((x) => ({
-              key: x.key,
-              label: x.label,
-              href: periodHref(x.key),
-            }))}
-          />
-        </div>
+      <MobileOnly className="flex flex-col gap-4">
+        {/* Крупный заголовок и строка контекста: экран называет себя сам,
+            а в полосе вкладок под ним стоит только значок. */}
+        <MTitle title={t.owner.tabToday} lead={dayLabel} />
+
+        {/* Период фишками сразу под заголовком: это первое, что владелец
+            меняет, придя на экран, и последнее, что он ищет, дочитав его
+            до низа. */}
+        <MChipRow ariaLabel={t.owner.periodLabel}>
+          {periods(t).map((x) => (
+            <MChipLink key={x.key} href={periodHref(x.key)} selected={x.key === period}>
+              {x.label}
+            </MChipLink>
+          ))}
+        </MChipRow>
 
         <TodayMobile
           isToday={isToday}
-          dayLabel={dayLabel}
           profit={profit}
           revenue={stats.revenue}
           payroll={stats.payroll}
