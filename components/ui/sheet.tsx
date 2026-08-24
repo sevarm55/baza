@@ -67,7 +67,10 @@ function SheetContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-3 right-3"
+                /* На телефоне крестик становится круглой кнопкой на
+                   подложке — той же, что закрывает листы мобильного
+                   слоя: без подложки он теряется в тексте заголовка. */
+                className="absolute top-3 right-3 max-md:top-4 max-md:right-4 max-md:bg-m-tile"
                 size="icon-sm"
               />
             }
