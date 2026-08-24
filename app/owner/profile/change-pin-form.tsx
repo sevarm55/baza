@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/patterns/form';
 import { Button } from '@/components/ui/button';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Смена PIN: текущий, новый и повтор нового.
@@ -74,7 +75,7 @@ export function ChangePinForm({
             label={t.auth.currentPin}
             title={t.auth.currentPin}
             autoComplete="current-password"
-            autoFocus
+            autoFocus={autoFocusOnDesktop()}
             revealable
             revealLabel={t.auth.showCode}
             hideLabel={t.auth.hideCode}
@@ -89,7 +90,7 @@ export function ChangePinForm({
           label={t.auth.newPin}
           title={`${t.auth.newPin} · ${t.auth.pinHint}`}
           autoComplete="new-password"
-          autoFocus={!hasPin}
+          autoFocus={!hasPin && autoFocusOnDesktop()}
           revealable
           value={next}
           onChange={(v) => {

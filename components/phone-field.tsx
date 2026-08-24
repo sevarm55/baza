@@ -85,7 +85,7 @@ export function PhoneField({
 
       {/* Номер набирают на телефоне чаще всего: поле там выше и
           крупнее, а клавиатура поднимается телефонная. */}
-      <InputGroup className="h-10 max-md:h-[52px]">
+      <InputGroup className="h-10 max-md:h-[54px]">
         {/* Код страны: родной `select` поверх нарисованной кнопки. Он ищет
             по буквам, крутится барабаном на iOS и понятен читалке экрана
             без единого дополнительного атрибута. Флаг только картинка. */}
@@ -93,6 +93,7 @@ export function PhoneField({
           data-align="inline-start"
           className={cn(
             'relative order-first flex h-full shrink-0 items-center gap-1 rounded-l-lg border-r border-border pr-2 pl-2.5 text-sm font-medium whitespace-nowrap select-none',
+            'max-md:rounded-l-m-row max-md:border-m-hair max-md:pr-2.5 max-md:pl-3.5 max-md:text-[15px]',
             'has-[select:focus-visible]:bg-muted has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50',
           )}
         >

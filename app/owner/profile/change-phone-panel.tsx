@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Смена своего номера.
@@ -155,7 +156,7 @@ export function ChangePhonePanel({ hasPin }: { hasPin: boolean }) {
         label={t.auth.changePhoneNew}
         countryLabel={t.auth.country}
         autoComplete="tel"
-        autoFocus
+        autoFocus={autoFocusOnDesktop()}
         invalid={Boolean(proof?.error)}
       />
 

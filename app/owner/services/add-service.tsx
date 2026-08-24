@@ -9,6 +9,7 @@ import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
 import { FormMessage } from '@/components/patterns/form';
 import { useT } from '@/lib/i18n/client';
 import { ServiceFields } from './service-fields';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Новая услуга.
@@ -85,7 +86,7 @@ export function AddService({
             step={step}
             currencySymbol={currencySymbol}
             tiers={tiers}
-            autoFocus
+            autoFocus={autoFocusOnDesktop()}
           />
           {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
         </form>

@@ -11,6 +11,7 @@ import { LoadingButton } from '@/components/loading';
 import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
 import { FormMessage, FormSection } from '@/components/patterns/form';
 import { useT } from '@/lib/i18n/client';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Найм.
@@ -85,7 +86,13 @@ export function AddStaff({
           <FormSection first>
             <Field>
               <FieldLabel htmlFor="staff-new-name">{t.settings.name}</FieldLabel>
-              <Input id="staff-new-name" name="name" required autoComplete="off" autoFocus />
+              <Input
+                id="staff-new-name"
+                name="name"
+                required
+                autoComplete="off"
+                autoFocus={autoFocusOnDesktop()}
+              />
             </Field>
 
             <Field>

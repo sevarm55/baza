@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { PIN_LENGTH } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
 import { ChangePinForm } from './change-pin-form';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Код доступа в разделе «безопасность».
@@ -108,7 +109,7 @@ function DeletePinForm({ onCancel }: { onCancel: () => void }) {
         label={t.auth.currentPin}
         title={t.auth.currentPin}
         autoComplete="current-password"
-        autoFocus
+        autoFocus={autoFocusOnDesktop()}
         revealable
         revealLabel={t.auth.showCode}
         hideLabel={t.auth.hideCode}

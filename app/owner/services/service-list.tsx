@@ -15,6 +15,7 @@ import { useT } from '@/lib/i18n/client';
 import { AddService } from './add-service';
 import { ServiceFields } from './service-fields';
 import type { ServiceRow } from './model';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Прейскурант.
@@ -283,7 +284,7 @@ function ServiceEditor({
               tierPrices={service.tierPrices}
               step={step}
               currencySymbol={currencySymbol}
-              autoFocus
+              autoFocus={autoFocusOnDesktop()}
             />
 
             {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}

@@ -17,6 +17,7 @@ import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
 import { unitCount } from '@/lib/i18n/terms';
 import type { StaffPerson } from './model';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 /**
  * Карточка сотрудника.
@@ -157,7 +158,7 @@ export function StaffSheet({
                   defaultValue={person.name}
                   required
                   autoComplete="off"
-                  autoFocus
+                  autoFocus={autoFocusOnDesktop()}
                 />
               </Field>
 
@@ -285,7 +286,7 @@ function ResetPin({ id }: { id: string }) {
           pattern="[0-9]{6}"
           maxLength={6}
           autoComplete="off"
-          autoFocus
+          autoFocus={autoFocusOnDesktop()}
           required
           className="num"
         />

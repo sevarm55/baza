@@ -16,6 +16,7 @@ import { EmptyState, SkeletonTable } from '@/components/patterns/states';
 import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
 import type { Dict } from '@/lib/i18n';
+import { autoFocusOnDesktop } from '@/lib/autofocus';
 
 type Loaded = Awaited<ReturnType<typeof clientHistory>>;
 
@@ -308,7 +309,13 @@ function Contacts({
     >
       <Field>
         <FieldLabel htmlFor="client-name">{t.owner.clientName}</FieldLabel>
-        <Input id="client-name" name="name" defaultValue={name ?? ''} autoComplete="off" autoFocus />
+        <Input
+          id="client-name"
+          name="name"
+          defaultValue={name ?? ''}
+          autoComplete="off"
+          autoFocus={autoFocusOnDesktop()}
+        />
       </Field>
 
       <Field>

@@ -125,6 +125,11 @@ function InputGroupInput({
       data-slot="input-group-control"
       className={cn(
         "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+        /* Рамку, фон и высоту в группе держит сама группа. Без этого на
+           телефоне поле рисует поверх неё свою белую заливку с
+           собственным радиусом, и грань группы пропадает ровно с той
+           стороны, где стоит ввод. */
+        "max-md:h-full max-md:rounded-none max-md:border-0 max-md:bg-transparent",
         className
       )}
       {...props}
@@ -141,6 +146,7 @@ function InputGroupTextarea({
       data-slot="input-group-control"
       className={cn(
         "flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+        "max-md:rounded-none max-md:border-0 max-md:bg-transparent",
         className
       )}
       {...props}
