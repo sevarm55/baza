@@ -1117,6 +1117,13 @@ export const en: Dict = {
     tabMore: 'More',
     tabsAria: 'Main sections',
     tabAdd: 'Add a car',
+    tabsPick: 'Tab bar',
+    tabsPickNote: 'Temporary choice: tell us which one to keep',
+    tabsGrape: 'Grape',
+    tabsLight: 'Light',
+    tabsBar: 'With labels',
+    tabsInk: 'Graphite',
+    tabsPill: 'Lime',
 
     moreTitle: 'More',
     moreLead: 'The map of your business',

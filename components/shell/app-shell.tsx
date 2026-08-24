@@ -4,7 +4,7 @@ import { AppSidebar } from '@/components/shell/app-sidebar';
 import { BillingBanner } from '@/components/shell/billing-banner';
 import { TopBar } from '@/components/shell/top-bar';
 import { MobileAppBar } from '@/components/mobile/app-bar';
-import { MTabBar } from '@/components/mobile/chrome';
+import { MTabBar } from '@/components/mobile/tabs';
 import { OfflineBar, PageFade } from '@/components/loading';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Point } from '@/lib/accounts';
@@ -71,8 +71,10 @@ export function AppShell({
         className="min-w-0 bg-background max-md:bg-m-bg"
         style={
           {
+            /* Высоту занятого низа объявляет сама полоса вкладок: у
+               плавающей капсулы и у полосы во всю ширину она разная. */
             '--m-bottom-inset':
-              'calc(var(--m-tab-h) + var(--m-tab-gap) * 2 + var(--m-safe-bottom))',
+              'calc(var(--m-tabs-block, calc(var(--m-tab-h) + var(--m-tab-gap) * 2)) + var(--m-safe-bottom))',
           } as React.CSSProperties
         }
       >

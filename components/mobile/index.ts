@@ -13,7 +13,14 @@
 
 export { MobileOnly, DesktopOnly, MScreen, MSection, MLink } from './screen';
 export { MTile, MGrid, MBadge, MArrow, MStatTile, mSurface, type MTone } from './surface';
-export { MTabBar, MTopBar, MNav, MTitle } from './chrome';
+export { MTopBar, MNav, MTitle } from './chrome';
+export {
+  MTabBar,
+  TABS_VARIANTS,
+  tabsVariantLabel,
+  useTabsVariant,
+  type TabsVariant,
+} from './tabs';
 export {
   MButton,
   MButtonLink,

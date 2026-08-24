@@ -16,6 +16,7 @@ import {
 
 import { signOut, snoozeAlert, switchPoint } from '@/app/actions';
 import { MNav, MTopBar } from '@/components/mobile/chrome';
+import { TABS_VARIANTS, tabsVariantLabel, useTabsVariant } from '@/components/mobile/tabs';
 import { MButton } from '@/components/mobile/controls';
 import { MAvatar, MGroup, MNavRow, MRow, MRows } from '@/components/mobile/list';
 import { MSheet } from '@/components/mobile/sheet';
@@ -286,6 +287,7 @@ function MAccount({
   const locale = useLocale();
   const { setLocale } = useSetLocale();
   const theme = useTheme();
+  const [tabs, setTabs] = useTabsVariant();
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -348,6 +350,32 @@ function MAccount({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Временный выбор полосы вкладок: владелец смотрит варианты
+              прямо в продукте и говорит, какой оставить. Уйдёт вместе с
+              лишними вариантами, как только выбор сделан. */}
+          <div className="flex flex-col gap-2">
+            <h3 className="px-1 text-[12px] font-semibold tracking-[0.06em] text-m-faint uppercase">
+              {t.phone.tabsPick}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {TABS_VARIANTS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTabs(option)}
+                  aria-pressed={tabs === option}
+                  className={cn(
+                    'm-press h-11 rounded-full px-4 text-[14.5px] font-semibold outline-none',
+                    tabs === option ? 'bg-m-grape text-white' : 'bg-m-tile text-m-muted',
+                  )}
+                >
+                  {tabsVariantLabel(option, t)}
+                </button>
+              ))}
+            </div>
+            <p className="px-1 text-[12.5px] text-m-faint">{t.phone.tabsPickNote}</p>
           </div>
 
           <div className="flex flex-col gap-2">

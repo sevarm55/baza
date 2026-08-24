@@ -1496,6 +1496,13 @@ export const hy = {
     tabMore: 'Ավելին',
     tabsAria: 'Հիմնական բաժինները',
     tabAdd: 'Գրանցել մեքենա',
+    tabsPick: 'Ներքևի վահանակ',
+    tabsPickNote: 'Ժամանակավոր ընտրություն. ասեք, որը թողնել',
+    tabsGrape: 'Խաղող',
+    tabsLight: 'Բաց',
+    tabsBar: 'Ենթագրերով',
+    tabsInk: 'Գրաֆիտ',
+    tabsPill: 'Լայմ',
 
     moreTitle: 'Ավելին',
     moreLead: 'Ձեր բիզնեսի քարտեզը',
