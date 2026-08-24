@@ -16,7 +16,8 @@ import {
 
 import { signOut, snoozeAlert, switchPoint } from '@/app/actions';
 import { MNav, MTopBar } from '@/components/mobile/chrome';
-import { TABS_VARIANTS, tabsVariantLabel, useTabsVariant } from '@/components/mobile/tabs';
+import { tabsVariantLabel, useTabsVariant } from '@/components/mobile/tabs';
+import { TABS_VARIANTS } from '@/components/mobile/tabs-shared';
 import { MButton } from '@/components/mobile/controls';
 import { MAvatar, MGroup, MNavRow, MRow, MRows } from '@/components/mobile/list';
 import { MSheet } from '@/components/mobile/sheet';
@@ -352,9 +353,9 @@ function MAccount({
             </div>
           </div>
 
-          {/* Временный выбор полосы вкладок: владелец смотрит варианты
-              прямо в продукте и говорит, какой оставить. Уйдёт вместе с
-              лишними вариантами, как только выбор сделан. */}
+          {/* Полоса вкладок рядом с языком и темой: это такая же
+              настройка внешнего вида, и место ей там же, где остальные
+              решения человека о том, как продукт выглядит. */}
           <div className="flex flex-col gap-2">
             <h3 className="px-1 text-[12px] font-semibold tracking-[0.06em] text-m-faint uppercase">
               {t.phone.tabsPick}

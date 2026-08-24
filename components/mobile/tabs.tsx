@@ -2,20 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useSyncExternalStore, type ComponentType } from 'react';
+import { useCallback, useEffect, useSyncExternalStore, type ComponentType } from 'react';
 import { ChartNoAxesColumn, ClipboardList, Ellipsis, Plus, Wallet } from 'lucide-react';
 
 import { usePendingTab } from '@/components/use-pending-tab';
+import { isTabsVariant, TABS_COOKIE, type TabsVariant } from '@/components/mobile/tabs-shared';
 import { useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 
 /**
  * Полоса вкладок — главный предмет мобильной оболочки.
  *
- * Пока владелец выбирает, каким ей быть, здесь живут пять вариантов
- * одной и той же полосы. Разница между ними ТОЛЬКО в материале и в том,
- * чем помечена открытая вкладка; состав, порядок и поведение общие:
- * четыре раздела и кнопка записи посередине.
+ * Материалов у неё пять, и человек выбирает сам: одному фиолетовая
+ * капсула кажется тяжёлой, другому белая — незаметной. Разница между
+ * вариантами ТОЛЬКО в материале и в том, чем помечена открытая вкладка;
+ * состав, порядок и поведение общие: четыре раздела и кнопка записи
+ * посередине.
  *
  * Запись стоит в середине, потому что это единственное действие,
  * которое повторяют по сорок раз за смену: середина нижнего края — то
@@ -25,13 +27,10 @@ import { cn } from '@/lib/utils';
  * не с чего, и полоса из одной кнопки отняла бы у него низ экрана, на
  * котором он сорок раз за смену жмёт «записать».
  *
- * Выбор временный: как только вариант утверждён, лишние уходят вместе с
- * переключателем в листе учётки и ключом в `localStorage`.
+ * Выбранный вариант живёт в cookie, а не только в браузере: сервер
+ * читает её и отдаёт полосу сразу нужной. Без этого каждая полная
+ * перезагрузка показывала бы вспышку варианта по умолчанию.
  */
-export type TabsVariant = 'grape' | 'light' | 'bar' | 'ink' | 'pill';
-
-export const TABS_VARIANTS: TabsVariant[] = ['grape', 'light', 'bar', 'ink', 'pill'];
-
 const STORE_KEY = 'tetr.tabs';
 
 /**
@@ -45,32 +44,39 @@ const STORE_KEY = 'tetr.tabs';
  * Адрес сильнее хранилища: `?tabs=ink` показывает вариант и запоминает
  * его, чтобы дальше по продукту можно было ходить обычными ссылками.
  */
-export function useTabsVariant(): [TabsVariant, (next: TabsVariant) => void] {
+export function useTabsVariant(initial: TabsVariant = 'grape'): [
+  TabsVariant,
+  (next: TabsVariant) => void,
+] {
   /* `useSyncExternalStore`, а не состояние с эффектом: вариант живёт вне
-     React — в адресе и в `localStorage`, — и читать его надо ровно в тот
-     момент, когда React рисует. Состояние, обновляемое из эффекта, дало
-     бы лишний каскад отрисовок на каждом переходе. */
-  const variant = useSyncExternalStore(subscribeTabs, readTabs, () => 'grape' as TabsVariant);
+     React — в адресе, в cookie и в `localStorage`, — и читать его надо
+     ровно в тот момент, когда React рисует. Состояние, обновляемое из
+     эффекта, дало бы лишний каскад отрисовок на каждом переходе. */
+  const server = useCallback(() => initial, [initial]);
+  const variant = useSyncExternalStore(subscribeTabs, readTabs, server);
 
   /* Адрес сильнее хранилища: `?tabs=ink` показывает вариант и запоминает
      его, чтобы дальше по продукту можно было ходить обычными ссылками. */
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get('tabs');
-    if (isVariant(fromUrl)) window.localStorage.setItem(STORE_KEY, fromUrl);
+    if (isTabsVariant(fromUrl)) saveTabs(fromUrl);
   }, [variant]);
 
   return [variant, pickTabs];
 }
 
-function isVariant(value: string | null): value is TabsVariant {
-  return value !== null && (TABS_VARIANTS as string[]).includes(value);
-}
-
 function readTabs(): TabsVariant {
   const fromUrl = new URLSearchParams(window.location.search).get('tabs');
-  if (isVariant(fromUrl)) return fromUrl;
+  if (isTabsVariant(fromUrl)) return fromUrl;
+
+  const fromCookie = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${TABS_COOKIE}=`))
+    ?.slice(TABS_COOKIE.length + 1);
+  if (isTabsVariant(fromCookie)) return fromCookie;
+
   const saved = window.localStorage.getItem(STORE_KEY);
-  return isVariant(saved) ? saved : 'grape';
+  return isTabsVariant(saved) ? saved : 'grape';
 }
 
 /* Полос на странице одна, а переключателей может быть несколько: общее
@@ -84,8 +90,16 @@ function subscribeTabs(onChange: () => void) {
   };
 }
 
-function pickTabs(next: TabsVariant) {
+function saveTabs(next: TabsVariant) {
   window.localStorage.setItem(STORE_KEY, next);
+  /* Год: выбор внешнего вида человек делает один раз, и переспрашивать
+     его каждую неделю нечестно. Ничего личного в cookie нет, поэтому
+     она обычная, без подписи. */
+  document.cookie = `${TABS_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+}
+
+function pickTabs(next: TabsVariant) {
+  saveTabs(next);
   window.dispatchEvent(new Event('tetr:tabs'));
 }
 
@@ -111,10 +125,10 @@ type Tab = {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
 };
 
-export function MTabBar() {
+export function MTabBar({ initial = 'grape' }: { initial?: TabsVariant }) {
   const t = useT();
   const pathname = usePathname();
-  const [variant] = useTabsVariant();
+  const [variant] = useTabsVariant(initial);
 
   const tabs: Tab[] = [
     { href: '/owner', label: t.phone.tabSummary, icon: ChartNoAxesColumn },

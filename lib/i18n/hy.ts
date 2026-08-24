@@ -1497,7 +1497,7 @@ export const hy = {
     tabsAria: 'Հիմնական բաժինները',
     tabAdd: 'Գրանցել մեքենա',
     tabsPick: 'Ներքևի վահանակ',
-    tabsPickNote: 'Ժամանակավոր ընտրություն. ասեք, որը թողնել',
+    tabsPickNote: 'Ինչպիսին է ներքևի բաժինների վահանակը',
     tabsGrape: 'Խաղող',
     tabsLight: 'Բաց',
     tabsBar: 'Ենթագրերով',

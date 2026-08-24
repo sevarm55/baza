@@ -1161,7 +1161,7 @@ export const ru: Dict = {
     tabsAria: 'Основные разделы',
     tabAdd: 'Записать машину',
     tabsPick: 'Полоса вкладок',
-    tabsPickNote: 'Временный выбор: скажите, какой оставить',
+    tabsPickNote: 'Как выглядит нижняя полоса разделов',
     tabsGrape: 'Грейп',
     tabsLight: 'Светлая',
     tabsBar: 'С подписями',

@@ -1118,7 +1118,7 @@ export const en: Dict = {
     tabsAria: 'Main sections',
     tabAdd: 'Add a car',
     tabsPick: 'Tab bar',
-    tabsPickNote: 'Temporary choice: tell us which one to keep',
+    tabsPickNote: 'How the bottom bar of sections looks',
     tabsGrape: 'Grape',
     tabsLight: 'Light',
     tabsBar: 'With labels',

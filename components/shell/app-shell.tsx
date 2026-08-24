@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 
 import { AppSidebar } from '@/components/shell/app-sidebar';
@@ -5,6 +6,7 @@ import { BillingBanner } from '@/components/shell/billing-banner';
 import { TopBar } from '@/components/shell/top-bar';
 import { MobileAppBar } from '@/components/mobile/app-bar';
 import { MTabBar } from '@/components/mobile/tabs';
+import { TABS_COOKIE, tabsFromCookie } from '@/components/mobile/tabs-shared';
 import { OfflineBar, PageFade } from '@/components/loading';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Point } from '@/lib/accounts';
@@ -29,7 +31,7 @@ import { cn } from '@/lib/utils';
  * рисуется один раз, а его мобильное и десктопное представления решает
  * сама страница (`MobileOnly` / `DesktopOnly`).
  */
-export function AppShell({
+export async function AppShell({
   tenantName,
   userName,
   roleLabel,
@@ -58,6 +60,12 @@ export function AppShell({
   narrow?: boolean;
   children: ReactNode;
 }) {
+  /* Каким материалом полоса вкладок — решает человек, и его выбор лежит
+     в обычной cookie. Читаем на сервере, чтобы первая отрисовка сразу
+     была правильной: иначе каждая полная загрузка мигала бы вариантом
+     по умолчанию. */
+  const tabs = tabsFromCookie((await cookies()).get(TABS_COOKIE)?.value);
+
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
       {/* Колонка не просто спрятана классом на себе: `display:contents`
@@ -119,7 +127,7 @@ export function AppShell({
         <OfflineBar />
       </SidebarInset>
 
-      <MTabBar />
+      <MTabBar initial={tabs} />
     </SidebarProvider>
   );
 }

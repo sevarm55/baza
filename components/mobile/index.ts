@@ -14,13 +14,8 @@
 export { MobileOnly, DesktopOnly, MScreen, MSection, MLink } from './screen';
 export { MTile, MGrid, MBadge, MArrow, MStatTile, mSurface, type MTone } from './surface';
 export { MTopBar, MNav, MTitle } from './chrome';
-export {
-  MTabBar,
-  TABS_VARIANTS,
-  tabsVariantLabel,
-  useTabsVariant,
-  type TabsVariant,
-} from './tabs';
+export { MTabBar, tabsVariantLabel, useTabsVariant } from './tabs';
+export { TABS_COOKIE, TABS_VARIANTS, tabsFromCookie, type TabsVariant } from './tabs-shared';
 export {
   MButton,
   MButtonLink,
