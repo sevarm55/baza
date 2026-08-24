@@ -46,58 +46,6 @@ export function MobileStatRow({
   );
 }
 
-const TINT = {
-  mint: 'bg-m-mint text-m-mint-ink',
-  lavender: 'bg-m-lavender text-m-lavender-ink',
-  sand: 'bg-m-sand text-m-sand-ink',
-  paper: 'bg-m-surface text-m-ink border border-m-hair',
-} as const;
-
-/**
- * Ряд мягких карточек-показаний.
- *
- * Цвет несёт смысл, а не украшает: мята принадлежит объёму работы,
- * лаванда денежному контексту, кобальт расходам. Увидев синюю карточку,
- * человек ещё до чтения знает, что речь о тратах.
- *
- * Содержимое по центру карточки, а не по левому краю: числа здесь
- * разной длины — «5» и «43 500 ֏» рядом, — и при левой выключке ряд
- * выглядит рассыпанным.
- */
-export function MobileStatCards({
-  items,
-  columns = 3,
-  className,
-}: {
-  items: {
-    key: string;
-    label: ReactNode;
-    value: ReactNode;
-    tint?: keyof typeof TINT;
-  }[];
-  columns?: 2 | 3;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn('grid gap-2.5', columns === 2 ? 'grid-cols-2' : 'grid-cols-3', className)}
-    >
-      {items.map((item) => (
-        <div
-          key={item.key}
-          className={cn(
-            'flex flex-col items-center justify-center gap-1 rounded-m-tile px-2 py-3.5 text-center',
-            TINT[item.tint ?? 'paper'],
-          )}
-        >
-          <span className="w-full truncate text-[11.5px] leading-none opacity-85">{item.label}</span>
-          <span className="num w-full truncate text-[18px] leading-none font-bold">{item.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * Полоса, разрезанная по долям.
  *

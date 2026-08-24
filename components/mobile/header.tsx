@@ -135,33 +135,3 @@ export function MobileTitle({
     </div>
   );
 }
-
-/**
- * Круглая кнопка-значок в шапке.
- *
- * Тридцать восемь точек — минимум, по которому уверенно попадают
- * пальцем; область касания при этом больше самого значка.
- */
-export function MobileIconButton({
-  children,
-  className,
-  tone = 'quiet',
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'quiet' | 'grape' }) {
-  return (
-    <button
-      type="button"
-      {...rest}
-      className={cn(
-        'm-press relative flex size-[38px] shrink-0 items-center justify-center rounded-m-tile',
-        'outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        tone === 'quiet' && 'bg-m-inset text-m-ink',
-        tone === 'grape' && 'bg-primary/10 text-primary',
-        '[&_svg]:size-[17px]',
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}

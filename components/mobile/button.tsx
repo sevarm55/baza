@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { TetrinMiniLoader } from '@/components/mobile/loader';
+import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,25 +55,10 @@ export function MobileButton({
       aria-busy={loading || undefined}
       className={cn(base(tone, size, Boolean(disabled)), className)}
     >
-      <Body loading={loading} busyTitle={busyTitle} tone={tone}>
+      <Body loading={loading} busyTitle={busyTitle}>
         {children}
       </Body>
     </button>
-  );
-}
-
-/** То же лицо, но ссылкой: переход, а не действие. */
-export function MobileLinkButton({
-  children,
-  tone = 'lime',
-  size = 'lg',
-  className,
-  ...rest
-}: ComponentProps<typeof Link> & { tone?: Tone; size?: 'lg' | 'md' }) {
-  return (
-    <Link {...rest} className={cn(base(tone, size, false), className)}>
-      {children}
-    </Link>
   );
 }
 
@@ -95,12 +79,10 @@ function base(tone: Tone, size: 'lg' | 'md', disabled: boolean) {
 function Body({
   loading,
   busyTitle,
-  tone,
   children,
 }: {
   loading: boolean;
   busyTitle?: ReactNode;
-  tone: Tone;
   children: ReactNode;
 }) {
   return (
@@ -113,10 +95,7 @@ function Body({
       </span>
       {loading && (
         <span className="absolute inset-0 flex items-center justify-center gap-2 px-4">
-          <TetrinMiniLoader
-            size={19}
-            className={tone === 'lime' || tone === 'quiet' ? 'text-current' : 'text-current'}
-          />
+          <Spinner className="size-[19px]" />
           {busyTitle && <span className="truncate text-[15px] font-bold">{busyTitle}</span>}
         </span>
       )}

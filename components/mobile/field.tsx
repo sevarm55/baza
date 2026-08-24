@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
-import { useId } from 'react';
 
 import { usePendingTab } from '@/components/use-pending-tab';
 import { cn } from '@/lib/utils';
@@ -82,21 +81,6 @@ export function MobileInput({ className, ...rest }: ComponentProps<'input'>) {
   );
 }
 
-/** Многострочное поле: тот же вид, другая высота. */
-export function MobileTextarea({ className, ...rest }: ComponentProps<'textarea'>) {
-  return (
-    <textarea
-      {...rest}
-      className={cn(
-        'min-h-[96px] w-full min-w-0 resize-none rounded-m-tile bg-m-inset px-4 py-3.5 text-[16px] text-m-ink',
-        'placeholder:text-m-muted',
-        'outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-        className,
-      )}
-    />
-  );
-}
-
 /**
  * Выбор из многих — родной `select` телефона.
  *
@@ -133,70 +117,6 @@ export function MobileSelect({ className, children, ...rest }: ComponentProps<'s
         </svg>
       </span>
     </div>
-  );
-}
-
-/**
- * Строка с переключателем: подпись слева, тумблер справа.
- *
- * Касание принимает вся строка, а не двадцать точек тумблера.
- */
-export function MobileSwitchRow({
-  label,
-  note,
-  checked,
-  onCheckedChange,
-  disabled,
-  className,
-}: {
-  label: ReactNode;
-  note?: ReactNode;
-  checked: boolean;
-  onCheckedChange: (next: boolean) => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  const id = useId();
-  return (
-    <label
-      htmlFor={id}
-      className={cn(
-        'flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-4 py-2.5',
-        '[&+*]:border-t [&+*]:border-m-hair',
-        disabled && 'opacity-50',
-        className,
-      )}
-    >
-      <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className="text-[16px] leading-tight font-semibold text-m-ink">{label}</span>
-        {note && <span className="text-[12.5px] leading-snug text-m-muted">{note}</span>}
-      </span>
-      <input
-        id={id}
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onCheckedChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <span
-        aria-hidden
-        className={cn(
-          'relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200',
-          'peer-focus-visible:ring-2 peer-focus-visible:ring-ring/60',
-          checked ? 'bg-m-good' : 'bg-m-inset',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-[2px] left-[2px] size-[27px] rounded-full bg-white transition-transform duration-200',
-            checked && 'translate-x-5',
-          )}
-          style={{ boxShadow: '0 1px 3px rgb(0 0 0 / 0.2)' }}
-        />
-      </span>
-    </label>
   );
 }
 

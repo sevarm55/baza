@@ -12,37 +12,20 @@
  * продукта; поэтому всё, что повторяется дважды, живёт здесь.
  */
 
-export { MobileOnly, DesktopOnly, MobilePage, MobileSection } from './layout';
+export { MobileOnly, DesktopOnly, MobileSection } from './layout';
 export { MobileCard, MobileReading, MobileDelta } from './card';
 export { MobileTabBar } from './tab-bar';
-export { MobileTopBar, MobileBackHeader, MobileTitle, MobileIconButton } from './header';
-export {
-  MobileButton,
-  MobileLinkButton,
-  MobileChip,
-  MobileQuietButton,
-  MobileActionBar,
-} from './button';
-export {
-  MobileGroup,
-  MobileLinkRow,
-  MobileButtonRow,
-  MobileRow,
-  MobileDataRow,
-  MobileDataList,
-  MobileAvatar,
-} from './list';
-export { MobileStatRow, MobileStatCards, MobileSplitBar, MobileSplitLegend } from './stats';
-export { MobileEmpty, MobileError, MobileSkeleton, MobileSkeletonRows } from './states';
+export { MobileTopBar, MobileBackHeader, MobileTitle } from './header';
+export { MobileButton, MobileChip, MobileQuietButton, MobileActionBar } from './button';
+export { MobileDataRow, MobileDataList, MobileAvatar } from './list';
+export { MobileStatRow, MobileSplitBar, MobileSplitLegend } from './stats';
+export { MobileEmpty } from './states';
 export { MobileSheet, MobileCover } from './sheet';
 export {
   MobileField,
   MobileInput,
-  MobileTextarea,
   MobileSelect,
-  MobileSwitchRow,
   MobileSegmented,
   MobileSegmentedLinks,
 } from './field';
 export { MobileSearch, MobileChipRow } from './toolbar';
-export { TetrinLoader, TetrinMiniLoader } from './loader';
