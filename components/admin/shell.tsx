@@ -109,7 +109,10 @@ export function AdminShell({
         </SidebarHeader>
 
         <SidebarContent className="px-1 pt-1">
-          <SidebarGroup className="py-1">
+          {/* В свёрнутой колонке боковое поле группы сжимается до 4px: со
+              штатными 8px кнопка 32px не влезает в ячейку, съезжает вправо
+              с оси марки и правым краем уходит под кликабельный рельс. */}
+          <SidebarGroup className="py-1 group-data-[collapsible=icon]:px-1">
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {items.map((it) => {

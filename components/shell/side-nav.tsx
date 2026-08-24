@@ -34,7 +34,10 @@ export function SideNav({ passes }: { passes: boolean }) {
   return (
     <>
       {sectionGroupsFor(passes, t).map((group) => (
-        <SidebarGroup key={group.key} className="py-1">
+        /* В свёрнутой колонке боковое поле группы сжимается до 4px: со
+           штатными 8px кнопка 32px не влезает в ячейку, съезжает вправо
+           с оси марки и правым краем уходит под кликабельный рельс. */
+        <SidebarGroup key={group.key} className="py-1 group-data-[collapsible=icon]:px-1">
           {group.label && (
             <SidebarGroupLabel className="h-7 px-2 text-2xs font-medium tracking-wider text-muted-foreground/80">
               {group.label}

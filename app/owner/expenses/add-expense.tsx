@@ -134,7 +134,6 @@ export function AddExpense({
                   min={1}
                   placeholder="0"
                   required
-                  autoFocus
                   className="num font-medium"
                 />
               </InputGroup>

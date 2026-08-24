@@ -62,6 +62,10 @@ export function EntitySheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={at}
+        /* Мышь и палец открывают лист спокойно, без прыжка фокуса в первое
+           поле: на телефоне тот прыжок поднимает клавиатуру. Открытие с
+           клавиатуры ведёт себя по-старому, фокус уходит в форму. */
+        initialFocus={(openType) => openType === 'keyboard'}
         className={cn(
           'w-full gap-0 p-0',
           width === 'md' && 'data-[side=right]:sm:max-w-[28rem]',

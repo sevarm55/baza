@@ -116,7 +116,6 @@ export function SellPass({
               placeholder={clientIdPlaceholder}
               required
               autoComplete="off"
-              autoFocus
               className="num"
             />
           </Field>
