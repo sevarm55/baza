@@ -1,6 +1,7 @@
 'use client';
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
+import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
 import { Delta } from '@/components/patterns/metric';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useT } from '@/lib/i18n/client';
@@ -49,6 +50,26 @@ export function ServicesTable({
       height="h-56"
       padded={false}
     >
+      {/* На телефоне строками: услуга, сколько раз и на сколько.
+          Средний чек и доля идут пояснением — по ним не решают, их
+          читают вторым взглядом. */}
+      <MobileOnly className="px-4 pb-1">
+        <MobileDataList>
+          {shown.map((r) => (
+            <MobileDataRow
+              key={r.key}
+              title={
+                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
+              }
+              note={`${c.times} ${r.count} · ${c.avgCheck} ${money(r.avg)}`}
+              value={money(r.revenue)}
+              sub={`${Math.round(r.share * 100)}%`}
+            />
+          ))}
+        </MobileDataList>
+      </MobileOnly>
+
+      <DesktopOnly>
       <Table>
         <TableHeader>
           <TableRow>
@@ -75,6 +96,7 @@ export function ServicesTable({
           ))}
         </TableBody>
       </Table>
+      </DesktopOnly>
     </ChartPanel>
   );
 }
@@ -105,6 +127,27 @@ export function CostsTable({
       height="h-56"
       padded={false}
     >
+      <MobileOnly className="px-4 pb-1">
+        <MobileDataList>
+          {rows.map((r) => (
+            <MobileDataRow
+              key={r.key}
+              title={<span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>}
+              note={`${r.monthly ? t.expenses.perMonth : t.expenses.oneOff} · ${Math.round(r.share * 100)}%`}
+              value={money(r.amount)}
+              sub={
+                compare
+                  ? r.prev === null
+                    ? c.new
+                    : `${r.amount - r.prev > 0 ? '+' : '−'}${money(Math.abs(r.amount - r.prev))}`
+                  : undefined
+              }
+            />
+          ))}
+        </MobileDataList>
+      </MobileOnly>
+
+      <DesktopOnly>
       <Table>
         <TableHeader>
           <TableRow>
@@ -140,6 +183,7 @@ export function CostsTable({
           ))}
         </TableBody>
       </Table>
+      </DesktopOnly>
     </ChartPanel>
   );
 }

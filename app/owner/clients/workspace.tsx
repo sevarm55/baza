@@ -5,6 +5,14 @@ import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type Column } from '@/components/patterns/data-table';
+import {
+  DesktopOnly,
+  MobileChipRow,
+  MobileEmpty,
+  MobileOnly,
+  MobileSearch,
+  MobileSelect,
+} from '@/components/mobile';
 import { Segmented } from '@/components/patterns/segmented';
 import { EmptyState } from '@/components/patterns/states';
 import { StatusBadge } from '@/components/patterns/status-badge';
@@ -169,8 +177,50 @@ export function ClientsWorkspace({
     },
   ];
 
+  const groups = [
+    { key: 'all', label: t.owner.allClients, count: counts.all },
+    { key: 'loyal', label: t.owner.clientsLoyal, count: counts.loyal },
+    { key: 'fresh', label: t.owner.clientsFresh, count: counts.fresh },
+    { key: 'lost', label: t.owner.clientsLost, count: counts.lost },
+  ];
+
+  /* Управление на телефоне: поле поиска во всю ширину, полоса фильтров
+     под ним, порядок — родным списком телефона. Родным намеренно:
+     системный барабан человек уже умеет крутить, а нарисованный список
+     внутри страницы приходится учиться листать заново. */
+  const mobileTools = (
+    <div className="flex flex-col gap-2">
+      <MobileSearch
+        numeric
+        value={query}
+        onChange={setQuery}
+        placeholder={t.owner.clientsSearch}
+        clearLabel={t.common.clear}
+      />
+      <MobileChipRow
+        items={groups}
+        value={group}
+        onChange={(key) => setGroup(key as ClientGroup)}
+        label={t.owner.tabClients}
+      />
+      <MobileSelect
+        aria-label={t.owner.sortRecent}
+        value={sort}
+        onChange={(e) => setSort(e.target.value as ClientSort)}
+        className="h-[42px] text-[14px]"
+      >
+        {SORTS.map((s) => (
+          <option key={s.key} value={s.key}>
+            {s.label}
+          </option>
+        ))}
+      </MobileSelect>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-md:gap-3">
+      <DesktopOnly>
       <Toolbar
         end={
           <ResetFilters
@@ -217,18 +267,36 @@ export function ClientsWorkspace({
           </SelectContent>
         </Select>
       </Toolbar>
+      </DesktopOnly>
 
       {found.length === 0 ? (
-        <EmptyState
-          title={
-            rows.length === 0
-              ? t.owner.clientsEmpty
-              : query
-                ? t.owner.clientsNotFound
-                : t.common.noResults
-          }
-          description={rows.length === 0 ? t.owner.clientsEmptyNote : undefined}
-        />
+        <>
+          <MobileOnly className="flex flex-col gap-3">
+            {mobileTools}
+            <MobileEmpty
+              title={
+                rows.length === 0
+                  ? t.owner.clientsEmpty
+                  : query
+                    ? t.owner.clientsNotFound
+                    : t.common.noResults
+              }
+              note={rows.length === 0 ? t.owner.clientsEmptyNote : undefined}
+            />
+          </MobileOnly>
+          <DesktopOnly>
+            <EmptyState
+              title={
+                rows.length === 0
+                  ? t.owner.clientsEmpty
+                  : query
+                    ? t.owner.clientsNotFound
+                    : t.common.noResults
+              }
+              description={rows.length === 0 ? t.owner.clientsEmptyNote : undefined}
+            />
+          </DesktopOnly>
+        </>
       ) : (
         /* Ключом стоит порядок из списка: смена порядка сбрасывает
            сортировку по заголовку, иначе два порядка спорили бы, чей
@@ -240,6 +308,20 @@ export function ClientsWorkspace({
           rowKey={(c) => c.id}
           rowLabel={openLabel}
           onRowClick={(c) => setOpen(c.key)}
+          mobileTools={mobileTools}
+          mobile={{
+            /* Номер крупно — единственный опознавательный знак клиента.
+               Имя и телефон под ним: их вписывает владелец, и ищет он
+               человека чаще именно по ним. Справа то, ради чего список
+               открывают, — сколько этот клиент принёс. */
+            title: (c) => (
+              <span className="num truncate text-[15.5px] font-semibold text-m-ink">{c.key}</span>
+            ),
+            note: (c) => contactLine(c.name, c.phone) || t.owner.visitsCount(c.visits),
+            extra: (c) => `${t.owner.lastVisitPrefix} ${c.last}`,
+            value: (c) => money(c.total),
+            sub: (c) => `${t.owner.clientAvg} ${money(c.avg)}`,
+          }}
         />
       )}
 

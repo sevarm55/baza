@@ -94,6 +94,10 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     <div className="flex flex-col gap-5">
       <PageHeader
         className="mb-0"
+        /* Заголовок здесь — данные, а не имя раздела: в шапке телефона
+           стоит «Календарь» и «Клиенты», и без него было бы непонятно,
+           какой день и какая машина открыты. */
+        mobileTitle
         title={title}
         back={{ href: `/owner/calendar?m=${date.slice(0, 7)}`, label: t.calendar.title }}
         actions={

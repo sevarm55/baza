@@ -83,7 +83,9 @@ export function PhoneField({
     <Field className={className}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
 
-      <InputGroup className="h-10">
+      {/* Номер набирают на телефоне чаще всего: поле там выше и
+          крупнее, а клавиатура поднимается телефонная. */}
+      <InputGroup className="h-10 max-md:h-[52px]">
         {/* Код страны: родной `select` поверх нарисованной кнопки. Он ищет
             по буквам, крутится барабаном на iOS и понятен читалке экрана
             без единого дополнительного атрибута. Флаг только картинка. */}

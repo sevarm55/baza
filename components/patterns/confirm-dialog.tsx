@@ -50,7 +50,12 @@ export function ConfirmDialog({
   const t = useT();
   return (
     <AlertDialog open={open} onOpenChange={(next) => (busy ? undefined : onOpenChange(next))}>
-      <AlertDialogContent className="sm:max-w-md">
+      {/* Вопрос остаётся окном по центру и на телефоне: ровно так
+          спрашивает приложение (`.alert`), и ровно так человек ждёт
+          вопроса, на который надо ответить, прежде чем что-то
+          произойдёт. Лист снизу для этого не годится — его закрывают
+          движением, а вопрос закрывать движением нельзя. */}
+      <AlertDialogContent className="sm:max-w-md max-md:rounded-m-box">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? (
@@ -60,7 +65,7 @@ export function ConfirmDialog({
           )}
         </AlertDialogHeader>
         {children}
-        <AlertDialogFooter className="*:min-w-24">
+        <AlertDialogFooter className="*:min-w-24 max-md:*:flex-1">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {cancelLabel ?? t.common.cancel}
           </Button>

@@ -168,7 +168,12 @@ export function CodeInput({
               data-active={i === active ? '' : undefined}
               data-gap={groupEvery > 0 && i > 0 && i % groupEvery === 0 ? '' : undefined}
               className={cn(
+                /* На телефоне клетки крупнее: шесть цифр набирают одной
+                   рукой, и попадать надо не в клетку, а в поле целиком —
+                   но видеть, куда встанет следующая цифра, всё равно
+                   нужно. */
                 'num relative flex h-11 w-10 items-center justify-center rounded-md border border-input bg-card text-lg font-semibold text-foreground transition-colors',
+                'max-md:h-[54px] max-md:w-[46px] max-md:rounded-m-tile max-md:text-[22px]',
                 'data-gap:ml-2',
                 'data-filled:border-foreground/30',
                 /* Кольцо на одной клетке, куда попадёт следующая цифра. */

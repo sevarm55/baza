@@ -20,6 +20,7 @@ import { DetailList, DetailRow } from '@/components/patterns/detail-list';
 import { PersonDot } from '@/components/patterns/person';
 import { EmptyState } from '@/components/patterns/states';
 import { TableShell, cellNum, headNum } from '@/components/patterns/table';
+import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
 
 /**
  * История одной машины — отдельной страницей.
@@ -80,6 +81,10 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
     <div className="flex flex-col gap-5">
       <PageHeader
         className="mb-0"
+        /* Заголовок здесь — данные, а не имя раздела: в шапке телефона
+           стоит «Клиенты», и без номера было бы непонятно, чья это
+           карточка. */
+        mobileTitle
         back={{ href: '/owner/clients', label: t.owner.tabClients }}
         title={<span className="num">{client.key}</span>}
         description={contact || undefined}
@@ -153,6 +158,38 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
           {orders.length === 0 ? (
             <EmptyState compact title={t.common.empty} />
           ) : (
+            <>
+            {/* На телефоне визиты строками: услуга и кто мыл слева, цена
+                и когда — справа. Пять колонок на трёхстах шестидесяти
+                точках сжались бы до нечитаемого. */}
+            <MobileOnly className="px-4 pb-1">
+              <MobileDataList>
+                {orders.map((o) => (
+                  <MobileDataRow
+                    key={o.id}
+                    title={
+                      <span className="truncate text-[15.5px] font-semibold text-m-ink">
+                        {o.serviceName}
+                      </span>
+                    }
+                    note={`${crewNames(o)} · ${paymentLabel(o.payment, t).toLocaleLowerCase(t.locale)}`}
+                    extra={`${dayMonth(o.createdAt, tenant.timezone)} · ${hhmm(o.createdAt, tenant.timezone)}`}
+                    value={
+                      <span className="flex items-baseline justify-end gap-1.5">
+                        {o.listPrice !== null && o.listPrice > o.price && (
+                          <span className="num text-[12px] font-normal text-m-muted line-through">
+                            {money(o.listPrice)}
+                          </span>
+                        )}
+                        {money(o.price)}
+                      </span>
+                    }
+                  />
+                ))}
+              </MobileDataList>
+            </MobileOnly>
+
+            <DesktopOnly>
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -197,6 +234,8 @@ export default async function ClientPage({ params }: { params: Promise<{ key: st
                 ))}
               </TableBody>
             </Table>
+            </DesktopOnly>
+            </>
           )}
         </TableShell>
       </PanelGrid>

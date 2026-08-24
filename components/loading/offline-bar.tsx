@@ -28,8 +28,11 @@ export function OfflineBar() {
   if (!off) return null;
 
   return (
+    /* На телефоне полоса встаёт НАД вкладками: прибитая к самому низу,
+       она легла бы поверх них, и половина разделов перестала бы
+       нажиматься ровно тогда, когда связь и так пропала. */
     <div
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning-soft px-4 py-2 text-sm font-medium text-warning-soft-foreground"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 border-t border-warning/30 bg-warning-soft px-4 py-2 text-sm font-medium text-warning-soft-foreground max-md:bottom-[var(--m-bottom-inset)] max-md:pb-2"
       role="status"
       aria-live="polite"
     >

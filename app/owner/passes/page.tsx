@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/patterns/page-header';
 import { Metric, MetricStrip } from '@/components/patterns/metric';
 import { EmptyState } from '@/components/patterns/states';
 import { TableShell, cellNum, headNum } from '@/components/patterns/table';
+import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
 import { SellPass } from './sell-pass';
 
 /**
@@ -103,6 +104,31 @@ export default async function PassesPage() {
         {rows.length === 0 ? (
           <EmptyState compact title={t.passes.empty} />
         ) : (
+          <>
+          {/* На телефоне абонементы строками: номер машины крупно,
+              услуга и срок под ним, остаток справа — «3 из 10» и есть
+              ответ, ради которого в список смотрят. */}
+          <MobileOnly className="px-4 pb-1">
+            <MobileDataList>
+              {rows.map((p) => (
+                <MobileDataRow
+                  key={p.id}
+                  title={
+                    <span className="num truncate text-[15.5px] font-semibold text-m-ink">
+                      {p.clientKey ?? '—'}
+                    </span>
+                  }
+                  note={`${p.service} · ${p.price}`}
+                  extra={p.expires ? `${t.passes.until} ${p.expires}` : t.passes.unlimited}
+                  value={`${p.left} ${t.passes.of} ${p.total}`}
+                  sub={p.soldBy ? `${p.sold} · ${p.soldBy}` : p.sold}
+                  className={p.dead ? 'opacity-60' : undefined}
+                />
+              ))}
+            </MobileDataList>
+          </MobileOnly>
+
+          <DesktopOnly>
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -151,6 +177,8 @@ export default async function PassesPage() {
               ))}
             </TableBody>
           </Table>
+          </DesktopOnly>
+          </>
         )}
       </TableShell>
     </div>

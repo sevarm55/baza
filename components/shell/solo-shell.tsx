@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { BillingBanner } from '@/components/shell/billing-banner';
 import { BranchLabel, BranchSwitcher } from '@/components/shell/branch-switcher';
 import { BarUserMenu } from '@/components/shell/user-menu';
+import { MobileAppBar } from '@/components/mobile/app-bar';
 import { Wordmark } from '@/components/wordmark';
 import { OfflineBar, PageFade } from '@/components/loading';
 import { getDict } from '@/lib/i18n/server';
@@ -16,6 +17,11 @@ import type { Access } from '@/lib/subscription';
  * стоят марка, филиал (переключатель, если их несколько) и меню
  * аккаунта с языком, темой и выходом. Те же компоненты, что у владельца:
  * человек с двумя ролями на двух мойках видит одно и то же меню.
+ *
+ * Полосы вкладок внизу здесь нет — и это не упущение. Переключаться
+ * мойщику не с чего: у него один экран, и полоса из одной кнопки
+ * отбирала бы пятьдесят шесть точек у списка записей на экране, куда он
+ * заглядывает сорок раз за смену. Низ остаётся за кнопкой «записать».
  */
 export async function SoloShell({
   tenantName,
@@ -41,27 +47,39 @@ export async function SoloShell({
   const many = points.length > 1;
 
   return (
-    <div className="flex min-h-svh w-full flex-col bg-background">
-      <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
-        <span className="flex shrink-0 items-center" aria-label={t.app.name} role="img">
-          <Wordmark />
-        </span>
-        <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
+    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-board">
+      <div className="hidden md:contents">
+        <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
+          <span className="flex shrink-0 items-center" aria-label={t.app.name} role="img">
+            <Wordmark />
+          </span>
+          <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
 
-        <div className="flex min-w-0 flex-1 items-center">
-          {many ? (
-            <BranchSwitcher points={points} currentId={currentTid} />
-          ) : (
-            <BranchLabel name={tenantName} />
-          )}
-        </div>
+          <div className="flex min-w-0 flex-1 items-center">
+            {many ? (
+              <BranchSwitcher points={points} currentId={currentTid} />
+            ) : (
+              <BranchLabel name={tenantName} />
+            )}
+          </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          <BarUserMenu userName={userName} roleLabel={roleLabel} owner={false} shiftOpen={shiftOpen} />
-        </div>
-      </header>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <BarUserMenu userName={userName} roleLabel={roleLabel} owner={false} shiftOpen={shiftOpen} />
+          </div>
+        </header>
+      </div>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 md:px-6">
+      <MobileAppBar
+        tenantName={tenantName}
+        points={points}
+        currentTid={currentTid}
+        userName={userName}
+        roleLabel={roleLabel}
+        owner={false}
+        shiftOpen={shiftOpen}
+      />
+
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 max-md:m-pad-x max-md:m-tabs-space max-md:pt-3 md:px-6">
         <BillingBanner access={access} role="staff" />
         <PageFade>{children}</PageFade>
       </main>

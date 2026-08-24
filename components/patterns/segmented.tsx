@@ -46,11 +46,21 @@ export function Segmented({
   return (
     <div
       role="tablist"
+      data-slot="segmented"
       aria-label={label}
       data-pending={pending || undefined}
       className={cn(
         'inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-muted p-[3px] no-scrollbar',
         size === 'md' ? 'h-9' : 'h-8',
+        /* На телефоне дорожка выше и тёплая, как в приложении: сорок
+           две точки — минимум, по которому попадают пальцем, не
+           прицеливаясь.
+
+           Двое-трое делят ширину поровну; от четырёх и больше полоса
+           едет вбок. Втиснуть «Прошлый месяц» в четверть экрана
+           нельзя — подпись обрежется на середине слова, и выбирать
+           придётся по догадке. */
+        'max-md:flex max-md:h-[42px] max-md:w-full max-md:min-w-0 max-md:rounded-m-chip max-md:bg-m-chip',
         full && 'flex w-full',
         className,
       )}
@@ -60,10 +70,12 @@ export function Segmented({
         const cls = cn(
           'inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50',
           size === 'sm' && 'px-2.5 text-[13px]',
+          'max-md:min-w-0 max-md:flex-1 max-md:rounded-[9px] max-md:px-2.5 max-md:text-[13px] max-md:font-semibold',
+          'max-md:in-[[data-slot=segmented]:has(>*:nth-child(4))]:flex-none max-md:in-[[data-slot=segmented]:has(>*:nth-child(4))]:px-3.5',
           full && 'flex-1',
           on
-            ? 'border border-border bg-card text-foreground'
-            : 'border border-transparent text-muted-foreground hover:text-foreground',
+            ? 'border border-border bg-card text-foreground max-md:border-transparent max-md:bg-m-surface max-md:text-m-ink'
+            : 'border border-transparent text-muted-foreground hover:text-foreground max-md:text-m-muted',
         );
         const inner = (
           <>

@@ -45,7 +45,10 @@ export function NameForm({ name }: { name: string }) {
             busy={pending}
             label={t.settings.save}
             busyLabel={t.common.saving}
-            className={cn(!dirty && !pending && 'invisible')}
+            /* На телефоне спрятанная кнопка не должна занимать место:
+               там поле и так узкое, а `invisible` держит за собой сто
+               точек пустоты. */
+            className={cn(!dirty && !pending && 'invisible max-md:hidden')}
           />
         </div>
         <FieldError>{state?.error}</FieldError>

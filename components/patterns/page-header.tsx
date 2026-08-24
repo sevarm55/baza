@@ -20,6 +20,7 @@ export function PageHeader({
   back,
   children,
   className,
+  mobileTitle = false,
 }: {
   title: ReactNode;
   /** пояснение, что это за страница: одной короткой фразой */
@@ -33,21 +34,38 @@ export function PageHeader({
   /** ряд инструментов под шапкой */
   children?: ReactNode;
   className?: string;
+  /**
+   * Показывать заголовок и на телефоне.
+   *
+   * По умолчанию его там нет: раздел уже назван шапкой «← Название».
+   * Но у страниц, где заголовок — это ДАННЫЕ (дата дня, номер машины), в
+   * шапке стоит имя раздела, а не они, и спрятать их значит спрятать
+   * ответ на вопрос «что я сейчас смотрю».
+   */
+  mobileTitle?: boolean;
 }) {
   return (
-    <header className={cn('mb-5 flex flex-col gap-4', className)}>
+    /* На телефоне заголовка здесь нет: раздел уже назван шапкой
+       «← Название» наверху экрана, и второй такой же заголовок под ней
+       был бы шапкой над шапкой. Остаются действия — и они становятся
+       крупнее: по кнопке в тридцать шесть точек мокрым пальцем не
+       попасть. */
+    <header className={cn('mb-5 flex flex-col gap-4 max-md:mb-3 max-md:gap-2.5', className)}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0 flex-1 basis-40">
+        <div className={cn('min-w-0 flex-1 basis-40', !mobileTitle && 'max-md:hidden')}>
           {back && (
             <Link
               href={back.href}
-              className="mb-1.5 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              /* На телефоне «назад» уже стоит стрелкой в шапке экрана;
+                 вторая такая же ссылка под ней — это два ответа на один
+                 вопрос. */
+              className="mb-1.5 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground max-md:hidden"
             >
               <ChevronLeft className="size-3.5" aria-hidden />
               {back.label}
             </Link>
           )}
-          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em]">
+          <h1 className="truncate text-[22px] leading-tight font-semibold tracking-[-0.01em] max-md:text-[26px] max-md:font-bold">
             {title}
           </h1>
           {(description || meta) && (
@@ -57,9 +75,25 @@ export function PageHeader({
             </div>
           )}
         </div>
-        {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
+        {actions && (
+          <div
+            className={cn(
+              'flex max-w-full flex-wrap items-center gap-2',
+              'max-md:w-full max-md:[&>*]:min-h-[46px] max-md:[&>*]:flex-1',
+            )}
+          >
+            {actions}
+          </div>
+        )}
       </div>
-      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+      {/* `min-w-0` обязателен: без него слишком широкий инструмент
+          (полоса из шести фильтров) растягивает ряд, ряд растягивает
+          страницу, и весь экран начинает ездить вбок. */}
+      {children && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
+          {children}
+        </div>
+      )}
     </header>
   );
 }

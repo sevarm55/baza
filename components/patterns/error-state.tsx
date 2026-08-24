@@ -37,12 +37,17 @@ export function ErrorState({
       className={cn(
         'flex w-full flex-col items-center justify-center text-center',
         compact ? 'gap-2 px-4 py-8' : 'gap-3 rounded-lg border border-dashed border-border px-6 py-10',
+        /* На телефоне рамки нет: пунктирный прямоугольник во всю ширину
+           экрана читается заглушкой, а не ответом. */
+        'max-md:border-0 max-md:px-5',
         className,
       )}
     >
       <div className="flex max-w-sm flex-col gap-1">
-        <div className="text-sm font-semibold">{title ?? t.common.loadFailed}</div>
-        {description && <div className="text-sm text-muted-foreground">{description}</div>}
+        <div className="text-sm font-semibold max-md:text-[15px]">{title ?? t.common.loadFailed}</div>
+        {description && (
+          <div className="text-sm text-muted-foreground max-md:text-[13px]">{description}</div>
+        )}
       </div>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={() => void onRetry()} disabled={busy}>

@@ -1,7 +1,9 @@
 import { formatMoney } from '@/lib/money';
 import { Metric, MetricStrip } from '@/components/patterns/metric';
+import { DesktopOnly, MobileOnly } from '@/components/mobile';
 import { getDict } from '@/lib/i18n/server';
 import { staffCount, unitWord } from '@/lib/i18n/terms';
+import { PayrollHeroMobile } from './mobile';
 
 /**
  * Показания наверху страницы.
@@ -20,6 +22,7 @@ export async function PayrollSummary({
   units,
   unitOne,
   staffRole,
+  people,
 }: {
   currency: string;
   /** сколько сейчас нужно раздать */
@@ -31,12 +34,31 @@ export async function PayrollSummary({
   units: number;
   unitOne: string;
   staffRole: string;
+  /** кому должны, от большего долга к меньшему: стопка лиц на телефоне */
+  people: { name: string; owed: number }[];
 }) {
   const t = await getDict();
   const money = (n: number) => formatMoney(n, currency, t.locale);
 
   return (
     <section aria-label={t.owner.payrollDue}>
+      {/* На телефоне экран начинается с людей, а не с прибора: сводка
+          отвечает «сколько получилось», зарплаты — «кому раздать». */}
+      <MobileOnly>
+        <PayrollHeroMobile
+          outstanding={outstanding}
+          owedTo={owedTo}
+          accrued={accrued}
+          settled={settled}
+          units={units}
+          currency={currency}
+          unitOne={unitOne}
+          staffRole={staffRole}
+          people={people}
+        />
+      </MobileOnly>
+
+      <DesktopOnly>
       <MetricStrip columns={4}>
         <Metric
           label={t.owner.toPay}
@@ -49,6 +71,7 @@ export async function PayrollSummary({
         <Metric label={t.payroll.paid} value={money(settled)} />
         <Metric label={unitWord(units, unitOne, t.locale)} value={String(units)} />
       </MetricStrip>
+      </DesktopOnly>
     </section>
   );
 }

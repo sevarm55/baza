@@ -87,6 +87,8 @@ export const en: Dict = {
     themeDarkLong: 'Dark theme',
     themeLightLong: 'Light theme',
     theme: 'Theme',
+    /* Доля владельца в легенде полосы разреза: место там на одно слово. */
+    you: 'you',
   },
 
   meta: {
@@ -523,6 +525,13 @@ export const en: Dict = {
     yourShare: (percent: number) => `your share ${percent}%`,
 
     onShift: "I'm on shift",
+    /* Приветствие по времени суток на экране смены: единственное
+       место, где продукт зовёт человека по имени. Ночью «доброй ночи»
+       звучит прощанием, поэтому там нейтральное. */
+    greetingMorning: 'Good morning',
+    greetingDay: 'Good afternoon',
+    greetingEvening: 'Good evening',
+    greetingPlain: 'Hello',
     shiftNotStarted: 'Shift not started yet',
     shiftDone: 'Shift finished',
     since: (time: string) => `since ${time}`,
@@ -561,6 +570,9 @@ export const en: Dict = {
     giveDiscount: 'Give a discount',
     discounted: 'Charged',
     addFor: (unit: string, sum: string) => `Add ${unit} · ${sum}`,
+    /* Заголовок формы записи: «New car». Слово приходит в том падеже,
+       которого требует язык, — считает `unitForms`. */
+    newUnit: (unit: string) => `New ${unit}`,
     saved: 'Logged',
     recording: 'Logging…',
     loadFailed: 'Could not load the shift',
@@ -808,6 +820,13 @@ export const en: Dict = {
     tabClients: 'Clients',
     tabSettings: 'Settings',
     revenue: 'Revenue',
+    /* Мобильная сводка: подписи под полосой разреза и в строке фактов.
+       Те же слова, что в приложении (summary.served, summary.toStaff,
+       summary.paidIn) — экран один, и называться на нём одно и то же
+       должно одинаково. */
+    served: 'Served',
+    toStaff: 'To staff',
+    paidIn: 'Paid in',
     revenueToday: "Today's revenue",
     revenueMonth: "This month's revenue",
     revenuePrevMonth: "Last month's revenue",

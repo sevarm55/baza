@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { useIsMobile } from '@/hooks/use-mobile';
+
 import { ActivityItem } from '@/components/patterns/activity-item';
 import { Panel } from '@/components/patterns/panel';
 import { EmptyState } from '@/components/patterns/states';
@@ -66,7 +68,22 @@ export function LiveActivity({
     if (initial[0] && initial[0].at > newest.current) newest.current = initial[0].at;
   }, [initial]);
 
+  /**
+   * На телефоне живой ленты нет — и потока тоже.
+   *
+   * Композиция телефона повторяет приложение, а там этой панели нет
+   * вовсе: за «что происходит прямо сейчас» отвечает журнал записей
+   * внизу сводки. Панель остаётся в десктопном дереве, и `display:none`
+   * убирает её с глаз, но не останавливает JavaScript: без этой
+   * проверки телефон в подвале мойки держал бы открытым поток событий,
+   * которого никто не видит, и тратил бы на него связь, которой там и
+   * так нет.
+   */
+  const isMobile = useIsMobile();
+
   useEffect(() => {
+    if (isMobile) return;
+
     let source: EventSource | null = null;
     let poll: ReturnType<typeof setInterval> | null = null;
     let failures = 0;
@@ -166,7 +183,7 @@ export function LiveActivity({
       document.removeEventListener('visibilitychange', onVisibility);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
     };
-  }, [router]);
+  }, [router, isMobile]);
 
   const shown = rows.slice(0, SHOWN);
 

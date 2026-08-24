@@ -23,6 +23,7 @@ import { getPeriodCosts, profitOf } from '@/lib/expenses';
 import { shiftsOnDay, whoIsOnShift } from '@/lib/shifts';
 import { countActivity, listActivity, type ActivityType } from '@/lib/activity';
 import { LiveActivity } from '@/components/patterns/live-activity';
+import { DesktopOnly, MobileOnly, MobileSegmentedLinks } from '@/components/mobile';
 import { Attention, type Signal } from './today/attention';
 import { personColor } from '@/lib/person-color';
 import { PageHeader } from '@/components/patterns/page-header';
@@ -36,6 +37,8 @@ import { FlowChart } from './today/flow-chart';
 import { CrewPanel } from './today/crew-panel';
 import { PaymentMix } from './today/payment-mix';
 import { Journal } from './today/journal';
+import { TodayMobile } from './today/mobile';
+import { periods, periodHref } from './periods';
 import type { CrewMember, FlowPoint, MixSlice, Op } from './today/model';
 
 /**
@@ -294,8 +297,58 @@ export default async function TodayPage({
     .filter(Boolean)
     .join(' · ');
 
+  const journalNote =
+    feed.length >= FEED_LIMIT ? t.today.lastRecords(feed.length) : t.today.workAll(dayLabel);
+
   return (
-    <div className="flex flex-col gap-5">
+    /* Одна колонка на оба представления, и журнал в ней ровно один: он
+       сам знает, каким быть на телефоне и каким на компьютере, а место
+       у него в обоих случаях одно — последнее. */
+    <div className="flex flex-col gap-5 max-md:gap-3">
+      {/* Телефон получает композицию приложения: показание по оси
+          экрана, строка вычитания под ним, факты строкой, люди лентой,
+          журнал строками. Данные те же — их посчитал этот же серверный
+          компонент выше, и разойтись двум представлениям негде. */}
+      <MobileOnly className="flex flex-col gap-3">
+        {/* Период прилипает под шапкой: на него смотрят, дочитав экран
+            до низа, и возвращаться за ним наверх не должны. */}
+        <div
+          className="sticky z-20 -mx-4 bg-m-board/92 px-4 pt-1 pb-2 backdrop-blur-xl"
+          style={{ top: 'calc(var(--m-safe-top) + var(--m-top-h))' }}
+        >
+          <MobileSegmentedLinks
+            current={period}
+            label={t.owner.periodLabel}
+            items={periods(t).map((x) => ({
+              key: x.key,
+              label: x.label,
+              href: periodHref(x.key),
+            }))}
+          />
+        </div>
+
+        <TodayMobile
+          isToday={isToday}
+          dayLabel={dayLabel}
+          profit={profit}
+          revenue={stats.revenue}
+          payroll={stats.payroll}
+          costsTotal={costs.total}
+          count={stats.count}
+          avgCheck={stats.avgCheck}
+          diff={diff}
+          hasBase={prevStats.count > 0}
+          crew={crew}
+          presentCount={present.length}
+          mix={mix}
+          flow={flow ?? null}
+          signals={signals}
+          currency={tenant.currency}
+          unitOne={tenant.unitOne}
+        />
+      </MobileOnly>
+
+      <DesktopOnly display="contents">
       <PageHeader
         className="mb-0"
         title={t.owner.tabToday}
@@ -382,6 +435,10 @@ export default async function TodayPage({
         <PaymentMix className="lg:col-span-4" slices={mix} currency={tenant.currency} />
       </PanelGrid>
 
+      </DesktopOnly>
+
+      {/* Журнал общий: он сам знает, каким быть на телефоне и каким на
+          компьютере, и стоит в разметке ровно один раз. */}
       <Journal
         ops={ops}
         staff={roster.map((s) => ({ id: s.id, name: s.name }))}
@@ -391,7 +448,7 @@ export default async function TodayPage({
         staffRole={tenant.staffRole}
         clientIdLabel={tenant.clientIdLabel}
         title={isToday ? t.today.work : t.owner.feed}
-        note={feed.length >= FEED_LIMIT ? t.today.lastRecords(feed.length) : t.today.workAll(dayLabel)}
+        note={journalNote}
         empty={
           isToday
             ? { title: t.owner.emptyToday, note: t.today.emptyNote }

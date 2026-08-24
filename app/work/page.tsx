@@ -24,6 +24,9 @@ import { getDict } from '@/lib/i18n/server';
 import { localizeTenant, serviceNameTerm, unitForms, unitWord } from '@/lib/i18n/terms';
 import { AppShell } from '@/components/shell/app-shell';
 import { SoloShell } from '@/components/shell/solo-shell';
+import { DesktopOnly, MobileOnly } from '@/components/mobile';
+import { ShiftReadingMobile } from './mobile';
+import { ShiftToggleMobile } from './shift-controls-mobile';
 import { Panel } from '@/components/patterns/panel';
 import { Metric } from '@/components/patterns/metric';
 import { StatusBadge } from '@/components/patterns/status-badge';
@@ -139,8 +142,32 @@ export default async function WorkPage() {
      денег, кнопка записи и журнал. Порядок задан частотой: записать
      машину — десятки раз за смену, заработок — после каждой, состояние
      смены — дважды в день, журнал — когда ошибся. */
+  /* Экран собран дважды, а данные посчитаны один раз.
+     
+     На телефоне это композиция приложения: переключатель смены прибит
+     сверху, показание по оси экрана, факты строкой, наличные отдельной
+     полосой, журнал строками и кнопка записи внизу. На компьютере —
+     прежняя панель с показаниями в ряд.
+     
+     Порядок блоков в разметке один и тот же для обоих, поэтому читать
+     этот файл можно сверху вниз, не держа в голове две раскладки.
+     `OrderFlow` стоит между ними ровно один раз: он держит состояние
+     формы и очередь без связи и сам показывает то представление,
+     которое сейчас на экране. */
   const body = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-md:gap-2.5">
+      <MobileOnly className="-mt-1">
+        <ShiftToggleMobile
+          onShift={onShift}
+          count={shift.count}
+          revenue={shift.revenue}
+          earned={shift.earned}
+          cash={cashSoFar}
+          currency={tenant.currency}
+          unitOne={unitForms(tenant.unitOne, t.locale).nom}
+        />
+      </MobileOnly>
+
       {/* Плашка сценария: что сделать здесь и как вернуться владельцем.
           Состояние считает сервер по тем же данным, что и сам экран,
           поэтому после открытия смены и после первой машины она
@@ -154,6 +181,31 @@ export default async function WorkPage() {
           оно съело бы момент настоящему работнику в его первый день. */}
       {!owner && !previewing && needsWelcome(me) && <WorkerWelcome />}
 
+      <MobileOnly>
+        <ShiftReadingMobile
+          greetingName={me.name}
+          takesShare={takesShare}
+          earned={shift.earned}
+          revenue={shift.revenue}
+          count={shift.count}
+          cash={cashSoFar}
+          state={state}
+          openedAt={open ? open.openedAt.toISOString() : null}
+          sinceLabel={open ? t.work.since(hhmm(open.openedAt, tenant.timezone)) : null}
+          rangeLabel={
+            closed
+              ? t.work.range(
+                  hhmm(closed.openedAt, tenant.timezone),
+                  hhmm(closed.closedAt, tenant.timezone),
+                )
+              : null
+          }
+          currency={tenant.currency}
+          unitOne={tenant.unitOne}
+        />
+      </MobileOnly>
+
+      <DesktopOnly>
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="flex min-w-0 flex-col gap-3">
@@ -206,10 +258,14 @@ export default async function WorkPage() {
           </div>
         </div>
       </Panel>
+      </DesktopOnly>
 
       {/* Одно действие, и оно никогда не серое: вне смены на месте
-          записи стоит начало смены. */}
-      {state !== 'on' && <StartShift highlight={previewing && shift.count === 0} />}
+          записи стоит начало смены. На телефоне смену открывает
+          переключатель наверху — тот же, которым её закрывают. */}
+      <DesktopOnly>
+        {state !== 'on' && <StartShift highlight={previewing && shift.count === 0} />}
+      </DesktopOnly>
 
       <OrderFlow
         highlightAdd={previewing && shift.count === 0}
@@ -254,16 +310,18 @@ export default async function WorkPage() {
       />
 
       {/* Закрыть смену спрашивает и показывает итог дня. */}
-      {onShift && (
-        <EndShift
-          count={shift.count}
-          revenue={shift.revenue}
-          earned={shift.earned}
-          cash={cashSoFar}
-          currency={tenant.currency}
-          unitOne={tenant.unitOne}
-        />
-      )}
+      <DesktopOnly>
+        {onShift && (
+          <EndShift
+            count={shift.count}
+            revenue={shift.revenue}
+            earned={shift.earned}
+            cash={cashSoFar}
+            currency={tenant.currency}
+            unitOne={tenant.unitOne}
+          />
+        )}
+      </DesktopOnly>
     </div>
   );
 

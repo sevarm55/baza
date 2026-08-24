@@ -158,10 +158,27 @@ export default async function PayrollPage() {
   const nagging =
     board.totals.outstanding > 0 && idleDays !== null && idleDays >= PAYROLL_AFTER_DAYS;
 
+  /* Кому должны, от большего долга к меньшему — стопка лиц наверху
+     телефонного экрана. Один человек может стоять в нескольких днях;
+     здесь он один и с общим долгом, иначе в стопке появились бы два
+     одинаковых кружка. */
+  const owedPeople = (() => {
+    const sums = new Map<string, number>();
+    for (const day of board.days) {
+      for (const person of day.people) {
+        if (person.earned <= 0 || !person.name) continue;
+        sums.set(person.name, (sums.get(person.name) ?? 0) + person.earned);
+      }
+    }
+    return [...sums]
+      .map(([name, owed]) => ({ name, owed }))
+      .sort((a, b) => b.owed - a.owed);
+  })();
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 max-md:gap-3">
       <PageHeader
-        className="mb-0"
+        className="mb-0 max-md:hidden"
         title={t.owner.tabPayroll}
         description={t.payroll.lead}
         /* Повод — значком у заголовка, а не плашкой во всю ширину. Он
@@ -186,6 +203,7 @@ export default async function PayrollPage() {
         units={board.totals.units}
         unitOne={tenant.unitOne}
         staffRole={tenant.staffRole}
+        people={owedPeople}
       />
 
       <PayrollWorkspace

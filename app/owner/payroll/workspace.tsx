@@ -5,17 +5,58 @@ import { Check, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { settlePayroll } from '@/app/actions';
 import { Segmented } from '@/components/patterns/segmented';
+import {
+  DesktopOnly,
+  MobileEmpty,
+  MobileOnly,
+  MobileQuietButton,
+  MobileSegmented,
+} from '@/components/mobile';
 import { EmptyState } from '@/components/patterns/states';
 import { Button } from '@/components/ui/button';
 import { useAsyncAction } from '@/components/loading';
 import { formatMoney } from '@/lib/money';
 import { DayCard } from './day-card';
+import { DayCardMobile, HistoryMobile } from './mobile';
 import { PayrollHistory } from './history';
 import { ConfirmPayout, type ConfirmGroup } from './confirm-dialog';
 import type { DayGroup, HistoryDay, PayItem, StaffEntry } from './model';
 import { useT } from '@/lib/i18n/client';
 
 type Tab = 'due' | 'history';
+
+/**
+ * Рабочий день — двумя представлениями.
+ *
+ * Состояние выбора живёт выше, в самой мастерской, поэтому оба
+ * представления показывают одни и те же отметки и одну и ту же сумму к
+ * выплате. Разные у них только геометрия и то, чем человек по ним
+ * попадает: на компьютере таблица со столбцами, на телефоне строки с
+ * кружком в тридцать восемь точек.
+ */
+function DayGroupView(props: {
+  group: DayGroup;
+  currency: string;
+  unitOne: string;
+  staffRole: string;
+  picked: Set<string>;
+  onPick: (key: string, on: boolean) => void;
+  onPickAll: (keys: string[]) => void;
+  onPay: (keys: string[]) => void;
+  busy: boolean;
+  collapsed?: boolean;
+}) {
+  return (
+    <>
+      <MobileOnly>
+        <DayCardMobile {...props} />
+      </MobileOnly>
+      <DesktopOnly>
+        <DayCard {...props} />
+      </DesktopOnly>
+    </>
+  );
+}
 
 /**
  * Рабочая часть страницы: долг и история под одним переключателем.
@@ -135,9 +176,24 @@ export function PayrollWorkspace({
   const closed = days.filter((d) => !open.includes(d));
   const busy = settle.running;
 
-  return (
-    <div className="flex flex-col gap-4">
-      <Segmented
+  /* Переключатель «долг / история» на телефоне — свой: сегмент
+     кабинета ужимает надпись, и узкие пробелы между разрядами
+     схлопываются, «1 266 750» превращается в «1266750». */
+  const tabs = (
+    <>
+      <MobileOnly>
+        <MobileSegmented
+          value={tab}
+          label={t.owner.tabPayroll}
+          onChange={(key) => setTab(key)}
+          options={[
+            { key: 'due', label: outstanding === 0 ? t.payroll.dayAllPaid : t.payroll.tabDue },
+            { key: 'history', label: t.payroll.tabHistory },
+          ]}
+        />
+      </MobileOnly>
+      <DesktopOnly>
+        <Segmented
         label={t.owner.tabPayroll}
         current={tab}
         onSelect={(key) => setTab(key as Tab)}
@@ -155,23 +211,47 @@ export function PayrollWorkspace({
           },
           { key: 'history', label: t.payroll.tabHistory },
         ]}
-      />
+        />
+      </DesktopOnly>
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-4 max-md:gap-3">
+      {tabs}
 
       {tab === 'due' ? (
         <div className="flex flex-col gap-4">
           {outstanding === 0 ? (
-            <EmptyState
-              icon={<CheckCircle2 />}
-              title={t.payroll.dayAllPaid}
-              description={t.payroll.nothingUnpaid}
-              action={
-                history.length > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={() => setTab('history')}>
-                    {t.payroll.openHistory}
-                  </Button>
-                ) : undefined
-              }
-            />
+            <>
+              <MobileOnly>
+                <MobileEmpty
+                  title={t.payroll.dayAllPaid}
+                  note={t.payroll.nothingUnpaid}
+                  action={
+                    history.length > 0 ? (
+                      <MobileQuietButton className="mx-auto" onClick={() => setTab('history')}>
+                        {t.payroll.openHistory}
+                      </MobileQuietButton>
+                    ) : undefined
+                  }
+                />
+              </MobileOnly>
+              <DesktopOnly>
+                <EmptyState
+                  icon={<CheckCircle2 />}
+                  title={t.payroll.dayAllPaid}
+                  description={t.payroll.nothingUnpaid}
+                  action={
+                    history.length > 0 ? (
+                      <Button variant="ghost" size="sm" onClick={() => setTab('history')}>
+                        {t.payroll.openHistory}
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              </DesktopOnly>
+            </>
           ) : (
             <>
               {/* Сегодня стоит первым всегда — даже когда мыть ещё не
@@ -187,7 +267,7 @@ export function PayrollWorkspace({
               )}
 
               {open.map((group) => (
-                <DayCard
+                <DayGroupView
                   key={group.day}
                   group={group}
                   currency={currency}
@@ -226,7 +306,7 @@ export function PayrollWorkspace({
 
               {showClosed &&
                 closed.map((group) => (
-                  <DayCard
+                  <DayGroupView
                     key={group.day}
                     group={group}
                     currency={currency}
@@ -244,7 +324,23 @@ export function PayrollWorkspace({
           )}
         </div>
       ) : (
-        <PayrollHistory days={history} currency={currency} unitOne={unitOne} staffRole={staffRole} />
+        <>
+          <MobileOnly>
+            <HistoryMobile
+              history={history}
+              currency={currency}
+              emptyTitle={t.payroll.historyEmpty}
+            />
+          </MobileOnly>
+          <DesktopOnly>
+            <PayrollHistory
+              days={history}
+              currency={currency}
+              unitOne={unitOne}
+              staffRole={staffRole}
+            />
+          </DesktopOnly>
+        </>
       )}
 
       {/* Причал: полоса расчёта внутри дня уезжает под сгиб вместе с
@@ -252,12 +348,22 @@ export function PayrollWorkspace({
           краю внутри рабочей области, а не поверх всего экрана: так он
           стоит по центру содержимого, а не по центру окна с колонкой. */}
       {chosen.length > 0 && (
-        <div className="safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4">
-            <span className="num text-sm text-muted-foreground">
+        /* На телефоне причал встаёт НАД полосой вкладок: прибитый к
+           самому низу, он лёг бы поверх них — и разделы перестали бы
+           нажиматься ровно тогда, когда в руках деньги. */
+        <div
+          className="safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center max-md:bottom-[calc(var(--m-bottom-inset)+10px)] max-md:pb-0"
+          style={{ paddingBottom: undefined }}
+        >
+          <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4 max-md:w-full max-md:gap-3 max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface max-md:p-2.5 max-md:pl-4">
+            <span className="num text-sm text-muted-foreground max-md:text-[13px] max-md:text-m-muted">
               {t.payroll.selected(chosen.length)}
             </span>
-            <Button disabled={busy} onClick={() => setAsking(chosen)}>
+            <Button
+              disabled={busy}
+              onClick={() => setAsking(chosen)}
+              className="max-md:h-[46px] max-md:min-w-0 max-md:flex-1 max-md:rounded-m-tile max-md:bg-lime max-md:text-[15px] max-md:font-bold max-md:text-lime-foreground"
+            >
               {t.payroll.paySum(money(chosenSum))}
             </Button>
           </div>

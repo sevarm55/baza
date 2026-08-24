@@ -84,7 +84,7 @@ export default async function ClientsPage({
           size="lg"
           label={t.owner.clientsLifetime}
           value={money(lifetime)}
-          hint={rows.length > 0 ? `${rows.length} ${t.owner.clientOne}` : undefined}
+          hint={rows.length > 0 ? t.owner.clientsCount(rows.length) : undefined}
         />
         <Metric label={t.owner.visits} value={String(visits)} />
         <Metric label={t.owner.avgCheck} value={money(perVisit)} />

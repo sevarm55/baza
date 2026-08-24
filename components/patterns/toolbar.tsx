@@ -29,9 +29,18 @@ export function Toolbar({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    /* На телефоне ряд разворачивается в столбик, и каждый инструмент
+       занимает всю ширину: три органа управления, ужатые в строку на
+       трёхстах шестидесяти точках, превращаются в три цели по
+       восемьдесят точек каждая — промахнуться проще, чем попасть. */
+    <div
+      className={cn(
+        'flex min-w-0 flex-wrap items-center gap-2 max-md:w-full max-md:flex-col max-md:items-stretch max-md:gap-2.5',
+        className,
+      )}
+    >
       {children}
-      {end && <div className="ml-auto flex items-center gap-2">{end}</div>}
+      {end && <div className="ml-auto flex items-center gap-2 max-md:ml-0">{end}</div>}
     </div>
   );
 }
@@ -58,7 +67,7 @@ export function SearchInput({
   const t = useT();
   const label = placeholder ?? t.common.search;
   return (
-    <InputGroup className={cn('w-full sm:w-64', className)}>
+    <InputGroup className={cn('w-full sm:w-64', 'max-md:h-[46px] max-md:rounded-m-tile', className)}>
       <InputGroupAddon>
         <Search aria-hidden />
       </InputGroupAddon>

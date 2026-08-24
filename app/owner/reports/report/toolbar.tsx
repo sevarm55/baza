@@ -64,7 +64,11 @@ export function ReportToolbar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+      {/* На телефоне управление отчётом разворачивается в столбик:
+          период, даты, сравнение и выгрузка — четыре разных решения, и
+          втиснутые в одну строку они превращаются в четыре цели по
+          восемьдесят точек, по которым не попасть. */}
+      <div className="flex flex-wrap items-center gap-2 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
         <Segmented
           label={t.reports.period}
           size="sm"
@@ -78,7 +82,7 @@ export function ReportToolbar({
           onApply={(from, to) => router.push(href({ r: 'custom', from, to }))}
         />
 
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center gap-3 max-md:ml-0 max-md:w-full max-md:justify-between">
           <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <Switch
               size="sm"
@@ -104,7 +108,12 @@ export function ReportToolbar({
             </NativeSelect>
           )}
 
-          <Button variant="outline" size="sm" render={<Link href={exportHref} prefetch={false} />}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="max-md:w-full"
+            render={<Link href={exportHref} prefetch={false} />}
+          >
             <Download data-icon="inline-start" aria-hidden />
             {t.reports.exportCsv}
           </Button>

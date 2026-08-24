@@ -2,6 +2,7 @@
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DesktopOnly, MobileDataList, MobileDataRow, MobileOnly } from '@/components/mobile';
 import { useT } from '@/lib/i18n/client';
 import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,31 @@ export function BranchCompare({
 
   return (
     <ChartPanel className={className} title={c.branches} description={c.branchesNote} padded={false} height="h-40">
+      {/* На телефоне филиалы строками: главное — выручка и что от неё
+          осталось; объём работы, зарплаты и расходы идут пояснением. */}
+      <MobileOnly className="px-4 pb-1">
+        <MobileDataList>
+          {rows.map((r) => (
+            <MobileDataRow
+              key={r.id}
+              title={
+                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
+              }
+              note={`${unitLabel} ${r.count} · ${k.avgCheck} ${money(r.avgCheck)}`}
+              extra={`${k.payroll} ${money(r.payroll)} · ${k.costs} ${money(r.costs)}`}
+              value={money(r.revenue)}
+              sub={
+                <span className={r.profit < 0 ? 'text-m-bad' : undefined}>
+                  {k.net} {money(r.profit)}
+                </span>
+              }
+              className={r.current ? 'bg-primary/6' : undefined}
+            />
+          ))}
+        </MobileDataList>
+      </MobileOnly>
+
+      <DesktopOnly>
       <Table>
         <TableHeader>
           <TableRow>
@@ -54,6 +80,7 @@ export function BranchCompare({
           ))}
         </TableBody>
       </Table>
+      </DesktopOnly>
     </ChartPanel>
   );
 }

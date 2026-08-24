@@ -98,6 +98,8 @@ export const ru: Dict = {
     themeDarkLong: 'Тёмная тема',
     themeLightLong: 'Светлая тема',
     theme: 'Тема',
+    /* Доля владельца в легенде полосы разреза: место там на одно слово. */
+    you: 'вы',
   },
 
   meta: {
@@ -564,6 +566,13 @@ export const ru: Dict = {
     yourShare: (percent: number) => `твоя доля ${percent}%`,
 
     onShift: 'Я на смене',
+    /* Приветствие по времени суток на экране смены: единственное
+       место, где продукт зовёт человека по имени. Ночью «доброй ночи»
+       звучит прощанием, поэтому там нейтральное. */
+    greetingMorning: 'Доброе утро',
+    greetingDay: 'Добрый день',
+    greetingEvening: 'Добрый вечер',
+    greetingPlain: 'Здравствуйте',
     shiftNotStarted: 'Смена ещё не начата',
     shiftDone: 'Смена завершена',
     since: (time: string) => `с ${time}`,
@@ -602,6 +611,9 @@ export const ru: Dict = {
     giveDiscount: 'Дать скидку',
     discounted: 'Взяли',
     addFor: (unit: string, sum: string) => `Добавить ${unit} · ${sum}`,
+    /* Заголовок формы записи: «Новая запись: машину». Слово приходит
+       в том падеже, которого требует язык, — считает `unitForms`. */
+    newUnit: (unit: string) => `Новая запись: ${unit}`,
     saved: 'Записано',
     recording: 'Записываем…',
     loadFailed: 'Не удалось загрузить смену',
@@ -850,6 +862,13 @@ export const ru: Dict = {
     tabClients: 'Клиенты',
     tabSettings: 'Настройки',
     revenue: 'Выручка',
+    /* Мобильная сводка: подписи под полосой разреза и в строке фактов.
+       Те же слова, что в приложении (summary.served, summary.toStaff,
+       summary.paidIn) — экран один, и называться на нём одно и то же
+       должно одинаково. */
+    served: 'Обслужено',
+    toStaff: 'Сотрудникам',
+    paidIn: 'Заплатили',
     revenueToday: 'Выручка за сегодня',
     revenueMonth: 'Выручка за этот месяц',
     revenuePrevMonth: 'Выручка за прошлый месяц',

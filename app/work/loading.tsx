@@ -13,7 +13,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Loading() {
   return (
     <AfterDelay>
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 md:px-6">
+      {/* Поле на телефоне даёт оболочка; здесь оно только для
+          компьютера, иначе отступ удваивается. */}
+      <div className="mx-auto w-full max-w-3xl px-4 py-5 max-md:px-0 max-md:py-0 md:px-6">
         <LoadingPage>
           {/* Табло смены: подпись, большое число, строка состояния. */}
           <div className="rounded-lg border border-border bg-card p-4" aria-hidden>

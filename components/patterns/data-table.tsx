@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { MobileDataList, MobileDataRow, DesktopOnly, MobileOnly } from '@/components/mobile';
 import { cn } from '@/lib/utils';
 import { TableShell } from './table';
 
@@ -27,6 +28,33 @@ export type Column<T> = {
   /** скрыть на узком экране */
   hideBelow?: 'sm' | 'md' | 'lg';
   width?: string;
+};
+
+/**
+ * Как та же строка выглядит на телефоне.
+ *
+ * Таблицы на телефоне быть не может: пять колонок на 360 точках либо
+ * едут вбок, либо сжимаются до нечитаемого — и то и другое означает,
+ * что данные не прочитать. Поэтому у каждой таблицы продукта есть
+ * второе описание одной и той же строки: что в ней главное, что
+ * поясняет, а что деньги.
+ *
+ * Не автоматический перенос колонок в карточку. Автомат не знает, какая
+ * из шести колонок отвечает на вопрос, ради которого в список смотрят, —
+ * а на телефоне видно ровно две строки текста, и выбирать приходится.
+ */
+export type MobileRow<T> = {
+  /** кружок человека, значок способа оплаты */
+  lead?: (row: T) => ReactNode;
+  title: (row: T) => ReactNode;
+  note?: (row: T) => ReactNode;
+  /** третья, самая тихая строка: время, дата, пояснение */
+  extra?: (row: T) => ReactNode;
+  /** деньги справа */
+  value?: (row: T) => ReactNode;
+  sub?: (row: T) => ReactNode;
+  /** меню строки; в него уезжает всё, чему не нашлось места */
+  action?: (row: T) => ReactNode;
 };
 
 const HIDE: Record<NonNullable<Column<unknown>['hideBelow']>, string> = {
@@ -55,6 +83,8 @@ export function DataTable<T>({
   actions,
   footer,
   rowClassName,
+  mobile,
+  mobileTools,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -70,6 +100,10 @@ export function DataTable<T>({
   actions?: ReactNode;
   footer?: ReactNode;
   rowClassName?: (row: T) => string | undefined;
+  /** та же строка на телефоне; без неё таблица остаётся таблицей везде */
+  mobile?: MobileRow<T>;
+  /** управление над списком на телефоне: поиск, фильтр, сортировка */
+  mobileTools?: ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(defaultSort ?? null);
 
@@ -97,7 +131,7 @@ export function DataTable<T>({
     });
   }
 
-  return (
+  const table = (
     <TableShell className={className} title={title} actions={actions} footer={footer}>
       {/* На телефоне раскладка фиксированная: колонки делят ширину, а
           длинное содержимое обрезается внутри ячейки, вместо того чтобы
@@ -206,5 +240,67 @@ export function DataTable<T>({
         </TableBody>
       </Table>
     </TableShell>
+  );
+
+  if (!mobile) return table;
+
+  return (
+    <>
+      {/* На телефоне тот же список строками на полотне: номер крупно,
+          пояснение под ним, деньги у правого края на одной высоте —
+          список не читают, его просматривают. */}
+      <MobileOnly className="flex flex-col">
+        {(title || mobileTools) && (
+          <div className="flex flex-col gap-2 px-1 pt-1 pb-1.5">
+            {title && (
+              <h2 className="text-[13px] leading-tight font-semibold text-m-muted">{title}</h2>
+            )}
+            {mobileTools}
+          </div>
+        )}
+
+        {sorted.length === 0 && empty !== undefined ? (
+          empty
+        ) : (
+          <MobileDataList>
+            {sorted.map((row) => {
+              const body = (
+                <MobileDataRow
+                  lead={mobile.lead?.(row)}
+                  title={mobile.title(row)}
+                  note={mobile.note?.(row)}
+                  extra={mobile.extra?.(row)}
+                  value={mobile.value?.(row)}
+                  sub={mobile.sub?.(row)}
+                  action={mobile.action?.(row)}
+                  className={cn('min-h-[58px]', rowClassName?.(row))}
+                />
+              );
+              return onRowClick ? (
+                <button
+                  key={rowKey(row)}
+                  type="button"
+                  aria-label={rowLabel?.(row)}
+                  onClick={(e) => {
+                    const el = e.target as HTMLElement;
+                    if (el.closest('button, a, input, [role=menuitem], [data-no-row-click]')) return;
+                    onRowClick(row);
+                  }}
+                  className="m-press w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:-outline-offset-2"
+                >
+                  {body}
+                </button>
+              ) : (
+                <div key={rowKey(row)}>{body}</div>
+              );
+            })}
+          </MobileDataList>
+        )}
+
+        {footer && <p className="px-1 pt-2.5 text-[11.5px] text-m-muted">{footer}</p>}
+      </MobileOnly>
+
+      <DesktopOnly>{table}</DesktopOnly>
+    </>
   );
 }

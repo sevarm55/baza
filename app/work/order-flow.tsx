@@ -1,40 +1,18 @@
 'use client';
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-} from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftRight, Banknote, CreditCard, Percent, Plus, Ticket, X } from 'lucide-react';
+import { Percent, Plus, Ticket, X } from 'lucide-react';
 
-import { addOrder, lookupClient } from '@/app/actions';
 import { useT } from '@/lib/i18n/client';
-import type { Dict } from '@/lib/i18n';
 import { currencySymbol, formatMoney } from '@/lib/money';
-import {
-  drop,
-  enqueue,
-  flushQueue,
-  newRef,
-  stamp,
-  queueSnapshot,
-  rejected,
-  retry,
-  serverSnapshot,
-  subscribe,
-  waiting,
-  type QueuedOrder,
-} from '@/lib/offline';
-import type { Payment } from '@/lib/orders';
-import { crewSplit, MAX_CREW } from '@/lib/crew';
+import { drop, retry } from '@/lib/offline';
+import { crewSplit as _crewSplit, MAX_CREW } from '@/lib/crew';
 import { hhmm } from '@/lib/time';
 import { staffCount } from '@/lib/i18n/terms';
-import { normalizeClientKey } from '@/lib/client-key';
 import { cn } from '@/lib/utils';
 import { LoadingButton, RefreshIndicator } from '@/components/loading';
+import { MobileActionBar, MobileButton, MobileOnly, DesktopOnly } from '@/components/mobile';
 import { Panel } from '@/components/patterns/panel';
 import { EmptyState } from '@/components/patterns/states';
 import { FormMessage } from '@/components/patterns/form';
@@ -50,86 +28,36 @@ import {
   InputGroupText,
 } from '@/components/ui/input-group';
 import { Toggle } from '@/components/ui/toggle';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { RevokeOrder } from './revoke-order';
+import { ComposerMobile } from './composer-mobile';
+import { ShiftJournalMobile } from './journal-mobile';
+import { useComposer } from './use-composer';
+import { agoLabel, paymentLabel, type OrderFlowProps } from './order-model';
+import { PAYMENTS } from './payment-icons';
 
-/**
- * Коллега в списке «помыли вместе».
- *
- * `onShift` решает, показывать его вообще: отметить участником можно
- * только того, кто встал на смену. Признак, а не готовый отфильтрованный
- * список: «коллег нет вовсе» и «все ушли домой» разные ответы, и форма
- * обязана их различать.
- */
-type Mate = { id: string; name: string; onShift: boolean };
-
-type Service = {
-  id: string;
-  name: string;
-  /** базовая цена: класс не выбран или у него своей цены нет */
-  price: number;
-  /** цена по каждому классу, в порядке `tiers`; считает сервер */
-  prices: number[];
-};
-type Recent = {
-  id: string;
-  clientKey: string | null;
-  serviceName: string;
-  price: number;
-  payment: string;
-  at: string;
-  /** сколько причитается смотрящему за эту машину */
-  earned: number;
-  /** сколько человек её мыли; 1 обычная одиночная мойка */
-  crew: number;
-  /**
-   * Запись сделал смотрящий. От этого зависит, показывать ли отмену:
-   * чужую совместную мойку человек видит, но отменять её не вправе, и
-   * кнопка, которая всегда отвечает отказом, хуже отсутствующей.
-   */
-  mine: boolean;
-};
-type ActivePass = {
-  id: string;
-  serviceId: string | null;
-  serviceName: string;
-  remaining: number;
-};
-type Known = {
-  visits: number;
-  total: number;
-  lastSeenAt: string;
-  /** каким классом эту машину записывали в прошлый раз */
-  lastTier: string | null;
-  passes: ActivePass[];
-};
-
-/**
- * Что на экране.
- *
- * Номер, услуга и оплата стоят на одном экране в том порядке, в каком
- * идёт работа. Оплата это выбор, а не отправка: последнее движение
- * отдельная кнопка, и на ней стоит то, что произойдёт, и за сколько.
- *
- * ПОСЛЕ ЗАПИСИ ФОРМА ЗАКРЫВАЕТСЯ. Подтверждение, которому верят, это
- * машина в журнале и выросший счётчик; они на общем экране, туда и
- * возвращаемся. Следующая машина начинается с той же большой кнопки.
- */
-type Step = 'home' | 'compose';
-
-/* Способы оплаты одним тоном: цвет несёт ровно одно, который выбран. */
-function payments(t: Dict): { key: Payment; label: string; Icon: typeof Banknote }[] {
-  return [
-    { key: 'cash', label: t.payment.cash, Icon: Banknote },
-    { key: 'card', label: t.payment.card, Icon: CreditCard },
-    { key: 'transfer', label: t.payment.transfer, Icon: ArrowLeftRight },
-  ];
-}
 
 /* Выбранная фишка: рамка и заливка бренда, как у выбранной строки в
    кабинете. Одна и та же для класса, коллеги, услуги. */
 const PICKED =
   'aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:text-primary-soft-foreground aria-pressed:hover:bg-primary-soft';
 
+/**
+ * Экран записи — один контроллер, два представления.
+ *
+ * Состояние, правила и отправка живут в `useComposer` и считаются ровно
+ * один раз: досылка накопленного без связи и поиск клиента при наборе —
+ * это работа, а не отрисовка, и делать её дважды значит дважды отправить
+ * одну машину.
+ *
+ * Журнал показан обоими представлениями сразу, а переключает их CSS:
+ * страница приезжает с сервера, и выбор по ширине окна в браузере
+ * означал бы вспышку чужой раскладки на первой отрисовке.
+ *
+ * Форма записи, наоборот, выбирается в браузере — и мигнуть не может:
+ * до неё нельзя добраться иначе как нажатием, а нажатие бывает только
+ * после того, как страница ожила.
+ */
 export function OrderFlow({
   canWrite,
   services,
@@ -147,286 +75,69 @@ export function OrderFlow({
   teamPercent,
   staffRole,
   highlightAdd = false,
-}: {
-  canWrite: boolean;
-  services: Service[];
-  /** классы машин бизнеса; пусто: ряда нет */
-  tiers: string[];
-  /** как бизнес называет класс: «Դաս», «Тип кузова» */
-  tierLabel: string;
-  currency: string;
-  clientIdLabel: string;
-  clientIdType: string;
-  /** «մեքենա»: ниша называет единицу учёта сама */
-  unitOne: string;
-  addLabel: string;
-  recent: Recent[];
-  /* Часовой пояс мойки приходит пропом, а не берётся из браузера: иначе
-     время записи меняется на глазах при гидратации. */
-  timezone: string;
-  /** смена открыта: пусто здесь означает разное до неё и внутри неё */
-  shiftOpen: boolean;
-  /** коллеги без себя, с признаком «на смене» */
-  mates: Mate[];
-  /** общий процент команды; null: выбора «кто мыл» нет вовсе */
-  teamPercent: number | null;
-  /** «мойщик»: слово ниши, им считаем людей */
-  staffRole: string;
-  /** сценарий первого запуска: тихое кольцо на кнопке записи */
-  highlightAdd?: boolean;
-}) {
+}: OrderFlowProps) {
   const t = useT();
-  const [wanted, setStep] = useState<Step>('home');
-  const [clientKey, setClientKey] = useState('');
-  /* Выбранные услуги: за один заезд делают комплекс и химчистку, и
-     двумя машинами это записывать нельзя. */
-  const [chosen, setChosen] = useState<Service[]>([]);
-  /** класс, который выбрал сам мойщик; null: ещё не трогал */
-  const [picked, setPicked] = useState<number | null>(null);
-  const [payment, setPayment] = useState<Payment | null>(null);
-  const [passId, setPassId] = useState<string | null>(null);
-  /** Скидка: развёрнута ли строка и что в ней набрано. */
-  const [showDiscount, setShowDiscount] = useState(false);
-  const [discountText, setDiscountText] = useState('');
-  /* Отмеченные коллеги. Пусто: мыл один, и это состояние по умолчанию. */
-  const [helpers, setHelpers] = useState<string[]>([]);
-  /* Переключатель отдельно от списка отмеченных: человек выбирает
-     «вместе» раньше, чем успевает кого-то отметить. */
-  const [together, setTogether] = useState(false);
-  const [known, setKnown] = useState<Known | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const queue = useSyncExternalStore(subscribe, queueSnapshot, serverSnapshot);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /* Засов на время отправки. `pending` от useTransition для этого мало:
-     между двумя касаниями мокрого экрана перерисовки может не быть. */
-  const sending = useRef(false);
-  /* Идёт досылка накопленного без связи. Журнал остаётся целиком. */
-  const [syncing, setSyncing] = useState(false);
   const router = useRouter();
-  const resolvedClientKey =
-    clientIdType === 'plate'
-      ? normalizeClientKey(clientKey)
-      : clientKey.trim().toUpperCase();
+  const isMobile = useIsMobile();
 
-  /* Форма закрывается сама, когда записывать стало нельзя: смену
-     закрывает вечер и закрывает владелец. Считаем, а не синхронизируем
-     эффектом. */
-  const step: Step = canWrite ? wanted : 'home';
+  const c = useComposer({ canWrite, tiers, currency, clientIdType, mates, teamPercent });
+  const {
+    step,
+    clientKey,
+    chosen,
+    tier,
+    payment,
+    showDiscount,
+    discountText,
+    known,
+    error,
+    saved,
+    pending,
+    syncing,
+    queue,
+    queued,
+    stuck,
+    resolvedClientKey,
+    priceOf,
+    listTotal,
+    charged,
+    discounted,
+    canShare,
+    working,
+    crewIds,
+    crewSize,
+    split,
+    ready,
+    money,
+    setStep,
+    setClientKey,
+    setChosen,
+    setPicked,
+    setPayment,
+    setPassId,
+    setShowDiscount,
+    setDiscountText,
+    setHelpers,
+    setTogether,
+    together,
+    close,
+    submit,
+  } = c;
 
-  /* Класс машины: свой выбор поверх подсказанного из прошлой записи
-     этой машины. Считается при отрисовке, а не эффектом: порядок явный,
-     что выбрал человек, то и стоит. */
-  const suggested = (() => {
-    const last = known?.lastTier;
-    if (!last) return null;
-    const i = tiers.findIndex((name) => name.toLowerCase() === last.toLowerCase());
-    return i >= 0 ? i : null;
-  })();
-  const tier = picked ?? suggested;
-
-  /** Цена услуги в выбранном классе. Ряд посчитал сервер. */
-  const priceOf = (s: Service) => (tier === null ? s.price : (s.prices[tier] ?? s.price));
-
-  /** Сколько стоит по прайсу всё выбранное. */
-  const listTotal = chosen.reduce((sum, s) => sum + priceOf(s), 0);
-
-  /* Сколько возьмём: набранная сумма или прайс. Выше прайса не пускаем,
-     то же правило стоит на сервере. */
-  const typed = Number.parseInt(discountText, 10);
-  const charged =
-    showDiscount && Number.isFinite(typed) ? Math.max(0, Math.min(typed, listTotal)) : listTotal;
-  const discounted = charged < listTotal;
-
-  /* Совместная работа предлагается, только когда её есть с кем делать и
-     когда владелец назначил общий процент. */
-  const canShare = teamPercent !== null && mates.length > 0;
-  /* Выбирать можно только тех, кто на смене: остальных сервер всё равно
-     не примет. */
-  const working = mates.filter((m) => m.onShift);
-  /* Отмеченные, которых уже нет среди работающих, в расчёт не идут:
-     коллега мог закрыть смену, пока форма открыта. */
-  const crewIds =
-    canShare && together ? helpers.filter((id) => working.some((m) => m.id === id)) : [];
-  const crewSize = crewIds.length + 1;
-
-  /* Будущая зарплата тем же кодом, которым её посчитает сервер
-     (`lib/crew.ts`): до драма, включая остаток от деления. */
-  const split = crewSplit({
-    price: charged,
-    people: crewSize,
-    /* Личная ставка сюда не приезжает: при одном участнике блок не
-       показывается вовсе. */
-    soloPercent: 0,
-    teamPercent,
-  });
-
-  useEffect(() => () => {
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-  }, []);
-
-  /* Досылаем накопленное при загрузке и как только связь вернулась.
-     Сервер отсеет повторы по ref, поэтому лишняя попытка безвредна. */
+  /* Каретка встаёт в поле номера сама, как только форма открылась: это
+     первое, что человек набирает, и лишнее касание здесь стоит сорок
+     касаний за смену. Фокус живёт в представлении, а не в правилах: на
+     экране их два, а поле — ровно одно, то, которое сейчас видно. */
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    let alive = true;
-    const run = () => {
-      if (alive) setSyncing(true);
-      void flushQueue(async (item) => {
-        await addOrder({
-          clientKey: item.clientKey,
-          /* Обе формы: в очереди могли остаться записи, сделанные до
-             появления мультивыбора. */
-          serviceId: item.serviceIds?.length ? undefined : item.serviceId,
-          serviceIds: item.serviceIds,
-          payment: item.payment,
-          passId: item.passId,
-          /* Цену шлём только когда она отличается от прайса. */
-          price:
-            item.listPrice !== undefined && item.price < item.listPrice ? item.price : undefined,
-          tier: item.tier,
-          participantIds: item.participantIds,
-          clientRef: item.ref,
-        });
-      })
-        .then((sent) => {
-          if (sent > 0) router.refresh();
-        })
-        .finally(() => {
-          if (alive) setSyncing(false);
-        });
-    };
-
-    run();
-    window.addEventListener('online', run);
-    return () => {
-      alive = false;
-      window.removeEventListener('online', run);
-    };
-  }, [router]);
-
-  /* Подсказка о клиенте ищется во время набора с задержкой в 250 мс.
-     Слишком короткий номер гасит подсказку через ту же задержку. */
-  useEffect(() => {
-    if (step !== 'compose') return;
-    const key = resolvedClientKey;
-    const timer = setTimeout(() => {
-      if (key.length < 3) {
-        setKnown(null);
-        return;
-      }
-      lookupClient(key)
-        .then(setKnown)
-        .catch(() => setKnown(null));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [resolvedClientKey, step]);
-
-  useEffect(() => {
-    if (step === 'compose') inputRef.current?.focus();
-  }, [step]);
-
-  /** Закрыть форму и обнулить набранное. */
-  function close() {
-    setStep('home');
-    setClientKey('');
-    setChosen([]);
-    setPayment(null);
-    setPassId(null);
-    setPicked(null);
-    setKnown(null);
-    setShowDiscount(false);
-    setDiscountText('');
-    /* Состав сбрасывается вместе со всем остальным: забытая галочка
-       запишет коллеге чужую машину. */
-    setTogether(false);
-    setHelpers([]);
-    setError(null);
-  }
-
-  /** Записалось: на общий экран, строка «записано» держится пару секунд. */
-  function succeed() {
-    close();
-    setSaved(true);
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setSaved(false), 2500);
-  }
-
-  function submit() {
-    if (chosen.length === 0 || !payment || !resolvedClientKey) return;
-    if (sending.current) return;
-    sending.current = true;
-    setSaved(false);
-    setError(null);
-
-    const item: QueuedOrder = {
-      ref: newRef(),
-      clientKey: resolvedClientKey,
-      /* Старое поле заполняем всегда: запись могла быть сделана этой
-         версией, а отправлена после отката на прежнюю. */
-      serviceId: chosen[0].id,
-      serviceIds: chosen.map((s) => s.id),
-      serviceName: chosen.map((s) => s.name).join(' + '),
-      price: charged,
-      listPrice: listTotal,
-      payment,
-      passId: passId ?? undefined,
-      /* Класс уходит словом, а не номером: пока запись лежит в очереди,
-         владелец мог переставить классы местами. */
-      tier: tier === null ? undefined : tiers[tier],
-      participantIds: crewIds.length > 0 ? crewIds : undefined,
-      at: stamp(),
-    };
-
-    // без связи даже не пытаемся: запись ложится в очередь, мойщик
-    // видит успех и моет дальше
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      enqueue(item);
-      sending.current = false;
-      succeed();
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        await addOrder({
-          clientKey: item.clientKey,
-          serviceIds: item.serviceIds,
-          payment: item.payment,
-          passId: item.passId,
-          price: discounted ? item.price : undefined,
-          tier: item.tier,
-          participantIds: item.participantIds,
-          clientRef: item.ref,
-        });
-        succeed();
-      } catch {
-        // связь могла оборваться прямо во время отправки
-        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-          enqueue(item);
-          succeed();
-          return;
-        }
-        /* Набранное остаётся на месте: набирать заново из-за пропавшей
-           на секунду связи значит потерять машину, а не запись. */
-        setError(t.work.addFailed);
-      } finally {
-        sending.current = false;
-      }
-    });
-  }
-
-  const money = (n: number) => formatMoney(n, currency, t.locale);
+    if (step === 'compose' && !isMobile) inputRef.current?.focus();
+  }, [step, isMobile]);
 
   /* ------------------------------ журнал ------------------------------ */
 
   /* Вне смены и без единой записи журнала нет вовсе: состояние уже
      названо строкой под заработком и подписью под кнопкой. Как только
      смену откроют или появится хоть одна запись, он возвращается. */
-  /* `queued` и `stuck`, а не `pending`: имя занято useTransition. */
-  const queued = waiting(queue);
-  const stuck = rejected(queue);
   const nothingYet = recent.length === 0 && queue.length === 0;
   /* Место под меню строки резервируется у всех строк, когда оно есть
      хотя бы у одной: иначе суммы в соседних строках разъезжаются. */
@@ -548,11 +259,11 @@ export function OrderFlow({
   );
 
   /* ------------------------------ главная ------------------------------ */
-  if (step === 'home') {
-    /* Вне смены и без единой записи показывать нечего: пустая коробка
-       добавила бы странице лишний отступ. */
-    if (!canWrite && !saved && queued.length === 0 && journal === null) return null;
-    return (
+  /* Вне смены и без единой записи показывать нечего: пустая коробка
+     добавила бы странице лишний отступ. */
+  const nothingToShow = !canWrite && !saved && queued.length === 0 && journal === null;
+
+  const desktopHome = nothingToShow ? null : (
       <div className="flex flex-col gap-4">
         {/* Кнопка есть только тогда, когда ею можно пользоваться: вне
             смены на её месте стоит начало смены, см. StartShift. */}
@@ -587,8 +298,7 @@ export function OrderFlow({
 
         {journal}
       </div>
-    );
-  }
+  );
 
   /* ----------------------------- запись ------------------------------ */
   /* Абонемент покрывает ОДНУ услугу, поэтому предлагается только когда
@@ -599,13 +309,12 @@ export function OrderFlow({
     : undefined;
   /* Абонемент выбран, а клиент сменил услугу: списывать больше нечего. */
   const usingPass = payment === 'pass' && Boolean(activePass);
-  const ready = resolvedClientKey.length > 0 && chosen.length > 0 && payment !== null;
   const sum = usingPass ? t.payment.pass : formatMoney(charged, currency);
 
-  return (
+  const desktopCompose = (
     <div className="flex flex-col gap-4">
       <Panel
-        title={addLabel}
+        title={t.work.newUnit(unitOne)}
         actions={
           <Button
             type="button"
@@ -911,7 +620,7 @@ export function OrderFlow({
             )}
 
             <div className="grid grid-cols-3 gap-2" role="group" aria-label={t.work.stepPayment}>
-              {payments(t).map((p) => {
+              {PAYMENTS.map((p) => {
                 const on = payment === p.key;
                 return (
                   <Button
@@ -927,7 +636,7 @@ export function OrderFlow({
                     }}
                   >
                     <p.Icon className="size-[18px]" aria-hidden />
-                    {p.label}
+                    {t.payment[p.key]}
                   </Button>
                 );
               })}
@@ -943,7 +652,7 @@ export function OrderFlow({
               className="h-12 w-full text-[15px]"
               busy={pending}
               disabled={!ready}
-              label={t.work.addFor(unitOne, sum)}
+              label={t.work.addFor(addLabel, sum)}
               busyLabel={t.work.recording}
               onClick={submit}
             />
@@ -969,6 +678,85 @@ export function OrderFlow({
       {journal}
     </div>
   );
+
+  /* --------------------------- два экрана --------------------------- */
+
+  return (
+    <>
+      {/* Телефон: журнал строками на полотне, кнопка записи прибита к
+          низу — у большого пальца руки, которой держат телефон. Форма
+          записи приезжает поверх экрана целиком, а не встраивается в
+          страницу: на ней три вещи, которые должны быть видны
+          одновременно, — номер, услуги и оплата. */}
+      <MobileOnly className="flex flex-col gap-3">
+        {saved && (
+          <p className="px-1 text-[13px] font-semibold text-m-good" role="status">
+            {t.work.saved}
+          </p>
+        )}
+        {queued.length > 0 && (
+          <p className="px-1 text-[13px] font-medium text-m-warn" role="status">
+            {t.work.waitingToSend(queued.length)}
+          </p>
+        )}
+
+        <ShiftJournalMobile
+          c={c}
+          recent={recent}
+          timezone={timezone}
+          shiftOpen={shiftOpen}
+          staffRole={staffRole}
+        />
+
+        {/* Место под прибитую кнопку: без него последняя запись журнала
+            навсегда осталась бы под ней. */}
+        <div aria-hidden className="h-[76px]" />
+
+        <MobileActionBar>
+          {/* Вне смены записывать нельзя, и кнопка показывает это собой,
+              а не окошком с отказом. Причина не в дисциплине: машина,
+              записанная вне смены, не попадает в сдачу наличных при
+              закрытии — деньги за неё работник уносит, ничего не
+              нарушив, а владелец недосчитывается и не понимает почему. */}
+          {!canWrite && (
+            <p className="text-center text-[12.5px] text-m-muted">{t.work.needShift}</p>
+          )}
+          <MobileButton
+            disabled={!canWrite}
+            onClick={() => setStep('compose')}
+            className={cn(
+              highlightAdd && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-m-board',
+            )}
+          >
+            <Plus aria-hidden className="size-[18px]" />
+            {addLabel}
+          </MobileButton>
+        </MobileActionBar>
+      </MobileOnly>
+
+      {/* Форма выбирается в браузере, и мигнуть чужой раскладкой не
+          может: до неё нельзя добраться иначе как нажатием. Два поля с
+          одним `ref` на экране быть не должно — поэтому ровно одна. */}
+      {step === 'compose' && isMobile && (
+        <ComposerMobile
+          c={c}
+          services={services}
+          tiers={tiers}
+          tierLabel={tierLabel}
+          currency={currency}
+          clientIdLabel={clientIdLabel}
+          clientIdType={clientIdType}
+          addLabel={addLabel}
+          unitOne={unitOne}
+          staffRole={staffRole}
+        />
+      )}
+
+      <DesktopOnly display="contents">
+        {step === 'compose' && !isMobile ? desktopCompose : desktopHome}
+      </DesktopOnly>
+    </>
+  );
 }
 
 /* ------------------------------ мелочи ------------------------------ */
@@ -976,16 +764,4 @@ export function OrderFlow({
 /** Подпись группы внутри формы: тем же кеглем, что подпись поля. */
 function Caption({ children }: { children: string }) {
   return <div className="text-sm font-medium">{children}</div>;
-}
-
-function paymentLabel(p: string, t: Dict): string {
-  if (p === 'cash') return t.payment.cash;
-  if (p === 'card') return t.payment.card;
-  if (p === 'pass') return t.payment.pass;
-  return t.payment.transfer;
-}
-
-function agoLabel(iso: string, t: Dict): string {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  return days <= 0 ? t.owner.lastVisitToday : t.owner.lastVisitAgo(days);
 }

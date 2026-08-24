@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/patterns/data-table';
+import { MobileAvatar } from '@/components/mobile';
+import { personColor } from '@/lib/person-color';
 import { Panel } from '@/components/patterns/panel';
 import { Person, PersonAvatar } from '@/components/patterns/person';
 import { EmptyState } from '@/components/patterns/states';
@@ -11,7 +13,7 @@ import { StatusBadge } from '@/components/patterns/status-badge';
 import { formatMoney } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/i18n/client';
-import { unitForms } from '@/lib/i18n/terms';
+import { unitCount, unitForms } from '@/lib/i18n/terms';
 import { AddStaff } from './add-staff';
 import { StaffSheet } from './staff-sheet';
 import type { StaffPerson } from './model';
@@ -145,6 +147,33 @@ export function StaffRoster({
           rowKey={(p) => p.id}
           rowLabel={editLabel}
           onRowClick={(p) => setOpen(p.id)}
+          mobile={{
+            /* Кружок цвета человека — то же лицо, что в ленте, в смене
+               и на зарплатах: по нему его узнают раньше, чем прочитано
+               имя. Зелёная точка на нём означает состояние, а не
+               человека: стоит ли он на мойке прямо сейчас. */
+            lead: (p) => (
+              <MobileAvatar name={p.name} color={personColor(p.name)} present={p.present} />
+            ),
+            title: (p) => (
+              <span className="truncate text-[15.5px] font-semibold text-m-ink">{p.name}</span>
+            ),
+            note: (p) =>
+              [
+                `${p.percent}%`,
+                p.count > 0 ? unitCount(p.count, unitOne, t.locale) : null,
+                p.present ? t.owner.onShiftNow : null,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            value: (p) => money(p.earned),
+            sub: (p) =>
+              p.due > 0 ? (
+                <span className="text-m-warn">
+                  {t.owner.toPay.toLocaleLowerCase(t.locale)} {money(p.due)}
+                </span>
+              ) : undefined,
+          }}
         />
       ) : (
         <EmptyState

@@ -49,16 +49,22 @@ export function Metric({
       data-selected={selected || undefined}
       className={cn('flex min-w-0 flex-col gap-1', selected && 'border-l-2 border-lime pl-3', className)}
     >
-      <div className="truncate text-2xs font-medium tracking-wider text-muted-foreground uppercase">
+      {/* На телефоне подпись набрана обычным регистром: капсом с
+          разрядкой набирают ярлыки таблиц, а здесь это подпись
+          показания — та же, что в приложении. */}
+      <div className="truncate text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:text-[11.5px] max-md:tracking-normal max-md:normal-case">
         {label}
       </div>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <div
           className={cn(
             'num min-w-0 leading-none font-semibold tracking-[-0.02em] break-words',
-            size === 'lg' && 'text-[26px] xl:text-[30px]',
-            size === 'md' && 'text-[22px] xl:text-[24px]',
-            size === 'sm' && 'text-[18px]',
+            /* Кегль числа задаёт важность. На телефоне главное
+               показание экрана крупнее десктопного: оно там одно, и
+               ответ должен читаться раньше, чем прочитана подпись. */
+            size === 'lg' && 'text-[26px] max-md:text-[clamp(28px,9.5vw,38px)] xl:text-[30px]',
+            size === 'md' && 'text-[22px] max-md:text-[19px] xl:text-[24px]',
+            size === 'sm' && 'text-[18px] max-md:text-[17px]',
             VALUE_TONE[tone],
           )}
         >
@@ -66,7 +72,7 @@ export function Metric({
         </div>
         {delta}
       </div>
-      {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+      {hint && <div className="text-xs text-muted-foreground max-md:text-[11.5px]">{hint}</div>}
     </div>
   );
 }
@@ -108,6 +114,22 @@ export function MetricStrip({
         columns === 6 && 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6',
         !columns && 'sm:grid-flow-col sm:auto-cols-fr',
         '*:px-4 *:py-3.5',
+        /* На телефоне полоса становится карточкой приложения: главное
+           показание во всю ширину сверху, остальные фактами в два
+           столбца под ним. Четыре одинаковых показания в столбик — это
+           четыре экрана прокрутки, на которых ни одно из них не
+           главное; здесь иерархия видна раньше, чем прочитана
+           подпись. */
+        'max-md:grid-cols-2 max-md:rounded-m-hero max-md:border-m-hair max-md:bg-m-surface',
+        'max-md:divide-y-0 max-md:[&>*]:border-m-hair',
+        /* Главное показание во всю ширину, факты по двое. Когда фактов
+           чётное число, последний тоже растягивается: одинокая ячейка в
+           левой половине читается как незакрытая строка. */
+        'max-md:[&>*:first-child]:col-span-2 max-md:[&>*:first-child]:border-b',
+        'max-md:[&:has(>*:nth-child(2n):last-child)>*:last-child]:col-span-2',
+        'max-md:[&>*:nth-child(even)]:border-r max-md:[&>*:last-child]:border-r-0',
+        'max-md:[&>*:nth-child(n+4)]:border-t',
+        'max-md:*:px-4 max-md:*:py-3',
         className,
       )}
     >

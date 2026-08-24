@@ -41,13 +41,23 @@ export function Panel({
     <Tag
       id={id}
       data-slot="panel"
-      className={cn('flex min-w-0 flex-col rounded-lg border border-border bg-card', className)}
+      /* На телефоне у панели своя геометрия: крупное скругление,
+         волосяная грань цвета полотна и бумага вместо карточки. Без
+         грани белое на светлом полотне перестаёт быть карточкой. */
+      className={cn(
+        'flex min-w-0 flex-col rounded-lg border border-border bg-card',
+        'max-md:rounded-m-card max-md:border-m-hair max-md:bg-m-surface',
+        className,
+      )}
     >
       {hasHead && (
-        <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-3">
+        /* На телефоне заголовок и управление панели встают друг под
+           друга: легенда графика из четырёх меток рядом с заголовком
+           наезжала на него и обрезала слово. */
+        <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-3 max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:pt-4 max-md:pb-2.5">
           <div className="min-w-0">
             {title !== undefined && (
-              <h2 className="flex items-center gap-2 text-sm leading-tight font-semibold">
+              <h2 className="flex items-center gap-2 text-sm leading-tight font-semibold max-md:text-[16px]">
                 {title}
                 {count !== undefined && (
                   <span className="num rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -57,17 +67,19 @@ export function Panel({
               </h2>
             )}
             {description && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground max-md:text-[12.5px]">{description}</p>
             )}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          {actions && (
+            <div className="flex shrink-0 items-center gap-2 max-md:flex-wrap">{actions}</div>
+          )}
         </div>
       )}
       <div
         className={cn(
           'min-w-0 flex-1',
           padded && (hasHead ? 'px-4 pb-4' : 'p-4'),
-          !padded && hasHead && 'border-t border-border',
+          !padded && hasHead && 'border-t border-border max-md:border-m-hair',
           bodyClassName,
         )}
       >
@@ -92,7 +104,13 @@ export function PanelGrid({
   at?: 'lg' | 'xl';
 }) {
   return (
-    <div className={cn('grid gap-4', at === 'lg' ? 'lg:grid-cols-12' : 'xl:grid-cols-12', className)}>
+    <div
+      className={cn(
+        'grid gap-4 max-md:gap-3',
+        at === 'lg' ? 'lg:grid-cols-12' : 'xl:grid-cols-12',
+        className,
+      )}
+    >
       {children}
     </div>
   );

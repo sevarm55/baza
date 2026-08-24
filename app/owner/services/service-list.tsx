@@ -130,6 +130,36 @@ export function ServiceList({
   return (
     <>
       <DataTable
+        mobile={{
+          /* Услуга и цена — единственное, ради чего в прейскурант
+             смотрят. Цены по классам стоят под названием строкой:
+             колонка на класс на трёхстах шестидесяти точках не
+             помещается, а «Джип 5 500» рядом с «Седан 4 000»
+             читается сразу. */
+          title: (s) => (
+            <span className="truncate text-[15.5px] font-semibold text-m-ink">{s.name}</span>
+          ),
+          note: (s) =>
+            tiers.length > 0
+              ? tiers
+                  .map((tier, i) =>
+                    `${tier} ${s.tierPrices[i] > 0 ? s.tierDisplay[i] : s.display}`,
+                  )
+                  .join(' · ')
+              : s.count > 0
+                ? `${t.owner.timesShort} ${s.count} · ${s.revenue}`
+                : undefined,
+          extra: (s) =>
+            tiers.length > 0 && s.count > 0
+              ? `${t.owner.timesShort} ${s.count} · ${s.revenue}`
+              : undefined,
+          value: (s) => (
+            <span>
+              {s.display}{' '}
+              <span className="font-normal text-m-muted">{currencySymbol}</span>
+            </span>
+          ),
+        }}
         columns={columns}
         rows={rows}
         rowKey={(s) => s.id}

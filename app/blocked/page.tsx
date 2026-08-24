@@ -50,8 +50,8 @@ export default async function BlockedPage() {
     : [];
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-background px-4 py-10">
-      <section className="flex w-full max-w-md flex-col gap-6 rounded-lg border border-border bg-card p-6">
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-background px-4 py-10 max-md:m-pad-x max-md:bg-m-board">
+      <section className="flex w-full max-w-md flex-col gap-6 rounded-lg border border-border bg-card p-6 max-md:rounded-m-hero max-md:border-m-hair max-md:bg-m-surface max-md:p-5">
         <span role="img" aria-label={t.app.name} className="flex">
           <Wordmark />
         </span>

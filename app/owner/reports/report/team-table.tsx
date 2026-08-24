@@ -1,7 +1,15 @@
 'use client';
 
 import { ChartPanel } from '@/components/patterns/chart-panel';
+import {
+  DesktopOnly,
+  MobileAvatar,
+  MobileDataList,
+  MobileDataRow,
+  MobileOnly,
+} from '@/components/mobile';
 import { PersonAvatar } from '@/components/patterns/person';
+import { personColor } from '@/lib/person-color';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useT } from '@/lib/i18n/client';
 import { formatMoney } from '@/lib/money';
@@ -42,6 +50,35 @@ export function TeamTable({
       height="h-56"
       padded={false}
     >
+      {/* На телефоне те же данные строками: восемь колонок на трёхстах
+          шестидесяти точках либо едут вбок, либо сжимаются до
+          нечитаемого. Главное — кто и сколько ему начислено; объём
+          работы и доля в фонде идут пояснением. */}
+      <MobileOnly className="px-4 pb-1">
+        <MobileDataList>
+          {rows.map((r) => (
+            <MobileDataRow
+              key={r.key}
+              lead={<MobileAvatar name={r.name} color={personColor(r.name)} />}
+              title={
+                <span className="truncate text-[15.5px] font-semibold text-m-ink">{r.name}</span>
+              }
+              note={[`${r.percent}%`, `${unitLabel} ${r.count}`, `${c.revenue} ${money(r.revenue)}`]
+                .filter(Boolean)
+                .join(' · ')}
+              extra={
+                hasShifts && r.shifts > 0
+                  ? `${c.shifts} ${r.shifts} · ${c.perShift} ${money(r.earned / r.shifts)}`
+                  : undefined
+              }
+              value={money(r.earned)}
+              sub={`${c.share} ${Math.round(r.share * 100)}%`}
+            />
+          ))}
+        </MobileDataList>
+      </MobileOnly>
+
+      <DesktopOnly>
       <Table>
         <TableHeader>
           <TableRow>
@@ -91,6 +128,7 @@ export function TeamTable({
           ))}
         </TableBody>
       </Table>
+      </DesktopOnly>
     </ChartPanel>
   );
 }
