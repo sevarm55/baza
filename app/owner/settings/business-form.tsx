@@ -65,7 +65,10 @@ export function BusinessForm({ name }: { name: string }) {
             label={t.settings.save}
             busyLabel={t.common.saving}
             doneLabel={t.common.saved}
-            className={cn(!dirty && !running && !done && 'invisible')}
+            /* На телефоне спрятанная кнопка не должна занимать место:
+               `invisible` держит за собой сто точек пустоты, и поле
+               рядом с ней становится вдвое у́же нужного. */
+            className={cn(!dirty && !running && !done && 'invisible max-md:hidden')}
           />
         </div>
         {error && <FormMessage>{error}</FormMessage>}

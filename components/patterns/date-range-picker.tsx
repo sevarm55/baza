@@ -81,7 +81,10 @@ export function DateRangePicker({
         <CalendarDays data-icon="inline-start" aria-hidden />
         {label}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-0">
+      {/* На телефоне календарь не должен вылезать за край: всплывающий
+          слой прижимается к ширине экрана, а поле выбора внутри него
+          остаётся крупным. */}
+      <PopoverContent align="start" className="w-auto p-0 max-md:max-w-[calc(100vw-1.5rem)]">
         <Calendar
           mode="range"
           numberOfMonths={2}
