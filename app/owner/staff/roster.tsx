@@ -112,7 +112,7 @@ export function StaffRoster({
         <span className="flex flex-col items-end">
           <span className="font-semibold">{money(p.earned)}</span>
           {p.due > 0 && (
-            <span className="text-xs text-warning">
+            <span className="text-xs text-warning max-md:text-m-warn">
               {t.owner.toPay.toLocaleLowerCase(t.locale)} {money(p.due)}
             </span>
           )}

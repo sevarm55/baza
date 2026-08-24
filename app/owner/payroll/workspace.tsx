@@ -16,6 +16,7 @@ import { PayrollHistory } from './history';
 import { ConfirmPayout, type ConfirmGroup } from './confirm-dialog';
 import type { DayGroup, HistoryDay, PayItem, StaffEntry } from './model';
 import { useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
 
 type Tab = 'due' | 'history';
 
@@ -101,6 +102,11 @@ export function PayrollWorkspace({
 
   const chosen = [...picked].filter((key) => byKey.has(key));
   const chosenSum = chosen.reduce((sum, key) => sum + (byKey.get(key)?.entry.earned ?? 0), 0);
+  /* Сколько РАЗНЫХ дней задето выбором. На телефоне причал нужен только
+     тогда, когда их больше одного: внутри одного дня платит кнопка в
+     самой карточке, и вторая такая же кнопка над ней — два одинаковых
+     действия в двух точках экрана. */
+  const chosenDays = new Set(chosen.map((key) => byKey.get(key)!.group.day)).size;
 
   const toggle = (key: string, on: boolean) =>
     setPicked((was) => {
@@ -351,8 +357,11 @@ export function PayrollWorkspace({
            самому низу, он лёг бы поверх них — и разделы перестали бы
            нажиматься ровно тогда, когда в руках деньги. */
         <div
-          className="safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center max-md:bottom-[calc(var(--m-bottom-inset)+10px)] max-md:pb-0"
-          style={{ paddingBottom: undefined }}
+          className={cn(
+            'safe-bottom pointer-events-none sticky bottom-4 z-20 flex justify-center',
+            'max-md:bottom-[calc(var(--m-bottom-inset)+10px)] max-md:pb-0',
+            chosenDays < 2 && 'max-md:hidden',
+          )}
         >
           <div className="pointer-events-auto flex items-center gap-4 rounded-lg border border-border bg-card py-2.5 pr-2.5 pl-4 max-md:w-full max-md:gap-3 max-md:rounded-full max-md:border-0 max-md:bg-m-grape max-md:p-2 max-md:pl-5 max-md:shadow-[var(--m-lift)]">
             <span className="num text-sm text-muted-foreground max-md:text-[13.5px] max-md:font-semibold max-md:text-white/75">

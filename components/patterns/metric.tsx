@@ -4,13 +4,16 @@ import { cn } from '@/lib/utils';
 
 type Tone = 'default' | 'success' | 'warning' | 'destructive' | 'muted' | 'primary';
 
+/* На телефоне у знаков свои чернила: приглушённее десктопных, потому
+   что на белом листе рядом с двумя цветами марки янтарный и красный в
+   полную силу читаются аварией там, где речь про обычный долг. */
 const VALUE_TONE: Record<Tone, string> = {
-  default: 'text-foreground',
-  success: 'text-success',
-  warning: 'text-warning',
-  destructive: 'text-destructive',
-  muted: 'text-muted-foreground',
-  primary: 'text-primary',
+  default: 'text-foreground max-md:text-m-ink',
+  success: 'text-success max-md:text-m-good',
+  warning: 'text-warning max-md:text-m-warn',
+  destructive: 'text-destructive max-md:text-m-bad',
+  muted: 'text-muted-foreground max-md:text-m-muted',
+  primary: 'text-primary max-md:text-m-grape',
 };
 
 /**
