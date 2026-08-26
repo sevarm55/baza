@@ -15,6 +15,7 @@
  */
 
 import { env } from './env';
+import { isStaging } from './staging';
 
 export type SmsMessage = {
   /** E.164 */
@@ -34,10 +35,16 @@ export interface SmsProvider {
 /**
  * Провайдер для разработки: код печатается в консоль сервера.
  *
- * Работает ТОЛЬКО когда боевого провайдера не настроено И это не
- * production. Второе условие — не перестраховка: в production без ключей
- * должен быть отказ, а не тихая печать кода в логи, которые читает
- * половина команды.
+ * Работает ТОЛЬКО когда боевого провайдера не настроено И это либо не
+ * production, либо тестовый стенд (`STAGING=1`, см. `lib/staging.ts`).
+ * Второе условие — не перестраховка: в бою без ключей должен быть отказ,
+ * а не тихая печать кода в логи, которые читает половина команды.
+ *
+ * Стенд — единственное исключение, и оно оплачено тем, что стенд виден:
+ * его метка висит в интерфейсе, а поисковики к нему не допущены. Плата
+ * за отказ от исключения была бы выше: каждая проверка входа списывала
+ * бы деньги с того же баланса D7, что и боевые регистрации, а значит
+ * стенд начали бы проверять реже, чем нужно.
  */
 const consoleProvider: SmsProvider = {
   name: 'console',
@@ -291,7 +298,7 @@ export function smsProvider(): SmsProvider {
   if (resolved) return resolved;
 
   const sink = env('SMS_TEST_SINK');
-  if (sink && process.env.NODE_ENV !== 'production') {
+  if (sink && (process.env.NODE_ENV !== 'production' || isStaging())) {
     resolved = sinkProvider(sink);
     return resolved;
   }
@@ -316,10 +323,14 @@ export function smsProvider(): SmsProvider {
     return resolved;
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && !isStaging()) {
     /* Ни консоли, ни тихого «ок»: в бою неотправленная SMS обязана быть
        видимой ошибкой. Иначе регистрация молча ломается на подтверждении,
-       и понять это можно только по жалобам. */
+       и понять это можно только по жалобам.
+
+       Тестовый стенд сюда не попадает намеренно и проваливается ниже, на
+       консольный провайдер: там неотправленная SMS — это норма, а не
+       поломка, потому что отправлять её некому и незачем. */
     console.error('[sms] провайдер не настроен: нет ни TWILIO_ACCOUNT_SID, ни VONAGE_API_KEY, ни SMS_ENDPOINT');
     resolved = {
       name: 'none',

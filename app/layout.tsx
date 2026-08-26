@@ -3,6 +3,8 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { THEME_SCRIPT } from '@/lib/theme-script';
 import { ServiceWorker } from '@/components/service-worker';
+import { StagingBadge } from '@/components/staging-badge';
+import { isStaging, stagingLabel } from '@/lib/staging';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { getDict, getLocale } from '@/lib/i18n/server';
@@ -63,7 +65,11 @@ const wordmark = localFont({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getDict();
   return {
-    title: t.app.name,
+    /* На стенде имя вкладки начинается с метки.
+       Рамка вокруг окна видна, только когда на неё смотрят, а вкладок у
+       человека открыто несколько, и боевая с тестовой различаются в
+       списке лишь заголовком. */
+    title: isStaging() ? `${stagingLabel()} · ${t.app.name}` : t.app.name,
     description: t.app.tagline,
     manifest: '/manifest.webmanifest',
     appleWebApp: { capable: true, title: t.app.name, statusBarStyle: 'black-translucent' },
@@ -164,6 +170,7 @@ export default async function RootLayout({
             <Toaster />
           </TooltipProvider>
         </I18nProvider>
+        <StagingBadge />
         <ServiceWorker />
       </body>
     </html>

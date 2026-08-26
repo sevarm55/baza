@@ -1,0 +1,134 @@
+# ─────────────────────────────────────────────────────────────
+#  Тестовый стенд: test.tetrin.pro.
+#
+#  Тот же образ, та же сборка, тот же `NODE_ENV=production`, что и в
+#  бою. Стенд, собранный иначе, проверяет не то приложение, которое
+#  поедет к клиентам, и находит не те ошибки.
+#
+#  Отличий ровно четыре, и все они снаружи кода:
+#    1. STAGING=1        метка в интерфейсе, запрет индексации,
+#                        код подтверждения в лог вместо SMS;
+#    2. своя база        отдельный контейнер и отдельный том,
+#                        никакого доступа к боевым данным;
+#    3. пустые ключи     ни пушей, ни SMS, ни задач по расписанию;
+#    4. свой домен       PUBLIC_DOMAIN/PUBLIC_ORIGIN на test.
+#
+#  Живёт в отдельном каталоге (/opt/bazis-test), потому что боевой
+#  /opt/bazis стоит на ветке main, а стенд на ветке test: один рабочий
+#  каталог не может быть на двух ветках сразу.
+# ─────────────────────────────────────────────────────────────
+
+# Имя проекта своё: иначе compose решил бы, что это тот же стек, и
+# «поднял» бы стенд, погасив боевые контейнеры.
+name: bazis-test
+
+services:
+  bazis-test-postgres:
+    image: postgres:17-alpine
+    container_name: bazis-test-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bazis
+      POSTGRES_USER: bazis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?нужен POSTGRES_PASSWORD в .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      # Том свой и назван иначе, чем боевой. Это не аккуратность, а
+      # единственное, что стоит между стендом и боевыми данными: одно
+      # совпавшее имя тома означало бы, что тестовые миграции идут по
+      # базе живых моек.
+      - test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bazis -d bazis']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - bazis-test-internal
+
+  bazis-test-web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    # Тег ДРУГОЙ, и это важнее, чем кажется. С общим `bazis/web:latest`
+    # сборка стенда перезаписывала бы тег боевого образа, и следующий
+    # боевой `up` без пересборки поднял бы тестовый код на tetrin.pro —
+    # молча, без единой ошибки в логе.
+    image: bazis/web-test:latest
+    container_name: bazis-test-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Метка стенда. Всё, что отличает его поведение от боевого,
+      # включается отсюда — см. lib/staging.ts.
+      STAGING: '1'
+      STAGING_LABEL: ${STAGING_LABEL:-ТЕСТ}
+      DATABASE_URL: postgres://bazis:${POSTGRES_PASSWORD:?}@bazis-test-postgres:5432/bazis
+      SESSION_SECRET: ${SESSION_SECRET:?нужен SESSION_SECRET в .env}
+      # Свой секрет, не боевой: сессия, выписанная на стенде, не должна
+      # приниматься боевым сайтом. Совпадение секретов означало бы, что
+      # cookie со стенда открывает кабинет на tetrin.pro.
+      #
+      # Наружный адрес стенда.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-test.tetrin.pro}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://test.tetrin.pro}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://test.tetrin.pro}
+      # Вход владельца в /admin. На стенде пароль свой, и боевой сюда
+      # переносить нельзя: стенд по определению трогают чаще и руками.
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      PASSES_ENABLED: ${PASSES_ENABLED:-}
+      BILLING_ENABLED: ${BILLING_ENABLED:-1}
+      # ── Дальше идёт то, что на стенде обязано остаться пустым ──
+      #
+      # Пуши. Пустые ключи — не забывчивость: токены устройств выдаёт
+      # база, а база здесь своя и пустая, но человек, который зайдёт на
+      # стенд со своего телефона, оставит в ней НАСТОЯЩИЙ токен. Дальше
+      # любая проверка уведомлений разбудила бы его телефон сообщением о
+      # смене, которой не было.
+      APNS_KEY: ''
+      APNS_KEY_ID: ''
+      APNS_TEAM_ID: ''
+      FCM_PROJECT_ID: ''
+      FCM_CLIENT_EMAIL: ''
+      FCM_PRIVATE_KEY: ''
+      # Задачи по расписанию. Пусто — маршрут отвечает 404, то есть его
+      # как будто нет. Иначе напоминания об истекающих абонементах
+      # уходили бы вторым экземпляром, с другой базой и другими сроками.
+      CRON_SECRET: ''
+      # SMS. Пусто — и это работающая настройка, а не отсутствующая:
+      # вместе с STAGING=1 код подтверждения печатается в лог контейнера
+      #     docker logs -f bazis-test-web | grep sms
+      # и не стоит ни копейки с баланса D7, общего с боевыми
+      # регистрациями. Задать провайдера здесь можно, но тогда стенд
+      # начнёт слать настоящие сообщения на настоящие номера.
+      SMS_ENDPOINT: ''
+      SMS_TOKEN: ''
+      SMS_AUTH_SCHEME: ''
+      SMS_SENDER: ''
+      SMS_BODY: ''
+      # Телефоны для уведомлений платформы — на стенде некому.
+      PLATFORM_ADMIN_PHONES: ''
+      OTP_SECRET: ${OTP_SECRET:-}
+      DEVICE_SECRET: ${DEVICE_SECRET:-}
+      MIGRATE_ON_START: '1'
+    depends_on:
+      bazis-test-postgres:
+        condition: service_healthy
+    networks:
+      bazis-test-internal:
+      # Сеть соседа: его Caddy держит 80/443 и пускает сюда по имени.
+      # Наружу стенд, как и бой, не торчит ни одним портом.
+      giperstroy:
+        aliases:
+          - bazis-test-web
+
+networks:
+  bazis-test-internal:
+  giperstroy:
+    external: true
+
+volumes:
+  test_postgres_data:
