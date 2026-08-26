@@ -60,7 +60,7 @@ export function Segmented({
            едет вбок. Втиснуть «Прошлый месяц» в четверть экрана
            нельзя — подпись обрежется на середине слова, и выбирать
            придётся по догадке. */
-        'max-md:flex max-md:h-12 max-md:w-full max-md:min-w-0 max-md:max-w-full max-md:rounded-full max-md:bg-m-tile max-md:p-1',
+        'max-md:flex max-md:h-[calc(var(--m-chip-h)+8px)] max-md:w-full max-md:min-w-0 max-md:max-w-full max-md:rounded-full max-md:bg-m-tile max-md:p-1',
         full && 'flex w-full',
         className,
       )}
@@ -70,7 +70,7 @@ export function Segmented({
         const cls = cn(
           'inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50',
           size === 'sm' && 'px-2.5 text-[13px]',
-          'max-md:min-w-0 max-md:flex-1 max-md:rounded-full max-md:px-3 max-md:text-[14.5px] max-md:font-semibold',
+          'max-md:min-w-0 max-md:flex-1 max-md:rounded-full max-md:px-3 max-md:text-[length:var(--m-t-row)] max-md:font-semibold',
           'max-md:in-[[data-slot=segmented]:has(>*:nth-child(4))]:flex-none max-md:in-[[data-slot=segmented]:has(>*:nth-child(4))]:px-3.5',
           full && 'flex-1',
           on

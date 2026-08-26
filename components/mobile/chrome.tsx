@@ -88,7 +88,7 @@ export function MNav({
         </Link>
 
         <div className="min-w-0 flex-1 text-center">
-          <div className="truncate text-[17px] leading-tight font-bold tracking-[-0.01em] text-m-ink">
+          <div className="truncate text-[length:var(--m-t-section)] leading-tight font-bold tracking-[-0.01em] text-m-ink">
             {title}
           </div>
           {subtitle && (
@@ -124,10 +124,12 @@ export function MTitle({
   return (
     <div className={cn('flex items-start gap-3 px-1 pt-1', className)}>
       <div className="min-w-0 flex-1">
-        <h1 className="text-[30px] leading-[1.1] font-bold tracking-[-0.03em] text-m-ink">
+        <h1 className="text-[length:var(--m-t-title)] leading-[1.1] font-bold tracking-[-0.03em] text-m-ink">
           {title}
         </h1>
-        {lead && <p className="mt-1 text-[13.5px] leading-snug text-m-muted">{lead}</p>}
+        {lead && (
+          <p className="mt-1 text-[length:var(--m-t-lead)] leading-snug text-m-muted">{lead}</p>
+        )}
       </div>
       {action && <div className="flex shrink-0 items-center gap-1.5">{action}</div>}
     </div>

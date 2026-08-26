@@ -47,7 +47,10 @@ export async function SoloShell({
   const many = points.length > 1;
 
   return (
-    <div className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-bg">
+    <div
+      data-mobile-shell=""
+      className="flex min-h-svh w-full flex-col bg-background max-md:bg-m-bg"
+    >
       <div className="hidden md:contents">
         <header className="safe-top sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
           <span className="flex shrink-0 items-center" aria-label={t.app.name} role="img">

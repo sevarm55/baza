@@ -253,7 +253,7 @@ export function DataTable<T>({
         {(title || mobileTools) && (
           <div className="flex flex-col gap-2.5">
             {title && (
-              <h2 className="px-1 text-[17px] leading-tight font-bold tracking-[-0.01em] text-m-ink">
+              <h2 className="px-1 text-[length:var(--m-t-section)] leading-tight font-bold tracking-[-0.01em] text-m-ink">
                 {title}
               </h2>
             )}

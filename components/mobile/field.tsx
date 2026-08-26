@@ -66,7 +66,7 @@ export function MField({
  * нужен.
  */
 const FIELD_BASE =
-  'h-[54px] w-full min-w-0 rounded-m-row border border-m-hair bg-m-bg px-4 text-[17px] font-medium text-m-ink outline-none placeholder:text-m-faint focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-m-grape/45 disabled:opacity-50';
+  'h-[calc(var(--m-control-h)+2px)] w-full min-w-0 rounded-m-row border border-m-hair bg-m-bg px-4 text-[length:var(--m-t-field)] font-medium text-m-ink outline-none placeholder:text-m-faint focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-m-grape/45 disabled:opacity-50';
 
 export function MInput({ className, ...rest }: ComponentProps<'input'>) {
   return <input {...rest} className={cn(FIELD_BASE, className)} />;

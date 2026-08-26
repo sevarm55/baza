@@ -27,7 +27,7 @@ function buttonTone(tone: Tone) {
 }
 
 const BUTTON_BASE =
-  'm-press relative inline-flex items-center justify-center gap-2 rounded-m-row px-5 text-[16px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-m-grape/40 disabled:pointer-events-none disabled:opacity-45';
+  'm-press relative inline-flex items-center justify-center gap-2 rounded-m-row px-5 text-[length:var(--m-t-field)] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-m-grape/40 disabled:pointer-events-none disabled:opacity-45';
 
 /**
  * Кнопка. Главная на экране одна, и она грейповая или лаймовая.
@@ -180,7 +180,7 @@ export function MIconLink({
  * листе теряется на солнце, заливка — никогда.
  */
 const CHIP_BASE =
-  'm-press inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[14.5px] font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-m-grape/40';
+  'm-press inline-flex h-[var(--m-chip-h)] shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[length:var(--m-t-row)] font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-m-grape/40';
 
 export function MChip({
   children,

@@ -27,10 +27,10 @@ const buttonVariants = cva(
         // Сорок шесть точек на телефоне: по кнопке в тридцать шесть
         // мокрым большим пальцем не попасть с первого раза.
         default:
-          "h-9 gap-1.5 px-3 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 max-md:h-12 max-md:rounded-m-row max-md:px-5 max-md:text-[15.5px]",
+          "h-9 gap-1.5 px-3 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 max-md:h-[calc(var(--m-control-h)-4px)] max-md:rounded-m-row max-md:px-5 max-md:text-[length:var(--m-t-row)]",
         xs: "h-7 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] max-md:h-10 max-md:rounded-full max-md:px-4 max-md:text-[14px] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-10 gap-2 px-4 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 max-md:h-[52px] max-md:rounded-m-row max-md:text-[16px]",
+        lg: "h-10 gap-2 px-4 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 max-md:h-[var(--m-control-h)] max-md:rounded-m-row max-md:text-[length:var(--m-t-field)]",
         icon: "size-9 max-md:size-11 max-md:rounded-full",
         "icon-xs":
           "size-7 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

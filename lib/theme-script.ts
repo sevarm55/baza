@@ -28,9 +28,14 @@ import { createHash } from 'node:crypto';
  * могут по построению.
  */
 /* Светлая — вид продукта по умолчанию; тёмная ставится только если её
-   выбрали руками и выбор сохранился. */
+   выбрали руками и выбор сохранился.
+
+   Заодно скрипт красит строку состояния телефона: `theme-color` в
+   разметке один и светлый, а под тёмной темой он должен стать цветом
+   тёмного листа. Иначе в Safari сверху и снизу остаются светлые полосы
+   вокруг тёмного экрана. */
 export const THEME_SCRIPT =
-  `(()=>{try{document.documentElement.dataset.theme=localStorage.getItem('bazis.theme')==='dark'?'dark':'light'}catch(e){}})();`;
+  `(()=>{try{var d=localStorage.getItem('bazis.theme')==='dark';document.documentElement.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=d?'#0b0614':'#ffffff'}catch(e){}})();`;
 
 /** `sha256-…` для `script-src`. Считается один раз при загрузке модуля. */
 export const THEME_SCRIPT_HASH = `'sha256-${createHash('sha256')
