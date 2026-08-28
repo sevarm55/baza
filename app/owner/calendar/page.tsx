@@ -142,7 +142,7 @@ export default async function CalendarPage({
           <MStatTile
             icon={Wallet}
             label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
-            value={money(Math.abs(monthProfit))}
+            value={money(monthProfit)}
           />
           <MStatTile
             icon={Car}
@@ -161,7 +161,7 @@ export default async function CalendarPage({
           <Metric label={t.owner.revenue} value={money(stats.revenue)} />
           <Metric
             label={monthProfit >= 0 ? t.owner.profit : t.owner.inTheRed}
-            value={money(Math.abs(monthProfit))}
+            value={money(monthProfit)}
             tone={monthProfit < 0 ? 'destructive' : 'default'}
           />
         </MetricStrip>

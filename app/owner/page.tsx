@@ -371,7 +371,7 @@ export default async function TodayPage({
         <Metric
           size="lg"
           label={profit >= 0 ? t.owner.profit : t.owner.inTheRed}
-          value={money(Math.abs(profit))}
+          value={money(profit)}
           tone={profit < 0 ? 'destructive' : 'default'}
           delta={compare}
           hint={
