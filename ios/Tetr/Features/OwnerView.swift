@@ -414,10 +414,10 @@ struct OwnerView: View {
                 }
 
                 SplitBar(parts: parts, height: 12)
-                SplitLegend(parts: parts, currency: currency)
+                SplitLegend(parts: parts, currency: currency, total: total)
+                    .padding(.top, 3)
             }
             .padding(.top, 16)
-            .frame(maxWidth: 360)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
             .accessibilityElement(children: .ignore)

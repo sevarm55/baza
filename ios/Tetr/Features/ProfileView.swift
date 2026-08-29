@@ -39,6 +39,9 @@ struct ProfileView: View {
 
     @State private var exporting = false
     @State private var exported: URL?
+    /// Поля заполнены значениями сессии: до этого сравнивать их с ней
+    /// нельзя — пустое поле не «изменение», а ещё не загруженное.
+    @State private var filled = false
     /// Выгрузка не получилась. Раньше провал был молчаливым: три guard
     /// подряд выходили без единого слова, и человек не знал, ждать ли файл.
     @State private var exportFailed = false
@@ -122,6 +125,7 @@ struct ProfileView: View {
             businessName = session.tenant?.name ?? ""
             myName = session.me?.name ?? ""
             notifyOrders = session.me?.notifyOrders ?? true
+            filled = true
         }
     }
 
@@ -652,8 +656,18 @@ struct ProfileView: View {
 
     // ══════════════════════════ данные ══════════════════════════
 
+    /**
+     * Есть ли что сохранять.
+     *
+     * `filled` обязателен. До `.task` поля пустые, а имена в сессии
+     * есть — то есть «изменилось» было правдой уже в первое мгновение
+     * экрана, и лаймовая кнопка сохранения успевала мигнуть посреди
+     * перехода. Владелец увидел это на записи: «зелёная кнопка, даже
+     * непонятно какая, резко исчезает».
+     */
     private var changed: Bool {
-        businessName != (session.tenant?.name ?? "") || myName != (session.me?.name ?? "")
+        guard filled else { return false }
+        return businessName != (session.tenant?.name ?? "") || myName != (session.me?.name ?? "")
     }
 
     private func save() async {

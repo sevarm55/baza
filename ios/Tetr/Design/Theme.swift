@@ -537,27 +537,55 @@ struct SplitBar: View {
 struct SplitLegend: View {
     let parts: [Split]
     let currency: String
+    /// Целое, от которого считается доля. Ноль — процентов нет.
+    var total: Int = 0
 
     var body: some View {
-        HStack(spacing: 11) {
+        /* Колонками, а не одной строкой.
+         *
+         * Строка «Вы 8 611 ֏ · Сотрудникам 4 550 ֏ · Расходы 4 839 ֏»
+         * помещалась только за счёт сжатия до шести десятых кегля: три
+         * подписи и три суммы вперемешку читались лентой символов, в
+         * которой глаз не находил ни одной величины, не прочитав всё.
+         *
+         * Три колонки под своими кусками полосы дают то, чего у строки
+         * не было: каждая величина стоит под своим цветом, суммы
+         * выровнены по одной высоте и сравниваются взглядом, а доля в
+         * процентах отвечает на вопрос «сколько это от прихода» без
+         * измерения полосы глазами.
+         */
+        HStack(alignment: .top, spacing: 10) {
             ForEach(parts) { part in
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(part.ink)
-                        .frame(width: 6, height: 6)
-                    Text(part.label)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.boardMuted)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(part.ink)
+                            .frame(width: 6, height: 6)
+                        Text(part.label)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+
                     Text(money(part.amount, currency))
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    if total > 0 {
+                        Text("\(Int((Double(part.amount) / Double(total) * 100).rounded()))%")
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted.opacity(0.8))
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
             }
-            Spacer(minLength: 0)
         }
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
     }
 }
 

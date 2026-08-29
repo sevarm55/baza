@@ -293,7 +293,7 @@ struct ExpensesView: View {
             if !parts.isEmpty {
                 SplitBar(parts: parts, height: 11)
                     .padding(.top, 18)
-                SplitLegend(parts: parts, currency: currency)
+                SplitLegend(parts: parts, currency: currency, total: parts.reduce(0) { $0 + $1.amount })
                     .padding(.top, 7)
             }
 
