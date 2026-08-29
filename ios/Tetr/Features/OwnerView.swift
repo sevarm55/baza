@@ -60,7 +60,6 @@ struct OwnerView: View {
         Group {
             if failure == nil, let s = summary, s.stats.count == 0 {
                 emptySummary
-                    .safeAreaInset(edge: .top) { chips }
                     .opacity(detailsVisible ? 1 : 0)
                     .offset(y: detailsVisible || reduceMotion ? 0 : 8)
             } else {
@@ -69,76 +68,38 @@ struct OwnerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
-        /* Сводка — тёмный прибор намеренно, в обеих темах телефона.
-           Пятая редакция: владелец отверг светлую карточку, грейповую
-           плиту и лаймовое полотно; из его шести референсов три —
-           тёмные экраны, и тёмная сборка была единственной, к которой
-           не было слов. Тьма здесь не тема, а материал кабинета — как
-           у заставки, входа и онбординга; рабочие экраны остаются
-           светлыми. */
-        .preferredColorScheme(.dark)
+        .safeAreaInset(edge: .top) { chips }
         .task { await reload() }
     }
 
-    /**
-     * Экран из двух зон, а не стопка карточек.
-     *
-     * Четвёртая редакция героя — владелец принёс шесть референсов, и
-     * общее у них одно: цветное полотно во весь верх и светлый лист с
-     * крупным скруглением, наезжающий снизу. У нас полотном стал лайм —
-     * в языке продукта он и значит «здесь и сейчас», то есть ровно
-     * сегодняшние деньги, — а листом прежнее табло со всеми карточками.
-     * Число набрано резким гротеском: округлый шрифт владелец
-     * забраковал словами «слишком круглая».
-     */
     private var dashboardScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                limeHero
-
-                Group {
-                    if let failure {
-                        // Нули вместо выручки — худшее, что может показать
-                        // этот экран: неверные данные выглядят как верные.
-                        // Лучше честно ничего.
-                        problem(failure)
-                    } else if let s = summary {
-                        details(s)
-                            .opacity(detailsVisible ? 1 : 0)
-                            .offset(y: detailsVisible || reduceMotion ? 0 : 8)
-                    } else {
-                        /* Первая загрузка: место листа, а не пустота. */
-                        Delayed(active: loading) {
-                            VStack(alignment: .leading, spacing: 14) {
-                                TetrSkeleton(height: 96, radius: 22)
-                                TetrSkeleton(height: 74, radius: 22)
-                                TetrSkeleton(width: 120, height: 13)
-                                TetrSkeletonList(rows: 4)
-                            }
-                            .padding(.top, 6)
+                if let failure {
+                    // Нули вместо выручки — худшее, что может показать этот
+                    // экран: неверные данные выглядят как верные, и владелец
+                    // принимает решение по ним. Лучше честно ничего.
+                    problem(failure)
+                } else if let s = summary {
+                    reading(s)
+                    details(s)
+                        .opacity(detailsVisible ? 1 : 0)
+                        .offset(y: detailsVisible || reduceMotion ? 0 : 8)
+                } else {
+                    /* Первая загрузка: место щита, а не пустой экран. */
+                    Delayed(active: loading) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(height: 190, radius: 28)
+                            TetrSkeleton(height: 74, radius: 22)
+                            TetrSkeleton(width: 120, height: 13)
+                            TetrSkeletonList(rows: 4)
                         }
+                        .padding(.top, 10)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 24)
-                .padding(.bottom, 28)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                /* Лист: то же табло, что и было, только теперь оно
-                   наезжает на лайм крупным скруглением и хвостом
-                   закрывает всё вниз, включая отскок прокрутки. */
-                .background {
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: R.hero,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: R.hero,
-                        style: .continuous
-                    )
-                    .fill(Brand.board)
-                    .padding(.bottom, -1200)
-                }
-                .padding(.top, -28)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
         }
         .refreshable { await reload() }
         .sheet(isPresented: $showAlerts) {
@@ -352,50 +313,104 @@ struct OwnerView: View {
      * проценты работников и доля аренды за день.
      */
     /**
-     * Полотно вестибюля: глубокий грейп во весь верх, тонкое число.
+     * Кошелёк: тёмная глянцевая карточка на светлом табло.
      *
-     * Тот же градиент, что у заставки и онбординга, — материал, к
-     * которому у владельца не было претензий ни разу. Число большим
-     * тонким гротеском: в его референсах балансы набраны именно так —
-     * огромно и легко, а не жирно. Знак валюты меньше и тише цифры.
+     * Шестая редакция — владелец показал пальцем на конкретный референс:
+     * тёмная карточка «Your money» с металлическим блеском и крупным
+     * числом. Экран вокруг возвращается к исходному светлому табло; вся
+     * тьма собрана в одном предмете. Глянец — не свечение из угла и не
+     * размытое пятно: вертикальный градиент металла, диагональный блик
+     * и светлая кромка сверху, как у стекла.
+     *
+     * Лестница вычетов живёт внутри кошелька, под числом: владелец
+     * попросил «красиво показать полоски» — они и есть содержимое
+     * кошелька, а не отдельная таблица.
      */
-    private var limeHero: some View {
+    private func reading(_ s: API.Summary) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            heroChips
+            HStack(spacing: 7) {
+                Text(profitTitle)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Brand.mutedOnDark)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                crewChip
+            }
+
+            heroFigure
+                .padding(.top, 10)
 
             HStack(spacing: 7) {
                 Text(periodDates)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.mutedOnDark)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.5))
                     .contentTransition(.numericText())
-                crewChip
+                change
                 Spacer(minLength: 0)
             }
-            .padding(.top, 20)
+            .padding(.top, 10)
 
-            Text(profitTitle)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Brand.mutedOnDark)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 18)
+            walletHairline
+                .padding(.top, 16)
 
-            heroFigure
-                .padding(.top, 2)
-
-            change
-                .padding(.bottom, 8)
+            ladderRow(L("summary.paidIn"), s.stats.revenue, minus: false)
+            walletHairline
+            ladderRow(L("summary.toStaff"), s.stats.payroll, minus: true)
+            walletHairline
+            ladderRow(L("expenses.title"), s.costs.total, minus: true)
+                .padding(.bottom, -6)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 44)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        /* Полотно, а не карточка: лайм уходит за верхний край и в отскок
-           прокрутки. Отрицательный запас с боков страхует от волосяных
-           просветов на резиновой геометрии. */
-        .background {
-            Brand.heroGradient
-                .padding(.top, -800)
-                .padding(.horizontal, -50)
-        }
+        .background { walletSurface }
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+        .padding(.top, 6)
+        .accessibilityElement(children: .contain)
+    }
+
+    /**
+     * Металл кошелька. Три слоя, и все тихие: вертикальный градиент
+     * почти чёрного, диагональный блик из левого верхнего угла и
+     * стеклянная кромка, гаснущая книзу. Заливка фиксированная — как у
+     * плиток, предмет одинаков в обеих темах телефона.
+     */
+    private var walletSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: R.hero, style: .continuous)
+        return shape
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0x20 / 255, green: 0x1E / 255, blue: 0x27 / 255),
+                        Color(red: 0x0D / 255, green: 0x0C / 255, blue: 0x11 / 255),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay {
+                LinearGradient(
+                    colors: [.white.opacity(0.09), .white.opacity(0.02), .clear],
+                    startPoint: .topLeading,
+                    endPoint: UnitPoint(x: 0.55, y: 0.55)
+                )
+                .clipShape(shape)
+            }
+            .overlay {
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.22), .white.opacity(0.03)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+            }
+    }
+
+    private var walletHairline: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.10))
+            .frame(height: 1)
     }
 
     /// Число героя. Резкий гротеск вместо округлого — по слову владельца;
@@ -406,87 +421,24 @@ struct OwnerView: View {
         let profit = summary?.profit ?? 0
         let loss = profit < 0
 
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            if summary == nil {
-                RoundedRectangle(cornerRadius: R.control, style: .continuous)
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 210, height: 56)
-            } else {
-                Text((loss ? "−" : "") + plain(abs(profit)))
-                    .font(.system(size: 62, weight: .light))
-                    .monospacedDigit()
-                    .foregroundStyle(loss ? Brand.badOnDark : Brand.inkOnDark)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText(value: Double(profit)))
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Text((loss ? "−" : "") + plain(abs(profit)))
+                .font(.system(size: 46, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(loss ? Brand.badOnDark : Brand.inkOnDark)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .contentTransition(.numericText(value: Double(profit)))
 
-                Text(currency == "AMD" ? "֏" : currency)
-                    .font(.system(size: 30, weight: .regular))
-                    .foregroundStyle(Color.white.opacity(0.45))
-            }
+            Text(currency == "AMD" ? "֏" : currency)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.45))
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(profitTitle): \(money(profit, currency))")
     }
 
 
-    /**
-     * Периоды пилюлями на полотне — по референсам: выбранная тёмная,
-     * остальные тени лайма. Капсула здесь законна: это фишки выбора.
-     */
-    private var heroChips: some View {
-        HStack(spacing: 8) {
-            ForEach(periods, id: \.0) { key, label in
-                let on = period == key
-                Button {
-                    Task { await selectPeriod(key) }
-                } label: {
-                    Text(label)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(on ? Brand.grapeDeep : Brand.inkOnDark)
-                        .lineLimit(1)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 36)
-                        .background(
-                            on ? Color.white : Color.white.opacity(0.12),
-                            in: .capsule
-                        )
-                }
-                .buttonStyle(.press)
-                .accessibilityAddTraits(on ? [.isSelected] : [])
-            }
-
-            Spacer(minLength: 6)
-
-            /* Идёт сверка: точка, а не заслонка. Данные на экране
-               остаются верными, просто чуть старыми. */
-            TetrRefreshDot(active: loading && summary != nil)
-
-            Button {
-                showAlerts = true
-            } label: {
-                Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.inkOnDark)
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                    .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.12), in: .circle)
-                    .overlay(alignment: .topTrailing) {
-                        if !alerts.isEmpty {
-                            Text("\(alerts.count)")
-                                .font(.system(size: 10, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(Brand.onLime)
-                                .frame(minWidth: 16, minHeight: 16)
-                                .background(Brand.lime, in: .circle)
-                                .offset(x: 3, y: -3)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("alerts.title"))
-        }
-    }
 
     /**
      * Из чего вышел результат — одной полосой, а не тремя колонками.
@@ -504,57 +456,19 @@ struct OwnerView: View {
      * Сумма кусков равна выручке всегда: прибыль это она минус зарплаты
      * минус расходы, других слагаемых у неё нет.
      */
-    /**
-     * Из чего вышла чистая прибыль — лестницей вычетов, а не полосой.
-     *
-     * Полоса из трёх красок с легендой цветных точек была самым «ИИ»
-     * местом плиты: радуга аналитического виджета, которую владелец
-     * попросил убрать. Лестница — язык самой «тетради»: суммы в колонку,
-     * вычеты со знаком, итог уже назван крупно выше. Тот же приём стоит
-     * в веб-кабинете над этой же цифрой.
-     *
-     * Цифры табличные и по правому краю: колонка сравнивается взглядом,
-     * без чтения. Красок нет — краску на плите получает только минус.
-     */
-    @ViewBuilder
-    private func breakdown(_ s: API.Summary) -> some View {
-        if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
-            VStack(spacing: 0) {
-                ladderRow(L("summary.paidIn"), s.stats.revenue, minus: false)
-                Hairline()
-                ladderRow(L("summary.toStaff"), s.stats.payroll, minus: true)
-                Hairline()
-                ladderRow(L("expenses.title"), s.costs.total, minus: true)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
-            .boardCard(R.card)
-            /* Читалка экрана произносит показания фразой, а не набором
-               чисел, — и на языке интерфейса, как и всё остальное. */
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                L(
-                    "summary.voiceover",
-                    plain(s.stats.revenue),
-                    plain(s.costs.total),
-                    plain(s.stats.payroll)
-                )
-            )
-        }
-    }
-
     /// Строка лестницы: слово слева, сумма по правому краю. Минус
-    /// настоящий, U+2212, и стоит у числа, а не в слове.
+    /// настоящий, U+2212, и стоит у числа, а не в слове. Краски — по
+    /// кошельку, а не по теме: он тёмный всегда.
     private func ladderRow(_ title: String, _ amount: Int, minus: Bool) -> some View {
         HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.mutedOnDark)
             Spacer(minLength: 8)
             Text((minus && amount > 0 ? "−" : "") + money(amount, currency))
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(minus ? Brand.boardMuted : Brand.onBoard)
+                .foregroundStyle(minus ? Brand.mutedOnDark : Brand.inkOnDark)
         }
         .padding(.vertical, 10)
     }
@@ -673,8 +587,6 @@ struct OwnerView: View {
            посмотрел на него и решил, что достаточно приветственного
            листа снизу. Серверные шаги настройки при этом живут — их
            по-прежнему видно в веб-кабинете. */
-        breakdown(s)
-
         if summaryPeriod == "today" {
             /* Графика на сегодняшнем экране нет.
 
