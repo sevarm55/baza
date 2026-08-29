@@ -393,7 +393,7 @@ struct ServiceEditor: View {
                     if tiers.isEmpty {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             TextField("0", text: $price)
-                                .font(.system(size: 40, weight: .semibold))
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(Brand.onBoard)
                                 .keyboardType(.numberPad)

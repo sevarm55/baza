@@ -51,7 +51,6 @@ struct OwnerView: View {
        withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
        которую человек включил не просто так, ничего не меняет. */
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -90,8 +89,10 @@ struct OwnerView: View {
                     /* Первая загрузка: место щита, а не пустой экран. */
                     Delayed(active: loading) {
                         VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(width: 130, height: 13)
+                            TetrSkeleton(height: 52, radius: 14)
+                            TetrSkeleton(height: 96, radius: 22)
                             TetrSkeleton(height: 190, radius: 28)
-                            TetrSkeleton(height: 74, radius: 22)
                             TetrSkeleton(width: 120, height: 13)
                             TetrSkeletonList(rows: 4)
                         }
@@ -314,110 +315,121 @@ struct OwnerView: View {
      * проценты работников и доля аренды за день.
      */
     /**
-     * Кошелёк: тёмная глянцевая карточка на светлом табло.
-     *
-     * Шестая редакция — владелец показал пальцем на конкретный референс:
-     * тёмная карточка «Your money» с металлическим блеском и крупным
-     * числом. Экран вокруг возвращается к исходному светлому табло; вся
-     * тьма собрана в одном предмете. Глянец — не свечение из угла и не
-     * размытое пятно: вертикальный градиент металла, диагональный блик
-     * и светлая кромка сверху, как у стекла.
-     *
-     * Лестница вычетов живёт внутри кошелька, под числом: владелец
-     * попросил «красиво показать полоски» — они и есть содержимое
-     * кошелька, а не отдельная таблица.
+     * Показание прибора — как было при первом выпуске: белая плита,
+     * цвет числа по знаку, полоса долей с подписями. Владелец перебрал
+     * пять редакций и попросил вернуть исходную.
      */
     private func reading(_ s: API.Summary) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
-                Text(profitTitle)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Brand.mutedOnDark)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                crewChip
-            }
-
-            heroFigure
-                .padding(.top, 10)
-
-            HStack(spacing: 7) {
                 Text(periodDates)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.5))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
                     .contentTransition(.numericText())
-                change
+                crewChip
                 Spacer(minLength: 0)
             }
-            .padding(.top, 10)
+            .padding(.bottom, 19)
 
-            walletHairline
-                .padding(.top, 16)
+            Text(profitTitle)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
 
-            ladderRow(L("summary.paidIn"), s.stats.revenue, minus: false)
-            walletHairline
-            ladderRow(L("summary.toStaff"), s.stats.payroll, minus: true)
-            walletHairline
-            ladderRow(L("expenses.title"), s.costs.total, minus: true)
-                .padding(.bottom, -6)
+            /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
+               Цвет по знаку — правило одно на все денежные экраны и
+               живёт в `Brand.sign`. */
+            Text((s.profit < 0 ? "−" : "") + money(abs(s.profit), currency))
+                .font(.system(size: 45, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.sign(s.profit))
+                .lineLimit(1)
+                .minimumScaleFactor(0.42)
+                .padding(.top, 2)
+                // значение передаётся внутрь: по нему система понимает, в
+                // какую сторону крутить разряды
+                .contentTransition(.numericText(value: Double(s.profit)))
+
+            breakdown(s)
+            change
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        /* Liquid Glass как материал, а не имитация: тёмный тон живёт
-           В САМОМ стекле, и тогда система рисует всё, за что материал
-           любят, — блик по кромке, преломление и глубину. Чёрная
-           подложка под прозрачным стеклом глушила ровно это, и карточка
-           читалась серой плитой. При «уменьшении прозрачности» стекло
-           честно выключается и остаётся плотная тьма. */
-        .glassEffect(
-            reduceTransparency
-                ? .identity
-                : .regular.tint(
-                    Color(red: 0x12 / 255, green: 0x10 / 255, blue: 0x18 / 255)
-                        .opacity(0.78)
-                ),
-            in: RoundedRectangle(cornerRadius: R.hero, style: .continuous)
-        )
         .background {
-            if reduceTransparency {
-                RoundedRectangle(cornerRadius: R.hero, style: .continuous)
-                    .fill(Color(red: 0x12 / 255, green: 0x10 / 255, blue: 0x18 / 255))
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Brand.boardSurface)
+                Circle()
+                    .fill(Brand.grape.opacity(0.075))
+                    .frame(width: 138, height: 138)
+                    .blur(radius: 4)
+                    .offset(x: 54, y: -70)
             }
+            .clipShape(.rect(cornerRadius: 28, style: .continuous))
         }
-        .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
+        }
+        /* Тень чёрная, а не чернилами полотна: `boardInk` в тёмной теме
+           почти белый и светился бы под карточкой. В светлой разницы нет. */
+        .shadow(color: .black.opacity(0.05), radius: 18, y: 8)
         .padding(.top, 6)
-        .accessibilityElement(children: .contain)
     }
 
-    private var walletHairline: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.10))
-            .frame(height: 1)
-    }
-
-    /// Число героя. Резкий гротеск вместо округлого — по слову владельца;
-    /// минус настоящий, U+2212. Убыток — единственная краска на лайме:
-    /// глубокий красный, читаемый по светлому.
+    /**
+     * Из чего вышел результат — одной полосой, а не тремя колонками.
+     *
+     * Полоса отвечает на вопрос, которого нет у колонок цифр: КАКОЙ
+     * ДОЛЕЙ. Из каждых двадцати двух тысяч владельцу осталось четыре, и
+     * это видно длиной куска, без чтения.
+     */
     @ViewBuilder
-    private var heroFigure: some View {
-        let profit = summary?.profit ?? 0
-        let loss = profit < 0
+    private func breakdown(_ s: API.Summary) -> some View {
+        /* В минус полоса не уходит: отрицательного куска не бывает. Когда
+           день ушёл в убыток, владельцу не осталось ничего, и полоса честно
+           состоит из одних расходов — а знак минуса уже стоит в главном
+           числе над ней. */
+        let mine = max(0, s.profit)
+        let parts = Split.money(
+            mine: mine,
+            staff: s.stats.payroll,
+            costs: s.costs.total
+        )
+        let total = parts.reduce(0) { $0 + $1.amount }
 
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Text((loss ? "−" : "") + plain(abs(profit)))
-                .font(.system(size: 46, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(loss ? Brand.badOnDark : Brand.inkOnDark)
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .contentTransition(.numericText(value: Double(profit)))
+        if total > 0 {
+            VStack(alignment: .leading, spacing: 7) {
+                /* Сколько всего пришло. Без этой строки полоса показывала
+                   доли неизвестно от чего. */
+                HStack(spacing: 6) {
+                    Text(L("summary.paidIn"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text(money(s.stats.revenue, currency))
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                    Spacer(minLength: 0)
+                }
 
-            Text(currency == "AMD" ? "֏" : currency)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.45))
+                SplitBar(parts: parts, height: 12)
+                SplitLegend(parts: parts, currency: currency)
+            }
+            .padding(.top, 16)
+            .frame(maxWidth: 360)
+            /* Читалка экрана произносит показания фразой, а не набором
+               чисел, — и на языке интерфейса, как и всё остальное. */
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                L(
+                    "summary.voiceover",
+                    plain(s.stats.revenue),
+                    plain(s.costs.total),
+                    plain(s.stats.payroll)
+                )
+            )
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(profitTitle): \(money(profit, currency))")
     }
 
 
@@ -492,15 +504,15 @@ struct OwnerView: View {
                    «по сравнению с чем». */
                 Text(c.label)
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.mutedOnDark)
+                    .foregroundStyle(Brand.boardMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .foregroundStyle(c.up ? Brand.goodOnDark : Brand.badOnDark)
+            .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.badOnBoard)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(.white.opacity(0.12), in: .rect(cornerRadius: 10, style: .continuous))
-            .padding(.top, 10)
+            .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
+            .padding(.top, 9)
         }
     }
 
@@ -552,7 +564,7 @@ struct OwnerView: View {
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(.white.opacity(0.14), in: .rect(cornerRadius: 10, style: .continuous))
+                .background(Tone.slate.base, in: .rect(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.press)
             .accessibilityLabel(
