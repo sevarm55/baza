@@ -368,7 +368,7 @@ struct MainTabs: View {
                            она живёт в своей вкладке: экран смены
                            корневой, и второй его копии поверх сводки
                            быть не должно. */
-                        OwnerView(goToShift: { tab = .shift })
+                        OwnerView()
                             .toolbar(.hidden, for: .navigationBar)
                     }
                 }

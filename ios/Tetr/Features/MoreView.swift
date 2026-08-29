@@ -352,23 +352,6 @@ struct MoreView: View {
                 ProfileView().toolbar(.hidden, for: .navigationBar)
             }
 
-            /* Дверь обратно к настройке только тому, кто её убрал. Пропустить
-               можно случайно и в первый же день, а вспомнить о ней на третий;
-               без этой строки вернуть список было бы нечем. У того, кто её не
-               убирал, здесь ни одного нового пикселя. */
-            if session.setupHidden {
-                separator
-                Button {
-                    Task { await session.resumeSetup() }
-                } label: {
-                    rowFace(
-                        symbol: "list.bullet.rectangle.fill", tint: Brand.mintInk,
-                        title: L("setup.resume"), note: nil,
-                        trailing: "arrow.uturn.backward"
-                    )
-                }
-                .buttonStyle(.press)
-            }
         }
     }
 

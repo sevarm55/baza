@@ -641,6 +641,7 @@ struct ShiftView: View {
                Из сорока записей за смену «Комплекс» встречается двадцать
                раз, а номер один: искать свою ошибку по названию услуги —
                это читать список целиком. Так же в вебе. */
+            LazyVStack(spacing: 0) {
             ForEach(orders) { order in
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
@@ -768,6 +769,10 @@ struct ShiftView: View {
                         : .move(edge: .top).combined(with: .opacity)
                 )
             }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .boardCard(R.card)
         }
     }
 

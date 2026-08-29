@@ -24,16 +24,6 @@ import SwiftUI
  *    сохраняет банковскую иерархию «баланс → контекст → операции».
  */
 struct OwnerView: View {
-    /**
-     * Перейти на вкладку смены.
-     *
-     * Нужно одному месту — последнему шагу настройки: запись машины
-     * живёт в своей вкладке, и открыть её поверх сводки нельзя, экран
-     * смены корневой. Замыкание, а не общий объект состояния: у сводки
-     * к вкладкам больше никаких дел нет.
-     */
-    var goToShift: () -> Void = {}
-
     @EnvironmentObject private var session: Session
 
     @State private var summary: API.Summary?
@@ -116,9 +106,6 @@ struct OwnerView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
-        }
-        .onChange(of: session.setupHidden) { _, _ in
-            Task { await reload() }
         }
         .refreshable { await reload() }
         .sheet(isPresented: $showAlerts) {
@@ -575,18 +562,10 @@ struct OwnerView: View {
 
     @ViewBuilder
     private func details(_ s: API.Summary) -> some View {
-        /* Настройка первого дня — первой карточкой, пока она не
-           закончена. Показание над ней остаётся на месте: у новой мойки
-           там ноль, и ноль этот правдивый — работы ещё не было. Прятать
-           его значило бы отвечать «здесь ничего нет» на вопрос «сколько
-           я заработал», а первый день начинается ровно с него.
-
-           Только на сегодняшнем периоде: у прошлого месяца настройка
-           первого дня не при чём, там смотрят закрытые числа. */
-        if summaryPeriod == "today", let setup = s.setup, setup.visible, !session.setupHidden {
-            SetupCard(setup: setup, goToShift: goToShift)
-        }
-
+        /* Чек-листа «Начало работы» на сводке больше нет: владелец
+           посмотрел на него и решил, что достаточно приветственного
+           листа снизу. Серверные шаги настройки при этом живут — их
+           по-прежнему видно в веб-кабинете. */
         if summaryPeriod == "today" {
             /* Графика на сегодняшнем экране нет.
 
@@ -822,11 +801,9 @@ struct OwnerView: View {
             snapshotValue(L("owner.onShift"), "\(s.onShift.count)")
         }
         .padding(.vertical, 15)
-        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.045), lineWidth: 0.8)
-        }
+        /* Белая бумага, как у соседних карточек: серая вдавленная плита
+           выбивалась из ряда, и владелец попросил её осветлить. */
+        .boardCard(R.card)
         .padding(.top, 12)
         .accessibilityElement(children: .contain)
     }
@@ -924,11 +901,9 @@ struct OwnerView: View {
             snapshotValue(L("summary.avgPayment"), money(s.stats.avgCheck, currency))
         }
         .padding(.vertical, 15)
-        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.045), lineWidth: 0.8)
-        }
+        /* Белая бумага, как у соседних карточек: серая вдавленная плита
+           выбивалась из ряда, и владелец попросил её осветлить. */
+        .boardCard(R.card)
         .padding(.top, 12)
     }
 
@@ -1097,14 +1072,22 @@ struct OwnerView: View {
                     methodFilter(methods)
                 }
 
-                ForEach(shown) { item in
-                    journalRow(item)
-                    if item.id != shown.last?.id {
-                        Rectangle()
-                            .fill(Brand.boardInk.opacity(0.07))
-                            .frame(height: 1)
+                /* Ряды — в белой карточке, а не на голом полотне: линии
+                   шире контента без коробки читались веб-таблицей, и
+                   владелец попросил такой же белый блок, как у
+                   показателей выше. Разделитель отбит под текст, мимо
+                   кружка человека. */
+                LazyVStack(spacing: 0) {
+                    ForEach(shown) { item in
+                        journalRow(item)
+                        if item.id != shown.last?.id {
+                            Hairline(inset: 56)
+                        }
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .boardCard(R.card)
             }
         }
     }
