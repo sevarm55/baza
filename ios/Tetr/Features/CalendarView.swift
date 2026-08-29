@@ -157,7 +157,7 @@ struct CalendarView: View {
                     .foregroundStyle(Brand.boardMuted)
 
             Text((total.profit < 0 ? "−" : "") + money(abs(total.profit), currency))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(total.profit))
                 .lineLimit(1)

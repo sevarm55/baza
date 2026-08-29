@@ -268,7 +268,7 @@ struct ReportView: View {
             /* Минус настоящий, U+2212: дефис на таком кегле читается
                точкой. Цвет по знаку — то же правило, что на сводке. */
             Text((m.profit < 0 ? "−" : "") + money(abs(m.profit), currency))
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(m.profit))
                 .lineLimit(1)

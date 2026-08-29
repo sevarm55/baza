@@ -151,7 +151,7 @@ struct DayView: View {
             /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
                Цвет по знаку — то же правило, что на сводке. */
             Text((day.profit < 0 ? "−" : "") + money(abs(day.profit), currency))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(day.profit))
                 .lineLimit(1)

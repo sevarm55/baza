@@ -449,7 +449,7 @@ struct SplitHero: View {
             /* Цвет по знаку — то же правило `Brand.sign`, что на всех
                денежных экранах: заработок зелёным. */
             Text(money(grown ? mine : 0))
-                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: 42, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(mine))
                 .lineLimit(1)

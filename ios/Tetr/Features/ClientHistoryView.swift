@@ -126,7 +126,7 @@ struct ClientHistoryView: View {
             }
 
             Text(money(client.total, currency))
-                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)

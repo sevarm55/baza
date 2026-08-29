@@ -282,7 +282,7 @@ struct ExpensesView: View {
                 .padding(.top, 22)
 
             Text(money(spentTotal, currency))
-                .font(.system(size: 43, weight: .bold, design: .rounded))
+                .font(.system(size: 43, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sandInk)
                 .lineLimit(1)
@@ -843,7 +843,7 @@ struct ExpenseEditor: View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 TextField("0", text: $amount)
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(Brand.onBoard)
                     .keyboardType(.numberPad)

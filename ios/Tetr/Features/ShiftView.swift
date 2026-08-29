@@ -305,7 +305,7 @@ struct ShiftView: View {
                     .padding(.vertical, 4)
             } else {
                 Text(money(value, currency))
-                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .font(.system(size: 46, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)

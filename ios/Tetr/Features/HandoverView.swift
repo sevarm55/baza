@@ -48,7 +48,7 @@ struct HandoverView: View {
                             .foregroundStyle(Brand.boardMuted)
 
                         Text(money(revenue, currency))
-                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .font(.system(size: 38, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)

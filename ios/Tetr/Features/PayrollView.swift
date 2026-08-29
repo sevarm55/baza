@@ -184,7 +184,7 @@ struct PayrollView: View {
                действие, и красить его фирменным цветом значит обещать
                нажатие, которого нет. */
             Text(money(total, currency))
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
