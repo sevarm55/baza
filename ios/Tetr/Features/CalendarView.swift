@@ -80,7 +80,7 @@ struct CalendarView: View {
                     weekProfile
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -129,7 +129,7 @@ struct CalendarView: View {
                 .disabled(month >= Self.currentMonth())
                 .opacity(month >= Self.currentMonth() ? 0.3 : 1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .top))
     }
@@ -195,7 +195,7 @@ struct CalendarView: View {
             VStack(spacing: 13) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(L("owner.revenue"))
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer(minLength: 8)
                     Text(money(total.revenue, currency))
@@ -215,9 +215,9 @@ struct CalendarView: View {
                 }
             }
             .padding(16)
-            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07))
             }
         }
@@ -232,7 +232,7 @@ struct CalendarView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
             Text(label)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(2)
         }
@@ -280,13 +280,13 @@ struct CalendarView: View {
            края. Белая коробка с волосяной кромкой — та же, в которой на
            этом экране живут все списки, — держит сетку предметом, а
            сиреневые клетки внутри становятся заметно чище. */
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
         .opacity(loading && data == nil ? 0.4 : 1)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: month)
+        .animation(reduceMotion ? nil : .easeOut(duration: Motion.normal), value: month)
     }
 
     /**
@@ -330,7 +330,7 @@ struct CalendarView: View {
                     .foregroundStyle(day.revenue > 0 ? Brand.onBoard : Brand.boardMuted.opacity(0.55))
                 if day.count > 0 {
                     Text("\(day.count)")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -341,18 +341,21 @@ struct CalendarView: View {
                #6D28D9 почти не отличим от полотна, и теплокарта теряла
                разрешение. Светлый вариант из пары `Brand.grape` держит
                шкалу читаемой в обеих темах. */
-            .background(Brand.grape.opacity(heat), in: .rect(cornerRadius: 12))
+            .background(Brand.grape.opacity(heat), in: .rect(cornerRadius: 14, style: .continuous))
             .overlay {
                 // сегодня — кольцом, а не заливкой: заливка здесь уже занята
                 // величиной, и второй смысл в неё не вложить
                 if today {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(Brand.lime, lineWidth: 2)
                 }
             }
         }
         .buttonStyle(.press)
-        .disabled(day.revenue == 0)
+        /* Открывается любой прошедший день, не только с выручкой: день с
+           одними расходами участвует в убытке месяца, и заперт был зря.
+           Пустой день честно отвечает «пусто» своим экраном. */
+        .disabled(day.date > Self.today())
         .accessibilityLabel("\(Int(day.date.suffix(2)) ?? 0)")
         .accessibilityValue(day.revenue > 0 ? "\(day.count) · \(money(day.revenue, currency))" : L("common.empty"))
     }
@@ -377,11 +380,11 @@ struct CalendarView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(L("calendar.weekShape"))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                     Spacer()
                     Text("\(weekdays[best]) · \(money(Int(peak), currency))")
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -390,11 +393,11 @@ struct CalendarView: View {
                 HStack(alignment: .bottom, spacing: 6) {
                     ForEach(0..<7, id: \.self) { i in
                         VStack(spacing: 5) {
-                            RoundedRectangle(cornerRadius: 5)
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .fill(i == best ? Brand.grapeFill : Brand.grapeFill.opacity(0.26))
                                 .frame(height: max(3, 62 * CGFloat(avg[i] / peak)))
                             Text(weekdays[i])
-                                .font(.system(size: 9.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(Brand.boardMuted)
                         }
                         .frame(maxWidth: .infinity)
@@ -406,9 +409,9 @@ struct CalendarView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
             }
         }

@@ -145,9 +145,9 @@ struct StaffView: View {
     @ViewBuilder
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(spacing: 0) { content() }
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 24, style: .continuous))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
             }
     }
@@ -240,7 +240,7 @@ struct StaffView: View {
                                 .foregroundStyle(Brand.boardMuted)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6))
+                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6, style: .continuous))
                         }
                     }
 
@@ -249,7 +249,7 @@ struct StaffView: View {
                        обрезанные деньги хуже, чем никаких. */
                     if let cars = person.cars, let earned = person.earned, cars > 0 {
                         Text("\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, currency))")
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 13))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted)
                             .lineLimit(1)
@@ -257,7 +257,7 @@ struct StaffView: View {
                     }
 
                     Text(person.phone)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted.opacity(0.75))
                         .lineLimit(1)
@@ -272,7 +272,7 @@ struct StaffView: View {
                        не «долю не берёт». */
                     if owner {
                         Text(L("roles.owner"))
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 13))
                             .foregroundStyle(Brand.boardMuted)
                     } else {
                         Text("\(person.percent)%")
@@ -280,13 +280,13 @@ struct StaffView: View {
                             .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
                         Text(L("staff.perRecord"))
-                            .font(.system(size: 9.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(Brand.boardMuted)
                     }
 
                     if let due = person.due, due > 0 {
                         Text(L("staff.due", money(due, currency)))
-                            .font(.system(size: 11.5, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
                             .padding(.top, 3)
@@ -450,10 +450,9 @@ struct StaffEditor: View {
     private var phoneDigits: Int { phone.filter(\.isNumber).count }
 
     var body: some View {
+        NavigationStack {
         ScrollView {
             VStack(spacing: 10) {
-                header
-
                 VStack(spacing: 0) {
                     field(L("owner.clientName"), text: $name, placeholder: L("staff.namePlaceholder"))
                     if isNew {
@@ -476,7 +475,7 @@ struct StaffEditor: View {
                             }
                     }
                 }
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+                .boardCard()
 
                 /* Чем именно этот код является. Владелец в эту минуту
                    придумывает его вслух, стоя рядом с работником, и
@@ -526,7 +525,7 @@ struct StaffEditor: View {
                     fireRow(person)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -552,32 +551,15 @@ struct StaffEditor: View {
                 customText = String(p)
             }
         }
-    }
-
-    private var header: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+        // системная скорлупа листа: заголовок по центру, текстовое «Закрыть»
+        .navigationTitle(isNew ? L("staff.newTitle", Terms.staff(session.tenant?.staffRole ?? "").nom) : (person?.name ?? ""))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("common.close")) { dismiss() }.disabled(busy)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("common.close"))
-
-            Spacer()
-
-            Text(isNew ? L("staff.newTitle", Terms.staff(session.tenant?.staffRole ?? "").nom) : (person?.name ?? ""))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-
-            Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.bottom, 6)
+        }
     }
 
     private var divider: some View {
@@ -645,23 +627,23 @@ struct StaffEditor: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 13)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
             }
 
             Text(L("staff.percentNote"))
-                .font(.system(size: 11.5))
+                .font(.system(size: 12))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        .boardCard()
     }
 
     private func chip(_ title: String, on: Bool, run: @escaping () -> Void) -> some View {
         Button(action: run) {
             Text(title)
-                .font(.system(size: 14.5, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
                 .padding(.horizontal, 15)
@@ -699,14 +681,14 @@ struct StaffEditor: View {
                     .foregroundStyle(Brand.onBoard)
                     .padding(.horizontal, 14)
                     .frame(height: 52)
-                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 16))
+                    .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
                     .onChange(of: newPin) { _, v in
                         let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
                         if clean != v { newPin = clean }
                     }
 
                 Text(L("settings.pinResetNote"))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -724,7 +706,7 @@ struct StaffEditor: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
             .padding(.top, 14)
         } else {
             Button {
@@ -737,10 +719,10 @@ struct StaffEditor: View {
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(L("settings.pinReset"))
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
                         Text(L("settings.pinResetNote"))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
@@ -749,7 +731,7 @@ struct StaffEditor: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+                .boardCard()
             }
             .buttonStyle(.press)
             .disabled(busy)
@@ -768,10 +750,10 @@ struct StaffEditor: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(L("staff.deactivateAction"))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.badOnBoard)
                     Text(L("staff.deactivateNote"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
@@ -780,7 +762,7 @@ struct StaffEditor: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
         }
         .buttonStyle(.press)
         .disabled(busy)
@@ -792,17 +774,11 @@ struct StaffEditor: View {
             Task { await save() }
         } label: {
             Text(L("common.save"))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Brand.lime, in: .rect(cornerRadius: 22))
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
         .disabled(!ready)
-        .opacity(ready ? 1 : 0.4)
-        .padding(.horizontal, 12)
+        .opacity(busy || ready ? 1 : 0.45)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
     }
@@ -965,30 +941,8 @@ struct TeamWashEditor: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Brand.boardMuted)
-                        .frame(width: 38, height: 38)
-                        .background(Brand.boardInk.opacity(0.07), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L("common.close"))
-
-                Spacer()
-
-                Text(L("crew.title"))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-
-                Spacer()
-
-                Color.clear.frame(width: 38, height: 38)
-            }
-            .padding(.bottom, 10)
-
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("crew.percentLabel"))
                     .font(.system(size: 12, weight: .semibold))
@@ -1012,10 +966,10 @@ struct TeamWashEditor: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 13)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
 
                 Text(L("crew.percentHint"))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1023,19 +977,19 @@ struct TeamWashEditor: View {
                    Здесь и разрешается двусмысленность процента: видно, что
                    пятьдесят на двоих дают по четверти цены каждому. */
                 Text(example)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(asked == nil ? Brand.boardMuted : Brand.goodOnBoard)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let error {
                     Text(error)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.badOnBoard)
                 }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
 
             Spacer(minLength: 12)
 
@@ -1043,14 +997,8 @@ struct TeamWashEditor: View {
                 Task { await save() }
             } label: {
                 Text(L("common.save"))
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Brand.onLime)
-                    .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Brand.lime, in: .rect(cornerRadius: 22))
             }
-            .buttonStyle(.press)
+            .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
             .disabled(busy)
         }
         .padding(.horizontal, 16)
@@ -1059,6 +1007,15 @@ struct TeamWashEditor: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Brand.board.ignoresSafeArea())
         .onAppear { text = session.teamPercent.map(String.init) ?? "" }
+        // системная скорлупа листа, как у всех редакторов
+        .navigationTitle(L("crew.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("common.close")) { dismiss() }.disabled(busy)
+            }
+        }
+        }
     }
 
     private var example: String {

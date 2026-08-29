@@ -44,7 +44,7 @@ struct SetupCard: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
@@ -129,7 +129,7 @@ struct SetupCard: View {
                    человек ещё ничего про продукт не знает. */
                 if now {
                     Text(note(step.key))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -180,6 +180,7 @@ struct SetupCard: View {
         case "services":
             NavigationLink {
                 ServicesView().navigationTitle(L("settings.services"))
+                    .navigationBarTitleDisplayMode(.inline)
             } label: {
                 Text(L("setup.stepServicesCta")).modifier(SetupAction(primary: primary))
             }
@@ -188,6 +189,7 @@ struct SetupCard: View {
         case "staff":
             NavigationLink {
                 StaffView().navigationTitle(L("more.team"))
+                    .navigationBarTitleDisplayMode(.inline)
             } label: {
                 Text(L("setup.stepStaffCta")).modifier(SetupAction(primary: primary))
             }
@@ -227,7 +229,7 @@ struct SetupCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                     Text(line.note)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -282,7 +284,7 @@ private struct SetupAction: ViewModifier {
             .padding(.vertical, 7)
             .background(
                 primary ? Brand.lime : Brand.boardInk.opacity(0.06),
-                in: .rect(cornerRadius: 10)
+                in: .rect(cornerRadius: 10, style: .continuous)
             )
     }
 }
@@ -306,20 +308,24 @@ struct OwnerWelcomeSheet: View {
     }
 
     var body: some View {
+        /* Прокрутка обязательна: лист фиксированной высоты с четырьмя
+           шагами и тремя абзацами на маленьком экране просто не влезал,
+           а прокрутить было нельзя. */
+        ScrollView {
         VStack(alignment: .leading, spacing: 0) {
             Text(L("setup.welcomeTitle"))
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(Brand.ink)
+                .font(.system(size: 27, weight: .bold, design: .rounded))
+                .foregroundStyle(Brand.onBoard)
 
             Text(L("setup.welcomeLead"))
                 .font(.system(size: 15))
-                .foregroundStyle(Brand.muted)
+                .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 4)
 
             Text(L("setup.welcomeNote"))
                 .font(.system(size: 14))
                 .lineSpacing(2)
-                .foregroundStyle(Brand.ink.opacity(0.82))
+                .foregroundStyle(Brand.onBoard.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 18)
 
@@ -338,10 +344,10 @@ struct OwnerWelcomeSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(step.title)
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Brand.ink)
+                                .foregroundStyle(Brand.onBoard)
                             Text(step.note)
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(Brand.muted)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.boardMuted)
                                 .lineLimit(2)
                         }
 
@@ -350,7 +356,7 @@ struct OwnerWelcomeSheet: View {
                         if index < steps.count - 1 {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(Brand.muted.opacity(0.45))
+                                .foregroundStyle(Brand.boardMuted.opacity(0.45))
                         }
                     }
                 }
@@ -359,28 +365,24 @@ struct OwnerWelcomeSheet: View {
 
             Spacer(minLength: 22)
 
+            /* Пара равных кнопок: одна геометрия, разница только
+               заливкой, — и обе системные, а не собранные руками. */
             HStack(spacing: 10) {
                 Button(L("setup.welcomeLook"), action: onLook)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.ink)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(Brand.ink.opacity(0.06), in: .rect(cornerRadius: 18))
-                    .buttonStyle(.press)
+                    .buttonStyle(QuietButton())
 
                 Button(L("setup.welcomeStart"), action: onStart)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.onLime)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(Brand.lime, in: .rect(cornerRadius: 18))
-                    .buttonStyle(.press)
+                    .buttonStyle(LimeButton())
             }
+            .padding(.top, 22)
         }
-        .padding(22)
+        .padding(.horizontal, 16)
+        .padding(.top, 22)
+        .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .screenBackground()
-        .presentationDetents([.fraction(0.78), .large])
+        }
+        .background(Brand.board.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
@@ -411,30 +413,31 @@ struct WorkerWelcomeSheet: View {
     let onDone: () -> Void
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 0) {
             Text(L("setup.workerTitle"))
                 .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(Brand.ink)
+                .foregroundStyle(Brand.onBoard)
             Text(L("setup.workerLead"))
                 .font(.system(size: 15))
-                .foregroundStyle(Brand.muted)
+                .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                     HStack(alignment: .center, spacing: 12) {
                         ZStack {
-                            Circle().strokeBorder(Brand.ink.opacity(0.18), lineWidth: 1.5)
+                            Circle().strokeBorder(Brand.onBoard.opacity(0.18), lineWidth: 1.5)
                             Text("\(index + 1)")
                                 .font(.system(size: 12, weight: .bold))
                                 .monospacedDigit()
-                                .foregroundStyle(Brand.muted)
+                                .foregroundStyle(Brand.boardMuted)
                         }
                         .frame(width: 24, height: 24)
 
                         Text(step)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Brand.ink)
+                            .foregroundStyle(Brand.onBoard)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -442,8 +445,8 @@ struct WorkerWelcomeSheet: View {
             .padding(.top, 26)
 
             Text(L("setup.workerNote"))
-                .font(.system(size: 13.5))
-                .foregroundStyle(Brand.muted)
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 22)
 
@@ -457,7 +460,8 @@ struct WorkerWelcomeSheet: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .screenBackground()
+        }
+        .background(Brand.board.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

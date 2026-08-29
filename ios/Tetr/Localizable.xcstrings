@@ -4939,6 +4939,29 @@
         }
       }
     },
+    "expenses.closedMonth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The month is closed, view only."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ամիսը փակ է․ միայն դիտում։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Месяц закрыт, только просмотр."
+          }
+        }
+      }
+    },
     "expenses.newTitle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6298,6 +6321,52 @@
         }
       }
     },
+    "order.discardConfirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Չեղարկել գրառումը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить"
+          }
+        }
+      }
+    },
+    "order.discardTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard what you typed?"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Չեղարկե՞լ հավաքածը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить набранное?"
+          }
+        }
+      }
+    },
     "order.discounted" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6386,6 +6455,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Новая запись: %@"
+          }
+        }
+      }
+    },
+    "order.noServices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No services yet, recording needs at least one."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ծառայություններ դեռ չկան․ առանց դրանց գրառել չի ստացվի։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Услуг ещё нет, без них записать не получится."
           }
         }
       }
@@ -11171,6 +11263,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Удалить неотправленную запись?"
+          }
+        }
+      }
+    },
+    "shift.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection. Records will queue up and send themselves."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Կապ չկա․ գրառումները կկուտակվեն և կուղարկվեն իրենք։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связи нет. Записи будут копиться и уйдут сами."
           }
         }
       }

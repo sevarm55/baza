@@ -62,16 +62,16 @@ struct HandoverView: View {
                                 Text("\(L("work.earnedToday")) \(money(earned, currency))")
                             }
                         }
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .padding(.top, 5)
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 25, style: .continuous))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 28, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 25, style: .continuous)
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                     }
 
@@ -90,7 +90,7 @@ struct HandoverView: View {
                         Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
 
                         Text(L("handover.declaring"))
-                            .font(.system(size: 12.5, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Brand.boardMuted)
 
                         TextField("0", text: $amount)
@@ -101,7 +101,7 @@ struct HandoverView: View {
                             .foregroundStyle(Brand.onBoard)
                             .padding(.horizontal, 14)
                             .frame(height: 62)
-                            .background(Brand.boardControl, in: .rect(cornerRadius: 16))
+                            .background(Brand.boardControl, in: .rect(cornerRadius: 18, style: .continuous))
                             .contentShape(.rect)
                             .onTapGesture { typingAmount = true }
 
@@ -112,7 +112,7 @@ struct HandoverView: View {
                                     : L("handover.over", money(diff, currency)),
                                 systemImage: diff < 0 ? "arrow.down" : "arrow.up"
                             )
-                            .font(.system(size: 12.5, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Brand.warnOnBoard)
                         }
                     }
@@ -124,18 +124,18 @@ struct HandoverView: View {
                     }
 
                     Text(L("handover.endNote", Terms.unit(session.tenant?.unitOne ?? "").acc))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 5)
 
                     Text(L("handover.cardNote"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 5)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 100)
             }
@@ -158,12 +158,8 @@ struct HandoverView: View {
                         dismiss()
                     } label: {
                         Text(L("handover.submit"))
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Brand.onLime)
-                            .frame(maxWidth: .infinity, minHeight: 52)
-                            .background(Brand.lime, in: .rect(cornerRadius: 18, style: .continuous))
                     }
-                    .buttonStyle(.press)
+                    .buttonStyle(LimeButton())
 
                     /* «Пропустить» закрывает смену так же, как «Сдать», —
                        только без суммы. Цель полного размера обязательна:
@@ -174,14 +170,14 @@ struct HandoverView: View {
                         dismiss()
                     } label: {
                         Text(L("common.skip"))
-                            .font(.system(size: 13.5, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Brand.boardMuted)
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .contentShape(.rect)
                     }
                     .buttonStyle(.press)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 6)
                 .background(.ultraThinMaterial)

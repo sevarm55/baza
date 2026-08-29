@@ -107,7 +107,7 @@ struct PayrollView: View {
                     }
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, settling || !picked.isEmpty ? 96 : 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -193,7 +193,7 @@ struct PayrollView: View {
                 .padding(.top, 2)
 
             Text(total > 0 ? parts.joined(separator: " · ") : L("payroll.dayAllPaid"))
-                .font(.system(size: 12.5))
+                .font(.system(size: 13))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
@@ -300,10 +300,10 @@ struct PayrollView: View {
 
         if !closed.isEmpty {
             Button {
-                withAnimation(.snappy(duration: 0.24)) { showClosed.toggle() }
+                withAnimation(.snappy(duration: Motion.normal)) { showClosed.toggle() }
             } label: {
                 Text(showClosed ? L("payroll.hidePaidDays") : Ln("payroll.showPaidDays", closed.count))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 6)
@@ -347,7 +347,7 @@ struct PayrollView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                     Text("\(Terms.staff(day.people.count, staffRole)) · \(Terms.units(day.units, unitOne))")
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -363,7 +363,7 @@ struct PayrollView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Text(L("payroll.dayToPay"))
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(Brand.boardMuted)
                     }
                 } else {
@@ -372,7 +372,7 @@ struct PayrollView: View {
                        не помещаются две фразы сразу. Полная стоит там,
                        где место есть, — в пустом состоянии. */
                     Label(L("payroll.paid"), systemImage: "checkmark")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.goodOnBoard)
                         .fixedSize()
                 }
@@ -386,7 +386,7 @@ struct PayrollView: View {
                     for person in payable { picked.insert(key(day.day, person)) }
                 } label: {
                     Text(L("payroll.selectAll"))
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Brand.grape)
                 }
                 .buttonStyle(.press)
@@ -415,14 +415,14 @@ struct PayrollView: View {
                причал появляется только на телефоне. */
         }
         .padding(16)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
     }
 
     /// Закрытый день ничего не требует и занимает столько места, сколько
     /// стоит ответ «здесь всё».
     private func closedCard(_ day: API.PayrollBoardDay, today: String) -> some View {
         Button {
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.24)) {
+            withAnimation(reduceMotion ? nil : .snappy(duration: Motion.normal)) {
                 _ = openedDays.insert(day.day)
             }
         } label: {
@@ -432,7 +432,7 @@ struct PayrollView: View {
                     .foregroundStyle(Brand.onBoard)
 
                 Label(L("payroll.paid"), systemImage: "checkmark")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Brand.goodOnBoard)
 
                 Spacer(minLength: 8)
@@ -449,7 +449,7 @@ struct PayrollView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.press)
     }
@@ -508,12 +508,12 @@ struct PayrollView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(closed ? Brand.boardMuted : Brand.onBoard)
                         .lineLimit(1)
 
                     Text(facts(person))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
@@ -562,7 +562,7 @@ struct PayrollView: View {
             .contentShape(.rect)
             .onTapGesture {
                 guard person.lines != nil else { return }
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                withAnimation(reduceMotion ? nil : .snappy(duration: Motion.normal)) {
                     if isOpen { opened.remove(id) } else { opened.insert(id) }
                 }
             }
@@ -594,7 +594,7 @@ struct PayrollView: View {
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Brand.onBoard)
                         }
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                     }
                 }
@@ -633,7 +633,7 @@ struct PayrollView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
     }
 
     /// Сегодня ещё не мыли. Пустой сегодняшний день — это ответ, а не
@@ -651,7 +651,7 @@ struct PayrollView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
     }
 
     /**
@@ -682,20 +682,10 @@ struct PayrollView: View {
         .padding(.vertical, 44)
     }
 
+    /// Единый вид отказа продукта, а не свой на каждом экране.
     private func problem(_ text: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(Brand.grape)
-            Text(text)
-                .font(.system(size: 14))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Brand.boardMuted)
-            Button(L("common.retry")) { Task { await reload() } }
-                .buttonStyle(.glass)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        TetrFailure(title: text, retry: { await reload() })
+            .padding(.top, 40)
     }
 
     // ══════════════════════════ история ══════════════════════════
@@ -782,14 +772,14 @@ struct PayrollView: View {
                             .foregroundStyle(Brand.boardMuted)
                         Spacer()
                         Text(money(payment.total, currency))
-                            .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
                     }
                 }
 
                 Text(workLabel(payment))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .padding(.top, 2)
@@ -797,7 +787,7 @@ struct PayrollView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 18))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
     }
 
     /// За какой рабочий день отданы деньги — словами, а не второй датой:
@@ -872,12 +862,12 @@ struct PayrollView: View {
     private var toast: some View {
         if let note {
             Text(note)
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.board)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Brand.onBoard, in: .rect(cornerRadius: 14))
+                .background(Brand.onBoard, in: .rect(cornerRadius: 14, style: .continuous))
                 /* Выше плавающей полосы вкладок: у нижнего края экрана
                    его закрывала бы она, и сообщение о выплате видел бы
                    только тот, кто успел посмотреть на нижние сто точек. */
@@ -932,10 +922,10 @@ struct PayrollView: View {
     }
 
     private func show(_ text: String) {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { note = text }
+        withAnimation(reduceMotion ? nil : .snappy(duration: Motion.normal)) { note = text }
         Task {
             try? await Task.sleep(for: .seconds(4))
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { note = nil }
+            withAnimation(reduceMotion ? nil : .snappy(duration: Motion.normal)) { note = nil }
         }
     }
 
@@ -951,7 +941,7 @@ struct PayrollView: View {
             if payroll == nil || reduceMotion {
                 payroll = fresh
             } else {
-                withAnimation(.snappy(duration: 0.45)) { payroll = fresh }
+                withAnimation(.snappy(duration: Motion.slow)) { payroll = fresh }
             }
             failure = nil
         } catch is CancellationError {

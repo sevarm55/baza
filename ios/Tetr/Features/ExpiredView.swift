@@ -81,13 +81,17 @@ struct ExpiredView: View {
                     )
                 }
 
+            /* Прокрутка снизу вверх: колонка прижата к низу, как и была,
+               но на маленьком экране и с длинным армянским текстом нижние
+               кнопки больше не уходят за край без возможности достать. */
+            ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(isOwner ? (fresh ? L("points.freshTitle") : L("billing.expiredTitle")) : L("expired.blockedTitle"))
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text(ownerText)
-                    .font(.system(size: 15.5))
+                    .font(.system(size: 15))
                     .lineSpacing(3)
                     .foregroundStyle(.white.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
@@ -122,7 +126,7 @@ struct ExpiredView: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .background(.white.opacity(0.08), in: .rect(cornerRadius: 14))
+                    .background(.white.opacity(0.08), in: .rect(cornerRadius: 14, style: .continuous))
                     .padding(.top, 4)
                 }
 
@@ -155,7 +159,7 @@ struct ExpiredView: View {
                 if isOwner {
                     Button(role: .destructive) { deleting = true } label: {
                         Text(L("billing.wallDelete"))
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .frame(minHeight: 44, alignment: .leading)
                             .contentShape(.rect)
                     }
@@ -175,12 +179,15 @@ struct ExpiredView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 26)
-            .padding(.bottom, 44)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: UIScreen.main.bounds.height, alignment: .bottom)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: .top)
         .preferredColorScheme(.dark)
         .sheet(item: $exported) { url in ShareSheet(url: url) }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }

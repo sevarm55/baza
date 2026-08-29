@@ -21,6 +21,24 @@ import SwiftUI
  * объяснять устройство, которого он не просил.
  */
 struct PointsView: View {
+    /**
+     * Тон карточки филиала.
+     *
+     * Не `personTone`: та палитра — цвет ЧЕЛОВЕКА, один и тот же в
+     * ленте, зарплатах и командах, и мойка, окрашенная цветом мойщика,
+     * размывала словарь продукта. У филиалов своя четвёрка глубоких
+     * тонов из плиточной палитры.
+     */
+    static func pointTone(_ name: String) -> (base: Color, glow: Color) {
+        let tones: [Tone] = [.violet, .teal, .indigo, .rose]
+        var hash = 0
+        for scalar in name.unicodeScalars {
+            hash = (hash &* 31 &+ Int(scalar.value)) & 0xFFFFFF
+        }
+        let t = tones[hash % tones.count]
+        return (t.base, t.glow)
+    }
+
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var queue: OrderQueue
 
@@ -55,7 +73,7 @@ struct PointsView: View {
                         row(point)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 20)
             }
@@ -70,7 +88,7 @@ struct PointsView: View {
                висела сразу под последней карточкой, она читалась как
                подпись к ней. */
             Text(L("points.addOnWeb"))
-                .font(.system(size: 12.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
@@ -104,7 +122,7 @@ struct PointsView: View {
      * значит она ровно то, что значит здесь.
      */
     private func hero(_ point: API.Point) -> some View {
-        let tone = Brand.personTone(point.name)
+        let tone = PointsView.pointTone(point.name)
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
@@ -154,7 +172,7 @@ struct PointsView: View {
      * мокром экране это разница между одним нажатием и тремя.
      */
     private func row(_ point: API.Point) -> some View {
-        let tone = Brand.personTone(point.name)
+        let tone = PointsView.pointTone(point.name)
 
         return Button {
             guard going == nil else { return }
@@ -173,7 +191,7 @@ struct PointsView: View {
                         .foregroundStyle(.white)
                         .lineLimit(1)
                     Text("\(role(point)) · \(state(point))")
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .monospacedDigit()
                         .foregroundStyle(point.canRead ? .white.opacity(0.75) : Brand.warnOnDark)
                         .lineLimit(1)
@@ -214,9 +232,9 @@ struct PointsView: View {
             let part = min(1, Double(days) / fullTank)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .fill(.white.opacity(0.18))
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .fill(.white.opacity(0.9))
                         // минимум, чтобы последний день оставался виден
                         .frame(width: max(6, geo.size.width * part))

@@ -65,7 +65,7 @@ private struct Paper<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) { content }
             .padding(pad)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: 24, style: .continuous))
+            .background(Color.white, in: .rect(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
             .environment(\.colorScheme, .light)
     }
@@ -103,12 +103,12 @@ private struct Row: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(demo.plate)
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
 
                     Image(systemName: fresh ? "checkmark" : paymentSymbol(demo.payment))
-                        .font(.system(size: 10.5, weight: fresh ? .bold : .regular))
+                        .font(.system(size: 11, weight: fresh ? .bold : .regular))
                         .foregroundStyle(fresh ? Brand.goodOnBoard : Brand.boardMuted)
                         .contentTransition(.symbolEffect(.replace))
                 }
@@ -258,7 +258,7 @@ struct RecordHero: View {
             Image(systemName: paymentSymbol(key))
                 .font(.system(size: 10))
             Text(paymentLabel(key))
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
         }
         .foregroundStyle(on ? Brand.onLime : Brand.boardMuted)
         .padding(.horizontal, 11)
@@ -355,7 +355,7 @@ struct PayrollHero: View {
             }
             .padding(.horizontal, 13)
             .padding(.vertical, 12)
-            .background(Brand.lime, in: .rect(cornerRadius: 16, style: .continuous))
+            .background(Brand.lime, in: .rect(cornerRadius: 18, style: .continuous))
             .padding(.top, 13)
             .reveal(beat, step: 5)
         }
@@ -368,12 +368,12 @@ struct PayrollHero: View {
     /// слайда, а на экране владельца интересуют драмы.
     private func percent(_ amount: Int, on: Bool) -> some View {
         Text("+\(money(amount))")
-            .font(.system(size: 12.5, weight: .bold))
+            .font(.system(size: 13, weight: .bold))
             .monospacedDigit()
             .foregroundStyle(Brand.grapeFill)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(Brand.grapeFill.opacity(0.1), in: .rect(cornerRadius: 9, style: .continuous))
+            .background(Brand.grapeFill.opacity(0.1), in: .rect(cornerRadius: 10, style: .continuous))
             /* Плашка гаснет целиком, а не обнуляется числом: доля либо
                посчитана, либо её ещё нет, промежуточного значения у неё
                не бывает. */
@@ -435,7 +435,7 @@ struct SplitHero: View {
            не узнаёт то, что ему показывали минуту назад. */
         Paper(pad: 19) {
             Text(L("common.today"))
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
                 .padding(.bottom, 17)
                 .reveal(beat, step: 1)
@@ -463,7 +463,7 @@ struct SplitHero: View {
                    показывает доли неизвестно от чего. */
                 HStack(spacing: 6) {
                     Text(L("summary.paidIn"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                     Text(money(revenue))
                         .font(.system(size: 13, weight: .bold))
@@ -522,12 +522,12 @@ struct ExportHero: View {
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(L("more.export"))
-                            .font(.system(size: 13.5, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text(L("more.exportLead"))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                             .lineLimit(1)
                     }
@@ -577,7 +577,7 @@ struct ExportHero: View {
             Text(money(demo.price))
                 .foregroundStyle(Brand.onBoard)
         }
-        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+        .font(.system(size: 13, weight: .medium, design: .rounded))
         .monospacedDigit()
         .lineLimit(1)
         .padding(.vertical, 8)
@@ -592,7 +592,7 @@ struct ExportHero: View {
                 .contentTransition(.symbolEffect(.replace))
 
             Text(sent ? L("common.added") : L("common.offline"))
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(sent ? .white : .white.opacity(0.7))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -612,9 +612,9 @@ struct ExportHero: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(.white.opacity(0.09), in: .rect(cornerRadius: 16, style: .continuous))
+        .background(.white.opacity(0.09), in: .rect(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(.white.opacity(0.12), lineWidth: 1)
         )
     }

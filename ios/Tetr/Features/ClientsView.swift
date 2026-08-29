@@ -114,7 +114,7 @@ struct ClientsView: View {
                 }
 
                 if !loaded {
-                    Delayed(active: true) { TetrSkeletonList(rows: 6, avatar: true) }
+                    Delayed(active: true) { TetrSkeletonList(rows: 6) }
                         .padding(.top, 8)
                 } else if failed, clients.isEmpty {
                     TetrFailure(
@@ -128,7 +128,7 @@ struct ClientsView: View {
                     emptySearch
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -197,7 +197,7 @@ struct ClientsView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 12))
+            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 14, style: .continuous))
             // по всей строке поиска, а не по буквам подсказки
             .contentShape(.rect)
             .onTapGesture { typingQuery = true }
@@ -220,7 +220,7 @@ struct ClientsView: View {
                                 .padding(.vertical, 7)
                                 .background(
                                     sort == option ? Brand.onBoard : Brand.boardInk.opacity(0.07),
-                                    in: .rect(cornerRadius: 9)
+                                    in: .rect(cornerRadius: 10, style: .continuous)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -251,7 +251,7 @@ struct ClientsView: View {
             Button { group = clients.isEmpty ? nil : .all } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L("owner.clientsTotal"))
-                        .font(.system(size: 11.5, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Brand.boardMuted)
                     Text("\(clients.count)")
                         .font(.system(size: 31, weight: .bold, design: .rounded))
@@ -259,7 +259,7 @@ struct ClientsView: View {
                         .foregroundStyle(Brand.onBoard)
                         .contentTransition(.numericText(value: Double(clients.count)))
                     Text("\(L("owner.clientsLoyal")) \(loyalAll.count) · \(L("owner.clientsFresh")) \(freshAll.count)")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
@@ -267,14 +267,16 @@ struct ClientsView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                 }
             }
             .buttonStyle(.press)
             .disabled(clients.isEmpty)
+            // погашено — видно, а не только не отвечает
+            .opacity(clients.isEmpty ? 0.45 : 1)
 
             Button { group = lostAll.isEmpty ? nil : .lost } label: {
                 VStack(alignment: .leading, spacing: 3) {
@@ -285,7 +287,7 @@ struct ClientsView: View {
                         .font(.system(size: 25, weight: .bold, design: .rounded))
                         .monospacedDigit()
                     Text(L("owner.clientsLost"))
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .lineLimit(2)
                 }
                 .foregroundStyle(lostAll.isEmpty ? Brand.goodOnBoard : Brand.warnOnBoard)
@@ -294,11 +296,12 @@ struct ClientsView: View {
                 .frame(minHeight: 94, alignment: .leading)
                 .background(
                     (lostAll.isEmpty ? Brand.mintCard : Brand.warnOnBoard.opacity(0.12)),
-                    in: .rect(cornerRadius: 20, style: .continuous)
+                    in: .rect(cornerRadius: 22, style: .continuous)
                 )
             }
             .buttonStyle(.press)
             .disabled(lostAll.isEmpty)
+            .opacity(lostAll.isEmpty ? 0.75 : 1)
         }
     }
 
@@ -311,7 +314,7 @@ struct ClientsView: View {
                         .frame(width: 190 - CGFloat(index) * 18, height: 76)
                         .overlay(alignment: .leading) {
                             HStack(spacing: 10) {
-                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .fill(Brand.grape.opacity(0.12 + Double(index) * 0.05))
                                     .frame(width: 38, height: 38)
                                 VStack(alignment: .leading, spacing: 6) {
@@ -337,7 +340,7 @@ struct ClientsView: View {
                 .padding(.top, 8)
 
             Text(L("more.clientsLead"))
-                .font(.system(size: 13.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -367,7 +370,7 @@ struct ClientsView: View {
         VStack(spacing: lostOnes ? 8 : 0) {
             HStack {
                 Text(title)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(lostOnes ? Brand.warnOnBoard : Brand.boardMuted)
                 Spacer()
                 Text("\(items.count)")
@@ -404,7 +407,7 @@ struct ClientsView: View {
                     .foregroundStyle(tone.ink)
                     .lineLimit(1)
                 Text(visitLine(client))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(tone.ink.opacity(0.72))
             }
@@ -432,7 +435,7 @@ struct ClientsView: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(client.key)
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
 
@@ -442,11 +445,11 @@ struct ClientsView: View {
                        взглядом. */
                     if client.visits > 1 {
                         Text(L("owner.clientLoyal"))
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
-                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5))
+                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5, style: .continuous))
                     }
 
                     /* Имя рядом с номером, а не строкой под ним: строкой
@@ -462,7 +465,7 @@ struct ClientsView: View {
                     }
                 }
                 Text(visitLine(client))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
             }
@@ -498,7 +501,12 @@ struct ClientsView: View {
             let result = try await session.authed { token in
                 try await APIClient.shared.send("clients", token: token, as: API.Clients.self)
             }
-            clients = result.clients
+            /* С анимацией: счётчики над списком перекручиваются
+               разрядами, а не подменяются скачком, — до этого их
+               `contentTransition` не срабатывал ни разу. */
+            withAnimation(.snappy(duration: Motion.normal)) {
+                clients = result.clients
+            }
             failed = false
             failNote = nil
         } catch is CancellationError {

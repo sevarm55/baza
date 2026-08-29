@@ -72,11 +72,11 @@ struct ProfileView: View {
                         switches
                         actions
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 16)
                     .padding(.top, 10)
                     .padding(.bottom, 28)
                     .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
-                    .animation(.easeOut(duration: 0.2), value: saved)
+                    .animation(.easeOut(duration: Motion.normal), value: saved)
                 }
             }
             /* Шапка больше не меняет высоту ScrollView. Порог жеста меняет
@@ -287,10 +287,10 @@ struct ProfileView: View {
                 .foregroundStyle(access.warn ? Tone.amber.ink : Brand.goodOnBoard)
             VStack(alignment: .leading, spacing: 1) {
                 Text(L("auth.signInTitle"))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(access.warn ? Tone.amber.ink.opacity(0.72) : Brand.boardMuted)
                 Text(Self.plan(access))
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(access.warn ? Tone.amber.ink : Brand.onBoard)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -312,7 +312,7 @@ struct ProfileView: View {
                 .padding(.leading, 16)
             language
         }
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        .boardCard()
     }
 
     private var fields: some View {
@@ -342,17 +342,11 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: saved && !changed ? "checkmark" : "arrow.down.to.line")
-                    .font(.system(size: 13, weight: .bold))
-                Text(saved && !changed ? L("settings.saved") : L("common.save"))
                     .font(.system(size: 15, weight: .bold))
+                Text(saved && !changed ? L("settings.saved") : L("common.save"))
             }
-            .foregroundStyle(Brand.onLime)
-            .loading(saving, tint: Brand.onLime, size: 20, title: L("common.saving"))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(Brand.lime, in: .rect(cornerRadius: 20))
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton(loading: saving, busyTitle: L("common.saving")))
         .disabled(saving || !changed)
         .opacity(changed || saving ? 1 : 0.6)
         .transition(.scale(scale: 0.96).combined(with: .opacity))
@@ -391,7 +385,7 @@ struct ProfileView: View {
                 )
             }
         }
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        .boardCard()
     }
 
     // ══════════════════════════ язык ══════════════════════════
@@ -424,7 +418,7 @@ struct ProfileView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.grape)
                 Text(L("common.language"))
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                 Spacer(minLength: 8)
                 Text(lang.current.ownName)
@@ -451,10 +445,10 @@ struct ProfileView: View {
         Toggle(isOn: isOn) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                 Text(note)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -494,6 +488,7 @@ struct ProfileView: View {
                 profileDivider
                 NavigationLink {
                     DevicesView().navigationTitle(L("profile.devices"))
+                        .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     actionFace(L("profile.devices"), L("profile.devicesNote"),
                                icon: "laptopcomputer.and.iphone", danger: false,
@@ -506,14 +501,14 @@ struct ProfileView: View {
                     exportRow
                 }
             }
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
 
             if isOwner {
                 action(L("billing.wallDelete"), L("profile.deleteNote"),
                        icon: "trash", danger: true) {
                     deleting = true
                 }
-                .background(Brand.badOnBoard.opacity(0.075), in: .rect(cornerRadius: 20))
+                .background(Brand.badOnBoard.opacity(0.075), in: .rect(cornerRadius: 22, style: .continuous))
                 .padding(.top, 12)
             }
         }
@@ -549,12 +544,12 @@ struct ProfileView: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(exporting ? L("common.preparing") : L("more.export"))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
                     /* Подзаголовок и есть место ответа: не получилось —
                        строка говорит это здесь же, повтор тем же касанием. */
                     Text(exportFailed ? L("common.failed") : L("more.exportLead"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(exportFailed ? Brand.badOnBoard : Brand.boardMuted)
                 }
                 Spacer(minLength: 0)
@@ -627,11 +622,11 @@ struct ProfileView: View {
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(danger ? Brand.badOnBoard : Brand.onBoard)
                 if !note.isEmpty {
                     Text(note)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
@@ -779,7 +774,7 @@ private struct AccessSkin: ViewModifier {
             content
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+                .boardCard()
         }
     }
 }
@@ -876,9 +871,9 @@ struct PinChangeView: View {
                             pin(L("common.retry"), $again)
                         }
                         .padding(.horizontal, 17)
-                        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
                                 .strokeBorder(Brand.boardInk.opacity(0.07))
                         }
 
@@ -918,7 +913,7 @@ struct PinChangeView: View {
                             .background(Brand.badOnBoard.opacity(0.065), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 18)
                     .padding(.bottom, 116)
                 }
@@ -930,7 +925,7 @@ struct PinChangeView: View {
                 }
                 .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
                 .disabled(!ready)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
             }

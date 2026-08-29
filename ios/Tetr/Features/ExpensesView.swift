@@ -80,27 +80,27 @@ struct ExpensesView: View {
                 reading
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 8, leading: 12, bottom: 5, trailing: 12))
+                    .listRowInsets(.init(top: 8, leading: 16, bottom: 5, trailing: 16))
             }
 
             if !monthlyOnes.isEmpty {
                 heading(L("expenses.monthlyOnes"), "\(monthlyOnes.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
+                    .listRowInsets(.init(top: 5, leading: 16, bottom: 0, trailing: 16))
 
                 ForEach(monthlyOnes) { item in
                     if month == .current {
                         card(item)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+                            .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
                             .swipeActions(edge: .trailing) { erase(item) }
                     } else {
                         card(item)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 5, leading: 12, bottom: 5, trailing: 12))
+                            .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
                     }
                 }
             }
@@ -109,7 +109,7 @@ struct ExpensesView: View {
                 heading(L("expenses.oneOffs"), "\(oneOffs.count)")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 5, leading: 12, bottom: 0, trailing: 12))
+                    .listRowInsets(.init(top: 5, leading: 16, bottom: 0, trailing: 16))
 
                 /* Разделителей нет: у каждой строки своя подложка, и линия
                    между двумя подложками — вторая граница там, где
@@ -119,13 +119,13 @@ struct ExpensesView: View {
                         row(item)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
+                            .listRowInsets(.init(top: 3, leading: 16, bottom: 3, trailing: 16))
                             .swipeActions(edge: .trailing) { erase(item) }
                     } else {
                         row(item)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 3, leading: 12, bottom: 3, trailing: 12))
+                            .listRowInsets(.init(top: 3, leading: 16, bottom: 3, trailing: 16))
                     }
                 }
             }
@@ -148,19 +148,19 @@ struct ExpensesView: View {
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
+                .listRowInsets(.init(top: 0, leading: 16, bottom: 0, trailing: 16))
             } else if items.isEmpty {
                 emptyState
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 0, leading: 12, bottom: 0, trailing: 12))
+                    .listRowInsets(.init(top: 0, leading: 16, bottom: 0, trailing: 16))
             }
 
             // те же слова, что в кабинете (`hy.expenses.note`): одно и то
             // же правило, объяснённое двумя разными фразами, читается как
             // два разных правила
             Text(L("expenses.note"))
-                .font(.system(size: 11.5))
+                .font(.system(size: 12))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .listRowBackground(Color.clear)
@@ -172,7 +172,7 @@ struct ExpensesView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
-            if month == .current { addButton }
+            if month == .current { addButton } else { readOnlyNote }
         }
         /* Полоска захвата видима: лист закрывается смахиванием, но без
            неё об этом не догадываются. */
@@ -252,13 +252,13 @@ struct ExpensesView: View {
                             Task { await reload() }
                         } label: {
                             Text(option.label)
-                                .font(.system(size: 12.5, weight: month == option ? .semibold : .regular))
+                                .font(.system(size: 13, weight: month == option ? .semibold : .regular))
                                 .foregroundStyle(month == option ? Brand.board : Brand.boardMuted)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .background(
                                     month == option ? Brand.onBoard : Brand.boardInk.opacity(0.055),
-                                    in: .rect(cornerRadius: 8)
+                                    in: .rect(cornerRadius: 8, style: .continuous)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -269,7 +269,7 @@ struct ExpensesView: View {
 
                 if let share = revenueShare {
                     Text(L("expenses.shareOfRevenue", share))
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.sandInk)
                         .lineLimit(1)
@@ -277,7 +277,7 @@ struct ExpensesView: View {
             }
 
             Text(L("expenses.title"))
-                .font(.system(size: 12.5, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Brand.boardMuted)
                 .padding(.top, 22)
 
@@ -299,7 +299,7 @@ struct ExpensesView: View {
 
             if perDayAvg > 0 {
                 Text(L("expenses.perDay", money(perDayAvg, currency)))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .padding(.top, 10)
@@ -309,17 +309,17 @@ struct ExpensesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(Brand.boardSurface)
                 Circle()
                     .fill(Brand.sandInk.opacity(0.09))
                     .frame(width: 150, height: 150)
                     .offset(x: 58, y: -78)
             }
-            .clipShape(.rect(cornerRadius: 27, style: .continuous))
+            .clipShape(.rect(cornerRadius: 28, style: .continuous))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
         }
         /* Тени нет намеренно. Она была цветом `boardInk`, который в
@@ -422,7 +422,7 @@ struct ExpensesView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Brand.sandInk)
                 .frame(width: 38, height: 38)
-                .background(Brand.sandCard, in: .rect(cornerRadius: 12, style: .continuous))
+                .background(Brand.sandCard, in: .rect(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -433,17 +433,17 @@ struct ExpensesView: View {
 
                     if let badge {
                         Text(badge)
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Brand.boardMuted)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Brand.boardInk.opacity(0.09), in: .rect(cornerRadius: 6))
+                            .background(Brand.boardInk.opacity(0.09), in: .rect(cornerRadius: 6, style: .continuous))
                     }
                 }
 
                 if let note {
                     Text(note)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                 }
@@ -460,9 +460,9 @@ struct ExpensesView: View {
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 11)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 17, style: .continuous))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.065), lineWidth: 0.8)
         }
         .contentShape(.rect)
@@ -520,26 +520,34 @@ struct ExpensesView: View {
         return "tray.fill"
     }
 
+    /// Прошлый месяц закрыт для правок — и говорит об этом сам. Раньше
+    /// список просто молча не отвечал на касания и выглядел сломанным.
+    private var readOnlyNote: some View {
+        Text(L("expenses.closedMonth"))
+            .font(.system(size: 13))
+            .foregroundStyle(Brand.boardMuted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(Brand.board.ignoresSafeArea(edges: .bottom))
+    }
+
     /// Добавление — строкой в самом списке, а не плюсиком в панели: плюсик
     /// в углу ищут глазами, строка стоит там, куда смотрит человек.
     private var addButton: some View {
         Button {
             adding = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .black))
+                    .font(.system(size: 15, weight: .black))
                 Text(L("expenses.addExpense"))
-                    .font(.system(size: 15, weight: .bold))
-                Spacer(minLength: 0)
             }
-            .foregroundStyle(Brand.onLime)
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-            .background(Brand.lime, in: .rect(cornerRadius: 20, style: .continuous))
         }
-        .buttonStyle(.press)
-        .padding(.horizontal, 12)
+        .buttonStyle(LimeButton())
+        .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 6)
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
@@ -549,11 +557,11 @@ struct ExpensesView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(Brand.boardSurface)
                     .frame(height: 150)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                     }
 
@@ -585,7 +593,7 @@ struct ExpensesView: View {
                 .padding(.top, 18)
 
             Text(L("expenses.note"))
-                .font(.system(size: 13.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 7)
@@ -742,10 +750,9 @@ struct ExpenseEditor: View {
     }
 
     var body: some View {
+        NavigationStack {
         ScrollView {
             VStack(spacing: 10) {
-                header
-
                 amountField
 
                 if !hints.isEmpty && isNew {
@@ -802,7 +809,7 @@ struct ExpenseEditor: View {
                         .padding(.horizontal, 4)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -819,31 +826,15 @@ struct ExpenseEditor: View {
             monthly = editing.monthly
             at = editing.at
         }
-    }
-
-    private var header: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+        // системная скорлупа листа: заголовок по центру, текстовое «Закрыть»
+        .navigationTitle(isNew ? L("expenses.newTitle") : L("expenses.one"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("common.close")) { dismiss() }.disabled(busy)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("common.close"))
-
-            Spacer()
-
-            Text(isNew ? L("expenses.newTitle") : L("expenses.one"))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-
-            Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.bottom, 6)
+        }
     }
 
     /// Сумма — крупно и первой: расход заводят, держа в руке чек, и первое,
@@ -878,7 +869,7 @@ struct ExpenseEditor: View {
                     .foregroundStyle(Brand.onBoard)
             }
         }
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        .boardCard()
     }
 
     /// День разового расхода. Вперёд не пускаем: траты, которой ещё не
@@ -896,7 +887,7 @@ struct ExpenseEditor: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+        .boardCard()
     }
 
     private var kindPicker: some View {
@@ -944,7 +935,7 @@ struct ExpenseEditor: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 on ? Brand.lime : Brand.boardInk.opacity(0.07),
-                in: .rect(cornerRadius: 22)
+                in: .rect(cornerRadius: 22, style: .continuous)
             )
         }
         .buttonStyle(.press)
@@ -953,12 +944,12 @@ struct ExpenseEditor: View {
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12.5))
+            .font(.system(size: 13))
             .foregroundStyle(Brand.boardMuted)
             .fixedSize(horizontal: false, vertical: true)
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
     }
 
     private var saveBar: some View {
@@ -966,17 +957,11 @@ struct ExpenseEditor: View {
             Task { await save() }
         } label: {
             Text(L("common.save"))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Brand.lime, in: .rect(cornerRadius: 22))
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
         .disabled(!ready)
-        .opacity(ready ? 1 : 0.4)
-        .padding(.horizontal, 12)
+        .opacity(busy || ready ? 1 : 0.45)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
     }

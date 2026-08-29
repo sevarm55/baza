@@ -65,7 +65,7 @@ struct AlertsView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.top, 6)
                 .padding(.bottom, 28)
             }
@@ -95,16 +95,16 @@ struct AlertsView: View {
                         .frame(width: 34, height: 34)
                         .background(
                             (alert.tone == "warn" ? Brand.warnOnBoard : Brand.grape).opacity(0.14),
-                            in: .rect(cornerRadius: 10)
+                            in: .rect(cornerRadius: 10, style: .continuous)
                         )
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(alert.title)
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
                             .multilineTextAlignment(.leading)
                         Text(alert.note)
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 13))
                             .foregroundStyle(Brand.boardMuted)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
@@ -129,7 +129,7 @@ struct AlertsView: View {
                 Task { await snooze(alert.key) }
             } label: {
                 Text(L("alerts.later"))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(minWidth: 44, minHeight: 40, alignment: .leading)
                     .contentShape(.rect)

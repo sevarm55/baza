@@ -23,6 +23,17 @@ import SwiftUI
  * а не серый из палитры кабинета.
  */
 struct CodeCells<Field: Hashable>: View {
+    /**
+     * На каком полотне стоят клетки.
+     *
+     * Вход тёмно-фиолетовый при любой теме телефона, и его клетки —
+     * белый в малой доле. Листы кабинета стоят на светлом табло, и тем
+     * же клеткам там нужны краски поверхности: до этого кабинетные
+     * экраны кода рисовали голый `TextField("••••••")`, второй,
+     * несовместимый ввод кода в одном продукте.
+     */
+    enum Skin { case dark, board }
+
     @Binding var text: String
     /**
      * Фокус остаётся у экрана, а не заводится внутри.
@@ -47,6 +58,8 @@ struct CodeCells<Field: Hashable>: View {
     var secure: Bool = false
     /// Системная подсказка автозаполнения.
     var contentType: UITextContentType?
+    /// Полотно под клетками. По умолчанию тёмный вход.
+    var skin: Skin = .dark
     /// Набрали последнюю цифру. У входа этим отправляют форму, чтобы не
     /// заставлять тянуться к кнопке ради движения, которое повторяют
     /// каждый день.
@@ -102,12 +115,18 @@ struct CodeCells<Field: Hashable>: View {
            «сюда пишут» не показано нигде. */
         let active = focused && index == min(chars.count, length - 1)
 
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(.white.opacity(filled ? 0.18 : 0.08))
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(skin == .dark
+                ? Color.white.opacity(filled ? 0.18 : 0.08)
+                : Brand.boardControl.opacity(filled ? 1 : 0.55))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        active ? Brand.lime : .white.opacity(filled ? 0.34 : 0.18),
+                        active
+                            ? (skin == .dark ? Brand.lime : Brand.grape)
+                            : (skin == .dark
+                                ? Color.white.opacity(filled ? 0.34 : 0.18)
+                                : Brand.boardInk.opacity(filled ? 0.22 : 0.10)),
                         lineWidth: active ? 2 : 1
                     )
             )
@@ -119,13 +138,13 @@ struct CodeCells<Field: Hashable>: View {
                        входа читают через плечо. */
                     if secure {
                         Circle()
-                            .fill(.white)
+                            .fill(skin == .dark ? Color.white : Brand.onBoard)
                             .frame(width: 9, height: 9)
                     } else {
                         Text(String(chars[index]))
                             .font(.system(size: 21, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(.white)
+                            .foregroundStyle(skin == .dark ? Color.white : Brand.onBoard)
                     }
                 }
             }

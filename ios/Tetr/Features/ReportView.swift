@@ -82,14 +82,25 @@ struct ReportView: View {
                        над ним и уже показывает, что нажатие услышано. Пустой
                        экран вместо чисел на секунду читался бы поломкой. */
                     .opacity(loading ? 0.45 : 1)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: loading)
+                    .animation(reduceMotion ? nil : .easeOut(duration: Motion.normal), value: loading)
                 } else {
-                    TetrLoader(size: 30, tint: Brand.grape)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 90)
+                    /* Скелет по форме отчёта с порогом показа: вспышка
+                       большого лоадера на быстрый ответ читалась дрожью. */
+                    Delayed(active: true) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(height: 90, radius: 22)
+                            TetrSkeleton(width: 140, height: 12)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            TetrSkeleton(width: 230, height: 44, radius: 14)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            TetrSkeleton(height: 150, radius: 22)
+                            TetrSkeleton(height: 110, radius: 22)
+                        }
+                        .padding(.top, 12)
+                    }
                 }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.bottom, 34)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -197,7 +208,7 @@ struct ReportView: View {
                 .frame(height: field)
 
                 Text(monthShort(month.from))
-                    .font(.system(size: 11.5, weight: on ? .bold : .medium))
+                    .font(.system(size: 12, weight: on ? .bold : .medium))
                     .foregroundStyle(on ? Brand.onBoard : Brand.boardMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -245,7 +256,7 @@ struct ReportView: View {
         let m = report.current
         return VStack(spacing: 0) {
             Text(monthTitle(m.from))
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
                 .contentTransition(.numericText())
 
@@ -291,7 +302,7 @@ struct ReportView: View {
                     Image(systemName: diff > 0 ? "arrow.up" : "arrow.down")
                         .font(.system(size: 9, weight: .black))
                     Text("\(diff > 0 ? "+" : "−")\(money(abs(diff), currency))")
-                        .font(.system(size: 12.5, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .monospacedDigit()
                     Text(L("summary.vsPrevMonth"))
                         .font(.system(size: 12))
@@ -300,7 +311,7 @@ struct ReportView: View {
                 .foregroundStyle(Brand.sign(diff))
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(Brand.chipRest, in: .rect(cornerRadius: 9))
+                .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
                 .padding(.top, 10)
             }
         }
@@ -340,7 +351,7 @@ struct ReportView: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(L("summary.paidIn"))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                         Text(money(m.revenue, currency))
                             .font(.system(size: 19, weight: .bold, design: .rounded))
@@ -380,7 +391,7 @@ struct ReportView: View {
                 .fill(part.ink)
                 .frame(width: 7, height: 7)
             Text(part.label)
-                .font(.system(size: 12.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
 
@@ -417,7 +428,7 @@ struct ReportView: View {
             }
             Spacer(minLength: 0)
         }
-        .font(.system(size: 12.5))
+        .font(.system(size: 13))
         .monospacedDigit()
         .foregroundStyle(Brand.boardMuted)
         .lineLimit(1)
@@ -466,10 +477,10 @@ struct ReportView: View {
                         methods(ways)
                     }
                 }
-                .clipShape(.rect(cornerRadius: 20, style: .continuous))
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                .clipShape(.rect(cornerRadius: 22, style: .continuous))
+                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                 }
             }
@@ -525,7 +536,7 @@ struct ReportView: View {
             }
 
             Text(money(way.revenue, currency))
-                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
@@ -565,10 +576,10 @@ struct ReportView: View {
                 section(L("reports.whereGone"), total: total)
 
                 lines(rows, total: total, tone: Brand.sandInk)
-                    .clipShape(.rect(cornerRadius: 20, style: .continuous))
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                    .clipShape(.rect(cornerRadius: 22, style: .continuous))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                     }
             }
@@ -625,7 +636,7 @@ struct ReportView: View {
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
-                    .font(.system(size: 13.5, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                 if !note.isEmpty {
@@ -640,12 +651,12 @@ struct ReportView: View {
             Spacer(minLength: 8)
 
             Text(money(value, currency))
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
             Text("\(percent)%")
-                .font(.system(size: 11.5))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
                 // «100 %» шире прочих долей, и на узкой колонке знак процента
@@ -696,9 +707,9 @@ struct ReportView: View {
                         person(row)
                     }
                 }
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                 }
             }
@@ -710,18 +721,18 @@ struct ReportView: View {
 
         return HStack(spacing: 11) {
             Text(String(name.prefix(1)))
-                .font(.system(size: 13.5, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(Brand.personTone(name).base, in: .circle)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                 Text(Terms.units(row.count, unit))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
             }
@@ -729,7 +740,7 @@ struct ReportView: View {
             Spacer(minLength: 8)
 
             Text(money(row.earned, currency))
-                .font(.system(size: 14.5, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
@@ -750,7 +761,7 @@ struct ReportView: View {
                 .foregroundStyle(Brand.boardMuted)
             Spacer(minLength: 8)
             Text(money(total, currency))
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
@@ -771,17 +782,10 @@ struct ReportView: View {
         Text("·").foregroundStyle(Brand.boardMuted.opacity(0.6))
     }
 
+    /// Единый вид отказа продукта, а не свой на каждом экране.
     private func problem(_ text: String) -> some View {
-        VStack(spacing: 12) {
-            Text(text)
-                .font(.system(size: 14))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Brand.boardMuted)
-            Button(L("common.retry")) { Task { await reload() } }
-                .buttonStyle(.glass)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        TetrFailure(title: text, retry: { await reload() })
+            .padding(.top, 40)
     }
 
     // ══════════════════════════ данные ══════════════════════════

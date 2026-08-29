@@ -32,6 +32,9 @@ struct VerifyPhoneView: View {
     /// тупиком: закрыть лист и открыть заново — не выход, а лазейка.
     @State private var resendAt = Date()
 
+    private enum Focus { case code }
+    @FocusState private var focus: Focus?
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -71,19 +74,18 @@ struct VerifyPhoneView: View {
                                 Text(L("auth.otpCode"))
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(Brand.boardMuted)
-                        TextField("••••••", text: $code)
-                            .keyboardType(.numberPad)
-                            // система сама подставит код из пришедшей SMS
-                            .textContentType(.oneTimeCode)
-                            .font(.system(size: 20, weight: .semibold))
-                            .monospaced()
-                            .onChange(of: code) { _, v in
-                                let clean = String(v.filter(\.isNumber).prefix(API.codeLength))
-                                if clean != v { code = clean }
-                                if code.count == API.codeLength {
-                                    Task { await confirm(challengeId) }
-                                }
-                            }
+                        /* Те же клетки, что на входе: одно поле кода на
+                           весь продукт, а не второй, голый вариант. */
+                        CodeCells(
+                            text: $code,
+                            focus: $focus,
+                            field: Focus.code,
+                            length: API.codeLength,
+                            label: L("auth.otpCode"),
+                            contentType: .oneTimeCode,
+                            skin: .board,
+                            onComplete: { Task { await confirm(challengeId) } }
+                        )
                                 Text(L("auth.otpSent", sentTo))
                                     .font(.system(size: 13))
                                     .foregroundStyle(Brand.boardMuted)
@@ -91,9 +93,9 @@ struct VerifyPhoneView: View {
                                 resendRow
                             }
                             .padding(18)
-                            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
                                     .strokeBorder(Brand.boardInk.opacity(0.07))
                             }
                     }
@@ -109,7 +111,7 @@ struct VerifyPhoneView: View {
 
                         Spacer(minLength: 24)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 18)
                     .padding(.bottom, 116)
                 }
@@ -130,7 +132,7 @@ struct VerifyPhoneView: View {
                    пока код короче шести цифр, кнопка тусклая. Занятая —
                    в полный цвет, ответ на палец уже дан признаком работы. */
                 .opacity(!busy && challengeId != nil && code.count < API.codeLength ? 0.45 : 1)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
             }
@@ -155,6 +157,8 @@ struct VerifyPhoneView: View {
             sentTo = started.phone ?? (session.me?.phone ?? "")
             code = ""
             resendAt = Date().addingTimeInterval(45)
+            // клавиатура сразу в клетках: код уже летит в SMS
+            focus = .code
         } catch let e as APIError {
             error = message(for: e)
         } catch {
@@ -193,7 +197,7 @@ struct VerifyPhoneView: View {
                 Task { await send() }
             } label: {
                 Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(left > 0 ? Brand.boardMuted.opacity(0.7) : Brand.grape)
                     .frame(minHeight: 44, alignment: .leading)

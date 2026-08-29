@@ -393,7 +393,7 @@ struct LoginView: View {
             .animation(.snappy(duration: 0.28), value: stage)
             .animation(.snappy(duration: 0.28), value: who)
             .animation(.snappy(duration: 0.28), value: method)
-            .animation(.easeOut(duration: 0.18), value: error)
+            .animation(.easeOut(duration: Motion.fast), value: error)
         }
     }
 
@@ -418,8 +418,8 @@ struct LoginView: View {
             roleTab(.staff, L("roles.staff"))
         }
         .padding(3)
-        .background(.white.opacity(0.10), in: .rect(cornerRadius: 15))
-        .overlay(RoundedRectangle(cornerRadius: 15).strokeBorder(.white.opacity(0.12), lineWidth: 1))
+        .background(.white.opacity(0.10), in: .rect(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 1))
         .accessibilityElement(children: .contain)
     }
 
@@ -454,10 +454,10 @@ struct LoginView: View {
                 .frame(height: 38)
                 .background {
                     if who == value {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(.white.opacity(0.20))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .strokeBorder(.white.opacity(0.22), lineWidth: 1)
                             )
                             .matchedGeometryEffect(id: "role", in: roleMark)
@@ -594,7 +594,7 @@ struct LoginView: View {
                не над ними: набрав шестую цифру, человек смотрит сюда, и
                оба ответа на его вопросы стоят рядом. */
             Text(L("auth.otpSent", waiting.phone))
-                .font(.system(size: 13.5))
+                .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.62))
                 .padding(.top, 14)
 
@@ -849,7 +849,7 @@ struct LoginView: View {
                 Task { await resend(waiting) }
             } label: {
                 Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(left > 0 ? .white.opacity(0.4) : Brand.lime)
                     .frame(height: 36, alignment: .leading)
@@ -883,7 +883,7 @@ struct LoginView: View {
                 .frame(width: 92, height: 92)
                 .shadow(color: tone.glow.opacity(0.28), radius: 24, y: 12)
                 .scaleEffect(busy ? 0.96 : 1)
-                .animation(.easeOut(duration: 0.14), value: busy)
+                .animation(.easeOut(duration: Motion.fast), value: busy)
             }
             .buttonStyle(.plain)
             .disabled(busy)
@@ -902,13 +902,13 @@ struct LoginView: View {
                 TetrLoader(size: 22, tint: Brand.lime)
             } else {
                 Text(L("auth.tapAvatarPhone"))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
             }
 
             if let error {
                 Text(error)
-                    .font(.system(size: 13.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(Brand.lime)
                     .multilineTextAlignment(.center)
             }
@@ -951,15 +951,15 @@ struct LoginView: View {
     private func quiet(_ title: String, run: @escaping () -> Void) -> some View {
         Button(action: run) {
             Text(title)
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .foregroundStyle(.white.opacity(0.82))
                 .padding(.horizontal, 16)
                 .frame(height: 44)
-                .background(.white.opacity(0.08), in: .rect(cornerRadius: 14))
+                .background(.white.opacity(0.08), in: .rect(cornerRadius: 14, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(.white.opacity(0.14), lineWidth: 1)
                 )
         }
@@ -999,9 +999,9 @@ struct LoginView: View {
                     .tint(Brand.lime)
                     .padding(.horizontal, 16)
                     .frame(height: 54)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(
                                 lit ? Brand.lime.opacity(0.75) : .white.opacity(0.16),
                                 lineWidth: lit ? 2 : 1

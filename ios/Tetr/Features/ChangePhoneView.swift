@@ -62,6 +62,9 @@ struct ChangePhoneView: View {
     /// тупиком с мёртвой заявкой в памяти.
     @State private var resendAt = Date()
 
+    private enum Focus { case proof, code }
+    @FocusState private var focus: Focus?
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -87,7 +90,7 @@ struct ChangePhoneView: View {
                                 .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 18)
                     .padding(.bottom, stage == .done ? 28 : 116)
                 }
@@ -103,7 +106,7 @@ struct ChangePhoneView: View {
                     primaryButton
                         .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
                         .opacity(!busy && primaryBlocked ? 0.45 : 1)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(.ultraThinMaterial)
                 }
@@ -174,7 +177,7 @@ struct ChangePhoneView: View {
 
     private var proofStep: some View {
         inputSurface {
-            codeField($proofCode) { Task { await sendPhone() } }
+            codeField($proofCode, field: .proof) { Task { await sendPhone() } }
             resendRow { await sendProof() }
         }
     }
@@ -207,7 +210,7 @@ struct ChangePhoneView: View {
 
     private var codeStep: some View {
         inputSurface {
-            codeField($code) { Task { await finish() } }
+            codeField($code, field: .code) { Task { await finish() } }
             // код уезжает на НОВЫЙ номер — повтор идёт тем же путём
             resendRow { await sendPhone() }
         }
@@ -225,9 +228,9 @@ struct ChangePhoneView: View {
         VStack(alignment: .leading, spacing: 10, content: content)
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07))
             }
     }
@@ -263,21 +266,23 @@ struct ChangePhoneView: View {
         phone.filter(\.isNumber).count >= 6 && (!session.hasPin || pin.count >= API.pinMinLength)
     }
 
-    /// Поле кода этого листа. На входе код набирают клетками
-    /// (`CodeCells`); привести сюда те же клетки — задача унификации
-    /// форм, а не этого экрана.
-    private func codeField(_ text: Binding<String>, done: @escaping () -> Void) -> some View {
-        TextField("••••••", text: text)
-            .keyboardType(.numberPad)
-            // система сама подставит код из пришедшей SMS
-            .textContentType(.oneTimeCode)
-            .font(.system(size: 20, weight: .semibold))
-            .monospaced()
-            .onChange(of: text.wrappedValue) { _, v in
-                let clean = String(v.filter(\.isNumber).prefix(API.codeLength))
-                if clean != v { text.wrappedValue = clean }
-                if clean.count == API.codeLength { done() }
-            }
+    /// Те же клетки кода, что на входе и в подтверждении номера: одно
+    /// поле кода на весь продукт.
+    private func codeField(
+        _ text: Binding<String>,
+        field: Focus,
+        done: @escaping () -> Void
+    ) -> some View {
+        CodeCells(
+            text: text,
+            focus: $focus,
+            field: field,
+            length: API.codeLength,
+            label: L("auth.otpCode"),
+            contentType: .oneTimeCode,
+            skin: .board,
+            onComplete: done
+        )
     }
 
     // ══════════════════════════ шаги наружу ══════════════════════════
@@ -294,6 +299,7 @@ struct ChangePhoneView: View {
             proofCode = ""
             resendAt = Date().addingTimeInterval(45)
             stage = .proof
+            focus = .proof
         } catch let e as APIError {
             error = message(for: e)
         } catch {
@@ -331,6 +337,7 @@ struct ChangePhoneView: View {
             code = ""
             resendAt = Date().addingTimeInterval(45)
             stage = .code
+            focus = .code
         } catch let e as APIError {
             /* Просроченный или исчерпанный код на СВОЙ номер отбрасывает
                в начало: доказывать себя придётся заново, и оставаться на
@@ -390,7 +397,7 @@ struct ChangePhoneView: View {
                 Task { await action() }
             } label: {
                 Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(left > 0 ? Brand.boardMuted.opacity(0.7) : Brand.grape)
                     .frame(minHeight: 44, alignment: .leading)

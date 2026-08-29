@@ -63,7 +63,7 @@ struct ServicesView: View {
                 tiersButton
 
                 Text(L("services.priceNote"))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 6)
@@ -105,14 +105,14 @@ struct ServicesView: View {
     private var servicesEmpty: some View {
         VStack(spacing: 15) {
             ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(Brand.grape.opacity(0.09))
                     .frame(width: 126, height: 78)
 
                 VStack(spacing: 7) {
                     ForEach(Array(([CGFloat(0.72), 0.52, 0.86]).enumerated()), id: \.offset) { index, width in
                         HStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
                                 .fill(index == 1 ? Brand.sandInk : Brand.grape)
                                 .frame(width: 7, height: 7)
                             Capsule()
@@ -169,7 +169,7 @@ struct ServicesView: View {
         return HStack(alignment: .bottom, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(L("services.avgPrice"))
-                    .font(.system(size: 10.5, weight: .black, design: .rounded))
+                    .font(.system(size: 11, weight: .black, design: .rounded))
                     .tracking(1.3)
                     .foregroundStyle(Brand.boardMuted)
                 Text(money(avg, currency))
@@ -185,15 +185,15 @@ struct ServicesView: View {
             Spacer(minLength: 8)
 
             Text(L("services.count", services.count))
-                .font(.system(size: 12.5))
+                .font(.system(size: 13))
                 .monospacedDigit()
                 .foregroundStyle(Brand.boardMuted)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 26, style: .continuous))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 28, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
     }
@@ -214,7 +214,7 @@ struct ServicesView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Text(Terms.service(service.name))
-                            .font(.system(size: 15.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
 
@@ -262,9 +262,9 @@ struct ServicesView: View {
             }
             .buttonStyle(.press)
         }
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 20))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
     }
@@ -289,7 +289,7 @@ struct ServicesView: View {
                     Text(tiers.isEmpty
                          ? L("services.tiersExample")
                          : L("services.tiersNote"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
                 }
@@ -297,7 +297,7 @@ struct ServicesView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 22))
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
@@ -370,10 +370,9 @@ struct ServiceEditor: View {
     private var ready: Bool { !busy && !name.trimmingCharacters(in: .whitespaces).isEmpty && value > 0 }
 
     var body: some View {
+        NavigationStack {
         ScrollView {
             VStack(spacing: 10) {
-                header
-
                 /* Два вопроса — две группы, и порядок в них тот же, в
                    каком их задают: сначала «что это за услуга», потом
                    «сколько она стоит». Раньше и цены, и название лежали
@@ -382,7 +381,7 @@ struct ServiceEditor: View {
                    услуга, то ли прайс на что-то уже существующее. */
                 caption(L("services.nameField"))
 
-                FieldBox(L("owner.clientName"), fill: Brand.boardInk.opacity(0.07)) {
+                FieldBox(L("owner.clientName"), fill: Brand.boardControl) {
                     TextField(L("services.namePlaceholder"), text: $name)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
@@ -436,7 +435,7 @@ struct ServiceEditor: View {
                         }
                     }
                 }
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+                .boardCard()
 
                 if let error {
                     Label(error, systemImage: "exclamationmark.circle.fill")
@@ -444,14 +443,14 @@ struct ServiceEditor: View {
                         .foregroundStyle(Brand.badOnBoard)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
-                        .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 18))
+                        .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 18, style: .continuous))
                 }
 
                 if !isNew {
                     archiveRow
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -478,6 +477,17 @@ struct ServiceEditor: View {
             }
             if isNew && tiers.isEmpty { typingPrice = true }
         }
+        /* Системная шапка вместо самодельного крестика в круге: та же
+           скорлупа, что у остальных листов, — заголовок по центру и
+           текстовое «Закрыть». */
+        .navigationTitle(isNew ? L("settings.newService") : L("owner.colService"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("common.close")) { dismiss() }.disabled(busy)
+            }
+        }
+        }
     }
 
     /// Строка цены класса. Массив может быть короче списка классов, если
@@ -485,7 +495,7 @@ struct ServiceEditor: View {
     /// Подпись над группой: маленькая, приглушённая, слева.
     private func caption(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12.5, weight: .semibold))
+            .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(Brand.boardMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 6)
@@ -502,31 +512,6 @@ struct ServiceEditor: View {
         )
     }
 
-    private var header: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("common.close"))
-
-            Spacer()
-
-            Text(isNew ? L("settings.newService") : L("owner.colService"))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-
-            Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
-        }
-        .padding(.bottom, 6)
-    }
-
     private var archiveRow: some View {
         Button {
             archiving = true
@@ -540,17 +525,17 @@ struct ServiceEditor: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(L("services.remove"))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.badOnBoard)
                     Text(L("services.removeNoteShort"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                 }
                 Spacer(minLength: 0)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+            .boardCard()
         }
         .buttonStyle(.press)
         .disabled(busy)
@@ -562,17 +547,11 @@ struct ServiceEditor: View {
             Task { await save() }
         } label: {
             Text(L("common.save"))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Brand.lime, in: .rect(cornerRadius: 22))
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
         .disabled(!ready)
-        .opacity(ready ? 1 : 0.4)
-        .padding(.horizontal, 12)
+        .opacity(busy || ready ? 1 : 0.45)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
     }
@@ -686,11 +665,10 @@ struct TierEditor: View {
     private var ready: Bool { !busy && clean.count != 1 }
 
     var body: some View {
+        NavigationStack {
         ScrollView {
             VStack(spacing: 10) {
-                header
-
-                FieldBox(L("services.tierNameField"), fill: Brand.boardInk.opacity(0.07)) {
+                FieldBox(L("services.tierNameField"), fill: Brand.boardControl) {
                     TextField(L("work.tier"), text: $label)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
@@ -745,7 +723,7 @@ struct TierEditor: View {
                                 Image(systemName: "plus")
                                     .font(.system(size: 13, weight: .bold))
                                 Text(L("services.addTier"))
-                                    .font(.system(size: 14.5, weight: .semibold))
+                                    .font(.system(size: 15, weight: .semibold))
                                 Spacer(minLength: 0)
                             }
                             .foregroundStyle(Brand.grape)
@@ -755,7 +733,7 @@ struct TierEditor: View {
                         .buttonStyle(.press)
                     }
                 }
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+                .boardCard()
 
                 if let error {
                     Text(error)
@@ -768,13 +746,13 @@ struct TierEditor: View {
                 Text(clean.isEmpty
                      ? L("services.noTiersNote")
                      : L("services.tiersApplyNote", clean.count))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 6)
                     .padding(.top, 4)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
@@ -785,6 +763,14 @@ struct TierEditor: View {
             label = session.tenant?.tierLabel ?? L("work.tier")
             names = session.tenant?.tiers ?? []
         }
+        .navigationTitle(L("services.tiers"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("common.close")) { dismiss() }.disabled(busy)
+            }
+        }
+        }
     }
 
     private func binding(_ i: Int) -> Binding<String> {
@@ -794,47 +780,16 @@ struct TierEditor: View {
         )
     }
 
-    private var header: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("common.close"))
-
-            Spacer()
-
-            Text(L("services.tiers"))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-
-            Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
-        }
-        .padding(.bottom, 6)
-    }
-
     private var saveBar: some View {
         Button {
             Task { await save() }
         } label: {
             Text(L("common.save"))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Brand.onLime)
-                .loading(busy, tint: Brand.onLime, size: 20, title: L("common.saving"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Brand.lime, in: .rect(cornerRadius: 22))
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
         .disabled(!ready)
-        .opacity(ready ? 1 : 0.4)
-        .padding(.horizontal, 12)
+        .opacity(busy || ready ? 1 : 0.45)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .bottom))
     }

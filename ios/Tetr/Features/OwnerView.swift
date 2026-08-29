@@ -137,7 +137,20 @@ struct OwnerView: View {
             .environmentObject(session)
         }
         .sheet(isPresented: $showClients) {
-            ClientsView().environmentObject(session)
+            /* Лист получает системную шапку: раньше он открывался вообще
+               без заголовка и без «Закрыть» — единственный такой в
+               продукте. */
+            NavigationStack {
+                ClientsView()
+                    .navigationTitle(L("owner.tabClients"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(L("common.close")) { showClients = false }
+                        }
+                    }
+            }
+            .environmentObject(session)
         }
         .alert(
             L("work.revokeTitle"),
@@ -196,7 +209,7 @@ struct OwnerView: View {
                    точек рядом с переключателем периода читалась как
                    равная ему по важности. */
                 Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
                     .frame(width: 32, height: 32)
                     .overlay(alignment: .topTrailing) {
@@ -242,7 +255,7 @@ struct OwnerView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(periodDates)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
 
                     Spacer(minLength: 16)
@@ -260,7 +273,7 @@ struct OwnerView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(L("owner.emptySummaryNote"))
-                        .font(.system(size: 14.5, weight: .regular))
+                        .font(.system(size: 15, weight: .regular))
                         .foregroundStyle(Brand.boardMuted)
                         .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -286,7 +299,20 @@ struct OwnerView: View {
             .environmentObject(session)
         }
         .sheet(isPresented: $showClients) {
-            ClientsView().environmentObject(session)
+            /* Лист получает системную шапку: раньше он открывался вообще
+               без заголовка и без «Закрыть» — единственный такой в
+               продукте. */
+            NavigationStack {
+                ClientsView()
+                    .navigationTitle(L("owner.tabClients"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(L("common.close")) { showClients = false }
+                        }
+                    }
+            }
+            .environmentObject(session)
         }
     }
 
@@ -309,7 +335,7 @@ struct OwnerView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Text(periodDates)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                     .contentTransition(.numericText())
                 crewChip
@@ -411,7 +437,7 @@ struct OwnerView: View {
                    нигде. */
                 HStack(spacing: 6) {
                     Text(L("summary.paidIn"))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                     Text(money(s.stats.revenue, currency))
                         .font(.system(size: 13, weight: .bold))
@@ -467,7 +493,7 @@ struct OwnerView: View {
                 Image(systemName: c.up ? "arrow.up" : "arrow.down")
                     .font(.system(size: 9, weight: .black))
                 Text(c.diff)
-                    .font(.system(size: 12.5, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .monospacedDigit()
                 /* С ЧЕМ сравнили, а не «сколько было тогда». Раньше рядом
                    стояло второе число — база, — и оно ничего не объясняло:
@@ -483,7 +509,7 @@ struct OwnerView: View {
             .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.badOnBoard)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(Brand.chipRest, in: .rect(cornerRadius: 9))
+            .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
             .padding(.top, 9)
         }
     }
@@ -514,6 +540,7 @@ struct OwnerView: View {
         if !present.isEmpty {
             NavigationLink {
                 StaffView().navigationTitle(Terms.staff(session.tenant?.staffRole ?? "").many)
+                    .navigationBarTitleDisplayMode(.inline)
             } label: {
                 HStack(spacing: 5) {
                     // единственный настоящий кружок в продукте: точка
@@ -524,7 +551,7 @@ struct OwnerView: View {
                         .shadow(color: Brand.lime.opacity(0.6), radius: 3)
 
                     Text(present.map(\.name).joined(separator: ", "))
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -535,7 +562,7 @@ struct OwnerView: View {
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Tone.slate.base, in: .rect(cornerRadius: 9))
+                .background(Tone.slate.base, in: .rect(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.press)
             .accessibilityLabel(
@@ -681,7 +708,7 @@ struct OwnerView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(line.name)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(line.present ? Brand.onBoard : Brand.boardMuted)
                     .lineLimit(1)
 
@@ -693,7 +720,7 @@ struct OwnerView: View {
                     .minimumScaleFactor(0.65)
 
                 Text(Terms.units(line.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .lineLimit(1)
@@ -795,9 +822,9 @@ struct OwnerView: View {
             snapshotValue(L("owner.onShift"), "\(s.onShift.count)")
         }
         .padding(.vertical, 15)
-        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 19, style: .continuous))
+        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 18, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 19, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.045), lineWidth: 0.8)
         }
         .padding(.top, 12)
@@ -813,7 +840,7 @@ struct OwnerView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
             Text(title)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -897,9 +924,9 @@ struct OwnerView: View {
             snapshotValue(L("summary.avgPayment"), money(s.stats.avgCheck, currency))
         }
         .padding(.vertical, 15)
-        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 19, style: .continuous))
+        .background(Brand.boardInk.opacity(0.045), in: .rect(cornerRadius: 18, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 19, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.045), lineWidth: 0.8)
         }
         .padding(.top, 12)
@@ -930,7 +957,7 @@ struct OwnerView: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack {
                 Text(L("today.paidWith"))
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 Image(systemName: "wallet.bifold")
                     .font(.system(size: 13, weight: .semibold))
@@ -939,7 +966,7 @@ struct OwnerView: View {
 
             if parts.isEmpty {
                 Text(L("today.noPayments"))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(Brand.boardMuted)
             } else {
                 /* Полоса одна на все способы, а не по одной под каждым.
@@ -966,9 +993,9 @@ struct OwnerView: View {
             }
         }
         .padding(15)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 20))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
         .padding(.top, 10)
@@ -989,14 +1016,14 @@ struct OwnerView: View {
                 .fill(paymentInk(part.payment))
                 .frame(width: 7, height: 7)
             Text(paymentLabel(part.payment))
-                .font(.system(size: 13.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
 
             Spacer(minLength: 8)
 
             Text(money(part.revenue, currency))
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
@@ -1114,16 +1141,16 @@ struct OwnerView: View {
             /* Повторное нажатие по выбранному снимает фильтр: иначе
                вернуться ко «всем» можно только прицелившись в первую
                кнопку, которая на узком экране уже уехала влево. */
-            withAnimation(.easeOut(duration: 0.16)) {
+            withAnimation(.easeOut(duration: Motion.fast)) {
                 feedMethod = on ? nil : key
             }
         } label: {
             Text(label)
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(on ? Brand.board : Brand.boardMuted)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(on ? Brand.onBoard : Brand.chipRest, in: .rect(cornerRadius: 9))
+                .background(on ? Brand.onBoard : Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -1194,7 +1221,7 @@ struct OwnerView: View {
                         .truncationMode(.tail)
 
                     Text(at(item.createdAt))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted.opacity(0.75))
                     /* Состав — отдельной строкой и только у совместной
@@ -1204,7 +1231,7 @@ struct OwnerView: View {
                        работали трое. */
                     if item.shared {
                         Text(who)
-                            .font(.system(size: 11.5, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Brand.boardMuted)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -1242,7 +1269,7 @@ struct OwnerView: View {
                        «ему 0 ֏» в каждой записи — шум. */
                     if (item.staffPercent ?? 0) > 0 {
                         Text(L("summary.share", money(item.earned, currency)))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 12))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted.opacity(0.75))
                             .lineLimit(1)
@@ -1253,8 +1280,8 @@ struct OwnerView: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 10)
         .background(
-            newestFeedID == item.id ? Brand.lime.opacity(0.1) : Color.clear,
-            in: .rect(cornerRadius: 12)
+            newestFeedID == item.id ? Brand.grape.opacity(0.12) : Color.clear,
+            in: .rect(cornerRadius: 14, style: .continuous)
         )
         .transition(
             reduceMotion
@@ -1420,7 +1447,7 @@ struct OwnerView: View {
         if reduceMotion {
             detailsVisible = false
         } else {
-            withAnimation(.easeOut(duration: 0.12)) {
+            withAnimation(.easeOut(duration: Motion.instant)) {
                 detailsVisible = false
             }
         }
@@ -1482,14 +1509,14 @@ struct OwnerView: View {
             if staged && !reduceMotion {
                 try? await Task.sleep(for: .milliseconds(110))
             }
-            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? .easeOut(duration: Motion.instant) : .easeOut(duration: Motion.normal)) {
                 detailsVisible = true
             }
 
             if inserted != nil {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(850))
-                    withAnimation(.easeOut(duration: 0.18)) { newestFeedID = nil }
+                    withAnimation(.easeOut(duration: Motion.fast)) { newestFeedID = nil }
                 }
             }
         } catch is CancellationError {

@@ -65,7 +65,7 @@ struct DevicesView: View {
                     }
 
                     Text(L("profile.devicesNote"))
-                        .font(.system(size: 13.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, 14)
@@ -79,9 +79,9 @@ struct DevicesView: View {
                         }
                     }
                     .padding(.horizontal, 12)
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 20))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                     }
                 }
@@ -133,9 +133,9 @@ struct DevicesView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 34)
-        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07))
         }
     }
@@ -148,7 +148,7 @@ struct DevicesView: View {
                 .frame(width: 36, height: 36)
                 .background(
                     (row.isApp ? Brand.mintCard : Brand.lavenderCard),
-                    in: .rect(cornerRadius: 11)
+                    in: .rect(cornerRadius: 10, style: .continuous)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -157,7 +157,7 @@ struct DevicesView: View {
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                 Text(row.current ? L("profile.deviceThis") : L("profile.deviceLastSeen", when(row.lastSeenAt)))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(row.current ? Brand.goodOnBoard : Brand.boardMuted)
                     .lineLimit(1)
             }

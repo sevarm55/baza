@@ -56,10 +56,22 @@ struct DayView: View {
                         if day.feed.isEmpty { empty } else { records(day.feed) }
                     }
                 } else if loading {
-                    TetrLoader(size: 34, tint: Brand.grape).padding(.vertical, 80)
+                    /* Скелет по форме экрана, а не большой лоадер:
+                       фирменная фигура принадлежит только запуску. */
+                    Delayed(active: true) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(width: 120, height: 12)
+                            TetrSkeleton(width: 210, height: 42, radius: 14)
+                            TetrSkeleton(height: 74, radius: 22)
+                            TetrSkeletonList(rows: 4, avatar: true)
+                                .padding(.top, 10)
+                        }
+                        .padding(.top, 16)
+                        .padding(.horizontal, 4)
+                    }
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -102,7 +114,7 @@ struct DayView: View {
                     .foregroundStyle(Brand.onBoard)
                 if let weekday = Self.weekday(date) {
                     Text(weekday)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                 }
             }
@@ -113,7 +125,7 @@ struct DayView: View {
             // центру экрана, а по центру остатка, и это заметно
             Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 10)
         .background(Brand.board.ignoresSafeArea(edges: .top))
@@ -180,9 +192,9 @@ struct DayView: View {
                 dayMetric(money(day.costs.total, currency), L("expenses.title"), Brand.sandInk)
             }
             .padding(16)
-            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(Brand.boardInk.opacity(0.07))
             }
         }
@@ -197,7 +209,7 @@ struct DayView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.62)
             Text(label)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(2)
         }
@@ -286,7 +298,7 @@ struct DayView: View {
                     Spacer(minLength: 4)
 
                     Text(span(s))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
@@ -365,7 +377,7 @@ struct DayView: View {
      * список не читают, его просматривают, и цвет опознаётся раньше слова.
      */
     private func records(_ feed: [API.FeedItem]) -> some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             section(
                 L("day.records"),
                 trailing: Terms.units(feed.count, session.tenant?.unitOne ?? "")
@@ -425,7 +437,7 @@ struct DayView: View {
                         .truncationMode(.tail)
 
                     Text(hhmm(item.createdAt))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted.opacity(0.75))
 
@@ -436,7 +448,7 @@ struct DayView: View {
                        работали трое. */
                     if item.shared {
                         Text(who)
-                            .font(.system(size: 11.5, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Brand.boardMuted)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -475,7 +487,7 @@ struct DayView: View {
                             .lineLimit(1)
 
                         Text(L("summary.share", money(item.earned, currency)))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 12))
                             .monospacedDigit()
                             .foregroundStyle(Brand.boardMuted.opacity(0.75))
                             .lineLimit(1)
@@ -562,6 +574,9 @@ struct DayView: View {
     /// смену, начатую в шесть утра.
     private func hhmm(_ at: Date) -> String {
         let f = DateFormatter()
+        // локаль явно, как в остальных часах продукта: копия без неё уже
+        // однажды разошлась с оригиналом
+        f.locale = LangStore.currentLang.locale
         f.dateFormat = "HH:mm"
         if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
             f.timeZone = zone
@@ -576,20 +591,10 @@ struct DayView: View {
      * в разметку не поставлен, и человек видел ровно белый лист — то, от
      * чего этот кусок кода и должен был спасать.
      */
+    /// Единый вид отказа продукта, а не свой на каждом экране.
     private func problem(_ text: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(Brand.grape)
-            Text(text)
-                .font(.system(size: 14))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Brand.boardMuted)
-            Button(L("common.retry")) { Task { await load() } }
-                .buttonStyle(.glass)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        TetrFailure(title: text, retry: { await load() })
+            .padding(.top, 40)
     }
 
     private func load() async {

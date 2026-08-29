@@ -202,7 +202,7 @@ struct PlateCameraPanel: View {
             viewfinder
             controls
         }
-        .background(Color.black, in: .rect(cornerRadius: 26))
+        .background(Color.black, in: .rect(cornerRadius: 28, style: .continuous))
         /* Отсчёт привязан к самому номеру, а не к таймеру: сменился
            кандидат — задача снимается и заводится заново, пропал — не
            остаётся висеть. Обратный отсчёт, переживший уход номера из
@@ -236,11 +236,11 @@ struct PlateCameraPanel: View {
             // Прицел: рамка не по всему кадру, а по той полосе, куда кладут
             // номер. Она не обрезает распознавание — она говорит, куда
             // целиться, и этого достаточно.
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.white.opacity(candidate == nil ? 0.5 : 0), lineWidth: 1.5)
                 .frame(height: 84)
                 .padding(.horizontal, 34)
-                .animation(.easeOut(duration: 0.2), value: candidate == nil)
+                .animation(.easeOut(duration: Motion.normal), value: candidate == nil)
 
             if let candidate {
                 Text(candidate)
@@ -254,7 +254,7 @@ struct PlateCameraPanel: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(.rect(cornerRadius: 26))
+        .clipShape(.rect(cornerRadius: 28, style: .continuous))
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: candidate)
     }
 
@@ -299,7 +299,7 @@ struct PlateCameraPanel: View {
         .disabled(candidate == nil)
         .accessibilityLabel(L("scanner.accept"))
         .accessibilityValue(candidate ?? "")
-        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: candidate == nil)
+        .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: candidate == nil)
     }
 
     private func round(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {

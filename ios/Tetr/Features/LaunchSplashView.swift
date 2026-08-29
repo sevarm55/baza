@@ -41,14 +41,16 @@ struct LaunchSplashView: View {
     var body: some View {
         GeometryReader { geo in
             /* Раскладка набрана в тех же числах, что и макет: 430×932.
-               На экран она кладётся целиком, с обрезкой по краям, — так
-               же, как это делал ролик. У всех телефонов, до которых
-               дотягивается iOS 26, отношение сторон отличается от
-               макетного меньше чем на промилле, поэтому обрезать
-               оказывается нечего. */
+               На экран она кладётся целиком, с обрезкой по краям, — как
+               это делал ролик. У широких телефонов обрезка копеечная, а
+               вот SE заметно короче макета: видимая высота в макетных
+               координатах у него ~765 из 932, и всё, что прибито к низу
+               макета, уезжало за край. Поэтому низ считается от видимой
+               высоты, а не от 932. */
             let fill = max(geo.size.width / Macket.w, geo.size.height / Macket.h)
+            let visibleH = geo.size.height / fill
 
-            canvas
+            canvas(visibleH: visibleH)
                 .frame(width: Macket.w, height: Macket.h)
                 .scaleEffect(fill)
                 .frame(width: geo.size.width, height: geo.size.height)
@@ -68,7 +70,7 @@ struct LaunchSplashView: View {
         static let h: CGFloat = 932
     }
 
-    private var canvas: some View {
+    private func canvas(visibleH: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             Brand.launchCanvas
 
@@ -82,10 +84,11 @@ struct LaunchSplashView: View {
                 wordmark
                 marks
             }
-            .offset(x: 112, y: 390)
+            // на коротком экране марка поднимается вместе с видимым низом
+            .offset(x: 112, y: min(390, visibleH * 0.42))
 
             roller
-                .offset(x: 112, y: Macket.h - 104 - 18)
+                .offset(x: 112, y: min(Macket.h, visibleH) - 104 - 18)
         }
         .frame(width: Macket.w, height: Macket.h, alignment: .topLeading)
     }

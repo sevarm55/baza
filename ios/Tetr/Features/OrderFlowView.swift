@@ -41,6 +41,8 @@ struct OrderFlowView: View {
     @State private var sending = false
     /// Скидка: развёрнута ли строка и что в ней набрано.
     @State private var showDiscount = false
+    /// Открыт вопрос «сбросить набранное?» при закрытии полной формы.
+    @State private var discarding = false
     @State private var discountText = ""
     @FocusState private var typing: Bool
     /// Выбранный тариф — номером в списке бизнеса. `nil`, когда тарифов
@@ -115,7 +117,7 @@ struct OrderFlowView: View {
                         // узнавание постоянного клиента прямо при вводе — то,
                         // ради чего экран и существует
                         Text(L("order.knownClient", known.visits, money(known.total, currency)))
-                            .font(.system(size: 12.5, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.top, 8)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -157,17 +159,22 @@ struct OrderFlowView: View {
                     value: chosen.map(\.id)
                 )
                 .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: tier)
-                .animation(.easeOut(duration: 0.18), value: known?.key)
+                .animation(.easeOut(duration: Motion.fast), value: known?.key)
             }
             .scrollDismissesKeyboard(.interactively)
         }
         .safeAreaInset(edge: .bottom) { checkout }
     }
 
+    /// В форме уже есть набранное — закрытие стирает его.
+    private var dirty: Bool {
+        !clientKey.isEmpty || !chosen.isEmpty || payment != nil || !discountText.isEmpty
+    }
+
     private var header: some View {
         HStack {
             Button {
-                dismiss()
+                if dirty { discarding = true } else { dismiss() }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
@@ -177,6 +184,18 @@ struct OrderFlowView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L("common.close"))
+            /* Набранный номер и выбранные услуги не исчезают молча:
+               закрытие полной формы спрашивает. Пустую закрывает сразу. */
+            .confirmationDialog(
+                L("order.discardTitle"),
+                isPresented: $discarding,
+                titleVisibility: .visible
+            ) {
+                Button(L("order.discardConfirm"), role: .destructive) {
+                    dismiss()
+                }
+                Button(L("work.revokeKeep"), role: .cancel) {}
+            }
 
             Spacer()
 
@@ -226,7 +245,7 @@ struct OrderFlowView: View {
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
-                .background(Brand.boardControl, in: .rect(cornerRadius: 18))
+                .background(Brand.boardControl, in: .rect(cornerRadius: 18, style: .continuous))
 
             /* Камера — только для номеров и только там, где она есть. Ручной
                ввод остаётся рядом всегда: номер бывает грязный, гнутый или
@@ -248,7 +267,7 @@ struct OrderFlowView: View {
                     .frame(height: 60)
                     .glassEffect(
                         .regular.tint(Brand.lime).interactive(false),
-                        in: .rect(cornerRadius: 18)
+                        in: .rect(cornerRadius: 18, style: .continuous)
                     )
                     .glassEffectID("plate-scan", in: glass)
                     .glassEffectTransition(.matchedGeometry)
@@ -258,7 +277,7 @@ struct OrderFlowView: View {
                         typing = false
                         withAnimation(
                             reduceMotion
-                                ? .easeOut(duration: 0.16)
+                                ? .easeOut(duration: Motion.fast)
                                 : .spring(response: 0.34, dampingFraction: 0.92)
                         ) {
                             scanning.toggle()
@@ -280,7 +299,7 @@ struct OrderFlowView: View {
                         .regular
                             .tint(scanning ? Brand.boardInk.opacity(0.12) : Brand.grape.opacity(0.08))
                             .interactive(),
-                        in: .rect(cornerRadius: 18)
+                        in: .rect(cornerRadius: 18, style: .continuous)
                     )
                     .glassEffectID("plate-scan", in: glass)
                     .glassEffectTransition(.matchedGeometry)
@@ -325,13 +344,16 @@ struct OrderFlowView: View {
                     let on = tier == index
                     Button {
                         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                        tier = index
+                        /* Повторное касание снимает класс — как у услуг.
+                           Раньше промах по «Джипу» лечился только
+                           закрытием всей формы. */
+                        tier = on ? nil : index
                     } label: {
                         Text(name)
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
-                            .padding(.horizontal, 15)
-                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
                             .background(on ? Brand.lime : Brand.boardControl, in: .capsule)
                     }
                     .buttonStyle(.press)
@@ -356,7 +378,20 @@ struct OrderFlowView: View {
      * Повторное касание снимает выбор. Отдельного крестика нет: он занимал
      * бы место в каждой плитке ради действия, которое делают раз в день.
      */
+    @ViewBuilder
     private var services: some View {
+        if session.services.isEmpty {
+            /* Пустой прайс объясняет себя: раньше под заголовком
+               «Услуга» была пустота, запись не собиралась, и почему —
+               оставалось загадкой. */
+            Text(L("order.noServices"))
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Brand.boardControl, in: .rect(cornerRadius: 18, style: .continuous))
+        } else {
         Flow(spacing: 8) {
             ForEach(session.services) { item in
                 let on = chosen.contains { $0.id == item.id }
@@ -370,7 +405,7 @@ struct OrderFlowView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(Terms.service(item.name))
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
                         /* Цена перекручивается разрядами при смене класса.
                            Без этого выбор «Ջիպ» молча подменял все цены
@@ -390,12 +425,13 @@ struct OrderFlowView: View {
                     .padding(.vertical, 11)
                     .background(
                         on ? Brand.lime : Brand.boardControl,
-                        in: .rect(cornerRadius: 16)
+                        in: .rect(cornerRadius: 18, style: .continuous)
                     )
                 }
                 .buttonStyle(.press)
                 .accessibilityAddTraits(on ? [.isSelected] : [])
             }
+        }
         }
     }
 
@@ -417,7 +453,7 @@ struct OrderFlowView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
 
-                TextField(String(listTotal), text: $discountText)
+                TextField(money(listTotal, currency), text: $discountText)
                     .keyboardType(.numberPad)
                     .focused($typingDiscount)
                     .multilineTextAlignment(.leading)
@@ -434,16 +470,23 @@ struct OrderFlowView: View {
                     .foregroundStyle(Brand.boardMuted)
             }
             .padding(14)
-            .background(Brand.boardControl, in: .rect(cornerRadius: 18))
+            .background(Brand.boardControl, in: .rect(cornerRadius: 18, style: .continuous))
             // касание принимает вся коробка, а не только набранные цифры
             .contentShape(.rect)
             .onTapGesture { typingDiscount = true }
             .padding(.top, 12)
         } else if !chosen.isEmpty {
-            Button(L("order.giveDiscount")) { showDiscount = true }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Brand.grape)
-                .padding(.top, 14)
+            Button {
+                showDiscount = true
+            } label: {
+                Text(L("order.giveDiscount"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Brand.grape)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
     }
 
@@ -527,7 +570,7 @@ struct OrderFlowView: View {
                             .frame(height: 44)
                             .background(
                                 on ? Brand.lime : Brand.boardControl,
-                                in: .rect(cornerRadius: 14)
+                                in: .rect(cornerRadius: 14, style: .continuous)
                             )
                         }
                         .buttonStyle(.plain)
@@ -567,7 +610,7 @@ struct OrderFlowView: View {
                         .foregroundStyle(Brand.goodOnBoard)
                     }
                 }
-                .font(.system(size: 12.5, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
             }
@@ -587,7 +630,7 @@ struct OrderFlowView: View {
                 .frame(height: 48)
                 .background(
                     on ? Brand.lime : Brand.boardControl,
-                    in: .rect(cornerRadius: 16)
+                    in: .rect(cornerRadius: 18, style: .continuous)
                 )
         }
         .buttonStyle(.plain)
@@ -647,14 +690,14 @@ struct OrderFlowView: View {
                         .padding(.vertical, 14)
                         .background(
                             on ? Brand.boardInk : Brand.boardControl,
-                            in: .rect(cornerRadius: 18)
+                            in: .rect(cornerRadius: 18, style: .continuous)
                         )
                     }
                     .buttonStyle(.press)
                     .accessibilityAddTraits(on ? [.isSelected] : [])
                 }
             }
-            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: payment)
+            .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: payment)
 
             /* Последнее движение — отдельная кнопка, и на ней написано,
                что произойдёт и за сколько.
@@ -829,7 +872,7 @@ struct OrderFlowView: View {
         clientKey = PlateReader.canonical(plate)
         withAnimation(
             reduceMotion
-                ? .easeOut(duration: 0.16)
+                ? .easeOut(duration: Motion.fast)
                 : .spring(response: 0.34, dampingFraction: 0.92)
         ) {
             scanning = false
@@ -840,7 +883,7 @@ struct OrderFlowView: View {
             try? await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 850))
             withAnimation(
                 reduceMotion
-                    ? .easeOut(duration: 0.14)
+                    ? .easeOut(duration: Motion.fast)
                     : .spring(response: 0.3, dampingFraction: 1)
             ) {
                 detectedPlate = nil

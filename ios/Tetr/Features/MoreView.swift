@@ -178,7 +178,7 @@ struct MoreView: View {
         } label: {
             VStack(spacing: 2) {
                 Text(Self.weekdayShort(date))
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                 Text(String(Int(date.suffix(2)) ?? 0))
                     .font(.system(size: 15, weight: revenue > 0 ? .bold : .medium))
@@ -274,6 +274,7 @@ struct MoreView: View {
                 title: L("owner.tabClients"), note: nil
             ) {
                 ClientsView().navigationTitle(L("owner.tabClients"))
+                    .navigationBarTitleDisplayMode(.inline)
             }
             separator
             navRow(
@@ -281,6 +282,7 @@ struct MoreView: View {
                 title: L("settings.tabServices"), note: nil
             ) {
                 ServicesView().navigationTitle(L("settings.services"))
+                    .navigationBarTitleDisplayMode(.inline)
             }
             separator
             navRow(
@@ -288,6 +290,7 @@ struct MoreView: View {
                 title: L("expenses.title"), note: nil
             ) {
                 ExpensesView().navigationTitle(L("expenses.title"))
+                    .navigationBarTitleDisplayMode(.inline)
             }
             separator
             navRow(
@@ -295,6 +298,7 @@ struct MoreView: View {
                 title: L("reports.title"), note: nil
             ) {
                 ReportView().navigationTitle(L("reports.title"))
+                    .navigationBarTitleDisplayMode(.inline)
             }
         }
     }
@@ -313,6 +317,7 @@ struct MoreView: View {
                 title: L("more.team"), note: nil
             ) {
                 StaffView().navigationTitle(L("more.team"))
+                    .navigationBarTitleDisplayMode(.inline)
             }
 
             /* Филиалы видит только тот, у кого их больше одного: остальные не
@@ -324,6 +329,7 @@ struct MoreView: View {
                     title: L("more.points"), note: nil
                 ) {
                     PointsView().navigationTitle(L("points.title"))
+                        .navigationBarTitleDisplayMode(.inline)
                 }
             }
         }
@@ -481,7 +487,7 @@ struct MoreView: View {
                     .minimumScaleFactor(0.8)
                 if let note, !note.isEmpty {
                     Text(note)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)

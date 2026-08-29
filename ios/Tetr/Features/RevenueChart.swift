@@ -63,7 +63,7 @@ struct RevenueChart: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
 
             Spacer(minLength: 0)
@@ -72,7 +72,7 @@ struct RevenueChart: View {
                пальцем, без пальца — пик. Две разные строки в одном углу
                заставляли бы читать, какая из них сейчас. */
             Text(caption)
-                .font(.system(size: 12.5, weight: touched == nil ? .regular : .semibold))
+                .font(.system(size: 13, weight: touched == nil ? .regular : .semibold))
                 .monospacedDigit()
                 .foregroundStyle(touched == nil ? Brand.boardMuted : Brand.onBoard)
                 .lineLimit(1)
@@ -145,7 +145,7 @@ struct RevenueChart: View {
             /* Пустой час остаётся видимой полоской в три пикселя: ноль —
                это «машин не было», а не «данных нет», и разница между
                этими двумя вещами для владельца существенна. */
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: lit)
+            .animation(reduceMotion ? nil : .easeOut(duration: Motion.fast), value: lit)
     }
 
     // ──────────────────────────── подписи ────────────────────────────

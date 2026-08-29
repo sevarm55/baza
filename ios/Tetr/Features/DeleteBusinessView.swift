@@ -39,6 +39,9 @@ struct DeleteBusinessView: View {
     /// Открыт последний вопрос перед необратимым удалением.
     @State private var confirmingWipe = false
 
+    private enum Focus { case code }
+    @FocusState private var focus: Focus?
+
     /**
      * Чем подтверждают удаление.
      *
@@ -100,26 +103,26 @@ struct DeleteBusinessView: View {
                                 .foregroundStyle(Brand.badOnBoard)
                         }
                         .padding(18)
-                        .background(Brand.badOnBoard.opacity(0.055), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .background(Brand.badOnBoard.opacity(0.055), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
                                 .strokeBorder(Brand.badOnBoard.opacity(0.13))
                         }
 
                 if asksCode {
                             credentialSurface(title: L("delete.codeAsk"), note: L("delete.codeSent", sentTo)) {
-                        TextField("••••••", text: $code)
-                            .keyboardType(.numberPad)
-                            /* Тот же контент-тип, что на входе: система
-                               подставляет код из только что пришедшей
-                               SMS сама. */
-                            .textContentType(.oneTimeCode)
-                            .font(.system(size: 20, weight: .semibold))
-                            .monospaced()
-                            .onChange(of: code) { _, v in
-                                let clean = String(v.filter(\.isNumber).prefix(API.codeLength))
-                                if clean != v { code = clean }
-                            }
+                        /* Те же клетки, что на входе: одно поле кода на
+                           весь продукт. Автоподстановка из SMS работает
+                           у них из коробки. */
+                        CodeCells(
+                            text: $code,
+                            focus: $focus,
+                            field: Focus.code,
+                            length: API.codeLength,
+                            label: L("delete.codeAsk"),
+                            contentType: .oneTimeCode,
+                            skin: .board
+                        )
                     }
                 } else if !byCode {
                             credentialSurface(title: L("settings.deletePin"), note: nil) {
@@ -150,7 +153,7 @@ struct DeleteBusinessView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                     }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 18)
                     .padding(.bottom, 154)
                 }
@@ -195,7 +198,7 @@ struct DeleteBusinessView: View {
                         .opacity(ready ? 1 : 0.45)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
             }
@@ -248,9 +251,9 @@ struct DeleteBusinessView: View {
             }
         }
         .padding(18)
-        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07))
         }
     }
@@ -292,6 +295,7 @@ struct DeleteBusinessView: View {
             let started = try await session.startDeleteCode()
             challengeId = started.challengeId
             sentTo = started.phone ?? ""
+            focus = .code
         } catch let e as APIError {
             switch e.code {
             case "TOO_MANY_TRIES": error = L("auth.throttled")

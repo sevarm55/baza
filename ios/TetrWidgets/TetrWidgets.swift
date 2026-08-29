@@ -93,7 +93,7 @@ struct ShiftLiveActivityWidget: Widget {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(ShiftLiveStyle.ink)
                 .frame(width: 42, height: 42)
-                .background(ShiftLiveStyle.lime, in: .rect(cornerRadius: 13))
+                .background(ShiftLiveStyle.lime, in: .rect(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(context.attributes.tenantName)
@@ -148,7 +148,7 @@ struct ShiftLiveActivityWidget: Widget {
         // разряды по языку интерфейса; валюта от языка не зависит
         f.groupingSeparator = LangStore.currentLang.groupSeparator
         let amount = f.string(from: NSNumber(value: value)) ?? "\(value)"
-        return currency == "AMD" ? "\(amount) ֏" : "\(amount) \(currency)"
+        return currency == "AMD" ? "\(amount)\u{202F}֏" : "\(amount)\u{202F}\(currency)"
     }
 
     private func shortMoney(_ value: Int, _ currency: String) -> String {

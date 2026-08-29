@@ -62,7 +62,7 @@ struct UpdateWallView: View {
                    отстал», который иначе задают в поддержку. */
                 if let latest = session.storeVersion {
                     Text(L("update.versions", Session.installedVersion, latest))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .monospacedDigit()
                         .foregroundStyle(Brand.mutedOnDark.opacity(0.7))
                         .padding(.top, 12)
@@ -95,7 +95,7 @@ struct UpdateWallView: View {
                     }
                 } label: {
                     Text(L("update.recheck"))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.mutedOnDark)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .loading(checking, tint: Brand.mutedOnDark, size: 16)

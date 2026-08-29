@@ -285,7 +285,7 @@ struct LimeButton: ButtonStyle {
             .padding(.vertical, 17)
             .background(Brand.lime, in: RoundedRectangle(cornerRadius: 22))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(Motion.springSnap, value: configuration.isPressed)
     }
 }
 
@@ -573,7 +573,7 @@ struct PressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .opacity(configuration.isPressed ? 0.9 : 1)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(Motion.springSnap, value: configuration.isPressed)
     }
 }
 
@@ -905,3 +905,189 @@ extension View {
             .accessibilityAddTraits(on ? .updatesFrequently : [])
     }
 }
+
+// ═══════════════════════════ шкалы формы ═══════════════════════════
+
+/**
+ * Радиусы продукта. Пять ступеней — и никаких промежуточных.
+ *
+ * До шкалы в коде жило двадцать пять разных значений, и соседние
+ * карточки были скруглены «почти одинаково»: 20 против 22, 24 против
+ * 26. Почти одинаковое читается случайностью. Ступени шагом в четыре
+ * точки различимы глазом, и у каждой есть роль, а не вкус.
+ *
+ * Капсула остаётся только у фишек выбора и распознанного номера; круг —
+ * только у людей и точек состояния.
+ */
+enum R {
+    /// Бейдж, микроплашка.
+    static let chip: CGFloat = 10
+    /// Вложенное в карточку: поле, плашка значка, подсветка строки, клетка.
+    static let control: CGFloat = 14
+    /// Малая карточка, строка-плитка, панель.
+    static let small: CGFloat = 18
+    /// Карточка, кнопка, лист — рабочая ступень.
+    static let card: CGFloat = 22
+    /// Плита-показание наверху экрана.
+    static let hero: CGFloat = 28
+}
+
+/// Волосяная линия — единственная в продукте: одна точка, чернила 7 %.
+/// Три реализации в разных файлах разъехались по толщине и отступу;
+/// теперь линия одна, отступ — параметром.
+struct Hairline: View {
+    var inset: CGFloat = 0
+
+    var body: some View {
+        Rectangle()
+            .fill(Brand.boardInk.opacity(0.07))
+            .frame(height: 1)
+            .padding(.leading, inset)
+    }
+}
+
+extension View {
+    /// Волосяная грань поверхности. Кривая та же, что у заливки:
+    /// заливка и обводка, построенные разными кривыми, расходятся в углах.
+    func cardStroke(_ radius: CGFloat) -> some View {
+        overlay {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
+    }
+
+    /// Карточка табло: белая бумага, скругление, грань. Без тени —
+    /// глубину в продукте несёт грань, а не свет.
+    func boardCard(_ radius: CGFloat = R.card) -> some View {
+        background(Brand.boardSurface, in: .rect(cornerRadius: radius, style: .continuous))
+            .cardStroke(radius)
+    }
+}
+
+// ═══════════════════════════ типографика ═══════════════════════════
+
+/**
+ * Роли текста. Кегль называется по работе, а не числом.
+ *
+ * До шкалы в коде жило под тридцать кеглей с полушагами (14.5, 12.5),
+ * и Dynamic Type не работал нигде: `Font.system(size:)` настройку
+ * размера текста игнорирует. Роль несёт и кегль, и вес, и начертание,
+ * и якорь масштабирования — увеличенный системный шрифт теперь
+ * увеличивает и наш.
+ *
+ * У ролей с цифрами `monospacedDigit` включён всегда: деньги и счётчики
+ * не имеют права менять ширину при смене цифр.
+ */
+enum TRole {
+    /// Главное число экрана. Одно на экран.
+    case figure
+    /// Крупная сумма второго ранга: чекаут, итог карточки.
+    case figureS
+    /// Показатель в ряду и сетке.
+    case numValue
+    /// Заголовок корневого экрана.
+    case screenTitle
+    /// Заголовок листа и модальной семьи.
+    case sheetTitle
+    /// Заголовок карточки и строки.
+    case cardTitle
+    /// Текст.
+    case body
+    /// Текст с весом.
+    case bodyStrong
+    /// Подпись секции.
+    case sectionLabel
+    /// Тихая вторая строка.
+    case secondary
+    /// Мелочь: время, детали.
+    case caption
+    /// Микроподпись. Капса и разрядки нет: армянский капс читается хуже
+    /// латинского, а весь продукт армянский.
+    case label
+
+    var spec: (size: CGFloat, weight: Font.Weight, anchor: Font.TextStyle, rounded: Bool, mono: Bool) {
+        switch self {
+        case .figure: return (44, .bold, .largeTitle, true, true)
+        case .figureS: return (26, .bold, .title2, true, true)
+        case .numValue: return (18, .bold, .title3, true, true)
+        case .screenTitle: return (30, .bold, .largeTitle, false, false)
+        case .sheetTitle: return (27, .bold, .title, true, false)
+        case .cardTitle: return (15, .semibold, .headline, false, false)
+        case .body: return (15, .regular, .body, false, false)
+        case .bodyStrong: return (15, .semibold, .body, false, false)
+        case .sectionLabel: return (13, .semibold, .subheadline, false, false)
+        case .secondary: return (13, .regular, .footnote, false, false)
+        case .caption: return (12, .regular, .caption, false, false)
+        case .label: return (11, .semibold, .caption2, false, false)
+        }
+    }
+}
+
+/// Модификатор роли: `@ScaledMetric` живёт здесь, поэтому каждый
+/// `tfont(...)` масштабируется системной настройкой размера текста.
+struct TFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let rounded: Bool
+    private let mono: Bool
+
+    init(_ role: TRole) {
+        let s = role.spec
+        _size = ScaledMetric(wrappedValue: s.size, relativeTo: s.anchor)
+        weight = s.weight
+        rounded = s.rounded
+        mono = s.mono
+    }
+
+    func body(content: Content) -> some View {
+        let f = Font.system(size: size, weight: weight, design: rounded ? .rounded : .default)
+        content.font(mono ? f.monospacedDigit() : f)
+    }
+}
+
+extension View {
+    func tfont(_ role: TRole) -> some View { modifier(TFont(role)) }
+}
+
+// ═══════════════════════════ кнопки-пары ═══════════════════════════
+
+/**
+ * Тихая кнопка — пара лаймовой: та же геометрия, разница только
+ * заливкой. Правило владельца о равных кнопках в паре: два выхода
+ * одного размера, главный отличается цветом, а не ростом.
+ */
+struct QuietButton: ButtonStyle {
+    @ScaledMetric(relativeTo: .headline) private var size: CGFloat = 17
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(Brand.onBoard)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .background(Brand.boardControl, in: RoundedRectangle(cornerRadius: R.card, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(Motion.springSnap, value: configuration.isPressed)
+    }
+}
+
+/// Красная кнопка разрушительного. Всегда за подтверждением и никогда
+/// не лаймовая: лайм в продукте значит главное созидательное действие.
+struct DangerButton: ButtonStyle {
+    @ScaledMetric(relativeTo: .headline) private var size: CGFloat = 17
+    var loading = false
+    var busyTitle: String?
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: size, weight: .bold))
+            .foregroundStyle(.white)
+            .loading(loading, tint: .white, size: 22, title: busyTitle)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .background(Brand.badOnBoard, in: RoundedRectangle(cornerRadius: R.card, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(Motion.springSnap, value: configuration.isPressed)
+    }
+}
+

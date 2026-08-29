@@ -16,6 +16,7 @@ import SwiftUI
 struct ShiftView: View {
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var queue: OrderQueue
+    @EnvironmentObject private var net: Connectivity
 
     @State private var shift: API.Shift?
     /// Держим отдельно от `shift`: переключатель должен отзываться сразу,
@@ -76,7 +77,7 @@ struct ShiftView: View {
                     board
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -125,6 +126,9 @@ struct ShiftView: View {
     private var board: some View {
         reading
 
+        /* Связи нет — сказано словами, а не только пустотой. Запись при
+           этом работает как обычно: она ложится в очередь и уйдёт сама. */
+        if !net.online { offline }
         if !queue.waiting(at: session.tenant?.id).isEmpty { pending }
         ForEach(queue.rejected(at: session.tenant?.id)) { item in stuck(item) }
 
@@ -192,7 +196,7 @@ struct ShiftView: View {
         .padding(.trailing, 12)
         .padding(.vertical, 9)
         .background(Brand.boardInk.opacity(0.07), in: .capsule)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Brand.board.ignoresSafeArea(edges: .top))
     }
@@ -321,9 +325,9 @@ struct ShiftView: View {
         }
         .padding(17)
         .frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 25))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 28, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
     }
@@ -399,17 +403,20 @@ struct ShiftView: View {
      * этот день; у владельца его убрали из сегодняшнего дня по той же
      * причине.
      *
-     * Наличные вынесены из строки отдельной тёплой полосой. Это
-     * единственное число экрана, которое превращается в действие: столько
-     * с человека спросят при закрытии смены. Тёплая бумага и есть то, чем
-     * в этом продукте помечено действие, а не место.
+     * Показатели и наличные — ОДНОЙ карточкой, а не стопкой полосок.
+     * Раньше между карточкой заработка и узкой карточкой кассы висели два
+     * голых числа на полотне, и владелец прямо сказал, что стопка «белая
+     * шапка, цифры, ещё одна белая шапка» некрасива. Теперь у смены две
+     * поверхности: показание сверху и один блок показателей, внутри
+     * которого счётчик, сумма работ и строка наличных разделены волосяной
+     * линией.
      */
     private var grid: some View {
         let count = shift?.count ?? 0
         let cash = shift?.cashSoFar ?? 0
         let revenue = shift?.revenue ?? 0
 
-        return VStack(spacing: gap) {
+        return VStack(spacing: 0) {
             HStack(spacing: 0) {
                 shiftValue(unitLabel(count), "\(count)", animate: Double(count))
                 shiftDivider
@@ -424,9 +431,19 @@ struct ShiftView: View {
                     animate: Double(revenue)
                 )
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
+
+            Rectangle()
+                .fill(Brand.boardInk.opacity(0.07))
+                .frame(height: 1)
+                .padding(.horizontal, 14)
 
             cashRow(cash)
+        }
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
     }
 
@@ -457,11 +474,10 @@ struct ShiftView: View {
     /**
      * Сколько наличных на руках и что с ними будет.
      *
-     * Белая карточка, а не графит. Тёмная плашка посреди светлого табло
-     * читалась чёрной полосой, разрезающей экран пополам, — владелец
-     * прямо попросил её убрать. Отдельным предметом строку теперь держит
-     * не заливка, а карточка с гранью: та же поверхность, что у показания
-     * сверху, поэтому экран остаётся одним табло.
+     * Белая поверхность, а не графит: тёмная плашка посреди светлого
+     * табло читалась чёрной полосой, и владелец попросил её убрать.
+     * Своей карточки у строки тоже больше нет — она нижняя треть общего
+     * блока показателей (см. `grid`).
      *
      * Мята — не украшение: наличные окрашены ею во всех разрезах оплат
      * продукта (`paymentInk`), и значок здесь говорит тем же цветом, что
@@ -473,14 +489,14 @@ struct ShiftView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Brand.mintInk)
                 .frame(width: 38, height: 38)
-                .background(Brand.mintCard, in: .rect(cornerRadius: 13, style: .continuous))
+                .background(Brand.mintCard, in: .rect(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(L("shift.cashInHand"))
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                 Text(L("shift.toHandOver"))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
             }
 
@@ -495,17 +511,30 @@ struct ShiftView: View {
                 .contentTransition(.numericText(value: Double(cash)))
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-        }
         .accessibilityElement(children: .combine)
     }
 
     // ══════════════════════════ очередь ══════════════════════════
+
+    /// Нет связи. Спокойно, не красным: продукт офлайн умеет, и строка
+    /// обещает ровно это.
+    private var offline: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.warnOnBoard)
+            Text(L("shift.offline"))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Brand.warnOnBoard.opacity(0.09), in: .rect(cornerRadius: 18, style: .continuous))
+    }
 
     /// Несинхронизированное показываем честно, но не тревожно: запись
     /// сделана и не пропадёт, просто ещё не ушла.
@@ -524,7 +553,7 @@ struct ShiftView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
     }
 
     /// Запись, которую сервер не принял.
@@ -547,7 +576,7 @@ struct ShiftView: View {
                        Код остаётся внутри фразы — по нему владелец
                        назовёт проблему в поддержке. */
                     Text("\(Terms.service(item.serviceName)) · \(item.failure.map { L("errors.server", $0) } ?? "")")
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -586,13 +615,14 @@ struct ShiftView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+        .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
     }
 
     // ══════════════════════════ журнал ══════════════════════════
 
     private func journal(_ orders: [API.ShiftOrder]) -> some View {
-        VStack(spacing: 0) {
+        // лениво: за смену записей бывает сорок, строить все разом незачем
+        LazyVStack(spacing: 0) {
             HStack {
                 Text(L("shift.latest"))
                     .font(.system(size: 13, weight: .semibold))
@@ -617,13 +647,13 @@ struct ShiftView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(order.clientKey ?? Terms.service(order.serviceName))
-                                    .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                                     .monospacedDigit()
                                     .foregroundStyle(Brand.onBoard)
                                     .lineLimit(1)
 
                                 Image(systemName: newestOrderID == order.id ? "checkmark" : paymentSymbol(order.payment))
-                                    .font(.system(size: 10.5, weight: newestOrderID == order.id ? .bold : .regular))
+                                    .font(.system(size: 11, weight: newestOrderID == order.id ? .bold : .regular))
                                     .foregroundStyle(newestOrderID == order.id ? Brand.goodOnBoard : Brand.boardMuted)
                                     .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
                                     .symbolEffect(
@@ -722,8 +752,8 @@ struct ShiftView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 9)
                     .background(
-                        newestOrderID == order.id ? Brand.lime.opacity(0.1) : Color.clear,
-                        in: .rect(cornerRadius: 12)
+                        newestOrderID == order.id ? Brand.grape.opacity(0.12) : Color.clear,
+                        in: .rect(cornerRadius: 14, style: .continuous)
                     )
 
                     if order.id != orders.last?.id {
@@ -790,7 +820,7 @@ struct ShiftView: View {
         VStack(spacing: 8) {
             if !onShift {
                 Text(L("work.needShift"))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(Brand.boardMuted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -804,7 +834,7 @@ struct ShiftView: View {
             .disabled(!onShift)
             .opacity(onShift ? 1 : 0.45)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.top, 18)
         .padding(.bottom, 8)
         /**
@@ -837,7 +867,7 @@ struct ShiftView: View {
             }
             .ignoresSafeArea(edges: .bottom)
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: onShift)
+        .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: onShift)
     }
 
     /// Время в зоне бизнеса, а не устройства: владелец в поездке видел
@@ -893,7 +923,7 @@ struct ShiftView: View {
             if inserted != nil {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(850))
-                    withAnimation(.easeOut(duration: 0.18)) { newestOrderID = nil }
+                    withAnimation(.easeOut(duration: Motion.fast)) { newestOrderID = nil }
                 }
             }
         } catch is CancellationError {

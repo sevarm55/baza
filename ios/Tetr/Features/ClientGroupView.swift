@@ -84,7 +84,7 @@ struct ClientGroupView: View {
                             .padding(.vertical, 44)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.top, 6)
                 .padding(.bottom, 28)
             }
@@ -115,22 +115,22 @@ struct ClientGroupView: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(client.key)
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
 
                     if client.visits > 1 {
                         Text(L("owner.clientLoyal"))
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Brand.goodOnBoard)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
-                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5))
+                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5, style: .continuous))
                     }
                 }
 
                 Text(visitLine(client))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(
                         client.daysSince > lostAfter ? Brand.warnOnBoard : Brand.boardMuted

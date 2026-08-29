@@ -58,7 +58,7 @@ struct ClientHistoryView: View {
                     contacts
 
                     if !orders.isEmpty {
-                        VStack(spacing: 0) {
+                        LazyVStack(spacing: 0) {
                             ForEach(orders) { order in
                                 row(order)
                                 if order.id != orders.last?.id {
@@ -85,7 +85,7 @@ struct ClientHistoryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.bottom, 28)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -111,18 +111,18 @@ struct ClientHistoryView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
                 Text(L("common.total"))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Brand.boardMuted)
 
                 Spacer(minLength: 8)
 
                 Text(client.key)
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospaced()
                     .foregroundStyle(Brand.grape)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(Brand.grape.opacity(0.09), in: .rect(cornerRadius: 8))
+                    .background(Brand.grape.opacity(0.09), in: .rect(cornerRadius: 8, style: .continuous))
             }
 
             Text(money(client.total, currency))
@@ -143,17 +143,17 @@ struct ClientHistoryView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(Brand.boardSurface)
                 Circle()
                     .fill(Brand.grape.opacity(0.07))
                     .frame(width: 130, height: 130)
                     .offset(x: 52, y: -70)
             }
-            .clipShape(.rect(cornerRadius: 25, style: .continuous))
+            .clipShape(.rect(cornerRadius: 28, style: .continuous))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
         .padding(.top, 6)
@@ -180,7 +180,7 @@ struct ClientHistoryView: View {
                 .foregroundStyle(Brand.onBoard)
                 .padding(.top, 16)
             Text(L("more.clientsLead"))
-                .font(.system(size: 12.5))
+                .font(.system(size: 13))
                 .foregroundStyle(Brand.boardMuted)
                 .multilineTextAlignment(.center)
                 .padding(.top, 5)
@@ -222,7 +222,7 @@ struct ClientHistoryView: View {
                     fact(L("owner.clientOftenServed"), who)
                 }
             }
-            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 16))
+            .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 18, style: .continuous))
         }
     }
 
@@ -284,7 +284,7 @@ struct ClientHistoryView: View {
                     .focused($typingName)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10, style: .continuous))
                     // касание принимает вся коробка, а не только буквы
                     .contentShape(.rect)
                     .onTapGesture { typingName = true }
@@ -303,7 +303,7 @@ struct ClientHistoryView: View {
                     /* Светлее карточки, а не того же тона: на общей
                        серой подложке поле пропадало, и человек не
                        понимал, есть там ввод или нет. */
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10))
+                    .background(Brand.boardSurface, in: .rect(cornerRadius: 10, style: .continuous))
 
                 HStack(spacing: 8) {
                     Button {
@@ -319,7 +319,7 @@ struct ClientHistoryView: View {
                             .loading(saving, tint: Brand.onLime, size: 16, title: L("common.saving"))
                             .padding(.horizontal, 18)
                             .frame(minHeight: 44)
-                            .background(Brand.lime, in: .rect(cornerRadius: 12))
+                            .background(Brand.lime, in: .rect(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.press)
                     .busy(saving)
@@ -340,7 +340,7 @@ struct ClientHistoryView: View {
 
                 if let contactError {
                     Text(contactError)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.badOnBoard)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -384,14 +384,14 @@ struct ClientHistoryView: View {
                    превратилась бы в фон, который перестают замечать. */
                 if client.daysSince > API.lostAfterDays {
                     Text(L("owner.clientLostHint"))
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.warnOnBoard)
                 }
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 16))
+        .background(Brand.boardInk.opacity(0.05), in: .rect(cornerRadius: 18, style: .continuous))
     }
 
     private func link(_ title: String, _ url: String, filled: Bool) -> some View {
@@ -405,7 +405,7 @@ struct ClientHistoryView: View {
                 .frame(minHeight: 46)
                 .background(
                     filled ? Brand.lime : Brand.boardInk.opacity(0.09),
-                    in: .rect(cornerRadius: 12)
+                    in: .rect(cornerRadius: 14, style: .continuous)
                 )
         }
     }
@@ -454,11 +454,11 @@ struct ClientHistoryView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(Terms.service(order.serviceName))
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .lineLimit(1)
                 Text(line(order))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Brand.boardMuted)
                     .lineLimit(1)
@@ -469,7 +469,7 @@ struct ClientHistoryView: View {
                неправдой в обе стороны. */
             if let list = order.listPrice, list > order.price {
                 Text(money(list, currency))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .strikethrough()
                     .foregroundStyle(Brand.boardMuted)
