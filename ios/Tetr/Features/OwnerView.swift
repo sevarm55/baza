@@ -399,25 +399,28 @@ struct OwnerView: View {
         let total = parts.reduce(0) { $0 + $1.amount }
 
         if total > 0 {
-            VStack(alignment: .leading, spacing: 7) {
-                /* Сколько всего пришло. Без этой строки полоса показывала
-                   доли неизвестно от чего. */
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 0) {
+                /* Шапка выписки: сколько всего пришло — тем же кеглем и
+                   у того же правого края, что суммы под ней. Полоса
+                   стоит сразу под целым, потому что делит именно его. */
+                HStack(spacing: 8) {
                     Text(L("summary.paidIn"))
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundStyle(Brand.boardMuted)
+                    Spacer(minLength: 8)
                     Text(money(s.stats.revenue, currency))
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
-                    Spacer(minLength: 0)
                 }
+                .padding(.bottom, 9)
 
-                SplitBar(parts: parts, height: 12)
-                SplitLegend(parts: parts, currency: currency, total: total)
-                    .padding(.top, 3)
+                SplitBar(parts: parts, height: 10)
+                    .padding(.bottom, 4)
+
+                SplitLegend(parts: parts, currency: currency)
             }
-            .padding(.top, 16)
+            .padding(.top, 18)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
             .accessibilityElement(children: .ignore)
