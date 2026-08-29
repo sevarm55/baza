@@ -69,6 +69,14 @@ struct OwnerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        /* Сводка — тёмный прибор намеренно, в обеих темах телефона.
+           Пятая редакция: владелец отверг светлую карточку, грейповую
+           плиту и лаймовое полотно; из его шести референсов три —
+           тёмные экраны, и тёмная сборка была единственной, к которой
+           не было слов. Тьма здесь не тема, а материал кабинета — как
+           у заставки, входа и онбординга; рабочие экраны остаются
+           светлыми. */
+        .preferredColorScheme(.dark)
         .task { await reload() }
     }
 
@@ -344,13 +352,12 @@ struct OwnerView: View {
      * проценты работников и доля аренды за день.
      */
     /**
-     * Лаймовый верх: полотно марки во весь экран, число гротеском.
+     * Полотно вестибюля: глубокий грейп во весь верх, тонкое число.
      *
-     * Лайм в продукте значит «здесь и сейчас» — сегодняшняя чистая
-     * прибыль и есть самое «сейчас» на свете. Тексты только тёмным
-     * грейпом (`onLime`): по лайму это единственные читаемые чернила.
-     * Знак валюты меньше и тише числа — приём из референсов владельца:
-     * цифра главная, валюта подпись.
+     * Тот же градиент, что у заставки и онбординга, — материал, к
+     * которому у владельца не было претензий ни разу. Число большим
+     * тонким гротеском: в его референсах балансы набраны именно так —
+     * огромно и легко, а не жирно. Знак валюты меньше и тише цифры.
      */
     private var limeHero: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -359,7 +366,7 @@ struct OwnerView: View {
             HStack(spacing: 7) {
                 Text(periodDates)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.onLime.opacity(0.66))
+                    .foregroundStyle(Brand.mutedOnDark)
                     .contentTransition(.numericText())
                 crewChip
                 Spacer(minLength: 0)
@@ -368,7 +375,7 @@ struct OwnerView: View {
 
             Text(profitTitle)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Brand.onLime.opacity(0.66))
+                .foregroundStyle(Brand.mutedOnDark)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 18)
 
@@ -385,7 +392,7 @@ struct OwnerView: View {
            прокрутки. Отрицательный запас с боков страхует от волосяных
            просветов на резиновой геометрии. */
         .background {
-            Brand.lime
+            Brand.heroGradient
                 .padding(.top, -800)
                 .padding(.horizontal, -50)
         }
@@ -399,34 +406,29 @@ struct OwnerView: View {
         let profit = summary?.profit ?? 0
         let loss = profit < 0
 
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             if summary == nil {
                 RoundedRectangle(cornerRadius: R.control, style: .continuous)
-                    .fill(Brand.onLime.opacity(0.12))
-                    .frame(width: 200, height: 52)
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 210, height: 56)
             } else {
                 Text((loss ? "−" : "") + plain(abs(profit)))
-                    .font(.system(size: 58, weight: .semibold))
+                    .font(.system(size: 62, weight: .light))
                     .monospacedDigit()
-                    .foregroundStyle(loss ? heroLoss : Brand.onLime)
+                    .foregroundStyle(loss ? Brand.badOnDark : Brand.inkOnDark)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
                     .contentTransition(.numericText(value: Double(profit)))
 
                 Text(currency == "AMD" ? "֏" : currency)
-                    .font(.system(size: 30, weight: .medium))
-                    .foregroundStyle(Brand.onLime.opacity(0.5))
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(Color.white.opacity(0.45))
             }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(profitTitle): \(money(profit, currency))")
     }
 
-    /// Тёмно-красный для убытка на лайме: адаптивные красные светлеют в
-    /// тёмной теме и по лайму пропадают, а лайм тем один в обеих темах.
-    private var heroLoss: Color {
-        Color(red: 0xB4 / 255, green: 0x23 / 255, blue: 0x18 / 255)
-    }
 
     /**
      * Периоды пилюлями на полотне — по референсам: выбранная тёмная,
@@ -441,12 +443,12 @@ struct OwnerView: View {
                 } label: {
                     Text(label)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(on ? Brand.lime : Brand.onLime)
+                        .foregroundStyle(on ? Brand.grapeDeep : Brand.inkOnDark)
                         .lineLimit(1)
                         .padding(.horizontal, 14)
                         .frame(minHeight: 36)
                         .background(
-                            on ? Brand.onLime : Brand.onLime.opacity(0.08),
+                            on ? Color.white : Color.white.opacity(0.12),
                             in: .capsule
                         )
                 }
@@ -458,25 +460,25 @@ struct OwnerView: View {
 
             /* Идёт сверка: точка, а не заслонка. Данные на экране
                остаются верными, просто чуть старыми. */
-            TetrRefreshDot(active: loading && summary != nil, tint: Brand.onLime)
+            TetrRefreshDot(active: loading && summary != nil)
 
             Button {
                 showAlerts = true
             } label: {
                 Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.onLime)
+                    .foregroundStyle(Brand.inkOnDark)
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
                     .frame(width: 38, height: 38)
-                    .background(Brand.onLime.opacity(0.10), in: .circle)
+                    .background(Color.white.opacity(0.12), in: .circle)
                     .overlay(alignment: .topTrailing) {
                         if !alerts.isEmpty {
                             Text("\(alerts.count)")
                                 .font(.system(size: 10, weight: .bold))
                                 .monospacedDigit()
-                                .foregroundStyle(Brand.lime)
+                                .foregroundStyle(Brand.onLime)
                                 .frame(minWidth: 16, minHeight: 16)
-                                .background(Brand.onLime, in: .circle)
+                                .background(Brand.lime, in: .circle)
                                 .offset(x: 3, y: -3)
                         }
                     }
@@ -601,7 +603,7 @@ struct OwnerView: View {
             .foregroundStyle(c.up ? Brand.goodOnDark : Brand.badOnDark)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(Brand.onLime, in: .rect(cornerRadius: 10, style: .continuous))
+            .background(.white.opacity(0.12), in: .rect(cornerRadius: 10, style: .continuous))
             .padding(.top, 10)
         }
     }
@@ -654,7 +656,7 @@ struct OwnerView: View {
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Brand.onLime, in: .rect(cornerRadius: 10, style: .continuous))
+                .background(.white.opacity(0.14), in: .rect(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.press)
             .accessibilityLabel(
