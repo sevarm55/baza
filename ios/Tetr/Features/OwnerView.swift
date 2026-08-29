@@ -46,6 +46,8 @@ struct OwnerView: View {
     @State private var detailsVisible = true
     @State private var newestFeedID: String?
     @State private var loadID = 0
+    /// Какой из пяти видов разреза показан. Временное состояние выбора.
+    @State private var splitStyle = SplitStyle.current
 
     /* Прокрутку разрядов система сама по «Уменьшению движения» не гасит:
        withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
@@ -399,27 +401,19 @@ struct OwnerView: View {
         let total = parts.reduce(0) { $0 + $1.amount }
 
         if total > 0 {
-            VStack(alignment: .leading, spacing: 0) {
-                /* Шапка выписки: сколько всего пришло — тем же кеглем и
-                   у того же правого края, что суммы под ней. Полоса
-                   стоит сразу под целым, потому что делит именно его. */
-                HStack(spacing: 8) {
-                    Text(L("summary.paidIn"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
-                    Text(money(s.stats.revenue, currency))
-                        .font(.system(size: 14, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                }
-                .padding(.bottom, 9)
+            VStack(alignment: .leading, spacing: 10) {
+                SplitBreakdown(
+                    parts: parts,
+                    revenue: s.stats.revenue,
+                    currency: currency,
+                    style: splitStyle
+                )
 
-                SplitBar(parts: parts, height: 10)
-                    .padding(.bottom, 4)
-
-                SplitLegend(parts: parts, currency: currency)
+                /* Временный орган выбора: владелец сравнивает пять видов
+                   разреза. Уйдёт вместе с четырьмя невыбранными. */
+                SplitStyleSwitch(style: $splitStyle)
             }
+            .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: splitStyle)
             .padding(.top, 18)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
