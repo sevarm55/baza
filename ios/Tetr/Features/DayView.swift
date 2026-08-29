@@ -390,12 +390,19 @@ struct DayView: View {
         let face = item.crew?.first?.name ?? item.staffName ?? "—"
         let tone = Brand.personTone(face)
 
+        /* У безымянной записи кружок серый, и буква на нём — чернилами
+           поверхности, а не белым: серый здесь строится от `boardInk`,
+           который в тёмной теме почти белый, и белая буква на нём
+           пропадала целиком. Цветные кружки людей остаются с белой —
+           их заливки тёмные в обеих темах. */
+        let unknown = who == "—"
+
         return HStack(alignment: .top, spacing: 12) {
             Text(String(face.prefix(1)))
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(unknown ? Brand.board : .white)
                 .frame(width: 34, height: 34)
-                .background(who == "—" ? Brand.boardInk.opacity(0.18) : tone.base, in: .circle)
+                .background(unknown ? Brand.boardMuted : tone.base, in: .circle)
                 .padding(.top, 1)
 
             HStack(alignment: .top, spacing: 10) {

@@ -247,6 +247,13 @@ enum API {
         let members: [CrewMate]?
     }
 
+    /// Последняя версия приложения, опубликованная в App Store.
+    /// Число живёт на сервере (`lib/plan.ts`), а не в магазине: сервер
+    /// знает его мгновенно и офлайн-кэш bootstrap работает как обычно.
+    struct AppRelease: Decodable {
+        let iosLatest: String?
+    }
+
     struct Bootstrap: Decodable {
         let tenant: Tenant
         let me: Me
@@ -256,6 +263,8 @@ enum API {
         let points: [Point]?
         /// Совместная работа. Необязательное по общему правилу файла.
         let crew: Crew?
+        /// Версии. Старый сервер поля не шлёт — тогда стены обновления нет.
+        let app: AppRelease?
     }
 
     struct Tokens: Decodable {

@@ -212,7 +212,11 @@ struct OrderFlowView: View {
                 .foregroundStyle(Brand.onBoard)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
-                .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .default)
+                /* Латинская клавиатура, а не языковая: в госномере только
+                   латиница и цифры, а на армянской раскладке их нет — до
+                   этой правки каждый номер стоил двух переключений
+                   раскладки, сорок раз за смену. */
+                .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .asciiCapable)
                 .focused($typing)
                 /* Поле без подписи: на экране его объясняет крупный
                    плейсхолдер, а VoiceOver читал бы пустоту. Здесь же
@@ -782,8 +786,21 @@ struct OrderFlowView: View {
         Task { @MainActor in
             /* Сначала перечитываем смену, потом закрываем лист: иначе
                человек на мгновение увидит журнал БЕЗ своей машины — то
-               есть ровно то, чего боится, нажимая кнопку. */
-            await onDone()
+               есть ровно то, чего боится, нажимая кнопку.
+
+               Но ждём недолго. Без связи сверка упирается в сетевой
+               таймаут, и кнопка держала человека на «Պահպանում ենք…» до
+               двадцати секунд — при том что запись уже надёжно лежит в
+               очереди. Секунды с половиной хватает живой связи с
+               запасом; не успела — закрываемся, смена покажет запись
+               плашкой «ждёт отправки», а очередь дошлёт её сама, как
+               только связь вернётся. */
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await onDone() }
+                group.addTask { try? await Task.sleep(for: .seconds(1.5)) }
+                await group.next()
+                group.cancelAll()
+            }
             clear()
             sending = false
             dismiss()

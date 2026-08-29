@@ -34,6 +34,18 @@ struct ShiftView: View {
     @State private var loadID = 0
     /// Запись, которую собираются отменить. Пусто — вопроса нет.
     @State private var revoking: API.ShiftOrder?
+    /// Несохранённая запись, которую собираются выбросить из очереди.
+    @State private var dropping: OrderQueue.Item?
+    /**
+     * Почему смена не приехала.
+     *
+     * Раньше отказ глотался: `shift` оставался пустым, сумма — вечным
+     * скелетом, журнал не рисовался вовсе, и главный экран продукта на
+     * плохой связи выглядел сломанным без единого слова. Показывается
+     * только когда данных нет совсем: пришедшие цифры отказ фонового
+     * обновления с экрана не стирает.
+     */
+    @State private var failure: String?
     /// Приветствие мойщика: три строки про смену, один раз за всю жизнь
     /// его участия в этой мойке. Владельцу здесь не показывается — свой
     /// первый экран он уже прочитал в кабинете.
@@ -54,30 +66,14 @@ struct ShiftView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
-                reading
-
-                if !queue.waiting(at: session.tenant?.id).isEmpty { pending }
-                ForEach(queue.rejected(at: session.tenant?.id)) { item in stuck(item) }
-
-                grid
-
-                if let shift, !shift.orders.isEmpty {
-                    journal(shift.orders)
-                } else if shift == nil {
-                    /* Первая загрузка: места записей, а не пустота. До
-                       сих пор между открытием экрана и первой строкой
-                       журнала не было ничего, и смена выглядела пустой
-                       ровно до того момента, как оказывалась не пустой.
-
-                       Порог в две десятых секунды: быстрый ответ не
-                       должен успевать мигнуть скелетом. */
-                    Delayed(active: loading) {
-                        TetrSkeletonList(rows: 4)
-                            .padding(.horizontal, 4)
-                            .padding(.top, 8)
-                    }
+                if let failure, shift == nil {
+                    /* Отказ вместо табло, а не поверх него: рисовать
+                       скелет суммы рядом со словами «нет связи» значит
+                       обещать данные, которых не будет. */
+                    TetrFailure(title: failure, retry: { await reload() })
+                        .padding(.top, 48)
                 } else {
-                    empty
+                    board
                 }
             }
             .padding(.horizontal, 12)
@@ -122,6 +118,36 @@ struct ShiftView: View {
             }
         }
         .refreshable { await reload() }
+    }
+
+    /// Само табло: показание, очередь, показатели, журнал.
+    @ViewBuilder
+    private var board: some View {
+        reading
+
+        if !queue.waiting(at: session.tenant?.id).isEmpty { pending }
+        ForEach(queue.rejected(at: session.tenant?.id)) { item in stuck(item) }
+
+        grid
+
+        if let shift, !shift.orders.isEmpty {
+            journal(shift.orders)
+        } else if shift == nil {
+            /* Первая загрузка: места записей, а не пустота. До
+               сих пор между открытием экрана и первой строкой
+               журнала не было ничего, и смена выглядела пустой
+               ровно до того момента, как оказывалась не пустой.
+
+               Порог в две десятых секунды: быстрый ответ не
+               должен успевать мигнуть скелетом. */
+            Delayed(active: loading) {
+                TetrSkeletonList(rows: 4)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 8)
+            }
+        } else {
+            empty
+        }
     }
 
     /// У владельца процент обычно 0 — он не берёт долю со своей работы.
@@ -192,6 +218,8 @@ struct ShiftView: View {
         // не прошло — честно откатываемся, а не делаем вид, что встали
         onShift = done?.onShift ?? previous
         if onShift {
+            // смена открылась — событие дня, с тактильным весом
+            if done != nil { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
             if let openedAt = done?.openedAt, let tenant = session.tenant {
                 await ShiftLiveActivity.shared.start(
                     openedAt: openedAt,
@@ -218,6 +246,7 @@ struct ShiftView: View {
         if done == nil {
             onShift = true
         } else if done?.onShift == false, let tenantID = session.tenant?.id {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             // Закрытие уже подтверждено. Не ждём повторный GET: если связь
             // исчезнет после POST, остров всё равно обязан пропасть.
             await ShiftLiveActivity.shared.end(for: tenantID)
@@ -428,31 +457,31 @@ struct ShiftView: View {
     /**
      * Сколько наличных на руках и что с ними будет.
      *
-     * Графит, а не кремовая бумага. Кремовая была слишком близка к самому
-     * полотну: полоса растворялась в нём и переставала быть отдельным
-     * предметом, хотя это единственное число экрана, которое превращается
-     * в действие — столько с человека спросят при закрытии смены.
+     * Белая карточка, а не графит. Тёмная плашка посреди светлого табло
+     * читалась чёрной полосой, разрезающей экран пополам, — владелец
+     * прямо попросил её убрать. Отдельным предметом строку теперь держит
+     * не заливка, а карточка с гранью: та же поверхность, что у показания
+     * сверху, поэтому экран остаётся одним табло.
      *
-     * Тёмная плашка решает это без нового цвета в палитре: она уже стоит
-     * на сводке под именами тех, кто на площадке. И только на тёмном в
-     * этом продукте можно пустить лайм — по светлому он даёт контраст 1.06
-     * и не виден вовсе. Сумма лаймом, поэтому её видно раньше подписи.
+     * Мята — не украшение: наличные окрашены ею во всех разрезах оплат
+     * продукта (`paymentInk`), и значок здесь говорит тем же цветом, что
+     * и статистика. Сумма чернилами, как все деньги на светлом.
      */
     private func cashRow(_ cash: Int) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "banknote.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Brand.lime)
+                .foregroundStyle(Brand.mintInk)
                 .frame(width: 38, height: 38)
-                .background(.white.opacity(0.10), in: .rect(cornerRadius: 13, style: .continuous))
+                .background(Brand.mintCard, in: .rect(cornerRadius: 13, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(L("shift.cashInHand"))
                     .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Brand.onBoard)
                 Text(L("shift.toHandOver"))
                     .font(.system(size: 11.5))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Brand.boardMuted)
             }
 
             Spacer(minLength: 8)
@@ -460,7 +489,7 @@ struct ShiftView: View {
             Text(money(cash, currency))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.lime)
+                .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .contentTransition(.numericText(value: Double(cash)))
@@ -468,7 +497,11 @@ struct ShiftView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Tone.slate.base, in: .rect(cornerRadius: 20, style: .continuous))
+        .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        }
         .accessibilityElement(children: .combine)
     }
 
@@ -509,7 +542,11 @@ struct ShiftView: View {
                     Text(item.clientKey)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(Brand.onBoard)
-                    Text("\(Terms.service(item.serviceName)) · \(item.failure ?? "")")
+                    /* Причина словами, а не голым кодом: «SHIFT_CLOSED»
+                       мойщику не говорит ничего, а испугать успевает.
+                       Код остаётся внутри фразы — по нему владелец
+                       назовёт проблему в поддержке. */
+                    Text("\(Terms.service(item.serviceName)) · \(item.failure.map { L("errors.server", $0) } ?? "")")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -520,9 +557,31 @@ struct ShiftView: View {
             HStack(spacing: 8) {
                 Button(L("common.retry")) { queue.retry(item.ref) }
                     .buttonStyle(.glass)
-                Button(L("expenses.remove")) { queue.drop(item.ref) }
+                /* Выброс из очереди — единственный способ безвозвратно
+                   потерять сделанную работу, поэтому он спрашивает.
+                   Отмена сохранённой записи спрашивала всегда, а этот
+                   путь был в одно касание — трение стояло обратно цене
+                   ошибки. */
+                Button(L("expenses.remove")) { dropping = item }
                     .buttonStyle(.glass)
                     .tint(Brand.muted)
+                    .confirmationDialog(
+                        L("shift.dropTitle"),
+                        isPresented: .init(
+                            get: { dropping?.ref == item.ref },
+                            set: { if !$0 { dropping = nil } }
+                        ),
+                        titleVisibility: .visible,
+                        presenting: item
+                    ) { item in
+                        Button(L("expenses.remove"), role: .destructive) {
+                            dropping = nil
+                            queue.drop(item.ref)
+                        }
+                        Button(L("work.revokeKeep"), role: .cancel) {}
+                    } message: { item in
+                        Text("\(item.clientKey) · \(money(item.price, currency)) · \(L("shift.dropBody"))")
+                    }
             }
         }
         .padding(14)
@@ -628,7 +687,9 @@ struct ShiftView: View {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(Brand.boardMuted)
-                                .frame(width: 30, height: 30)
+                                /* Полная цель касания: 30 точек мокрый
+                                   палец промахивал в цену рядом. */
+                                .frame(width: 44, height: 44)
                                 .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
@@ -801,14 +862,15 @@ struct ShiftView: View {
         // хотя записи уже сделаны
         await queue.flush(using: session)
 
-        let fresh = try? await session.authed { token in
-            try await APIClient.shared.send("shift", token: token, as: API.Shift.self)
-        }
+        do {
+            let fresh = try await session.authed { token in
+                try await APIClient.shared.send("shift", token: token, as: API.Shift.self)
+            }
 
-        // применяем только если за это время не начали новое обновление
-        guard id == loadID else { return }
+            // применяем только если за это время не начали новое обновление
+            guard id == loadID else { return }
+            failure = nil
 
-        if let fresh {
             let oldIDs = Set(shift?.orders.map(\.id) ?? [])
             let inserted = shift == nil ? nil : fresh.orders.first { !oldIDs.contains($0.id) }
 
@@ -834,6 +896,19 @@ struct ShiftView: View {
                     withAnimation(.easeOut(duration: 0.18)) { newestOrderID = nil }
                 }
             }
+        } catch is CancellationError {
+            /* Потянули вниз и отпустили или ушли с экрана. Ничего не
+               сломалось, и экран об этом молчит. */
+            return
+        } catch let error as APIError {
+            guard id == loadID else { return }
+            failure = error.isOffline
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
+        } catch {
+            guard id == loadID else { return }
+            // разбор ответа: показываем как есть — это баг, а не сбой сети
+            failure = Failure.text(error)
         }
 
         // Даже если GET не прошёл из-за связи, локальная очередь уже знает

@@ -39,11 +39,15 @@ struct ProfileView: View {
 
     @State private var exporting = false
     @State private var exported: URL?
+    /// Выгрузка не получилась. Раньше провал был молчаливым: три guard
+    /// подряд выходили без единого слова, и человек не знал, ждать ли файл.
+    @State private var exportFailed = false
 
     /// Фото раскрыто во всю ширину.
     @State private var photoOpen = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     private var isOwner: Bool { session.me?.isOwner == true }
 
@@ -94,6 +98,21 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        /* Назад — глазами, а не только краевым свайпом. Панель навигации
+           здесь скрыта ради фото во всю ширину, и профиль был
+           единственным экраном без видимого выхода. Стекло — чтобы кнопка
+           читалась и на фотографии, и на полотне. */
+        .overlay(alignment: .topLeading) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .accessibilityLabel(L("common.back"))
+            .padding(.leading, 10)
+        }
         .sheet(isPresented: $changingPin) { PinChangeView() }
         .sheet(isPresented: $verifyingPhone) { VerifyPhoneView() }
         .sheet(isPresented: $changingPhone) { ChangePhoneView() }
@@ -494,7 +513,7 @@ struct ProfileView: View {
                        icon: "trash", danger: true) {
                     deleting = true
                 }
-                .background(Brand.warnOnBoard.opacity(0.075), in: .rect(cornerRadius: 20))
+                .background(Brand.badOnBoard.opacity(0.075), in: .rect(cornerRadius: 20))
                 .padding(.top, 12)
             }
         }
@@ -532,9 +551,11 @@ struct ProfileView: View {
                     Text(exporting ? L("common.preparing") : L("more.export"))
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(Brand.onBoard)
-                    Text(L("more.exportLead"))
+                    /* Подзаголовок и есть место ответа: не получилось —
+                       строка говорит это здесь же, повтор тем же касанием. */
+                    Text(exportFailed ? L("common.failed") : L("more.exportLead"))
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(exportFailed ? Brand.badOnBoard : Brand.boardMuted)
                 }
                 Spacer(minLength: 0)
                 /* Загрузчик на месте шеврона, а не вместо надписи: надпись
@@ -551,15 +572,24 @@ struct ProfileView: View {
 
     private func exportCsv() async {
         exporting = true
+        exportFailed = false
         defer { exporting = false }
 
+        /* Провал называется провалом. Молчаливый `return` оставлял
+           человека гадать, готовится файл или уже нет. */
         guard let data = try? await session.authed({ token in
             try await APIClient.shared.raw("export?days=30", token: token)
-        }) else { return }
+        }) else {
+            exportFailed = true
+            return
+        }
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("tetr-\(Int(Date().timeIntervalSince1970)).csv")
-        guard (try? data.write(to: url)) != nil else { return }
+        guard (try? data.write(to: url)) != nil else {
+            exportFailed = true
+            return
+        }
         exported = url
     }
 
@@ -593,12 +623,12 @@ struct ProfileView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(danger ? .red : Brand.grape)
+                .foregroundStyle(danger ? Brand.badOnBoard : Brand.grape)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(danger ? .red : Brand.onBoard)
+                    .foregroundStyle(danger ? Brand.badOnBoard : Brand.onBoard)
                 if !note.isEmpty {
                     Text(note)
                         .font(.system(size: 11.5))
@@ -658,13 +688,22 @@ struct ProfileView: View {
     }
 
     private func saveNotify(_ on: Bool) async {
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "push/settings",
-                method: "POST",
-                body: ["orders": on],
-                token: token
-            )
+        /* Переключатель не имеет права остаться в положении, которое до
+           сервера не доехало: молчаливый `try?` оставлял его включённым,
+           а уведомления продолжали ходить по-старому. Не прошло —
+           возвращаем на место; сам откат и есть видимый ответ. */
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "push/settings",
+                    method: "POST",
+                    body: ["orders": on],
+                    token: token
+                )
+            }
+        } catch {
+            notifyOrders = !on
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
         }
     }
 

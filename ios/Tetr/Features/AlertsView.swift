@@ -29,6 +29,14 @@ struct AlertsView: View {
     @State private var alerts: [API.Alert] = []
     @State private var loaded = false
     @State private var busy: String?
+    /**
+     * Почему поводы не приехали.
+     *
+     * Раньше отказ глотался, `loaded` вставал в true, и экран уверенно
+     * рисовал зелёное «у вас всё в порядке» — при том что он просто
+     * ничего не загрузил. Хуже лжи в продукте нет.
+     */
+    @State private var failure: String?
 
     var body: some View {
         NavigationStack {
@@ -43,7 +51,19 @@ struct AlertsView: View {
                         }
                     }
 
-                    if loaded && alerts.isEmpty { empty }
+                    if alerts.isEmpty {
+                        if let failure {
+                            TetrFailure(title: failure, retry: { await reload() })
+                        } else if !loaded {
+                            Delayed(active: true) {
+                                TetrSkeletonList(rows: 3)
+                                    .padding(.top, 14)
+                                    .padding(.horizontal, 4)
+                            }
+                        } else {
+                            empty
+                        }
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 6)
@@ -102,18 +122,23 @@ struct AlertsView: View {
             .buttonStyle(.press)
 
             /* «Отложить» — отказ, а не равноправный выбор: тихой
-               подписью под строкой, а не второй кнопкой рядом. */
+               подписью под строкой, а не второй кнопкой рядом. Подпись
+               тихая, но цель полная: повод замолкает на неделю, и
+               случайное касание здесь дороже случайного промаха. */
             Button {
                 Task { await snooze(alert.key) }
             } label: {
                 Text(L("alerts.later"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Brand.boardMuted)
+                    .frame(minWidth: 44, minHeight: 40, alignment: .leading)
+                    .contentShape(.rect)
+                    .loading(busy == alert.key, tint: Brand.boardMuted, size: 13)
             }
             .buttonStyle(.plain)
-            .disabled(busy == alert.key)
+            .busy(busy == alert.key)
             .padding(.leading, 46)
-            .padding(.bottom, 10)
+            .padding(.bottom, 4)
         }
     }
 
@@ -151,10 +176,21 @@ struct AlertsView: View {
     }
 
     private func reload() async {
-        let result: API.Alerts? = try? await session.authed { token in
-            try await APIClient.shared.send("alerts", token: token, as: API.Alerts.self)
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("alerts", token: token, as: API.Alerts.self)
+            }
+            failure = nil
+            alerts = result.alerts
+        } catch is CancellationError {
+            return
+        } catch let error as APIError {
+            failure = error.isOffline
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
+        } catch {
+            failure = Failure.text(error)
         }
-        if let result { alerts = result.alerts }
         loaded = true
     }
 

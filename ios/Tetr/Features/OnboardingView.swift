@@ -92,28 +92,38 @@ struct OnboardingView: View {
                между показанием и заголовком: кадр разваливался на две
                несвязанные половины. Всё, что выше кнопки, стоит теперь
                на постоянных расстояниях и читается одним блоком. */
-            VStack(alignment: .leading, spacing: 0) {
-                exit
-                    .frame(height: 34)
+            /* Прокрутка — страховка маленького экрана. На SE фиксированная
+               сцена и четыре строки армянского текста упираются в кнопку;
+               `minHeight` во весь экран оставляет большим телефонам прежнюю
+               раскладку с одним гибким промежутком, а маленьким разрешает
+               прокрутить. */
+            GeometryReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        exit
+                            .frame(height: 44)
 
-                hero
-                    .frame(height: stage, alignment: .top)
-                    .padding(.top, 12)
-                    /* Читалке экрана показание не отдаём. Оно
-                       демонстрационное: те же мысли сказаны заголовком и
-                       абзацем под ним словами, а озвученные подряд
-                       выдуманные номера и суммы — это полминуты чтения
-                       вслух того, чего у человека нет. */
-                    .accessibilityHidden(true)
+                        hero
+                            .frame(height: stage, alignment: .top)
+                            .padding(.top, 2)
+                            /* Читалке экрана показание не отдаём. Оно
+                               демонстрационное: те же мысли сказаны заголовком и
+                               абзацем под ним словами, а озвученные подряд
+                               выдуманные номера и суммы — это полминуты чтения
+                               вслух того, чего у человека нет. */
+                            .accessibilityHidden(true)
 
-                words
-                    .padding(.top, 22)
+                        words
+                            .padding(.top, 22)
 
-                Spacer(minLength: 24)
+                        Spacer(minLength: 24)
 
-                controls
+                        controls
+                    }
+                    .padding(.horizontal, 24)
+                    .frame(minHeight: proxy.size.height)
+                }
             }
-            .padding(.horizontal, 24)
         }
         .environment(\.revealBack, back)
         .contentShape(Rectangle())
@@ -150,9 +160,18 @@ struct OnboardingView: View {
     private var exit: some View {
         HStack {
             Spacer(minLength: 0)
-            Button(L("common.skip")) { onDone() }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
+            Button {
+                onDone()
+            } label: {
+                Text(L("common.skip"))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    /* Цель во весь минимум касания: слово в 18 точек
+                       высотой мокрый палец не находит. */
+                    .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -198,6 +217,10 @@ struct OnboardingView: View {
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: mark)
+            /* Для читалки ряд точек — одно показание прогресса, а не
+               четыре безымянные фигуры. */
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L("onboarding.progress", mark + 1, slides.count))
 
             Button(mark == slides.count - 1 ? L("common.start") : L("common.next")) {
                 go(to: mark + 1, back: false)

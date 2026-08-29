@@ -21,6 +21,8 @@ struct MoreView: View {
     @State private var week: [String: API.MonthDay] = [:]
     /// День, который открыт листом. Сама лента при этом остаётся на месте.
     @State private var picked: String?
+    /// Открыт вопрос выхода из аккаунта.
+    @State private var leaving = false
 
     /// Сколько дней в ленте. Семь — это ровно неделя, и в ней всегда есть
     /// и суббота, и вторник: у мойки разница между ними в разы.
@@ -383,8 +385,11 @@ struct MoreView: View {
      */
     private var signOutRow: some View {
         groupCard {
+            /* С вопросом. Строка выглядит ровно как соседние переходы, и
+               промах по ней одним касанием выбрасывал человека на
+               SMS-вход — самое дорогое «не туда нажал» на этом экране. */
             Button {
-                Task { await session.signOut() }
+                leaving = true
             } label: {
                 rowFace(
                     symbol: "power", tint: Brand.boardMuted,
@@ -392,6 +397,18 @@ struct MoreView: View {
                 )
             }
             .buttonStyle(.press)
+            .confirmationDialog(
+                L("more.signOutTitle"),
+                isPresented: $leaving,
+                titleVisibility: .visible
+            ) {
+                Button(L("auth.signOut"), role: .destructive) {
+                    Task { await session.signOut() }
+                }
+                Button(L("common.cancel"), role: .cancel) {}
+            } message: {
+                Text(L("more.signOutNote"))
+            }
         }
     }
 

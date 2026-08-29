@@ -322,7 +322,10 @@ struct ExpensesView: View {
             RoundedRectangle(cornerRadius: 27, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
         }
-        .shadow(color: Brand.boardInk.opacity(0.04), radius: 18, y: 8)
+        /* Тени нет намеренно. Она была цветом `boardInk`, который в
+           тёмной теме почти белый, — и под карточкой светилось белое
+           пятно. Грани для отделения от полотна достаточно, как у всех
+           карточек продукта. */
     }
 
     /**
@@ -794,7 +797,7 @@ struct ExpenseEditor: View {
                 if let error {
                     Text(error)
                         .font(.system(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Brand.badOnBoard)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
                 }

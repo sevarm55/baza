@@ -155,6 +155,13 @@ final class OrderQueue: ObservableObject {
                 break
             } catch let error as APIError {
                 mark(item.ref, failure: error.code ?? "HTTP \(error.status)")
+            } catch is CancellationError {
+                /* Проход отменили (человек закрыл форму, не дождавшись
+                   связи). Это не отказ сервера: запись остаётся ждать,
+                   пометить её «не уйдёт само» значило бы соврать. */
+                break
+            } catch let error as URLError where error.code == .cancelled {
+                break
             } catch {
                 mark(item.ref, failure: "\(error)")
             }

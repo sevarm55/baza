@@ -28,6 +28,9 @@ struct VerifyPhoneView: View {
     @State private var code = ""
     @State private var busy = false
     @State private var error: String?
+    /// Когда можно попросить код ещё раз. Без повтора протухший код был
+    /// тупиком: закрыть лист и открыть заново — не выход, а лазейка.
+    @State private var resendAt = Date()
 
     var body: some View {
         NavigationStack {
@@ -84,6 +87,8 @@ struct VerifyPhoneView: View {
                                 Text(L("auth.otpSent", sentTo))
                                     .font(.system(size: 13))
                                     .foregroundStyle(Brand.boardMuted)
+
+                                resendRow
                             }
                             .padding(18)
                             .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -121,6 +126,10 @@ struct VerifyPhoneView: View {
                     }
                 }
                 .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
+                /* Погашенное состояние видно, а не только не отвечает:
+                   пока код короче шести цифр, кнопка тусклая. Занятая —
+                   в полный цвет, ответ на палец уже дан признаком работы. */
+                .opacity(!busy && challengeId != nil && code.count < API.codeLength ? 0.45 : 1)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
@@ -144,6 +153,8 @@ struct VerifyPhoneView: View {
             let started = try await session.startPhoneProof()
             challengeId = started.challengeId
             sentTo = started.phone ?? (session.me?.phone ?? "")
+            code = ""
+            resendAt = Date().addingTimeInterval(45)
         } catch let e as APIError {
             error = message(for: e)
         } catch {
@@ -166,6 +177,35 @@ struct VerifyPhoneView: View {
         } catch {
             self.error = L("payroll.failed")
         }
+    }
+
+    /**
+     * «Отправить снова» с отсчётом — тот же орган, что на входе.
+     *
+     * Сервер и так замедляет повторы; подсказка нужна, чтобы кнопка не
+     * выглядела рабочей, отвечая отказом. `TimelineView`, а не таймер в
+     * состоянии: секунда тикает сама, не будя весь экран.
+     */
+    private var resendRow: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let left = max(0, Int(resendAt.timeIntervalSince(context.date).rounded(.up)))
+            Button {
+                Task { await send() }
+            } label: {
+                Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(left > 0 ? Brand.boardMuted.opacity(0.7) : Brand.grape)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .disabled(busy || left > 0)
+        }
+    }
+
+    private func mmss(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func message(for e: APIError) -> String {

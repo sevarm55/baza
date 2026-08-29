@@ -58,6 +58,9 @@ struct ChangePhoneView: View {
 
     @State private var busy = false
     @State private var error: String?
+    /// Когда можно попросить код ещё раз. Протухший код без повтора был
+    /// тупиком с мёртвой заявкой в памяти.
+    @State private var resendAt = Date()
 
     var body: some View {
         NavigationStack {
@@ -92,8 +95,14 @@ struct ChangePhoneView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if stage != .done {
+                    /* Занятость идёт ЧЕРЕЗ кнопку, а не поверх неё.
+                       `.loading()` на самом Button гасил в ноль всю
+                       лаймовую плашку — на время запроса от кнопки
+                       оставался только серый мини-лоадер на голом фоне.
+                       Ровно от этого `LimeButton(loading:)` и защищает. */
                     primaryButton
-                        .buttonStyle(LimeButton())
+                        .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
+                        .opacity(!busy && primaryBlocked ? 0.45 : 1)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
                         .background(.ultraThinMaterial)
@@ -166,6 +175,7 @@ struct ChangePhoneView: View {
     private var proofStep: some View {
         inputSurface {
             codeField($proofCode) { Task { await sendPhone() } }
+            resendRow { await sendProof() }
         }
     }
 
@@ -198,6 +208,8 @@ struct ChangePhoneView: View {
     private var codeStep: some View {
         inputSurface {
             codeField($code) { Task { await finish() } }
+            // код уезжает на НОВЫЙ номер — повтор идёт тем же путём
+            resendRow { await sendPhone() }
         }
     }
 
@@ -225,18 +237,25 @@ struct ChangePhoneView: View {
         switch stage {
         case .proof:
             Button(L("common.next")) { Task { await sendPhone() } }
-                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || proofCode.count < API.codeLength)
         case .phone:
             Button(L("auth.resetSend")) { Task { await sendPhone() } }
-                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || !canSend)
         case .code:
             Button(L("auth.otpVerify")) { Task { await finish() } }
-                .loading(busy, tint: Brand.grape, size: 18, title: L("auth.checking"))
                 .disabled(busy || code.count < API.codeLength)
         case .done:
             EmptyView()
+        }
+    }
+
+    /// Кнопка погашена по недобору, а не по занятости.
+    private var primaryBlocked: Bool {
+        switch stage {
+        case .proof: return proofCode.count < API.codeLength
+        case .phone: return !canSend
+        case .code: return code.count < API.codeLength
+        case .done: return false
         }
     }
 
@@ -244,7 +263,9 @@ struct ChangePhoneView: View {
         phone.filter(\.isNumber).count >= 6 && (!session.hasPin || pin.count >= API.pinMinLength)
     }
 
-    /// Клетка кода: одинаковая на всех шагах и на всех экранах входа.
+    /// Поле кода этого листа. На входе код набирают клетками
+    /// (`CodeCells`); привести сюда те же клетки — задача унификации
+    /// форм, а не этого экрана.
     private func codeField(_ text: Binding<String>, done: @escaping () -> Void) -> some View {
         TextField("••••••", text: text)
             .keyboardType(.numberPad)
@@ -270,6 +291,8 @@ struct ChangePhoneView: View {
             let started = try await session.startPhoneChangeProof()
             proofId = started.proofId
             sentTo = started.phone ?? (session.me?.phone ?? "")
+            proofCode = ""
+            resendAt = Date().addingTimeInterval(45)
             stage = .proof
         } catch let e as APIError {
             error = message(for: e)
@@ -306,6 +329,7 @@ struct ChangePhoneView: View {
             challengeId = started.challengeId
             sentTo = started.phone ?? country.e164(phone)
             code = ""
+            resendAt = Date().addingTimeInterval(45)
             stage = .code
         } catch let e as APIError {
             /* Просроченный или исчерпанный код на СВОЙ номер отбрасывает
@@ -354,6 +378,31 @@ struct ChangePhoneView: View {
     private func leave() {
         dismiss()
         session.leaveAfterPhoneChange()
+    }
+
+    /// «Отправить снова» с отсчётом — тот же орган, что на входе и в
+    /// подтверждении номера. Сервер повторы и так замедляет; подсказка
+    /// нужна, чтобы кнопка не выглядела рабочей, отвечая отказом.
+    private func resendRow(_ action: @escaping () async -> Void) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let left = max(0, Int(resendAt.timeIntervalSince(context.date).rounded(.up)))
+            Button {
+                Task { await action() }
+            } label: {
+                Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(left > 0 ? Brand.boardMuted.opacity(0.7) : Brand.grape)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .disabled(busy || left > 0)
+        }
+    }
+
+    private func mmss(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func message(for e: APIError) -> String {

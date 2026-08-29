@@ -44,6 +44,10 @@ struct PayrollView: View {
     @State private var settling = false
     @State private var note: String?
     @State private var failure: String?
+    /// Идёт первая загрузка. До этого флага экран на время запроса не
+    /// показывал вообще ничего — чистое полотно вместо главного
+    /// денежного экрана.
+    @State private var loading = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -83,6 +87,24 @@ struct PayrollView: View {
                        отдаёт. Молчать нельзя — экран выглядел бы пустым, —
                        но и врать про суммы нечем. */
                     outdated
+                } else {
+                    /* Первая загрузка: место листа, а не пустое полотно.
+                       Форма повторяет сам экран — показание, вкладки,
+                       ряды людей, — и с порогом, чтобы быстрый ответ не
+                       мигал скелетом. */
+                    Delayed(active: loading) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            TetrSkeleton(width: 120, height: 12)
+                            TetrSkeleton(width: 230, height: 44, radius: 12)
+                            TetrSkeleton(width: 170, height: 12)
+                            TetrSkeleton(height: 32, radius: 10)
+                                .padding(.top, 6)
+                            TetrSkeletonList(rows: 4, avatar: true)
+                                .padding(.top, 10)
+                        }
+                        .padding(.top, 12)
+                        .padding(.horizontal, 4)
+                    }
                 }
             }
             .padding(.horizontal, 12)
@@ -464,7 +486,11 @@ struct PayrollView: View {
                             .font(.system(size: 19, weight: .regular))
                             .foregroundStyle(picked.contains(id) ? Brand.grape : Brand.boardMuted)
                             .frame(width: 30, height: 30)
-                            .contentShape(.rect)
+                            /* Рисунок остаётся 30 точек, чтобы колонка не
+                               съехала, а цель касания растёт до минимума
+                               системы: отметка выплаты — операция с
+                               деньгами, промахиваться по ней нельзя. */
+                            .contentShape(Rectangle().inset(by: -8))
                     }
                     .buttonStyle(.press)
                     .disabled(settling)
@@ -914,6 +940,8 @@ struct PayrollView: View {
     }
 
     private func reload() async {
+        loading = true
+        defer { loading = false }
         do {
             let fresh = try await session.authed { token in
                 try await APIClient.shared.send("payroll", token: token, as: API.Payroll.self)
@@ -931,7 +959,11 @@ struct PayrollView: View {
                сломалось — и экран об этом молчит. */
             return
         } catch let error as APIError {
-            failure = error.isOffline ? L("errors.offline") : "\(error.status) \(error.code ?? "—")"
+            /* Фразой, а не голым «402 PAYMENT_REQUIRED»: код владельцу
+               мойки не говорит ничего, а испугать успевает. */
+            failure = error.isOffline
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
         } catch {
             failure = Failure.text(error)
         }

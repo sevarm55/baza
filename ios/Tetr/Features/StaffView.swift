@@ -497,7 +497,7 @@ struct StaffEditor: View {
                 if let error {
                     Text(error)
                         .font(.system(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Brand.badOnBoard)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
                 }
@@ -764,12 +764,12 @@ struct StaffEditor: View {
             HStack(spacing: 12) {
                 Image(systemName: "person.badge.minus")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Brand.badOnBoard)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(L("staff.deactivateAction"))
                         .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Brand.badOnBoard)
                     Text(L("staff.deactivateNote"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
@@ -903,8 +903,20 @@ struct StaffEditor: View {
         busy = true
         defer { busy = false }
 
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw("staff/\(person.id)", method: "DELETE", token: token)
+        /* Отказ остаётся на экране, а не закрывается как успех. Раньше
+           здесь стоял `try?`: сеть падала, человек оставался с доступом,
+           а лист закрывался так, будто всё прошло, — владелец узнавал об
+           этом только со следующей смены уволенного. */
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw("staff/\(person.id)", method: "DELETE", token: token)
+            }
+        } catch let e as APIError {
+            error = e.isOffline ? L("errors.offline") : L("errors.failedCode", e.code ?? "\(e.status)")
+            return
+        } catch {
+            self.error = L("payroll.failed")
+            return
         }
         await onSave()
         dismiss()

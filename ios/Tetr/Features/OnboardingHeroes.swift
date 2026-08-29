@@ -65,7 +65,7 @@ private struct Paper<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) { content }
             .padding(pad)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Face.paper.fill, in: .rect(cornerRadius: 24, style: .continuous))
+            .background(Color.white, in: .rect(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
             .environment(\.colorScheme, .light)
     }

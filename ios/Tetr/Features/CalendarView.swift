@@ -27,6 +27,19 @@ struct CalendarView: View {
     @State private var data: API.Month?
     @State private var picked: String?
     @State private var loading = false
+    /**
+     * Почему месяц не приехал.
+     *
+     * Раньше отказ глотался молча, и хуже того: заголовок уже показывал
+     * новый месяц, а сетка — цифры старого. Экран, где подпись и данные
+     * врут друг про друга, опаснее пустого.
+     */
+    @State private var failure: String?
+    /// Месяц, чьи данные сейчас на экране. При отказе заголовок
+    /// возвращается к нему, чтобы не подписывать чужие цифры.
+    @State private var shownMonth = ""
+    /// Номер запроса: поздний ответ о старом месяце не затирает свежий.
+    @State private var loadID = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,9 +56,29 @@ struct CalendarView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: gap) {
-                if let total = data?.total { reading(total) }
-                grid
-                weekProfile
+                if let failure, data == nil {
+                    TetrFailure(title: failure, retry: { await reload() })
+                        .padding(.top, 60)
+                } else {
+                    if let failure {
+                        HStack(spacing: 10) {
+                            Text(failure)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Button(L("common.retry")) { Task { await reload() } }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.grape)
+                        }
+                        .padding(12)
+                        .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 14, style: .continuous))
+                    }
+
+                    if let total = data?.total { reading(total) }
+                    grid
+                    weekProfile
+                }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 28)
@@ -89,7 +122,7 @@ struct CalendarView: View {
                 .frame(maxWidth: .infinity)
                 .contentTransition(.numericText())
 
-            arrow("chevron.left", L("owner.vsPrevPeriod")) { shift(by: -1) }
+            arrow("chevron.left", L("calendar.prevMonth")) { shift(by: -1) }
 
             // вперёд дальше текущего месяца незачем: там пусто по определению
             arrow("chevron.right", L("calendar.nextMonth")) { shift(by: 1) }
@@ -285,7 +318,6 @@ struct CalendarView: View {
            себе выглядело сбоем. Разницу между днями и так несёт число
            внутри клетки. */
         let heat = day.revenue > 0 ? 0.07 + 0.31 * sqrt(share) : 0
-        let deep = false
         let today = day.date == Self.today()
 
         return Button {
@@ -295,19 +327,21 @@ struct CalendarView: View {
                 Text(String(Int(day.date.suffix(2)) ?? 0))
                     .font(.system(size: 14, weight: day.revenue > 0 ? .bold : .regular))
                     .monospacedDigit()
-                    .foregroundStyle(
-                        deep ? .white : (day.revenue > 0 ? Brand.onBoard : Brand.boardMuted.opacity(0.55))
-                    )
+                    .foregroundStyle(day.revenue > 0 ? Brand.onBoard : Brand.boardMuted.opacity(0.55))
                 if day.count > 0 {
                     Text("\(day.count)")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10.5, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(deep ? .white.opacity(0.75) : Brand.boardMuted)
+                        .foregroundStyle(Brand.boardMuted)
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 46)
-            .background(Brand.grapeFill.opacity(heat), in: .rect(cornerRadius: 12))
+            /* Адаптивный грейп, а не прибитый: в тёмной теме фиксированный
+               #6D28D9 почти не отличим от полотна, и теплокарта теряла
+               разрешение. Светлый вариант из пары `Brand.grape` держит
+               шкалу читаемой в обеих темах. */
+            .background(Brand.grape.opacity(heat), in: .rect(cornerRadius: 12))
             .overlay {
                 // сегодня — кольцом, а не заливкой: заливка здесь уже занята
                 // величиной, и второй смысл в неё не вложить
@@ -414,18 +448,36 @@ struct CalendarView: View {
     }
 
     private func reload() async {
+        loadID += 1
+        let id = loadID
+        let requested = month
         loading = true
-        defer { loading = false }
+        defer { if id == loadID { loading = false } }
 
-        let fresh: API.Month? = try? await session.authed { token in
-            try await APIClient.shared.send("calendar?month=\(month)", token: token, as: API.Month.self)
-        }
-        if let fresh {
+        do {
+            let fresh = try await session.authed { token in
+                try await APIClient.shared.send("calendar?month=\(requested)", token: token, as: API.Month.self)
+            }
+            guard id == loadID, requested == month else { return }
+            failure = nil
+            shownMonth = requested
             if reduceMotion {
                 data = fresh
             } else {
                 withAnimation(.snappy(duration: 0.35)) { data = fresh }
             }
+        } catch is CancellationError {
+            return
+        } catch let error as APIError {
+            guard id == loadID else { return }
+            if !shownMonth.isEmpty { month = shownMonth }
+            failure = error.isOffline
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
+        } catch {
+            guard id == loadID else { return }
+            if !shownMonth.isEmpty { month = shownMonth }
+            failure = Failure.text(error)
         }
     }
 }

@@ -351,6 +351,8 @@ struct ServiceEditor: View {
     @State private var tierPrices: [String] = []
     @State private var busy = false
     @State private var archiving = false
+    /// Почему не сохранилось. Пусто — всё в порядке.
+    @State private var error: String?
     @FocusState private var typingPrice: Bool
 
     @EnvironmentObject private var sessionForTiers: Session
@@ -435,6 +437,15 @@ struct ServiceEditor: View {
                     }
                 }
                 .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 22))
+
+                if let error {
+                    Label(error, systemImage: "exclamationmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Brand.badOnBoard)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 18))
+                }
 
                 if !isNew {
                     archiveRow
@@ -523,12 +534,14 @@ struct ServiceEditor: View {
             HStack(spacing: 12) {
                 Image(systemName: "archivebox")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.red)
+                    // токен, а не системный .red: в тёмной теме системный
+                    // темнее и спорит с остальными знаками опасного
+                    .foregroundStyle(Brand.badOnBoard)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(L("services.remove"))
                         .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Brand.badOnBoard)
                     Text(L("services.removeNoteShort"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Brand.boardMuted)
@@ -575,9 +588,23 @@ struct ServiceEditor: View {
             payload["tierPrices"] = tierPrices.map { Int($0.filter(\.isNumber)) ?? 0 }
         }
 
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw("services", method: "POST", body: payload, token: token)
+        /* Отказ — это отказ, а не повод закрыть лист. Раньше здесь стоял
+           `try?`: сервер отвечал ошибкой, а человек получал вибрацию
+           успеха и закрытый лист — то есть уверенность, что цена
+           изменилась, которой не было. Сосед `TierEditor.save()` всегда
+           делал это правильно; теперь одинаково. */
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw("services", method: "POST", body: payload, token: token)
+            }
+        } catch let e as APIError {
+            error = e.isOffline ? L("errors.offline") : L("errors.failedCode", e.code ?? "\(e.status)")
+            return
+        } catch {
+            self.error = Failure.text(error)
+            return
         }
+        error = nil
 
         /* Прайс живёт в двух местах: на этом экране, чтобы его править, и в
            сессии, откуда его берёт экран записи. Обновлялось только первое —
@@ -598,13 +625,23 @@ struct ServiceEditor: View {
         busy = true
         defer { busy = false }
 
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "services/\(service.id)",
-                method: "DELETE",
-                token: token
-            )
+        // тот же контракт, что у save(): не прошло — лист остаётся с причиной
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "services/\(service.id)",
+                    method: "DELETE",
+                    token: token
+                )
+            }
+        } catch let e as APIError {
+            error = e.isOffline ? L("errors.offline") : L("errors.failedCode", e.code ?? "\(e.status)")
+            return
+        } catch {
+            self.error = Failure.text(error)
+            return
         }
+        error = nil
         // и убранная услуга должна исчезнуть с экрана записи, а не остаться
         // там до перезапуска
         try? await session.loadBootstrap()
@@ -672,18 +709,25 @@ struct TierEditor: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Brand.onBoard)
 
+                            /* Подтверждения нет намеренно: убирается
+                               строка из черновика, настоящее удаление
+                               случится только по «Сохранить». А вот цель
+                               касания полная — раньше кружок был 22
+                               точки, и палец попадал в соседнее поле. */
                             Button {
                                 names.remove(at: i)
                             } label: {
                                 Image(systemName: "minus.circle.fill")
                                     .font(.system(size: 17))
                                     .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(.rect)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(L("expenses.remove"))
                         }
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 13)
+                        .padding(.vertical, 2)
 
                         if i < names.count - 1 {
                             Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
@@ -716,7 +760,7 @@ struct TierEditor: View {
                 if let error {
                     Text(error)
                         .font(.system(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Brand.badOnBoard)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
                 }

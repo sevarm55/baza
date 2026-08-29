@@ -25,6 +25,8 @@ struct ExpiredView: View {
     @EnvironmentObject private var queue: OrderQueue
 
     @State private var exporting = false
+    /// Выгрузка не получилась — сказано на экране, а не проглочено.
+    @State private var exportFailed = false
     @State private var exported: URL?
     @State private var deleting = false
 
@@ -128,12 +130,22 @@ struct ExpiredView: View {
                    что человеку тут по-настоящему нужно: забрать своё.
                    У новой точки её нет: там пока нечего забирать. */
                 if isOwner && !fresh {
-                    Button(exporting ? "…" : L("billing.wallDownload")) {
+                    /* Занятость — через кнопку, со словом, а не «…»:
+                       подмена текста меняет ширину под пальцем, ровно от
+                       этого `LimeButton(loading:)` и защищает. */
+                    Button(L("billing.wallDownload")) {
                         Task { await exportCsv() }
                     }
-                    .buttonStyle(LimeButton())
+                    .buttonStyle(LimeButton(loading: exporting, busyTitle: L("common.preparing")))
                     .disabled(exporting)
                     .padding(.top, 4)
+
+                    if exportFailed {
+                        Label(L("delete.downloadFailed"), systemImage: "exclamationmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.warnOnDark)
+                            .padding(.top, 6)
+                    }
                 }
 
                 /* Удаление остаётся и у новой точки: её могли завести по
@@ -141,17 +153,27 @@ struct ExpiredView: View {
                    мойщику его не показываем вовсе: бизнес не его, и
                    сервер такую попытку всё равно отвергает. */
                 if isOwner {
-                    Button(L("billing.wallDelete"), role: .destructive) { deleting = true }
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .padding(.top, 2)
+                    Button(role: .destructive) { deleting = true } label: {
+                        Text(L("billing.wallDelete"))
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .frame(minHeight: 44, alignment: .leading)
+                            .contentShape(.rect)
+                    }
                 }
 
-                Button(L("auth.signOut")) {
+                /* Обе нижние цели — полного размера: раньше «удалить» и
+                   «выйти» были соседними строками по 18 точек, и промах
+                   между ними вёл в необратимое. */
+                Button {
                     Task { await session.signOut() }
+                } label: {
+                    Text(L("auth.signOut"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(.rect)
                 }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.55))
-                .padding(.top, 6)
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 26)
             .padding(.bottom, 44)
@@ -168,15 +190,25 @@ struct ExpiredView: View {
     /// дней вместо всей истории было бы обманом.
     private func exportCsv() async {
         exporting = true
+        exportFailed = false
         defer { exporting = false }
 
+        /* Провал зовётся провалом. Молчаливый `return` на главном
+           действии экрана оставлял человека гадать, готовится файл или
+           уже нет. */
         guard let data = try? await session.authed({ token in
             try await APIClient.shared.raw("export?days=all", token: token)
-        }) else { return }
+        }) else {
+            exportFailed = true
+            return
+        }
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("tetr-\(Int(Date().timeIntervalSince1970)).csv")
-        guard (try? data.write(to: url)) != nil else { return }
+        guard (try? data.write(to: url)) != nil else {
+            exportFailed = true
+            return
+        }
         exported = url
     }
 }

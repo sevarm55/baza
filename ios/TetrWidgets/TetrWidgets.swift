@@ -170,7 +170,12 @@ struct ShiftLiveActivityWidget: Widget {
     }
 }
 
+/* Цвета марки — те же числа, что в `Design/Theme.swift`. Таргет виджета
+   не видит код приложения, поэтому значения продублированы, но править
+   их можно только парой с `Brand.lime`/`Brand.board`: остров — самое
+   заметное место продукта, и лайм там был «почти фирменным» (#C2FF00
+   вместо #D7FF00) — то есть маркой с чужим оттенком. */
 private enum ShiftLiveStyle {
-    static let ink = Color(red: 0.055, green: 0.05, blue: 0.075)
-    static let lime = Color(red: 0.76, green: 1.0, blue: 0.0)
+    static let ink = Color(red: 0x0A / 255, green: 0x0A / 255, blue: 0x0C / 255)
+    static let lime = Color(red: 0xD7 / 255, green: 1.0, blue: 0)
 }

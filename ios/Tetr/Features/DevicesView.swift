@@ -30,18 +30,40 @@ struct DevicesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                if let error {
+                if let error, rows.isEmpty {
+                    /* Полноэкранный отказ — только пока показывать нечего.
+                       Раньше он стоял первой веткой безусловно, и
+                       неудачный pull-to-refresh стирал уже загруженный
+                       список целиком. */
                     problem(error)
                 } else if !loaded {
-                    TetrLoader(size: 26, tint: Brand.grape)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
-                } else if rows.count <= 1 {
+                    Delayed(active: true) {
+                        TetrSkeletonList(rows: 3)
+                            .padding(.top, 10)
+                            .padding(.horizontal, 4)
+                    }
+                } else if rows.count <= 1, error == nil {
                     /* Один вход и он же этот — говорить не о чем: строка
                        «это устройство», у которой нечего погасить, не
                        отвечает ни на один вопрос. */
                     singleDeviceState
                 } else {
+                    if let error {
+                        HStack(spacing: 10) {
+                            Text(error)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.badOnBoard)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Button(L("common.retry")) { Task { await reload() } }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.grape)
+                        }
+                        .padding(12)
+                        .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 14, style: .continuous))
+                        .padding(.bottom, 12)
+                    }
+
                     Text(L("profile.devicesNote"))
                         .font(.system(size: 13.5))
                         .foregroundStyle(Brand.boardMuted)
@@ -153,7 +175,9 @@ struct DevicesView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(Brand.warnOnBoard)
-                            .frame(width: 32, height: 32)
+                            /* Единственный способ погасить чужой вход —
+                               цель полного размера, а не 32 точки. */
+                            .frame(width: 44, height: 44)
                             .contentShape(.rect)
                     }
                     .buttonStyle(.plain)

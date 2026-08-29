@@ -16,7 +16,7 @@ import SwiftUI
 struct PointMenu: View {
     let points: [API.Point]
     let currentId: String?
-    let onPick: (API.Point) -> Void
+    let onPick: (API.Point) async -> Void
 
     @State private var busy = false
 
@@ -26,7 +26,14 @@ struct PointMenu: View {
                 Button {
                     guard !busy, point.id != currentId else { return }
                     busy = true
-                    onPick(point)
+                    /* Засов снимается по завершении, а не «сам собой».
+                       Удачный переход пересоздаёт всё дерево и этот вид
+                       вместе с ним; неудачный раньше оставлял меню
+                       выключенным навсегда — до перезапуска экрана. */
+                    Task {
+                        await onPick(point)
+                        busy = false
+                    }
                 } label: {
                     /* Состояние словом, а не только цветом: в меню iOS
                        цветную точку рядом с текстом не поставить, а знать,
@@ -52,8 +59,6 @@ struct PointMenu: View {
             }
             .foregroundStyle(Brand.ink)
         }
-        // переход перерисовывает всё дерево, и этот вид тоже — сбрасывать
-        // busy руками не нужно, его просто не станет
         .disabled(busy)
     }
 

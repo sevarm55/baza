@@ -75,6 +75,48 @@ final class Session: ObservableObject {
     @Published private(set) var points: [API.Point] = []
 
     /**
+     * Последняя версия приложения в App Store — по данным сервера.
+     *
+     * Отстали — продукт закрывается стеной обновления с одной кнопкой в
+     * магазин. Так решил владелец: клиентов немного, и все должны быть
+     * на свежей версии, иначе поддержка превращается в угадывание, у
+     * кого какой экран.
+     *
+     * Пусто, пока сервер не ответил или он старый и поля не знает: без
+     * ответа стена не ставится никогда — заблокировать работу из-за
+     * отсутствия данных хуже, чем пропустить одно обновление.
+     */
+    @Published private(set) var storeVersion: String?
+
+    /// Своя версия из настроек сборки — та же, что видит App Store.
+    static let installedVersion =
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+
+    /// Пора ли закрывать продукт стеной обновления.
+    var updateRequired: Bool {
+        guard let latest = storeVersion else { return false }
+        return Self.isVersion(Self.installedVersion, olderThan: latest)
+    }
+
+    /**
+     * Сравнение версий по числам, а не по строкам.
+     *
+     * Строковое сравнение однажды решит, что «1.10» старше «1.9», и
+     * закроет стеной всех, кто только что обновился. Недостающие разряды
+     * считаются нулями: «1.2» и «1.2.0» — одна версия.
+     */
+    static func isVersion(_ current: String, olderThan latest: String) -> Bool {
+        let a = current.split(separator: ".").map { Int($0) ?? 0 }
+        let b = latest.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(a.count, b.count) {
+            let x = i < a.count ? a[i] : 0
+            let y = i < b.count ? b[i] : 0
+            if x != y { return x < y }
+        }
+        return false
+    }
+
+    /**
      * Счётчик смены точки.
      *
      * По нему всё дерево экранов пересоздаётся: `@State` обнуляется,
@@ -819,6 +861,19 @@ final class Session: ObservableObject {
         mates = (boot.crew?.members ?? []).filter { $0.id != boot.me.id }
         welcomeSeen = boot.me.welcomeSeen ?? true
         setupHidden = boot.me.setupHidden ?? false
+        storeVersion = boot.app?.iosLatest
+    }
+
+    /**
+     * Перечитать bootstrap со стены обновления.
+     *
+     * Нужен человеку, который уже обновился через магазин, не убивая
+     * приложение, или которому владелец поправил версию на сервере.
+     * Отказ гасится: стена остаётся, и это честно — данных о новой
+     * версии так и нет.
+     */
+    func recheckVersion() async {
+        try? await loadBootstrap()
     }
 
     // ─────────────────────────── начало работы ───────────────────────────

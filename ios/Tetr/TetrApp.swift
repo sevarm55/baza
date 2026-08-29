@@ -128,8 +128,6 @@ struct TetrApp: App {
                         .accessibilityIdentifier("splash")
                     }
                 }
-                // экраны под заставкой не должны поднимать клавиатуру
-                .environment(\.splashActive, splash)
         }
     }
 }
@@ -145,6 +143,20 @@ struct RootView: View {
 
     @State private var onboarding = false
     @State private var ownerGuide = false
+
+    /**
+     * Знакомство при самом первом открытии, ДО входа.
+     *
+     * Так попросил владелец: человек ставит приложение из магазина и
+     * первым делом видит рассказ о продукте, а не форму входа. Роль в
+     * этот момент ещё неизвестна, и это осознанная цена: кадры говорят
+     * о деньгах мойки, и тому, кто пришёл по ссылке владельца, они
+     * тоже объясняют, куда он попал.
+     *
+     * Флаг тот же, что у показа после входа: посмотрел до входа —
+     * второй раз после входа не встретит.
+     */
+    @State private var firstRun = !Onboarding.seen
 
     var body: some View {
         #if DEBUG
@@ -197,7 +209,14 @@ struct RootView: View {
             }
 
         case .signedOut:
-            LoginView()
+            if firstRun {
+                OnboardingView {
+                    Onboarding.seen = true
+                    withAnimation(.easeOut(duration: Motion.normal)) { firstRun = false }
+                }
+            } else {
+                LoginView()
+            }
 
         case .signedIn:
             if lock.locked {
@@ -208,14 +227,19 @@ struct RootView: View {
                    человек доказывает, что это его телефон, и только
                    потом узнаёт про счёт. */
                 ExpiredView()
+            } else if session.updateRequired {
+                /* Версия отстала от App Store — работать нельзя, только
+                   обновиться. После счёта, а не до: вопрос «почему я не
+                   могу войти в свои деньги» важнее вопроса версии. */
+                UpdateWallView()
             } else {
                 MainTabs()
-                    /* Онбординг только владельцу и только один раз. Мойщик
-                       открывает приложение, чтобы записать машину, — у него
-                       на площадке стоит клиент, и объяснять ему устройство
-                       зарплаты и расходов значит задержать работу. Своё
-                       короткое приветствие про смену он получает на самом
-                       экране смены. */
+                    /* Запасной показ знакомства. Основной теперь при самом
+                       первом открытии, до входа (см. `firstRun`); сюда
+                       попадает владелец, который вошёл ещё до этой версии
+                       и слайдов не видел. Мойщику не показываем: он
+                       открывает приложение записать машину, у него на
+                       площадке стоит клиент. */
                     .fullScreenCover(isPresented: $onboarding, onDismiss: {
                         /* Приветственные слайды и обучение — два разных
                            события. После слайдов показываем владельцу
@@ -284,10 +308,23 @@ struct MainTabs: View {
     /* Вкладку держим сами: при переходе на другую точку набор вкладок
        может смениться — на одной мойке человек владелец, на другой
        мойщик, — и выбранная вкладка перестала бы существовать под
-       пальцем. Экран смены есть у обеих ролей, туда и возвращаемся. */
+       пальцем. Домашняя вкладка своя у каждой роли: владелец открывает
+       приложение узнать, что происходит, — это сводка; мойщик приходит
+       записать машину — это смена. */
     @State private var tab = Tabs.shift
 
     enum Tabs { case shift, summary, payroll, more }
+
+    /// Куда попадает человек при входе и при смене точки.
+    private var homeTab: Tabs {
+        session.me?.isOwner == true ? .summary : .shift
+    }
+
+    /* Домашняя вкладка ставится один раз за вход. Именно флагом, а не
+       голым `onAppear`: закрытие полноэкранной формы записи заново
+       «показывает» TabView, и без флага владельца утаскивало бы со
+       смены на сводку сразу после записанной машины. */
+    @State private var landed = false
 
     var body: some View {
         TabView(selection: $tab) {
@@ -310,7 +347,7 @@ struct MainTabs: View {
                                         points: session.points,
                                         currentId: session.tenant?.id
                                     ) { point in
-                                        Task { try? await session.switchTo(point, queue: queue) }
+                                        try? await session.switchTo(point, queue: queue)
                                     }
                                 }
                             }
@@ -369,7 +406,12 @@ struct MainTabs: View {
            выброшенный вид. Без этого на экране остались бы правильные
            цифры чужой мойки — а это не выглядит ошибкой вовсе. */
         .id(session.generation)
-        .onChange(of: session.generation) { _, _ in tab = .shift }
+        .onAppear {
+            guard !landed else { return }
+            landed = true
+            tab = homeTab
+        }
+        .onChange(of: session.generation) { _, _ in tab = homeTab }
         /* Повод «зарплата копится» ведёт на соседнюю вкладку. Через
            уведомление, а не через привязку: вкладку держит этот вид, а
            повод открывают двумя экранами ниже, и тянуть привязку через

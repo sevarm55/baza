@@ -2359,6 +2359,29 @@
         }
       }
     },
+    "calendar.prevMonth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous month"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Նախորդ ամիս"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Предыдущий месяц"
+          }
+        }
+      }
+    },
     "calendar.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4180,6 +4203,29 @@
         }
       }
     },
+    "delete.confirmTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the business permanently?"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ջնջե՞լ բիզնեսը վերջնականապես"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить бизнес навсегда?"
+          }
+        }
+      }
+    },
     "delete.downloadFailed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5838,6 +5884,52 @@
         }
       }
     },
+    "more.signOutNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You will need to sign in again."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Պետք կլինի նորից մուտք գործել։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Понадобится войти заново."
+          }
+        }
+      }
+    },
+    "more.signOutTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out of the account?"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Դո՞ւրս գալ հաշվից"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выйти из аккаунта?"
+          }
+        }
+      }
+    },
     "more.team" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5949,6 +6041,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ваше имя"
+          }
+        }
+      }
+    },
+    "onboarding.progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Քայլ %1$lld՝ %2$lld-ից"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаг %1$lld из %2$lld"
           }
         }
       }
@@ -11014,6 +11129,52 @@
         }
       }
     },
+    "shift.dropBody" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the record will disappear for good and will not be counted anywhere"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "գրառումը կվերանա ընդմիշտ և ոչ մի տեղ չի հաշվվի"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "запись пропадёт навсегда и нигде не будет посчитана"
+          }
+        }
+      }
+    },
+    "shift.dropTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the unsent record?"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ջնջե՞լ չուղարկված գրառումը"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить неотправленную запись?"
+          }
+        }
+      }
+    },
     "shift.greetingDay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12556,6 +12717,121 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Сегодня работают"
+          }
+        }
+      }
+    },
+    "update.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Թարմացնել"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обновить"
+          }
+        }
+      }
+    },
+    "update.note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The new version is already in the App Store. Update the app to continue."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Նոր տարբերակն արդեն App Store-ում է։ Շարունակելու համար թարմացրեք հավելվածը։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая версия уже в App Store. Чтобы продолжить, обновите приложение."
+          }
+        }
+      }
+    },
+    "update.recheck" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check again"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ստուգել նորից"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Проверить снова"
+          }
+        }
+      }
+    },
+    "update.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update available"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Թարմացում կա"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вышло обновление"
+          }
+        }
+      }
+    },
+    "update.versions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installed %1$@ · store has %2$@"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Տեղադրված է %1$@ · խանութում՝ %2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Установлена %1$@ · в магазине %2$@"
           }
         }
       }

@@ -35,6 +35,17 @@ struct ClientHistoryView: View {
     @FocusState private var typingName: Bool
     @FocusState private var typingPhone: Bool
     @State private var saving = false
+    /**
+     * Почему история не приехала.
+     *
+     * Раньше отказ глотался, и карточка показывала «записей нет» о
+     * клиенте, у которого записи есть, — ровно тот сценарий, ради
+     * которого заведён `AsyncState`. Пустота и «не доехало» — разные
+     * ответы.
+     */
+    @State private var failure: String?
+    /// Почему контакт не сохранился. Пусто — всё в порядке.
+    @State private var contactError: String?
 
     var body: some View {
         NavigationStack {
@@ -60,8 +71,18 @@ struct ClientHistoryView: View {
                         .padding(.top, 4)
                     }
 
-                    if loaded && orders.isEmpty {
-                        emptyHistory
+                    if orders.isEmpty {
+                        if let failure {
+                            TetrFailure(title: failure, retry: { await reload() })
+                        } else if !loaded {
+                            Delayed(active: true) {
+                                TetrSkeletonList(rows: 4)
+                                    .padding(.top, 10)
+                                    .padding(.horizontal, 4)
+                            }
+                        } else {
+                            emptyHistory
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -288,19 +309,40 @@ struct ClientHistoryView: View {
                     Button {
                         Task { await saveContact() }
                     } label: {
-                        Text(saving ? "…" : L("common.save"))
+                        /* Занятость — признаком работы со словом, а не
+                           подменой текста на «…»: «…» меняет ширину
+                           кнопки под пальцем, от чего `.loading` и
+                           защищает. */
+                        Text(L("common.save"))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Brand.onLime)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(Brand.lime, in: .rect(cornerRadius: 10))
+                            .loading(saving, tint: Brand.onLime, size: 16, title: L("common.saving"))
+                            .padding(.horizontal, 18)
+                            .frame(minHeight: 44)
+                            .background(Brand.lime, in: .rect(cornerRadius: 12))
                     }
                     .buttonStyle(.press)
-                    .disabled(saving)
+                    .busy(saving)
 
-                    Button(L("common.cancel")) { editing = false }
-                        .font(.system(size: 14))
-                        .foregroundStyle(Brand.boardMuted)
+                    Button {
+                        editing = false
+                        contactError = nil
+                    } label: {
+                        Text(L("common.cancel"))
+                            .font(.system(size: 14))
+                            .foregroundStyle(Brand.boardMuted)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if let contactError {
+                    Text(contactError)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Brand.badOnBoard)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 HStack(alignment: .top, spacing: 10) {
@@ -319,9 +361,16 @@ struct ClientHistoryView: View {
 
                     Spacer(minLength: 8)
 
-                    Button(L("common.edit")) { editing = true }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Brand.boardMuted)
+                    Button {
+                        editing = true
+                    } label: {
+                        Text(L("common.edit"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.boardMuted)
+                            .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 if !phone.isEmpty {
@@ -347,30 +396,46 @@ struct ClientHistoryView: View {
 
     private func link(_ title: String, _ url: String, filled: Bool) -> some View {
         Link(destination: URL(string: url) ?? URL(string: "tel:0")!) {
+            /* Полная высота касания: «позвонить» — то, ради чего база
+               клиентов и заведена, а кнопка была 35 точек. */
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(filled ? Brand.onLime : Brand.onBoard)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 9)
+                .frame(minHeight: 46)
                 .background(
                     filled ? Brand.lime : Brand.boardInk.opacity(0.09),
-                    in: .rect(cornerRadius: 10)
+                    in: .rect(cornerRadius: 12)
                 )
         }
     }
 
     private func saveContact() async {
         saving = true
+        defer { saving = false }
         let escaped = client.key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? client.key
-        _ = try? await session.authed { token in
-            try await APIClient.shared.raw(
-                "clients/\(escaped)/contact",
-                method: "PATCH",
-                body: ["name": name, "phone": phone],
-                token: token
-            )
+        /* Форма закрывается только после подтверждённого сохранения.
+           Раньше `try?` закрывал её всегда: имя «сохранялось» на экране,
+           не доехав до сервера, и пропадало при следующем открытии. */
+        do {
+            _ = try await session.authed { token in
+                try await APIClient.shared.raw(
+                    "clients/\(escaped)/contact",
+                    method: "PATCH",
+                    body: ["name": name, "phone": phone],
+                    token: token
+                )
+            }
+        } catch let error as APIError {
+            contactError = error.isOffline
+                ? L("errors.offline")
+                : L("errors.failedCode", error.code ?? "\(error.status)")
+            return
+        } catch {
+            contactError = Failure.text(error)
+            return
         }
-        saving = false
+        contactError = nil
         editing = false
     }
 
@@ -444,14 +509,23 @@ struct ClientHistoryView: View {
 
     private func reload() async {
         let escaped = client.key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? client.key
-        let result: API.ClientHistory? = try? await session.authed { token in
-            try await APIClient.shared.send("clients/\(escaped)", token: token, as: API.ClientHistory.self)
-        }
-        if let result {
+        do {
+            let result = try await session.authed { token in
+                try await APIClient.shared.send("clients/\(escaped)", token: token, as: API.ClientHistory.self)
+            }
+            failure = nil
             orders = result.orders
             name = result.client.name ?? ""
             phone = result.client.phone ?? ""
             firstSeen = result.client.firstSeenAt
+        } catch is CancellationError {
+            return
+        } catch let error as APIError {
+            failure = error.isOffline
+                ? L("errors.offline")
+                : L("errors.server", "\(error.status) \(error.code ?? "—")")
+        } catch {
+            failure = Failure.text(error)
         }
         loaded = true
     }

@@ -8,6 +8,7 @@ import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
 import { clientIdLabelTerm, serviceNameTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
 import { failFromError, ok } from '@/lib/api/respond';
+import { IOS_APP_LATEST } from '@/lib/plan';
 
 /**
  * Всё, что нужно приложению на старте, одним запросом.
@@ -133,6 +134,12 @@ export async function GET(request: Request) {
         setupHidden: ctx.user.setupHiddenAt !== null,
       },
       access: ctx.access,
+      /* Последняя версия приложения в App Store. Старый клиент этого
+         поля не знает и просто не читает; новый сравнивает со своей и
+         при отставании закрывается стеной обновления. Число живёт в
+         lib/plan.ts и меняется только после того, как релиз реально
+         доступен в магазине. */
+      app: { iosLatest: IOS_APP_LATEST },
       /* Точки человека. Приложение показывает переключатель только когда
          их больше одной — у остальных ни одного нового пикселя. */
       points: await listPoints(ctx.account.id),

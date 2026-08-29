@@ -2,29 +2,6 @@ import SwiftUI
 import UIKit
 
 /**
- * Идёт ли сейчас заставка.
- *
- * Нужно тем экранам, которые сами поднимают клавиатуру. Экран входа
- * ставит курсор в поле телефона по `onAppear` — и делал это, пока сверху
- * ещё шла заставка: клавиатура системная, она рисуется поверх всего
- * приложения, и заставка оказывалась наполовину закрыта.
- *
- * Убрать `onAppear` нельзя: курсор в поле — это правильно, человек
- * открыл приложение, чтобы войти. Значит фокус не отменяется, а
- * откладывается до конца заставки.
- */
-private struct SplashActiveKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    var splashActive: Bool {
-        get { self[SplashActiveKey.self] }
-        set { self[SplashActiveKey.self] = newValue }
-    }
-}
-
-/**
  * Заставка запуска: марка собирается на грейповом полотне.
  *
  * Почему это отдельный экран, а не Launch Screen. `UILaunchScreen` в iOS —

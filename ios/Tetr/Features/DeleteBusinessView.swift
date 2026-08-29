@@ -36,6 +36,9 @@ struct DeleteBusinessView: View {
     /// PIN) не должен заново гонять выгрузку — файл у человека на руках.
     @State private var saved = false
 
+    /// Открыт последний вопрос перед необратимым удалением.
+    @State private var confirmingWipe = false
+
     /**
      * Чем подтверждают удаление.
      *
@@ -162,16 +165,34 @@ struct DeleteBusinessView: View {
                             .disabled(busy)
                     } else {
                         Button(saved ? L("billing.wallDelete") : L("settings.deleteKeep")) {
-                            Task { saved ? await wipe() : await archiveThenWipe() }
+                            /* Путь с выгрузкой подтверждает себя сам:
+                               человек жмёт «сохранить и удалить», сохраняет
+                               файл — и только это запускает удаление.
+                               Прямое удаление идёт через вопрос. */
+                            if saved {
+                                confirmingWipe = true
+                            } else {
+                                Task { await archiveThenWipe() }
+                            }
                         }
                         .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
                         .disabled(!ready)
+                        .opacity(busy || ready ? 1 : 0.45)
 
-                        Button(L("settings.deleteWipe"), role: .destructive) {
-                            Task { await wipe() }
+                        /* Самое необратимое действие продукта шло в одно
+                           касание по цели в восемнадцать точек — при том
+                           что отзыв устройства (обратимый) спрашивал.
+                           Теперь вопрос обязателен, а цель полная. */
+                        Button(role: .destructive) {
+                            confirmingWipe = true
+                        } label: {
+                            Text(L("settings.deleteWipe"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .contentShape(.rect)
                         }
-                        .font(.system(size: 14, weight: .semibold))
                         .disabled(!ready)
+                        .opacity(ready ? 1 : 0.45)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -186,6 +207,18 @@ struct DeleteBusinessView: View {
                 }
             }
             .disabled(busy)
+            .confirmationDialog(
+                L("delete.confirmTitle"),
+                isPresented: $confirmingWipe,
+                titleVisibility: .visible
+            ) {
+                Button(L("billing.wallDelete"), role: .destructive) {
+                    Task { await wipe() }
+                }
+                Button(L("common.cancel"), role: .cancel) {}
+            } message: {
+                Text("\(session.tenant?.name ?? "") · \(L("settings.deleteNoWayBack"))")
+            }
         }
         .sheet(item: $archive) { url in
             ShareSheet(url: url) { kept in

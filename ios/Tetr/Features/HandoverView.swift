@@ -152,6 +152,8 @@ struct HandoverView: View {
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 7) {
                     Button {
+                        // деньги перешли из рук в руки — событие с весом
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
                         onDone(entered ?? expected)
                         dismiss()
                     } label: {
@@ -163,12 +165,20 @@ struct HandoverView: View {
                     }
                     .buttonStyle(.press)
 
-                    Button(L("common.skip")) {
+                    /* «Пропустить» закрывает смену так же, как «Сдать», —
+                       только без суммы. Цель полного размера обязательна:
+                       слово в шестнадцать точек рядом с главной кнопкой
+                       нажимали случайно, а отменить закрытие нечем. */
+                    Button {
                         onDone(nil)
                         dismiss()
+                    } label: {
+                        Text(L("common.skip"))
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(Brand.boardMuted)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(.rect)
                     }
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(Brand.boardMuted)
                     .buttonStyle(.press)
                 }
                 .padding(.horizontal, 14)
