@@ -51,6 +51,7 @@ struct OwnerView: View {
        withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
        которую человек включил не просто так, ничего не меняет. */
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
@@ -362,49 +363,30 @@ struct OwnerView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { walletSurface }
-        .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+        /* Liquid Glass как материал, а не имитация: тёмный тон живёт
+           В САМОМ стекле, и тогда система рисует всё, за что материал
+           любят, — блик по кромке, преломление и глубину. Чёрная
+           подложка под прозрачным стеклом глушила ровно это, и карточка
+           читалась серой плитой. При «уменьшении прозрачности» стекло
+           честно выключается и остаётся плотная тьма. */
+        .glassEffect(
+            reduceTransparency
+                ? .identity
+                : .regular.tint(
+                    Color(red: 0x12 / 255, green: 0x10 / 255, blue: 0x18 / 255)
+                        .opacity(0.78)
+                ),
+            in: RoundedRectangle(cornerRadius: R.hero, style: .continuous)
+        )
+        .background {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: R.hero, style: .continuous)
+                    .fill(Color(red: 0x12 / 255, green: 0x10 / 255, blue: 0x18 / 255))
+            }
+        }
+        .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
         .padding(.top, 6)
         .accessibilityElement(children: .contain)
-    }
-
-    /**
-     * Металл кошелька. Три слоя, и все тихие: вертикальный градиент
-     * почти чёрного, диагональный блик из левого верхнего угла и
-     * стеклянная кромка, гаснущая книзу. Заливка фиксированная — как у
-     * плиток, предмет одинаков в обеих темах телефона.
-     */
-    private var walletSurface: some View {
-        let shape = RoundedRectangle(cornerRadius: R.hero, style: .continuous)
-        return shape
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0x20 / 255, green: 0x1E / 255, blue: 0x27 / 255),
-                        Color(red: 0x0D / 255, green: 0x0C / 255, blue: 0x11 / 255),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay {
-                LinearGradient(
-                    colors: [.white.opacity(0.09), .white.opacity(0.02), .clear],
-                    startPoint: .topLeading,
-                    endPoint: UnitPoint(x: 0.55, y: 0.55)
-                )
-                .clipShape(shape)
-            }
-            .overlay {
-                shape.strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.22), .white.opacity(0.03)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-            }
     }
 
     private var walletHairline: some View {
