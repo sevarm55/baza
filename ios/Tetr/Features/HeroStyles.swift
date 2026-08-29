@@ -1,47 +1,47 @@
 import SwiftUI
 
 /**
- * Пять видов главной плиты сводки — второй заход.
+ * Пять раскладок главной плиты — третий заход.
  *
- * ВРЕМЕННАЯ ВЕЩЬ. Первую пятёрку (тетрадь, чек, табло, карта, документ)
- * владелец забраковал целиком. Здесь взяты другие оси: масштаб, сетка,
- * данные, геометрия и плотность — так, чтобы виды отличались не
- * оформлением, а самим устройством блока.
+ * ВРЕМЕННАЯ ВЕЩЬ. Две прошлые пятёрки владелец забраковал, и в последней
+ * назвал причину: «особенно то, что без фонового блока». Значит карточка
+ * не обсуждается — она у всех пяти одна и та же, та самая белая плита с
+ * грейповым отсветом. Отличается только раскладка внутри: где стоит
+ * разрез «приход · зарплаты · расходы» и сколько высоты он берёт.
  *
- * Как только вид выбран, остальные четыре и переключатель уходят, а
- * выбранный переезжает в `OwnerView` единственным телом плиты.
+ * Как только вид выбран, остальные четыре и переключатель уходят.
  */
 enum HeroStyle: Int, CaseIterable, Identifiable {
-    /// Плакат: число во весь блок, всё остальное — спутники.
-    case poster = 0
-    /// Бенто: большая плитка итога и три маленькие рядом.
-    case bento = 1
-    /// График: число стоит на кривой периода.
-    case chart = 2
-    /// Кольцо: доля владельца дугой, число в центре.
-    case ring = 3
-    /// Компакт: одна плотная строка, самый низкий блок.
-    case compact = 4
+    /// Разрез справа от числа: блок не становится выше ни на точку.
+    case beside = 0
+    /// Разрез подвалом карточки, на своей подложке.
+    case footer = 1
+    /// Разрез фишками в одну строку.
+    case chips = 2
+    /// Толстая полоса с числами внутри кусков, без подписей.
+    case band = 3
+    /// Разрез свёрнут: карточка короткая, подробности по касанию.
+    case fold = 4
 
     var id: Int { rawValue }
 
     /// Имя для переключателя — язык разработки, в релизе его не будет.
     var name: String {
         switch self {
-        case .poster: return "Плакат"
-        case .bento: return "Бенто"
-        case .chart: return "График"
-        case .ring: return "Кольцо"
-        case .compact: return "Компакт"
+        case .beside: return "Рядом"
+        case .footer: return "Подвал"
+        case .chips: return "Фишки"
+        case .band: return "Полоса"
+        case .fold: return "Складка"
         }
     }
 
     static var current: HeroStyle {
-        get { HeroStyle(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .poster }
+        get { HeroStyle(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .beside }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
     }
 
-    private static let key = "tetr.heroStyle2"
+    private static let key = "tetr.heroStyle3"
 }
 
 /// Числа плиты. Собраны в одно место, чтобы виды отличались только видом.
@@ -55,8 +55,6 @@ struct HeroData {
     let payroll: Int
     let costs: Int
     let currency: String
-    /// Ход периода — для вида с графиком. Пусто, если ряда нет.
-    var series: [Int] = []
 
     var loss: Bool { profit < 0 }
 
@@ -64,14 +62,17 @@ struct HeroData {
     /// кегле читается точкой.
     var figure: String { (loss ? "−" : "") + money(abs(profit), currency) }
 
-    /// Какая доля прихода осталась владельцу. Нужна кольцу.
-    var share: Double {
-        guard revenue > 0 else { return 0 }
-        return min(1, max(0, Double(profit) / Double(revenue)))
+    /// Три части разреза в порядке чтения.
+    var parts: [(label: String, amount: Int, ink: Color)] {
+        [
+            (L("summary.paidIn"), revenue, Brand.onBoard),
+            (L("summary.toStaff"), payroll, Brand.lavenderInk),
+            (L("expenses.title"), costs, Brand.sandInk),
+        ]
     }
 }
 
-/// Плита сводки в выбранном виде.
+/// Плита сводки в выбранной раскладке.
 struct SummaryHero<Crew: View, Change: View>: View {
     let data: HeroData
     let style: HeroStyle
@@ -80,433 +81,309 @@ struct SummaryHero<Crew: View, Change: View>: View {
     /// Фишка сравнения с прошлым периодом.
     @ViewBuilder var change: Change
 
+    /// Разрез развёрнут. Живёт только у «Складки».
+    @State private var open = false
+
     var body: some View {
-        switch style {
-        case .poster: poster
-        case .bento: bento
-        case .chart: chart
-        case .ring: ring
-        case .compact: compact
-        }
-    }
-
-    // ══════════════════════════ 1. Плакат ══════════════════════════
-
-    /**
-     * Число во весь блок.
-     *
-     * Ни карточки, ни рамок: разница масштабов делает всю работу —
-     * главное читается с метра, остальное существует шёпотом. Так
-     * набирают обложки, и это единственный вид, где на экране нет ни
-     * одной лишней линии.
-     */
-    private var poster: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                Text(data.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Brand.boardMuted)
-                Spacer(minLength: 8)
-                crew
+        Group {
+            switch style {
+            case .beside: beside
+            case .footer: footer
+            case .chips: chips
+            case .band: band
+            case .fold: fold
             }
-
-            Text(data.figure)
-                .font(.system(size: 76, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.sign(data.profit))
-                .lineLimit(1)
-                .minimumScaleFactor(0.32)
-                .padding(.top, 4)
-                .contentTransition(.numericText(value: Double(data.profit)))
-
-            HStack(spacing: 8) {
-                Text(data.dates)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
-                change
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 2)
-
-            HStack(spacing: 10) {
-                whisper(L("summary.paidIn"), data.revenue)
-                Text("·").foregroundStyle(Brand.boardMuted.opacity(0.5))
-                whisper(L("summary.toStaff"), data.payroll)
-                Text("·").foregroundStyle(Brand.boardMuted.opacity(0.5))
-                whisper(L("expenses.title"), data.costs)
-                Spacer(minLength: 0)
-            }
-            .font(.system(size: 11))
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .padding(.top, 16)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        /* Карточка одна на все пять: белая бумага, мягкий грейповый
+           отсвет в углу, волосяная грань. Владелец назвал фон
+           обязательным — значит спорить об этом больше нечему. */
+        .background {
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: R.hero, style: .continuous)
+                    .fill(Brand.boardSurface)
+                Circle()
+                    .fill(Brand.grape.opacity(0.075))
+                    .frame(width: 138, height: 138)
+                    .blur(radius: 4)
+                    .offset(x: 54, y: -70)
+            }
+            .clipShape(.rect(cornerRadius: R.hero, style: .continuous))
+        }
+        .cardStroke(R.hero)
     }
 
-    private func whisper(_ title: String, _ amount: Int) -> some View {
-        HStack(spacing: 4) {
-            Text(title)
+    // ── общее ──
+
+    /// Шапка: дата и плашка людей.
+    private var head: some View {
+        HStack(spacing: 7) {
+            Text(data.dates)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Brand.boardMuted)
-            Text(money(amount, data.currency))
-                .fontWeight(.bold)
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-        }
-    }
-
-    // ══════════════════════════ 2. Бенто ══════════════════════════
-
-    /**
-     * Сетка из плиток разного веса.
-     *
-     * Слева высокая плитка итога, справа три низких — приход и два
-     * вычета. Размер плитки и есть иерархия: не нужно ни цвета, ни
-     * подписи «главное», чтобы понять, что читать первым.
-     */
-    private var bento: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    Text(data.title)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Brand.boardMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-
-                Spacer(minLength: 8)
-
-                Text(data.figure)
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.sign(data.profit))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText(value: Double(data.profit)))
-
-                change
-
-                HStack(spacing: 6) {
-                    Text(data.dates)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Spacer(minLength: 0)
-                }
-                .padding(.top, 6)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 172, alignment: .leading)
-            .boardCard(R.card)
-
-            VStack(spacing: 8) {
-                bentoCell(L("summary.paidIn"), data.revenue, tint: Brand.onBoard)
-                bentoCell(L("summary.toStaff"), data.payroll, tint: Brand.lavenderInk)
-                bentoCell(L("expenses.title"), data.costs, tint: Brand.sandInk)
-            }
-            .frame(width: 132)
-        }
-        .overlay(alignment: .topTrailing) {
+                .contentTransition(.numericText())
             crew
-                .padding(.top, 10)
-                .padding(.trailing, 10)
+            Spacer(minLength: 0)
         }
     }
 
-    private func bentoCell(_ title: String, _ amount: Int, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(money(amount, data.currency))
-                .font(.system(size: 14, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(tint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .boardCard(R.small)
-    }
-
-    // ══════════════════════════ 3. График ══════════════════════════
-
-    /**
-     * Число стоит на ходе периода.
-     *
-     * Кривая живёт не отдельной карточкой, а полом под числом: у денег
-     * появляется форма — ровно шёл день или рывками, — и блок при этом
-     * не становится выше, потому что график занимает место, которое
-     * раньше было пустым.
-     */
-    private var chart: some View {
+    /// Подпись и главное число.
+    private func figure(_ size: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                Text(data.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Brand.boardMuted)
-                Spacer(minLength: 8)
-                crew
-            }
+            Text(data.title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(data.figure)
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .font(.system(size: size, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(data.profit))
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
-                .padding(.top, 4)
+                .padding(.top, 2)
                 .contentTransition(.numericText(value: Double(data.profit)))
-
-            HStack(spacing: 8) {
-                Text(data.dates)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
-                change
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 2)
-
-            HeroWave(values: data.series)
-                .frame(height: 56)
-                .padding(.top, 14)
-
-            HStack(spacing: 0) {
-                chartPart(L("summary.paidIn"), data.revenue, first: true)
-                chartPart(L("summary.toStaff"), data.payroll, first: false)
-                chartPart(L("expenses.title"), data.costs, first: false)
-            }
-            .padding(.top, 12)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .boardCard(R.hero)
     }
 
-    private func chartPart(_ title: String, _ amount: Int, first: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(money(amount, data.currency))
-                .font(.system(size: 13.5, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, first ? 0 : 10)
-    }
-
-    // ══════════════════════════ 4. Кольцо ══════════════════════════
+    // ══════════════════════════ 1. Рядом ══════════════════════════
 
     /**
-     * Одна фигура вместо всех коробок.
+     * Разрез стоит СПРАВА от числа, а не под ним.
      *
-     * Кольцо отвечает на вопрос, которого нет ни у полосы, ни у колонок:
-     * КАКАЯ ЧАСТЬ прихода осталась. Число стоит в центре, потому что это
-     * и есть ответ, а подписи — сбоку, тихой колонкой.
+     * Высота блока при этом не растёт вовсе: колонка из трёх строк ровно
+     * равна высоте числа с подписью. Это ответ на «блок стал побольше» —
+     * данные добавились, а места не прибавилось.
      */
-    private var ring: some View {
-        HStack(alignment: .center, spacing: 18) {
-            ZStack {
-                Circle()
-                    .stroke(Brand.boardInk.opacity(0.07), lineWidth: 14)
-                Circle()
-                    .trim(from: 0, to: data.share)
-                    .stroke(Brand.sign(data.profit), style: .init(lineWidth: 14, lineCap: .butt))
-                    .rotationEffect(.degrees(-90))
+    private var beside: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            head
 
-                VStack(spacing: 1) {
-                    Text(data.figure)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.sign(data.profit))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .contentTransition(.numericText(value: Double(data.profit)))
-                    Text("\(Int((data.share * 100).rounded()))%")
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                }
-                .padding(.horizontal, 14)
-            }
-            .frame(width: 136, height: 136)
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text(data.title)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Brand.boardMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                ringRow(L("summary.paidIn"), data.revenue)
-                ringRow(L("summary.toStaff"), data.payroll)
-                ringRow(L("expenses.title"), data.costs)
-
-                crew
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .boardCard(R.hero)
-    }
-
-    private func ringRow(_ title: String, _ amount: Int) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-            Text(money(amount, data.currency))
-                .font(.system(size: 13.5, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-    }
-
-    // ══════════════════════════ 5. Компакт ══════════════════════════
-
-    /**
-     * Самый низкий блок из возможных.
-     *
-     * Число слева, три величины справа мелкой колонкой. Ровно то, что
-     * помещается в одну строку взгляда: экран начинается не с плиты, а
-     * сразу с работы.
-     */
-    private var compact: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(data.title)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Text(data.figure)
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.sign(data.profit))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .contentTransition(.numericText(value: Double(data.profit)))
-                }
-
+            HStack(alignment: .top, spacing: 14) {
+                figure(38)
                 Spacer(minLength: 8)
 
-                VStack(alignment: .trailing, spacing: 3) {
-                    compactRow(L("summary.paidIn"), data.revenue)
-                    compactRow(L("summary.toStaff"), data.payroll)
-                    compactRow(L("expenses.title"), data.costs)
+                VStack(alignment: .trailing, spacing: 6) {
+                    ForEach(Array(data.parts.enumerated()), id: \.offset) { _, part in
+                        VStack(alignment: .trailing, spacing: 0) {
+                            Text(part.label)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Brand.boardMuted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Text(money(part.amount, data.currency))
+                                .font(.system(size: 13.5, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(part.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                    }
                 }
+                .frame(width: 128, alignment: .trailing)
             }
 
-            HStack(spacing: 8) {
-                Text(data.dates)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Brand.boardMuted)
+            change
+        }
+        .padding(20)
+    }
+
+    // ══════════════════════════ 2. Подвал ══════════════════════════
+
+    /**
+     * Разрез — подвал карточки на своей подложке.
+     *
+     * Верх остаётся тем, ради чего экран открыли: число и ничего лишнего.
+     * Разрез отделён тоном, поэтому не спорит с числом, а объясняет его,
+     * когда до него дочитывают.
+     */
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                head
+                figure(45)
                 change
-                Spacer(minLength: 0)
-                crew
             }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .boardCard(R.card)
-    }
+            .padding(20)
 
-    private func compactRow(_ title: String, _ amount: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(title)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Brand.boardMuted)
-            Text(money(amount, data.currency))
-                .font(.system(size: 12, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-    }
-}
-
-/**
- * Кривая периода под числом.
- *
- * Сглажена по серединам отрезков, а не натянута на узлы: кривая, идущая
- * через сами точки, вылетает за них выбросами, и один высокий час давал
- * горб выше пика. Заливка под линией слабая: без неё линия читается
- * царапиной на полотне.
- */
-private struct HeroWave: View {
-    let values: [Int]
-
-    var body: some View {
-        GeometryReader { proxy in
-            let pts = points(in: proxy.size)
-            if pts.count > 1 {
-                ZStack {
-                    WavePath(points: pts, closedTo: proxy.size.height)
-                        .fill(
-                            LinearGradient(
-                                colors: [Brand.grape.opacity(0.16), Brand.grape.opacity(0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    WavePath(points: pts, closedTo: nil)
-                        .stroke(Brand.grape, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            HStack(spacing: 0) {
+                ForEach(Array(data.parts.enumerated()), id: \.offset) { index, part in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(Brand.boardInk.opacity(0.08))
+                            .frame(width: 1, height: 26)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(part.label)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Text(money(part.amount, data.currency))
+                            .font(.system(size: 13.5, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(part.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, index > 0 ? 12 : 0)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background(Brand.boardInk.opacity(0.035))
         }
-        .accessibilityHidden(true)
+        .clipShape(.rect(cornerRadius: R.hero, style: .continuous))
     }
 
-    private func points(in size: CGSize) -> [CGPoint] {
-        guard values.count > 1 else { return [] }
-        let peak = max(1, values.max() ?? 1)
-        let step = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { index, value in
-            let y = size.height - size.height * 0.92 * CGFloat(value) / CGFloat(peak)
-            return CGPoint(x: CGFloat(index) * step, y: y)
+    // ══════════════════════════ 3. Фишки ══════════════════════════
+
+    /**
+     * Разрез — три фишки в одну строку.
+     *
+     * Каждая величина в своей пилюле цветом смысла: мята приходу не
+     * нужна, приход и так главный, а зарплата и расходы получают свои
+     * тона — те же, что на всех остальных экранах продукта.
+     */
+    private var chips: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            head
+            figure(45)
+            change
+
+            HStack(spacing: 7) {
+                ForEach(Array(data.parts.enumerated()), id: \.offset) { _, part in
+                    HStack(spacing: 6) {
+                        Text(part.label)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Brand.boardMuted)
+                        Text(money(part.amount, data.currency))
+                            .font(.system(size: 12, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(part.ink)
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 30)
+                    .background(part.ink.opacity(0.08), in: .capsule)
+                }
+                Spacer(minLength: 0)
+            }
         }
+        .padding(20)
     }
-}
 
-private struct WavePath: Shape {
-    let points: [CGPoint]
-    var closedTo: CGFloat?
+    // ══════════════════════════ 4. Полоса ══════════════════════════
 
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        guard points.count > 1 else { return p }
-        p.move(to: points[0])
-        for i in 0..<(points.count - 1) {
-            let mid = CGPoint(
-                x: (points[i].x + points[i + 1].x) / 2,
-                y: (points[i].y + points[i + 1].y) / 2
-            )
-            if i == 0 { p.addLine(to: mid) } else { p.addQuadCurve(to: mid, control: points[i]) }
+    /**
+     * Толстая полоса с числами внутри кусков.
+     *
+     * Подписей под ней нет вовсе: длина куска и число в нём говорят обо
+     * всём сразу, а слова остаются только там, где кусок для них широк.
+     * Один предмет вместо полосы с легендой.
+     */
+    private var band: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            head
+            figure(45)
+            change
+
+            GeometryReader { proxy in
+                let all = max(1, data.parts.reduce(0) { $0 + $1.amount })
+                let gaps: CGFloat = 3 * CGFloat(max(0, data.parts.count - 1))
+                let free = max(0, proxy.size.width - gaps)
+                HStack(spacing: 3) {
+                    ForEach(Array(data.parts.enumerated()), id: \.offset) { _, part in
+                        let width = max(8, free * CGFloat(part.amount) / CGFloat(all))
+                        VStack(alignment: .leading, spacing: 1) {
+                            if width > 104 {
+                                Text(part.label)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.white.opacity(0.75))
+                                    .lineLimit(1)
+                            }
+                            if width > 68 {
+                                Text(money(part.amount, data.currency))
+                                    .font(.system(size: 13, weight: .bold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(width: width, height: 44, alignment: .leading)
+                        .background(bandInk(part.ink), in: .rect(cornerRadius: 12, style: .continuous))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(height: 44)
         }
-        p.addLine(to: points[points.count - 1])
-        if let base = closedTo {
-            p.addLine(to: CGPoint(x: points[points.count - 1].x, y: base))
-            p.addLine(to: CGPoint(x: points[0].x, y: base))
-            p.closeSubpath()
+        .padding(20)
+    }
+
+    /// Приход внутри полосы красится грейпом: `onBoard` — это чернила
+    /// текста, и заливать им кусок значит получить чёрный прямоугольник.
+    private func bandInk(_ ink: Color) -> Color {
+        ink == Brand.onBoard ? Brand.grapeFill : ink
+    }
+
+    // ══════════════════════════ 5. Складка ══════════════════════════
+
+    /**
+     * Карточка короткая, разрез приходит по касанию.
+     *
+     * Владелец открывает сводку сорок раз в неделю ради одного числа, а
+     * разбор смотрит раз в неделю. Здесь это и записано: обычный вид —
+     * две строки, подробности разворачиваются нажатием и остаются
+     * развёрнутыми, пока экран открыт.
+     */
+    private var fold: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            head
+
+            HStack(alignment: .bottom, spacing: 10) {
+                figure(45)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Brand.boardMuted)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .padding(.bottom, 8)
+            }
+
+            change
+
+            if open {
+                VStack(spacing: 0) {
+                    ForEach(Array(data.parts.enumerated()), id: \.offset) { index, part in
+                        if index > 0 { Hairline() }
+                        HStack(spacing: 8) {
+                            Text(part.label)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.boardMuted)
+                            Spacer(minLength: 8)
+                            Text(money(part.amount, data.currency))
+                                .font(.system(size: 14, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(part.ink)
+                        }
+                        .padding(.vertical, 9)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        return p
+        .padding(20)
+        .contentShape(.rect)
+        .onTapGesture {
+            withAnimation(.snappy(duration: Motion.normal)) { open.toggle() }
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(open ? L("common.close") : L("summary.paidIn"))
     }
 }
 
