@@ -163,6 +163,7 @@ enum Brand {
     static let mutedOnDark = Color.white.opacity(0.72)
     static let goodOnDark = Color(red: 0x34 / 255, green: 0xD3 / 255, blue: 0x99 / 255)
     static let warnOnDark = Color(red: 0xFB / 255, green: 0xBF / 255, blue: 0x24 / 255)
+    static let badOnDark = Color(red: 0xF8 / 255, green: 0x71 / 255, blue: 0x71 / 255)
 
     /**
      * Полотно заставки запуска.

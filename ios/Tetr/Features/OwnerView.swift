@@ -318,30 +318,56 @@ struct OwnerView: View {
      * равна числу машин на средний чек. Прибыль не помнит никто, в ней сидят
      * проценты работников и доля аренды за день.
      */
+    /**
+     * Плита-прибор: глубокий грейп, свет из угла, лаймовая засечка.
+     *
+     * Третья редакция за день — владелец забраковал и виджет с пятном и
+     * полосой («слишком ИИ»), и белую карточку с лестницей («совсем
+     * новый придумай»). Ответ — не карточка вовсе, а фирменный прибор:
+     * тот же язык, что у плиток веб-кабинета, чьё свечение владелец
+     * однажды велел вернуть словами «свечение верни», и у онбординга,
+     * который он назвал красивым.
+     *
+     * Заливка не адаптивная намеренно: марка одинакова в обеих темах,
+     * меняется только полотно вокруг (доктрина плиток). Свет — один, из
+     * правого верхнего угла; засечка — вторая половина марки, лайм.
+     * Лестница вычетов пережила редакцию: суммы в колонку — это сама
+     * «тетрадь», меняется только бумага под ними.
+     */
     private func reading(_ s: API.Summary) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Text(periodDates)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.mutedOnDark)
                     .contentTransition(.numericText())
                 crewChip
                 Spacer(minLength: 0)
             }
-            .padding(.bottom, 19)
+            .padding(.bottom, 20)
+
+            /* Фирменная засечка: короткая светящаяся линия лаймом. Не
+               украшение ради украшения — подпись марки, та же, что была
+               у плиток, и единственное место лайма на плите. */
+            RoundedRectangle(cornerRadius: 1.25, style: .continuous)
+                .fill(Brand.lime)
+                .frame(width: 18, height: 2.5)
+                .shadow(color: Brand.lime.opacity(0.55), radius: 5)
+                .accessibilityHidden(true)
+                .padding(.bottom, 9)
 
             Text(profitTitle)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.mutedOnDark)
                 .fixedSize(horizontal: false, vertical: true)
 
-            /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
-               Цвет по знаку — правило одно на все денежные экраны и
-               живёт в `Brand.sign`. */
+            /* Минус настоящий, U+2212: дефис на таком кегле читается
+               точкой. Белым по грейпу — контраст 7.7 : 1; краску и на
+               тёмном получает только минус. */
             Text((s.profit < 0 ? "−" : "") + money(abs(s.profit), currency))
                 .font(.system(size: 45, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.sign(s.profit))
+                .foregroundStyle(s.profit < 0 ? Brand.badOnDark : Brand.inkOnDark)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
                 .padding(.top, 2)
@@ -354,11 +380,23 @@ struct OwnerView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        /* Чистая бумага без украшений. Размытое грейповое пятно в углу и
-           мягкая тень были ровно тем, из-за чего владелец назвал плиту
-           «слишком ИИ»: декор ради декора. Плюс тень цветом boardInk в
-           тёмной теме светилась белым — та же ловушка, что у расходов. */
-        .boardCard(R.hero)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                Brand.heroGradient
+                /* Свет из угла — то, чем прибор отличается от заливки.
+                   Тот же приём, что у `tile()`: одно пятно, один угол. */
+                RadialGradient(
+                    colors: [
+                        Color(red: 0xA7 / 255, green: 0x8B / 255, blue: 0xFA / 255).opacity(0.5),
+                        .clear,
+                    ],
+                    center: .topTrailing,
+                    startRadius: 2,
+                    endRadius: 230
+                )
+            }
+            .clipShape(.rect(cornerRadius: R.hero, style: .continuous))
+        }
         .padding(.top, 6)
     }
 
@@ -395,9 +433,9 @@ struct OwnerView: View {
         if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
             VStack(spacing: 0) {
                 ladderRow(L("summary.paidIn"), s.stats.revenue, minus: false)
-                Hairline()
+                plateHairline
                 ladderRow(L("summary.toStaff"), s.stats.payroll, minus: true)
-                Hairline()
+                plateHairline
                 ladderRow(L("expenses.title"), s.costs.total, minus: true)
             }
             .padding(.top, 14)
@@ -416,19 +454,28 @@ struct OwnerView: View {
     }
 
     /// Строка лестницы: слово слева, сумма по правому краю. Минус
-    /// настоящий, U+2212, и стоит у числа, а не в слове.
+    /// настоящий, U+2212, и стоит у числа, а не в слове. Краски — по
+    /// поверхности под строкой, а не по теме: плита тёмная всегда.
     private func ladderRow(_ title: String, _ amount: Int, minus: Bool) -> some View {
         HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.mutedOnDark)
             Spacer(minLength: 8)
             Text((minus && amount > 0 ? "−" : "") + money(amount, currency))
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(minus ? Brand.boardMuted : Brand.onBoard)
+                .foregroundStyle(minus ? Brand.mutedOnDark : Brand.inkOnDark)
         }
         .padding(.vertical, 9)
+    }
+
+    /// Волосяная линия на тёмной плите: `Hairline` рисует чернилами
+    /// полотна и на грейпе не видна.
+    private var plateHairline: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.14))
+            .frame(height: 1)
     }
 
 
@@ -468,14 +515,14 @@ struct OwnerView: View {
                    «по сравнению с чем». */
                 Text(c.label)
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.mutedOnDark)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.badOnBoard)
+            .foregroundStyle(c.up ? Brand.goodOnDark : Brand.badOnDark)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
+            .background(.white.opacity(0.14), in: .rect(cornerRadius: 10, style: .continuous))
             .padding(.top, 9)
         }
     }
@@ -528,7 +575,7 @@ struct OwnerView: View {
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Tone.slate.base, in: .rect(cornerRadius: 10, style: .continuous))
+                .background(.white.opacity(0.16), in: .rect(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.press)
             .accessibilityLabel(
