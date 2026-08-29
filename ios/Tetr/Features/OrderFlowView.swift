@@ -173,7 +173,7 @@ struct OrderFlowView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
                     .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
+                    .background(Brand.boardControl, in: .circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L("common.close"))
@@ -226,7 +226,7 @@ struct OrderFlowView: View {
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
-                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+                .background(Brand.boardControl, in: .rect(cornerRadius: 18))
 
             /* Камера — только для номеров и только там, где она есть. Ручной
                ввод остаётся рядом всегда: номер бывает грязный, гнутый или
@@ -332,7 +332,7 @@ struct OrderFlowView: View {
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
                             .padding(.horizontal, 15)
                             .padding(.vertical, 10)
-                            .background(on ? Brand.lime : Brand.boardInk.opacity(0.07), in: .capsule)
+                            .background(on ? Brand.lime : Brand.boardControl, in: .capsule)
                     }
                     .buttonStyle(.press)
                     .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -389,7 +389,7 @@ struct OrderFlowView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
                     .background(
-                        on ? Brand.lime : Brand.boardInk.opacity(0.07),
+                        on ? Brand.lime : Brand.boardControl,
                         in: .rect(cornerRadius: 16)
                     )
                 }
@@ -434,7 +434,7 @@ struct OrderFlowView: View {
                     .foregroundStyle(Brand.boardMuted)
             }
             .padding(14)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18))
+            .background(Brand.boardControl, in: .rect(cornerRadius: 18))
             // касание принимает вся коробка, а не только набранные цифры
             .contentShape(.rect)
             .onTapGesture { typingDiscount = true }
@@ -526,7 +526,7 @@ struct OrderFlowView: View {
                             .padding(.horizontal, 14)
                             .frame(height: 44)
                             .background(
-                                on ? Brand.lime : Brand.boardInk.opacity(0.07),
+                                on ? Brand.lime : Brand.boardControl,
                                 in: .rect(cornerRadius: 14)
                             )
                         }
@@ -586,7 +586,7 @@ struct OrderFlowView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
                 .background(
-                    on ? Brand.lime : Brand.boardInk.opacity(0.07),
+                    on ? Brand.lime : Brand.boardControl,
                     in: .rect(cornerRadius: 16)
                 )
         }
@@ -646,7 +646,7 @@ struct OrderFlowView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(
-                            on ? Brand.boardInk : Brand.boardInk.opacity(0.07),
+                            on ? Brand.boardInk : Brand.boardControl,
                             in: .rect(cornerRadius: 18)
                         )
                     }

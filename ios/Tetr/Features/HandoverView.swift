@@ -101,7 +101,7 @@ struct HandoverView: View {
                             .foregroundStyle(Brand.onBoard)
                             .padding(.horizontal, 14)
                             .frame(height: 62)
-                            .background(Brand.boardInk.opacity(0.055), in: .rect(cornerRadius: 16))
+                            .background(Brand.boardControl, in: .rect(cornerRadius: 16))
                             .contentShape(.rect)
                             .onTapGesture { typingAmount = true }
 
