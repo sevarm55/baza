@@ -1,47 +1,47 @@
 import SwiftUI
 
 /**
- * Пять видов главной плиты сводки — и переключатель между ними.
+ * Пять видов главной плиты сводки — второй заход.
  *
- * ВРЕМЕННАЯ ВЕЩЬ. Владелец забраковал подряд несколько редакций и
- * попросил показать пять разных блоков целиком, с кнопкой для сравнения.
+ * ВРЕМЕННАЯ ВЕЩЬ. Первую пятёрку (тетрадь, чек, табло, карта, документ)
+ * владелец забраковал целиком. Здесь взяты другие оси: масштаб, сетка,
+ * данные, геометрия и плотность — так, чтобы виды отличались не
+ * оформлением, а самим устройством блока.
+ *
  * Как только вид выбран, остальные четыре и переключатель уходят, а
  * выбранный переезжает в `OwnerView` единственным телом плиты.
- *
- * Виды нарочно разведены не оттенками, а замыслом: тетрадь, чек, табло,
- * карта, документ. Одинаковых среди них нет.
  */
 enum HeroStyle: Int, CaseIterable, Identifiable {
-    /// Тетрадь: поле с лаймовой линейкой, суммы по линейкам.
-    case notebook = 0
-    /// Чек: моноширинная лента с пунктиром и итогом.
-    case receipt = 1
-    /// Табло: тёмный прибор, цифры в клетках.
-    case board = 2
-    /// Карта: грейповая платёжная карта.
-    case card = 3
-    /// Документ: без карточки вовсе, только типографика на полотне.
-    case paper = 4
+    /// Плакат: число во весь блок, всё остальное — спутники.
+    case poster = 0
+    /// Бенто: большая плитка итога и три маленькие рядом.
+    case bento = 1
+    /// График: число стоит на кривой периода.
+    case chart = 2
+    /// Кольцо: доля владельца дугой, число в центре.
+    case ring = 3
+    /// Компакт: одна плотная строка, самый низкий блок.
+    case compact = 4
 
     var id: Int { rawValue }
 
     /// Имя для переключателя — язык разработки, в релизе его не будет.
     var name: String {
         switch self {
-        case .notebook: return "Тетрадь"
-        case .receipt: return "Чек"
-        case .board: return "Табло"
-        case .card: return "Карта"
-        case .paper: return "Документ"
+        case .poster: return "Плакат"
+        case .bento: return "Бенто"
+        case .chart: return "График"
+        case .ring: return "Кольцо"
+        case .compact: return "Компакт"
         }
     }
 
     static var current: HeroStyle {
-        get { HeroStyle(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .notebook }
+        get { HeroStyle(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .poster }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
     }
 
-    private static let key = "tetr.heroStyle"
+    private static let key = "tetr.heroStyle2"
 }
 
 /// Числа плиты. Собраны в одно место, чтобы виды отличались только видом.
@@ -55,6 +55,8 @@ struct HeroData {
     let payroll: Int
     let costs: Int
     let currency: String
+    /// Ход периода — для вида с графиком. Пусто, если ряда нет.
+    var series: [Int] = []
 
     var loss: Bool { profit < 0 }
 
@@ -62,16 +64,11 @@ struct HeroData {
     /// кегле читается точкой.
     var figure: String { (loss ? "−" : "") + money(abs(profit), currency) }
 
-    /// Только цифры, без валюты — для видов, где знак стоит отдельно.
-    var figureDigits: String {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = LangStore.currentLang.groupSeparator
-        let n = f.string(from: NSNumber(value: abs(profit))) ?? "\(abs(profit))"
-        return (loss ? "−" : "") + n
+    /// Какая доля прихода осталась владельцу. Нужна кольцу.
+    var share: Double {
+        guard revenue > 0 else { return 0 }
+        return min(1, max(0, Double(profit) / Double(revenue)))
     }
-
-    var currencySign: String { currency == "AMD" ? "֏" : currency }
 }
 
 /// Плита сводки в выбранном виде.
@@ -85,345 +82,222 @@ struct SummaryHero<Crew: View, Change: View>: View {
 
     var body: some View {
         switch style {
-        case .notebook: notebook
-        case .receipt: receipt
-        case .board: board
-        case .card: card
-        case .paper: paper
+        case .poster: poster
+        case .bento: bento
+        case .chart: chart
+        case .ring: ring
+        case .compact: compact
         }
     }
 
-    // ══════════════════════════ 1. Тетрадь ══════════════════════════
+    // ══════════════════════════ 1. Плакат ══════════════════════════
 
     /**
-     * То, чем продукт называется: «տետր» — тетрадь.
+     * Число во весь блок.
      *
-     * Лаймовое поле слева, как красная линейка в школьной тетради, и
-     * суммы, вписанные по линейкам. Ни одного украшения: линейка тут
-     * работает разметкой, а не декором.
+     * Ни карточки, ни рамок: разница масштабов делает всю работу —
+     * главное читается с метра, остальное существует шёпотом. Так
+     * набирают обложки, и это единственный вид, где на экране нет ни
+     * одной лишней линии.
      */
-    private var notebook: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(Brand.lime)
-                .frame(width: 4)
-
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 7) {
-                    Text(data.dates)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Brand.boardMuted)
-                    crew
-                    Spacer(minLength: 0)
-                }
-
+    private var poster: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
                 Text(data.title)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Brand.boardMuted)
-                    .padding(.top, 18)
+                Spacer(minLength: 8)
+                crew
+            }
+
+            Text(data.figure)
+                .font(.system(size: 76, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.sign(data.profit))
+                .lineLimit(1)
+                .minimumScaleFactor(0.32)
+                .padding(.top, 4)
+                .contentTransition(.numericText(value: Double(data.profit)))
+
+            HStack(spacing: 8) {
+                Text(data.dates)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.boardMuted)
+                change
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
+
+            HStack(spacing: 10) {
+                whisper(L("summary.paidIn"), data.revenue)
+                Text("·").foregroundStyle(Brand.boardMuted.opacity(0.5))
+                whisper(L("summary.toStaff"), data.payroll)
+                Text("·").foregroundStyle(Brand.boardMuted.opacity(0.5))
+                whisper(L("expenses.title"), data.costs)
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 11))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.top, 16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func whisper(_ title: String, _ amount: Int) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .foregroundStyle(Brand.boardMuted)
+            Text(money(amount, data.currency))
+                .fontWeight(.bold)
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+        }
+    }
+
+    // ══════════════════════════ 2. Бенто ══════════════════════════
+
+    /**
+     * Сетка из плиток разного веса.
+     *
+     * Слева высокая плитка итога, справа три низких — приход и два
+     * вычета. Размер плитки и есть иерархия: не нужно ни цвета, ни
+     * подписи «главное», чтобы понять, что читать первым.
+     */
+    private var bento: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Text(data.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+
+                Spacer(minLength: 8)
 
                 Text(data.figure)
-                    .font(.system(size: 45, weight: .bold, design: .rounded))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Brand.sign(data.profit))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.42)
+                    .minimumScaleFactor(0.4)
                     .contentTransition(.numericText(value: Double(data.profit)))
 
                 change
 
-                VStack(spacing: 0) {
-                    ruledRow(L("summary.paidIn"), data.revenue, minus: false)
-                    ruledRow(L("summary.toStaff"), data.payroll, minus: true)
-                    ruledRow(L("expenses.title"), data.costs, minus: true)
+                HStack(spacing: 6) {
+                    Text(data.dates)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 0)
                 }
-                .padding(.top, 14)
+                .padding(.top, 6)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 172, alignment: .leading)
+            .boardCard(R.card)
+
+            VStack(spacing: 8) {
+                bentoCell(L("summary.paidIn"), data.revenue, tint: Brand.onBoard)
+                bentoCell(L("summary.toStaff"), data.payroll, tint: Brand.lavenderInk)
+                bentoCell(L("expenses.title"), data.costs, tint: Brand.sandInk)
+            }
+            .frame(width: 132)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: R.hero, style: .continuous))
-        .cardStroke(R.hero)
+        .overlay(alignment: .topTrailing) {
+            crew
+                .padding(.top, 10)
+                .padding(.trailing, 10)
+        }
     }
 
-    /// Строка по линейке: слово, сумма у правого края, линия под ними.
-    private func ruledRow(_ title: String, _ amount: Int, minus: Bool) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Brand.boardMuted)
-                Spacer(minLength: 8)
-                Text((minus && amount > 0 ? "−" : "") + money(amount, data.currency))
-                    .font(.system(size: 14, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(minus ? Brand.boardMuted : Brand.onBoard)
-            }
-            .padding(.bottom, 7)
-
-            Hairline()
-        }
-        .padding(.top, 7)
-    }
-
-    // ══════════════════════════ 2. Чек ══════════════════════════
-
-    /**
-     * Кассовая лента: моноширинные цифры, пунктир, итог внизу.
-     *
-     * Мойка — наличный бизнес, и чек тут не стилизация, а привычная
-     * человеку форма: приход сверху, вычеты, черта, итог.
-     */
-    private var receipt: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                Text(data.dates.uppercased())
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .tracking(0.6)
-                    .foregroundStyle(Brand.boardMuted)
-                crew
-                Spacer(minLength: 0)
-            }
-            .padding(.bottom, 14)
-
-            DashRule()
-            receiptRow(L("summary.paidIn"), data.revenue, minus: false)
-            receiptRow(L("summary.toStaff"), data.payroll, minus: true)
-            receiptRow(L("expenses.title"), data.costs, minus: true)
-            DashRule()
-                .padding(.bottom, 12)
-
-            Text(data.title.uppercased())
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(0.6)
-                .foregroundStyle(Brand.boardMuted)
-
-            Text(data.figure)
-                .font(.system(size: 40, weight: .bold, design: .monospaced))
-                .foregroundStyle(Brand.sign(data.profit))
-                .lineLimit(1)
-                .minimumScaleFactor(0.42)
-                .padding(.top, 2)
-                .contentTransition(.numericText(value: Double(data.profit)))
-
-            change
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: R.hero, style: .continuous))
-        .cardStroke(R.hero)
-    }
-
-    private func receiptRow(_ title: String, _ amount: Int, minus: Bool) -> some View {
-        HStack(spacing: 8) {
+    private func bentoCell(_ title: String, _ amount: Int, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 12.5, design: .monospaced))
+                .font(.system(size: 10.5))
                 .foregroundStyle(Brand.boardMuted)
-            Spacer(minLength: 8)
-            Text((minus && amount > 0 ? "−" : "") + money(amount, data.currency))
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundStyle(minus ? Brand.boardMuted : Brand.onBoard)
-        }
-        .padding(.vertical, 8)
-    }
-
-    // ══════════════════════════ 3. Табло ══════════════════════════
-
-    /**
-     * Прибор: тёмная плита, каждая цифра в своей клетке.
-     *
-     * Так устроены счётчики и табло — предметы, которые показывают
-     * величину, а не рассказывают о ней.
-     */
-    private var board: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                Text(data.title.uppercased())
-                    .font(.system(size: 10, weight: .black))
-                    .tracking(1.2)
-                    .foregroundStyle(.white.opacity(0.55))
-                Spacer(minLength: 0)
-                crew
-            }
-            .padding(.bottom, 14)
-
-            DigitCells(text: data.figureDigits, sign: data.currencySign, loss: data.loss)
-
-            HStack(spacing: 7) {
-                Text(data.dates)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.5))
-                change
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 12)
-
-            HStack(spacing: 7) {
-                boardCell(L("summary.paidIn"), data.revenue, tint: .white)
-                boardCell(L("summary.toStaff"), data.payroll, tint: Brand.mutedOnDark)
-                boardCell(L("expenses.title"), data.costs, tint: Brand.mutedOnDark)
-            }
-            .padding(.top, 14)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Tone.slate.base, in: .rect(cornerRadius: R.hero, style: .continuous))
-    }
-
-    private func boardCell(_ title: String, _ amount: Int, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.5))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(money(amount, data.currency))
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(tint)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.55)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(.white.opacity(0.07), in: .rect(cornerRadius: R.control, style: .continuous))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .boardCard(R.small)
     }
 
-    // ══════════════════════════ 4. Карта ══════════════════════════
+    // ══════════════════════════ 3. График ══════════════════════════
 
     /**
-     * Платёжная карта: грейп, марка в углу, доли мелкой строкой снизу.
+     * Число стоит на ходе периода.
      *
-     * Форма, которую человек уже держал в руках, — и потому не требует
-     * объяснения, что перед ним деньги.
+     * Кривая живёт не отдельной карточкой, а полом под числом: у денег
+     * появляется форма — ровно шёл день или рывками, — и блок при этом
+     * не становится выше, потому что график занимает место, которое
+     * раньше было пустым.
      */
-    private var card: some View {
+    private var chart: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
-                Wordmark(size: 13)
-                    .foregroundStyle(.white.opacity(0.9))
-                Spacer(minLength: 0)
-                crew
-            }
-
-            Text(data.title)
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.62))
-                .padding(.top, 22)
-
-            Text(data.figure)
-                .font(.system(size: 42, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(data.loss ? Brand.badOnDark : .white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.42)
-                .contentTransition(.numericText(value: Double(data.profit)))
-
-            change
-
-            HStack(spacing: 0) {
-                cardPart(L("summary.paidIn"), data.revenue)
-                Rectangle().fill(.white.opacity(0.16)).frame(width: 1, height: 26)
-                cardPart(L("summary.toStaff"), data.payroll)
-                Rectangle().fill(.white.opacity(0.16)).frame(width: 1, height: 26)
-                cardPart(L("expenses.title"), data.costs)
-            }
-            .padding(.top, 18)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                Brand.heroGradient
-                RadialGradient(
-                    colors: [.white.opacity(0.16), .clear],
-                    center: .topTrailing,
-                    startRadius: 4,
-                    endRadius: 220
-                )
-            }
-            .clipShape(.rect(cornerRadius: R.hero, style: .continuous))
-        }
-    }
-
-    private func cardPart(_ title: String, _ amount: Int) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.55))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(money(amount, data.currency))
-                .font(.system(size: 12.5, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 10)
-    }
-
-    // ══════════════════════════ 5. Документ ══════════════════════════
-
-    /**
-     * Никакой карточки: числа прямо на полотне.
-     *
-     * Экран перестаёт быть набором коробок — сверху остаётся только
-     * типографика и две волосяные линии. Самый тихий из пяти.
-     */
-    private var paper: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                Text(data.dates)
-                    .font(.system(size: 13, weight: .semibold))
+                Text(data.title)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Brand.boardMuted)
+                Spacer(minLength: 8)
                 crew
-                Spacer(minLength: 0)
             }
 
-            Text(data.title)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.boardMuted)
-                .padding(.top, 22)
-
             Text(data.figure)
-                .font(.system(size: 52, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sign(data.profit))
                 .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .padding(.top, 2)
+                .minimumScaleFactor(0.42)
+                .padding(.top, 4)
                 .contentTransition(.numericText(value: Double(data.profit)))
 
-            change
+            HStack(spacing: 8) {
+                Text(data.dates)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.boardMuted)
+                change
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
 
-            Hairline()
-                .padding(.top, 20)
+            HeroWave(values: data.series)
+                .frame(height: 56)
+                .padding(.top, 14)
 
             HStack(spacing: 0) {
-                paperPart(L("summary.paidIn"), data.revenue, first: true)
-                paperPart(L("summary.toStaff"), data.payroll, first: false)
-                paperPart(L("expenses.title"), data.costs, first: false)
+                chartPart(L("summary.paidIn"), data.revenue, first: true)
+                chartPart(L("summary.toStaff"), data.payroll, first: false)
+                chartPart(L("expenses.title"), data.costs, first: false)
             }
-            .padding(.vertical, 14)
-
-            Hairline()
+            .padding(.top, 12)
         }
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .boardCard(R.hero)
     }
 
-    private func paperPart(_ title: String, _ amount: Int, first: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func chartPart(_ title: String, _ amount: Int, first: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 11))
+                .font(.system(size: 10.5))
                 .foregroundStyle(Brand.boardMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(money(amount, data.currency))
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 13.5, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
                 .lineLimit(1)
@@ -432,62 +306,206 @@ struct SummaryHero<Crew: View, Change: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, first ? 0 : 10)
     }
-}
 
-/**
- * Цифры в клетках — как на счётчике.
- *
- * Разделители разрядов клеток не получают: клетка это цифра, а пробел
- * между тысячами — воздух, и рисовать под ним коробку значит сломать
- * счёт.
- */
-private struct DigitCells: View {
-    let text: String
-    let sign: String
-    let loss: Bool
+    // ══════════════════════════ 4. Кольцо ══════════════════════════
 
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
-            ForEach(Array(text.enumerated()), id: \.offset) { _, ch in
-                if ch.isNumber {
-                    Text(String(ch))
-                        .font(.system(size: 32, weight: .bold))
+    /**
+     * Одна фигура вместо всех коробок.
+     *
+     * Кольцо отвечает на вопрос, которого нет ни у полосы, ни у колонок:
+     * КАКАЯ ЧАСТЬ прихода осталась. Число стоит в центре, потому что это
+     * и есть ответ, а подписи — сбоку, тихой колонкой.
+     */
+    private var ring: some View {
+        HStack(alignment: .center, spacing: 18) {
+            ZStack {
+                Circle()
+                    .stroke(Brand.boardInk.opacity(0.07), lineWidth: 14)
+                Circle()
+                    .trim(from: 0, to: data.share)
+                    .stroke(Brand.sign(data.profit), style: .init(lineWidth: 14, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+
+                VStack(spacing: 1) {
+                    Text(data.figure)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(loss ? Brand.badOnDark : .white)
-                        .frame(width: 26, height: 44)
-                        .background(.white.opacity(0.09), in: .rect(cornerRadius: 8, style: .continuous))
-                } else {
-                    Text(String(ch))
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(loss ? Brand.badOnDark : .white)
-                        .frame(width: ch == " " ? 6 : 14)
+                        .foregroundStyle(Brand.sign(data.profit))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .contentTransition(.numericText(value: Double(data.profit)))
+                    Text("\(Int((data.share * 100).rounded()))%")
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                }
+                .padding(.horizontal, 14)
+            }
+            .frame(width: 136, height: 136)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(data.title)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Brand.boardMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ringRow(L("summary.paidIn"), data.revenue)
+                ringRow(L("summary.toStaff"), data.payroll)
+                ringRow(L("expenses.title"), data.costs)
+
+                crew
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .boardCard(R.hero)
+    }
+
+    private func ringRow(_ title: String, _ amount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
+            Text(money(amount, data.currency))
+                .font(.system(size: 13.5, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
+
+    // ══════════════════════════ 5. Компакт ══════════════════════════
+
+    /**
+     * Самый низкий блок из возможных.
+     *
+     * Число слева, три величины справа мелкой колонкой. Ровно то, что
+     * помещается в одну строку взгляда: экран начинается не с плиты, а
+     * сразу с работы.
+     */
+    private var compact: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(data.title)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(data.figure)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.sign(data.profit))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .contentTransition(.numericText(value: Double(data.profit)))
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    compactRow(L("summary.paidIn"), data.revenue)
+                    compactRow(L("summary.toStaff"), data.payroll)
+                    compactRow(L("expenses.title"), data.costs)
                 }
             }
 
-            Text(sign)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
-                .padding(.leading, 2)
+            HStack(spacing: 8) {
+                Text(data.dates)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Brand.boardMuted)
+                change
+                Spacer(minLength: 0)
+                crew
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .boardCard(R.card)
+    }
+
+    private func compactRow(_ title: String, _ amount: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Brand.boardMuted)
+            Text(money(amount, data.currency))
+                .font(.system(size: 12, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.5)
+        .minimumScaleFactor(0.7)
     }
 }
 
-/// Пунктирная черта чека.
-private struct DashRule: View {
+/**
+ * Кривая периода под числом.
+ *
+ * Сглажена по серединам отрезков, а не натянута на узлы: кривая, идущая
+ * через сами точки, вылетает за них выбросами, и один высокий час давал
+ * горб выше пика. Заливка под линией слабая: без неё линия читается
+ * царапиной на полотне.
+ */
+private struct HeroWave: View {
+    let values: [Int]
+
     var body: some View {
-        DashShape()
-            .stroke(Brand.boardInk.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
-            .frame(height: 1)
+        GeometryReader { proxy in
+            let pts = points(in: proxy.size)
+            if pts.count > 1 {
+                ZStack {
+                    WavePath(points: pts, closedTo: proxy.size.height)
+                        .fill(
+                            LinearGradient(
+                                colors: [Brand.grape.opacity(0.16), Brand.grape.opacity(0)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    WavePath(points: pts, closedTo: nil)
+                        .stroke(Brand.grape, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func points(in size: CGSize) -> [CGPoint] {
+        guard values.count > 1 else { return [] }
+        let peak = max(1, values.max() ?? 1)
+        let step = size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { index, value in
+            let y = size.height - size.height * 0.92 * CGFloat(value) / CGFloat(peak)
+            return CGPoint(x: CGFloat(index) * step, y: y)
+        }
     }
 }
 
-private struct DashShape: Shape {
+private struct WavePath: Shape {
+    let points: [CGPoint]
+    var closedTo: CGFloat?
+
     func path(in rect: CGRect) -> Path {
         var p = Path()
-        p.move(to: CGPoint(x: 0, y: rect.midY))
-        p.addLine(to: CGPoint(x: rect.width, y: rect.midY))
+        guard points.count > 1 else { return p }
+        p.move(to: points[0])
+        for i in 0..<(points.count - 1) {
+            let mid = CGPoint(
+                x: (points[i].x + points[i + 1].x) / 2,
+                y: (points[i].y + points[i + 1].y) / 2
+            )
+            if i == 0 { p.addLine(to: mid) } else { p.addQuadCurve(to: mid, control: points[i]) }
+        }
+        p.addLine(to: points[points.count - 1])
+        if let base = closedTo {
+            p.addLine(to: CGPoint(x: points[points.count - 1].x, y: base))
+            p.addLine(to: CGPoint(x: points[0].x, y: base))
+            p.closeSubpath()
+        }
         return p
     }
 }

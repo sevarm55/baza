@@ -331,7 +331,8 @@ struct OwnerView: View {
                     revenue: s.stats.revenue,
                     payroll: s.stats.payroll,
                     costs: s.costs.total,
-                    currency: currency
+                    currency: currency,
+                    series: s.series.map(\.revenue)
                 ),
                 style: heroStyle,
                 crew: { crewChip },
