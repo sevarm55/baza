@@ -349,28 +349,16 @@ struct OwnerView: View {
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(s.profit)))
 
-            breakdown(s)
             change
+            breakdown(s)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Brand.boardSurface)
-                Circle()
-                    .fill(Brand.grape.opacity(0.075))
-                    .frame(width: 138, height: 138)
-                    .blur(radius: 4)
-                    .offset(x: 54, y: -70)
-            }
-            .clipShape(.rect(cornerRadius: 28, style: .continuous))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
-        }
-        .shadow(color: Brand.boardInk.opacity(0.045), radius: 18, y: 8)
+        /* Чистая бумага без украшений. Размытое грейповое пятно в углу и
+           мягкая тень были ровно тем, из-за чего владелец назвал плиту
+           «слишком ИИ»: декор ради декора. Плюс тень цветом boardInk в
+           тёмной теме светилась белым — та же ловушка, что у расходов. */
+        .boardCard(R.hero)
         .padding(.top, 6)
     }
 
@@ -390,54 +378,29 @@ struct OwnerView: View {
      * Сумма кусков равна выручке всегда: прибыль это она минус зарплаты
      * минус расходы, других слагаемых у неё нет.
      */
+    /**
+     * Из чего вышла чистая прибыль — лестницей вычетов, а не полосой.
+     *
+     * Полоса из трёх красок с легендой цветных точек была самым «ИИ»
+     * местом плиты: радуга аналитического виджета, которую владелец
+     * попросил убрать. Лестница — язык самой «тетради»: суммы в колонку,
+     * вычеты со знаком, итог уже назван крупно выше. Тот же приём стоит
+     * в веб-кабинете над этой же цифрой.
+     *
+     * Цифры табличные и по правому краю: колонка сравнивается взглядом,
+     * без чтения. Красок нет — краску на плите получает только минус.
+     */
     @ViewBuilder
     private func breakdown(_ s: API.Summary) -> some View {
-        /* В минус полоса не уходит: отрицательного куска не бывает. Когда
-           день ушёл в убыток, владельцу не осталось ничего, и полоса честно
-           состоит из одних расходов — а знак минуса уже стоит в главном
-           числе над ней. */
-        let mine = max(0, s.profit)
-        /* Три краски, а не серые оттенки.
-
-           Серым эта полоса была ровно один заход: цвета конфликтовали с
-           разрезом по способам оплаты, где те же мята, лаванда и кобальт
-           значат наличные, карту и перевод. Конфликт снялся сам — разрез
-           оплат ушёл из сегодняшнего дня, — и красить деньги в серое
-           больше незачем. Серая полоса честная, но неживая, а этот экран
-           открывают по десять раз в день.
-
-           Грейп у доли владельца: это марка, и главный кусок полосы должен
-           быть ею. Лаванда у зарплат, кобальт у расходов — те же цвета, что
-           стояли под колонками до перестройки, и тот же за ними смысл. */
-        let parts = Split.money(
-            mine: mine,
-            staff: s.stats.payroll,
-            costs: s.costs.total
-        )
-        let total = parts.reduce(0) { $0 + $1.amount }
-
-        if total > 0 {
-            VStack(alignment: .leading, spacing: 7) {
-                /* Сколько всего пришло. Без этой строки полоса показывала
-                   доли неизвестно от чего: главное число называет остаток,
-                   а целое, из которого он вышел, на экране не звучало
-                   нигде. */
-                HStack(spacing: 6) {
-                    Text(L("summary.paidIn"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
-                    Text(money(s.stats.revenue, currency))
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                    Spacer(minLength: 0)
-                }
-
-                SplitBar(parts: parts, height: 12)
-                SplitLegend(parts: parts, currency: currency)
+        if s.stats.revenue > 0 || s.costs.total > 0 || s.stats.payroll > 0 {
+            VStack(spacing: 0) {
+                ladderRow(L("summary.paidIn"), s.stats.revenue, minus: false)
+                Hairline()
+                ladderRow(L("summary.toStaff"), s.stats.payroll, minus: true)
+                Hairline()
+                ladderRow(L("expenses.title"), s.costs.total, minus: true)
             }
-            .padding(.top, 16)
-            .frame(maxWidth: 360)
+            .padding(.top, 14)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
             .accessibilityElement(children: .ignore)
@@ -450,6 +413,22 @@ struct OwnerView: View {
                 )
             )
         }
+    }
+
+    /// Строка лестницы: слово слева, сумма по правому краю. Минус
+    /// настоящий, U+2212, и стоит у числа, а не в слове.
+    private func ladderRow(_ title: String, _ amount: Int, minus: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.boardMuted)
+            Spacer(minLength: 8)
+            Text((minus && amount > 0 ? "−" : "") + money(amount, currency))
+                .font(.system(size: 14, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(minus ? Brand.boardMuted : Brand.onBoard)
+        }
+        .padding(.vertical, 9)
     }
 
 
@@ -1298,10 +1277,9 @@ struct OwnerView: View {
 
     private var isLoss: Bool { (summary?.profit ?? 0) < 0 }
 
-    /* Не «շահույթ»: от «հասույթ» на плитке оно отличается одной буквой и
-       звучит почти так же. Два похожих слова с разными числами на одном
-       экране путают даже автора продукта. «Вам остаётся» ни на что не
-       похоже, потому что это не термин, а обычная речь. */
+    /* «Чистая прибыль» — так решил владелец. Страх спутать «շահույթ» с
+       «հասույթ» снимает определение «զուտ»: слово из двух частей ни с
+       чем не рифмуется. Та же формула на всех языках и на вебе. */
     private var profitTitle: String {
         switch summaryPeriod {
         case "month": return isLoss ? L("summary.redMonth") : L("summary.keptMonth")

@@ -7,7 +7,7 @@ import { BRAND } from '../brand';
  * Written as product copy, not as a translation. Same rules that shaped
  * the Armenian original hold here:
  *
- *  — "You keep" instead of "profit": two near-identical words with two
+ *  — "Net profit" everywhere: the owner picked one plain formula
  *    different numbers on one screen confuse even the author;
  *  — the button carries the amount, not the word "confirm": cash changes
  *    hands, and the number must be in sight before the tap, not after;
@@ -186,12 +186,12 @@ export const en: Dict = {
       expenses: {
         label: 'Expenses',
         title: 'Expenses do not get lost',
-        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. What you keep recalculates immediately.',
+        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. Net profit recalculates immediately.',
       },
       reports: {
         label: 'Reports',
         title: 'Analytics, not a single chart',
-        body: 'Revenue, payroll, expenses and what you keep for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
+        body: 'Revenue, payroll, expenses and net profit for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
       },
       branches: {
         label: 'Locations',
@@ -830,7 +830,7 @@ export const en: Dict = {
     revenueToday: "Today's revenue",
     revenueMonth: "This month's revenue",
     revenuePrevMonth: "Last month's revenue",
-    profit: 'You keep',
+    profit: 'Net profit',
     payrollAccrued: 'Payroll',
     avgCheck: 'Average ticket',
     cashShare: 'In cash',
@@ -896,7 +896,7 @@ export const en: Dict = {
     periodLabel: 'Period',
 
     vsPrev: 'vs previous',
-    kept: 'kept',
+    kept: 'net profit',
     perUnit: 'per one',
     costs: 'Expenses',
     payroll: 'payroll',
@@ -1036,7 +1036,7 @@ export const en: Dict = {
     },
     kpi: {
       revenue: 'Revenue',
-      net: 'You keep',
+      net: 'Net profit',
       cars: 'Cars',
       avgCheck: 'Average ticket',
       payroll: 'Payroll',
@@ -1046,8 +1046,8 @@ export const en: Dict = {
     },
     charts: {
       dynamics: 'Dynamics',
-      dynamicsNote: 'Revenue, payroll, expenses and what you keep',
-      series: { revenue: 'Revenue', payroll: 'Payroll', costs: 'Expenses', net: 'You keep', prev: 'Previous' },
+      dynamicsNote: 'Revenue, payroll, expenses and net profit',
+      series: { revenue: 'Revenue', payroll: 'Payroll', costs: 'Expenses', net: 'Net profit', prev: 'Previous' },
       cars: 'Cars',
       carsNote: 'Count per day and average',
       avgCheck: 'Average ticket',

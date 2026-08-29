@@ -4025,19 +4025,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "That day you kept"
+            "value" : "Net profit that day"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Այդ օրը ձեզ մնաց"
+            "value" : "Այդ օրվա զուտ շահույթը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "В тот день вам осталось"
+            "value" : "Чистая прибыль за тот день"
           }
         }
       }
@@ -9095,19 +9095,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You keep"
+            "value" : "Net profit"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ձեզ մնում է"
+            "value" : "Զուտ շահույթ"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Вам остаётся"
+            "value" : "Чистая прибыль"
           }
         }
       }
@@ -12011,19 +12011,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You keep this month"
+            "value" : "Net profit this month"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Այս ամիս ձեզ մնում է"
+            "value" : "Այս ամսվա զուտ շահույթը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "В этом месяце вам остаётся"
+            "value" : "Чистая прибыль за этот месяц"
           }
         }
       }
@@ -12034,19 +12034,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You kept last month"
+            "value" : "Net profit last month"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Անցյալ ամիս ձեզ մնացել է"
+            "value" : "Անցյալ ամսվա զուտ շահույթը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "В прошлом месяце вам осталось"
+            "value" : "Чистая прибыль за прошлый месяц"
           }
         }
       }
@@ -12057,19 +12057,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You keep today"
+            "value" : "Net profit today"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Այսօր ձեզ մնում է"
+            "value" : "Այսօրվա զուտ շահույթը"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сегодня вам остаётся"
+            "value" : "Чистая прибыль за сегодня"
           }
         }
       }
