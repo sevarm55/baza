@@ -125,10 +125,16 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Tetr/Tetr.entitlements
-        # Имя файла AppIcon.icon без расширения. Каталога ассетов у нас
-        # нет и не нужно: цель — iOS 26, а там иконка живёт одним .icon,
-        # из которого система сама делает светлую, тёмную и тонированную.
+        # Иконок теперь две, и человек выбирает их в приложении, поэтому
+        # они лежат в каталоге ассетов, а не одним .icon: альтернативные
+        # иконки система умеет брать только оттуда. У каждой три вида —
+        # обычный, тёмный и подкрашенный, — и система сама решает, какой
+        # показать; чистое стекло iOS 26 каталог не выражает, и это
+        # осознанная цена за возможность выбора.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Вторая иконка. Имя ровно то, что уходит в setAlternateIconName.
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconGlass
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         SWIFT_EMIT_LOC_STRINGS: YES
     dependencies:

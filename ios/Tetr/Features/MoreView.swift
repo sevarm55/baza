@@ -352,6 +352,17 @@ struct MoreView: View {
                 ProfileView().toolbar(.hidden, for: .navigationBar)
             }
 
+            separator
+
+            /* Оформление отдельной строкой, а не внутри профиля: профиль
+               про человека и его доступ, а это про то, как продукт
+               выглядит на телефоне. */
+            navRow(
+                symbol: "paintbrush.fill", tint: Brand.lavenderInk,
+                title: L("appearance.title"), note: nil
+            ) {
+                AppearanceView()
+            }
         }
     }
 

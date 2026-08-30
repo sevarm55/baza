@@ -287,6 +287,62 @@
         }
       }
     },
+    "appearance.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Տեսք" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Оформление" } }
+      }
+    },
+    "appearance.iconNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pick the icon for your home screen. Dark and tinted versions follow your phone settings." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Ընտրեք պատկերակը հիմնական էկրանի համար։ Մուգ և գունավորված տարբերակները հետևում են հեռախոսի կարգավորումներին։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выберите значок для домашнего экрана. Тёмный и подкрашенный виды система подставит сама." } }
+      }
+    },
+    "appearance.iconMain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Նշան" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Знак" } }
+      }
+    },
+    "appearance.iconMainNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The letter T with the lime corner." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "T տառը՝ լայմ անկյունով։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Буква T с лаймовым уголком." } }
+      }
+    },
+    "appearance.iconGlass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Chart" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Գծապատկեր" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "График" } }
+      }
+    },
+    "appearance.iconGlassNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Growth arrow on grape." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Աճի սլաքը՝ խաղողի ֆոնին։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Стрелка роста на грейпе." } }
+      }
+    },
+    "appearance.iconFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not change the icon." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Չհաջողվեց փոխել պատկերակը։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось сменить значок." } }
+      }
+    },
     "auth.changePhone" : {
       "extractionState" : "manual",
       "localizations" : {
