@@ -458,24 +458,22 @@ struct SplitHero: View {
                 .padding(.top, 2)
                 .reveal(beat, step: 2)
 
-            VStack(alignment: .leading, spacing: 0) {
-                /* Целое, из которого вышел остаток, — той же выпиской,
-                   что на сводке: слайд обязан показывать сам продукт. */
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 7) {
+                /* Целое, из которого вышел остаток. Без него полоса
+                   показывает доли неизвестно от чего. */
+                HStack(spacing: 6) {
                     Text(L("summary.paidIn"))
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
                     Text(money(revenue))
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
+                    Spacer(minLength: 0)
                 }
-                .padding(.bottom, 9)
 
-                SplitBar(parts: parts, height: 10)
+                SplitBar(parts: parts, height: 12)
                     .scaleEffect(x: grown ? 1 : 0.001, anchor: .leading)
-                    .padding(.bottom, 4)
 
                 SplitLegend(parts: parts, currency: "AMD")
                     .opacity(grown ? 1 : 0)

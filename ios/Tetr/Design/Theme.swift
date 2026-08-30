@@ -539,40 +539,25 @@ struct SplitLegend: View {
     let currency: String
 
     var body: some View {
-        /* Строки выписки, а не колонки и не лента.
-         *
-         * Три величины сравнивают глазом только тогда, когда их суммы
-         * стоят одна под другой у общего правого края. Колонки этого не
-         * давали: числа висели на разной длине подписей, и «4 550»
-         * против «4 839» приходилось искать. Процентов нет намеренно —
-         * доли уже показаны длиной кусков полосы над строками, а третья
-         * величина в каждой строке превращала разбор в таблицу.
-         */
-        VStack(spacing: 0) {
+        HStack(spacing: 11) {
             ForEach(parts) { part in
-                HStack(spacing: 8) {
+                HStack(spacing: 5) {
                     Circle()
                         .fill(part.ink)
-                        .frame(width: 7, height: 7)
-
+                        .frame(width: 6, height: 6)
                     Text(part.label)
-                        .font(.system(size: 13))
+                        .font(.system(size: 11))
                         .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
                     Text(money(part.amount, currency))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 11, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
                 }
-                .padding(.vertical, 7)
-                .accessibilityElement(children: .combine)
             }
+            Spacer(minLength: 0)
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
     }
 }
 

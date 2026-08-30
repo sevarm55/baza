@@ -46,8 +46,6 @@ struct OwnerView: View {
     @State private var detailsVisible = true
     @State private var newestFeedID: String?
     @State private var loadID = 0
-    /// Какой из пяти видов разреза показан. Временное состояние выбора.
-    @State private var heroStyle = HeroStyle.current
 
     /* Прокрутку разрядов система сама по «Уменьшению движения» не гасит:
        withAnimation отрабатывает как обычно. Гасим здесь — иначе настройка,
@@ -322,31 +320,116 @@ struct OwnerView: View {
      * пять редакций и попросил вернуть исходную.
      */
     private func reading(_ s: API.Summary) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SummaryHero(
-                data: HeroData(
-                    title: profitTitle,
-                    dates: periodDates,
-                    profit: s.profit,
-                    revenue: s.stats.revenue,
-                    payroll: s.stats.payroll,
-                    costs: s.costs.total,
-                    currency: currency
-                ),
-                style: heroStyle,
-                crew: { crewChip },
-                change: { change }
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                Text(periodDates)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.boardMuted)
+                    .contentTransition(.numericText())
+                crewChip
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 19)
+
+            Text(profitTitle)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
+               Цвет по знаку — правило одно на все денежные экраны и
+               живёт в `Brand.sign`. */
+            Text((s.profit < 0 ? "−" : "") + money(abs(s.profit), currency))
+                .font(.system(size: 45, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.sign(s.profit))
+                .lineLimit(1)
+                .minimumScaleFactor(0.42)
+                .padding(.top, 2)
+                // значение передаётся внутрь: по нему система понимает, в
+                // какую сторону крутить разряды
+                .contentTransition(.numericText(value: Double(s.profit)))
+
+            breakdown(s)
+            change
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Brand.boardSurface)
+                Circle()
+                    .fill(Brand.grape.opacity(0.075))
+                    .frame(width: 138, height: 138)
+                    .blur(radius: 4)
+                    .offset(x: 54, y: -70)
+            }
+            .clipShape(.rect(cornerRadius: 28, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
+        }
+        /* Тень чёрная, а не чернилами полотна: `boardInk` в тёмной теме
+           почти белый и светился бы под карточкой. В светлой разницы нет. */
+        .shadow(color: .black.opacity(0.05), radius: 18, y: 8)
+        .padding(.top, 6)
+    }
+
+    /**
+     * Из чего вышел результат — одной полосой, а не тремя колонками.
+     *
+     * Полоса отвечает на вопрос, которого нет у колонок цифр: КАКОЙ
+     * ДОЛЕЙ. Из каждых двадцати двух тысяч владельцу осталось четыре, и
+     * это видно длиной куска, без чтения.
+     */
+    @ViewBuilder
+    private func breakdown(_ s: API.Summary) -> some View {
+        /* В минус полоса не уходит: отрицательного куска не бывает. Когда
+           день ушёл в убыток, владельцу не осталось ничего, и полоса честно
+           состоит из одних расходов — а знак минуса уже стоит в главном
+           числе над ней. */
+        let mine = max(0, s.profit)
+        let parts = Split.money(
+            mine: mine,
+            staff: s.stats.payroll,
+            costs: s.costs.total
+        )
+        let total = parts.reduce(0) { $0 + $1.amount }
+
+        if total > 0 {
+            VStack(alignment: .leading, spacing: 7) {
+                /* Сколько всего пришло. Без этой строки полоса показывала
+                   доли неизвестно от чего. */
+                HStack(spacing: 6) {
+                    Text(L("summary.paidIn"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.boardMuted)
+                    Text(money(s.stats.revenue, currency))
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                    Spacer(minLength: 0)
+                }
+
+                SplitBar(parts: parts, height: 12)
+                SplitLegend(parts: parts, currency: currency)
+            }
+            .padding(.top, 16)
+            .frame(maxWidth: 360)
             /* Читалка экрана произносит показания фразой, а не набором
                чисел, — и на языке интерфейса, как и всё остальное. */
-            .accessibilityElement(children: .contain)
-
-            /* Временный орган выбора: владелец сравнивает пять видов
-               плиты. Уйдёт вместе с четырьмя невыбранными. */
-            HeroStyleSwitch(style: $heroStyle)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                L(
+                    "summary.voiceover",
+                    plain(s.stats.revenue),
+                    plain(s.costs.total),
+                    plain(s.stats.payroll)
+                )
+            )
         }
-        .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: heroStyle)
-        .padding(.top, 6)
     }
 
 
