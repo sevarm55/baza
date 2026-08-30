@@ -1943,6 +1943,52 @@
         }
       }
     },
+    "auth.tempAccessTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your code is temporary"
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ձեր կոդը ժամանակավոր է"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваш код временный"
+          }
+        }
+      }
+    },
+    "auth.tempAccessNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It stops working on %1$@. Set your own code."
+          }
+        },
+        "hy" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Այն կդադարի աշխատել %1$@․ դրեք ձեր կոդը։"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Он перестанет работать %1$@. Задайте свой код."
+          }
+        }
+      }
+    },
     "auth.throttled" : {
       "extractionState" : "manual",
       "localizations" : {

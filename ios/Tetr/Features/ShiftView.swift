@@ -35,6 +35,8 @@ struct ShiftView: View {
     @State private var loadID = 0
     /// Запись, которую собираются отменить. Пусто — вопроса нет.
     @State private var revoking: API.ShiftOrder?
+    /// Открыт лист смены кода: временный просят сменить на свой.
+    @State private var changingPin = false
     /// Несохранённая запись, которую собираются выбросить из очереди.
     @State private var dropping: OrderQueue.Item?
     /**
@@ -86,6 +88,7 @@ struct ShiftView: View {
         // край при прокрутке.
         .safeAreaInset(edge: .top) { toggleBar }
         .safeAreaInset(edge: .bottom) { recordButton }
+        .sheet(isPresented: $changingPin) { PinChangeView() }
         .sheet(isPresented: $handingOver) {
             HandoverView(
                 expected: shift?.cashSoFar ?? 0,
@@ -125,6 +128,10 @@ struct ShiftView: View {
     @ViewBuilder
     private var board: some View {
         reading
+
+        /* Код временный — предупреждение стоит выше очереди и офлайна:
+           те про сейчас, а это про то, что завтра нечем будет войти. */
+        if let until = session.tempAccessUntil { tempAccessNote(until) }
 
         /* Связи нет — сказано словами, а не только пустотой. Запись при
            этом работает как обычно: она ложится в очередь и уйдёт сама. */
@@ -517,6 +524,68 @@ struct ShiftView: View {
     }
 
     // ══════════════════════════ очередь ══════════════════════════
+
+    /**
+     * Временный код: напоминание задать свой.
+     *
+     * Код выдал админ платформы, когда войти было нечем. Он сгорает в
+     * свой срок, и человек останется у ворот посреди смены — поэтому
+     * напоминание не прячется и не закрывается: оно уйдёт само, как
+     * только человек задаст свой код.
+     *
+     * Янтарное, а не красное: ничего не сломано, вход работает. Красным
+     * в продукте помечено разрушительное.
+     */
+    private func tempAccessNote(_ until: Date) -> some View {
+        Button {
+            changingPin = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "key.horizontal.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.warnOnBoard)
+                    .frame(width: 34, height: 34)
+                    .background(Brand.warnOnBoard.opacity(0.12), in: .rect(cornerRadius: R.control, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L("auth.tempAccessTitle"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Text(L("auth.tempAccessNote", tempAccessDeadline(until)))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.boardMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 6)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Brand.boardMuted.opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.warnOnBoard.opacity(0.09), in: .rect(cornerRadius: R.small, style: .continuous))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+        .accessibilityLabel(L("auth.tempAccessTitle") + ". " + L("auth.tempAccessNote", tempAccessDeadline(until)))
+    }
+
+    /// «31 августа, 11:09» — в зоне бизнеса, как все времена продукта.
+    private func tempAccessDeadline(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = LangStore.currentLang.locale
+        f.setLocalizedDateFormatFromTemplate("d MMMM HH:mm")
+        if let tz = session.tenant?.timezone, let zone = TimeZone(identifier: tz) {
+            f.timeZone = zone
+        }
+        return f.string(from: date)
+    }
 
     /// Нет связи. Спокойно, не красным: продукт офлайн умеет, и строка
     /// обещает ровно это.
