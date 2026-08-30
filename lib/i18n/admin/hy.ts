@@ -46,6 +46,7 @@ export const adminHy: AdminDict = {
     no: 'Ոչ',
     save: 'Պահպանել',
     cancel: 'Չեղարկել',
+    close: 'Փակել',
     confirm: 'Հաստատել',
     reason: 'Պատճառ',
     reasonRequired: 'Պատճառը պարտադիր է. այն կգրանցվի մատյանում',
@@ -230,6 +231,15 @@ export const adminHy: AdminDict = {
     resetAccessTitle: (phone: string) => `Զրոյացնե՞լ ${phone}-ի մուտքը`,
     resetAccessNote: 'PIN-ը կջնջվի, բոլոր նիստերը կավարտվեն։ Մարդը կմտնի SMS կոդով և կսահմանի նոր PIN։',
     resetDone: 'Մուտքը զրոյացված է',
+    tempAccess: 'Ժամանակավոր կոդ',
+    tempAccessTitle: (phone: string) => `Ժամանակավոր կո՞դ ${phone}-ի համար`,
+    tempAccessNote:
+      'Հին կոդը կդադարի աշխատել, բոլոր մուտքերը կփակվեն։ Նոր կոդն այստեղ կերևա մեկ անգամ՝ թելադրեք հեռախոսով։ Այն կմարի մեկ օրից, և մարդն իր կոդը կդնի պրոֆիլում։',
+    tempAccessDone: 'Կոդը տրված է',
+    tempAccessCode: 'Գործում է մինչև',
+    tempAccessCopy: 'Պատճենել',
+    tempAccessCopied: 'Պատճենվեց',
+    tempAccessOnce: 'Երևում է մեկ անգամ․ փակեք պատուհանը՝ և կոդը չի վերականգնվի, պետք կլինի նորը տալ։',
     blockedSince: (when: string) => `արգելափակված է ${when}`,
   },
 

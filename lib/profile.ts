@@ -66,7 +66,11 @@ export async function changePin(userId: string, current: string, next: string) {
      остался бы новый код на входе и старый в подтверждении удаления
      бизнеса — и он не смог бы ни то, ни другое объяснить. */
   await db.transaction(async (tx) => {
-    await tx.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
+    /* Свой код снимает метку временного (см. lib/auth-flow.ts). */
+    await tx
+      .update(accounts)
+      .set({ pinHash, tempAccessUntil: null, tempAccessBy: null })
+      .where(eq(accounts.id, account.id));
     // копия, пока схема обязана оставаться совместимой со старым кодом
     await tx.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
   });

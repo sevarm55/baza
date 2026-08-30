@@ -81,6 +81,21 @@ export const accounts = pgTable(
      */
     blockedAt: timestamp('blocked_at', { withTimezone: true }),
     blockedReason: text('blocked_reason'),
+    /**
+     * До какого момента в `pin_hash` лежит ВРЕМЕННЫЙ код.
+     *
+     * Его выдаёт админ платформы, когда человеку нечем войти: код забыт,
+     * а SMS не доходит. Код живёт в том же поле и проверяется тем же
+     * сравнением — отличие только в сроке жизни и в том, что после входа
+     * его просят сменить.
+     *
+     * Null — код обычный, свой. Прошедшая дата — код сгорел, войти им
+     * нельзя: иначе продиктованный по телефону код остался бы вечным
+     * вторым ключом от мойки.
+     */
+    tempAccessUntil: timestamp('temp_access_until', { withTimezone: true }),
+    /** кто из админов выдал — для журнала и для разговора потом */
+    tempAccessBy: text('temp_access_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('accounts_phone_uniq').on(t.phone)],

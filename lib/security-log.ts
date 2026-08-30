@@ -40,6 +40,8 @@ export type SecurityEvent =
   | 'auth.register.completed'
   | 'auth.pin.reset.started'
   | 'auth.pin.reset'
+  /** админ выдал временный код доступа */
+  | 'auth.pin.temp_issued'
   | 'auth.pin.changed'
   | 'auth.pin.rehashed'
   | 'auth.phone.changed'
@@ -129,6 +131,7 @@ const LEVEL_BY_DEFAULT: Partial<Record<SecurityEvent, Level>> = {
   'auth.otp.send_failed': 'warn',
   'auth.suspicious_activity': 'alert',
   'auth.pin.reset': 'warn',
+  'auth.pin.temp_issued': 'warn',
   'auth.phone.changed': 'warn',
   'auth.session.revoked_all': 'warn',
   'business.deleted': 'alert',

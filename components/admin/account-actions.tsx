@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { blockAccountAction, logoutAccountAction, resetAccessAction, unblockAccountAction } from '@/app/admin/actions';
 import { ReasonDialog } from '@/components/admin/reason-dialog';
+import { TempAccessDialog } from '@/components/admin/temp-access-dialog';
 import { Button } from '@/components/ui/button';
 import { useA } from '@/lib/i18n/admin/client';
 
@@ -29,6 +30,9 @@ export function AccountActions({
 }) {
   const a = useA();
   const [kind, setKind] = useState<Kind | null>(null);
+  /** Выдача временного кода живёт отдельным окном: у неё есть второй
+      такт — показать сам код. */
+  const [temp, setTemp] = useState(false);
   if (!canAct) return null;
 
   const spec: Record<Kind, { title: string; note: string; confirm: string; done: string; destructive: boolean; run: (r: string) => ReturnType<typeof blockAccountAction> }> = {
@@ -55,6 +59,13 @@ export function AccountActions({
       <Button size="sm" variant="outline" onClick={() => setKind('reset')}>
         {a.users.resetAccess}
       </Button>
+      {/* Форс-мажор: код забыт, а SMS не доходит. Сброс тут не помогает —
+          он оставляет вход только через SMS. */}
+      <Button size="sm" variant="outline" onClick={() => setTemp(true)}>
+        {a.users.tempAccess}
+      </Button>
+
+      <TempAccessDialog open={temp} onOpenChange={setTemp} accountId={accountId} phone={phone} />
 
       {kind && (
         <ReasonDialog

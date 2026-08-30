@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { randomBytes } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
@@ -19,7 +20,7 @@ import {
 import { recordPayment } from '@/lib/admin-billing';
 import { revokeAccountSessions } from '@/lib/auth';
 import { clientIp } from '@/lib/login-guard';
-import { NO_PIN } from '@/lib/pin';
+import { hashPin, NO_PIN } from '@/lib/pin';
 import { logSecurity } from '@/lib/security-log';
 
 /**
@@ -32,6 +33,11 @@ import { logSecurity } from '@/lib/security-log';
  */
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Результат выдачи временного кода: сам код показывается один раз. */
+export type TempAccessResult =
+  | { ok: true; code: string; until: string }
+  | { ok: false; error: string };
 
 function reasonOf(raw: unknown): string | null {
   const s = String(raw ?? '').trim();
@@ -247,6 +253,76 @@ export async function resetAccessAction(input: { accountId: string; reason: stri
   await logSecurity({ event: 'auth.pin.reset', accountId: input.accountId, phone, data: { by: 'admin' } });
   revalidatePath('/admin', 'layout');
   return { ok: true };
+}
+
+/**
+ * Временный код доступа: форс-мажор, когда войти нечем.
+ *
+ * Обычный путь восстановления — сброс доступа и вход по SMS. Он не
+ * работает ровно тогда, когда нужнее всего: человек сменил номер, уехал
+ * из страны, а у нас кончился баланс у оператора. Тогда админ выдаёт
+ * временный код и диктует его по телефону.
+ *
+ * Что здесь важно и почему:
+ *
+ * 1. Код случайный, шесть цифр, и показывается ОДИН раз — тому, кто его
+ *    выдал. В базе лежит только хеш, как у обычного: админ не должен
+ *    иметь возможности подсмотреть чужой код завтра.
+ * 2. У кода есть срок. Продиктованный по телефону код без срока
+ *    остаётся вторым ключом от мойки навсегда — и у того, кто стоял
+ *    рядом, тоже.
+ * 3. Все сессии человека гасятся. Если доступ восстанавливают, старые
+ *    входы либо не его, либо всё равно недоступны.
+ * 4. Действие требует причину и пишется в оба журнала — админский и
+ *    безопасности. Выдача чужого ключа обязана оставлять след.
+ */
+export async function issueTempAccessAction(input: {
+  accountId: string;
+  reason: string;
+  /** сколько часов жить коду; по умолчанию сутки */
+  hours?: number;
+}): Promise<TempAccessResult> {
+  const by = await requireAdmin('support');
+  await ensureDb();
+  const reason = reasonOf(input.reason);
+  if (!reason) return { ok: false, error: 'reason' };
+
+  const hours = Math.min(72, Math.max(1, Math.round(input.hours ?? 24)));
+  const until = new Date(Date.now() + hours * 3600_000);
+
+  /* Шесть цифр из криптографического источника, без ведущего нуля в
+     первом разряде: код диктуют голосом, и «ноль-три-…» на слух теряется
+     чаще остального. */
+  const bytes = randomBytes(4).readUInt32BE(0);
+  const code = String(100000 + (bytes % 900000));
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(accounts)
+      .set({ pinHash: await hashPin(code), tempAccessUntil: until, tempAccessBy: by.name })
+      .where(eq(accounts.id, input.accountId));
+    /* Копия на участиях, пока она есть: старый код читает её. */
+    await tx.update(users).set({ pinHash: await hashPin(code) }).where(eq(users.accountId, input.accountId));
+  });
+  await revokeAccountSessions(input.accountId);
+
+  const phone = await accountPhone(input.accountId);
+  await logAdminAction({
+    by,
+    action: 'account.temp_access',
+    targetType: 'account',
+    targetId: input.accountId,
+    targetLabel: phone,
+    reason,
+  });
+  await logSecurity({
+    event: 'auth.pin.temp_issued',
+    accountId: input.accountId,
+    phone,
+    data: { by: by.name, hours },
+  });
+  revalidatePath('/admin', 'layout');
+  return { ok: true, code, until: until.toISOString() };
 }
 
 /* ----------------------------- сессии ----------------------------- */

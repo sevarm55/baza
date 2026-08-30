@@ -51,6 +51,7 @@ export const adminRu = {
     no: 'Нет',
     save: 'Сохранить',
     cancel: 'Отмена',
+    close: 'Закрыть',
     confirm: 'Подтвердить',
     reason: 'Причина',
     reasonRequired: 'Причина обязательна: она попадёт в журнал',
@@ -235,6 +236,15 @@ export const adminRu = {
     resetAccessTitle: (phone: string) => `Сбросить доступ ${phone}?`,
     resetAccessNote: 'PIN будет удалён, все сессии завершены. Человек войдёт по коду из SMS и задаст новый PIN.',
     resetDone: 'Доступ сброшен',
+    tempAccess: 'Временный код',
+    tempAccessTitle: (phone: string) => `Временный код для ${phone}?`,
+    tempAccessNote:
+      'Прежний код перестанет работать, все сессии завершатся. Новый код покажется здесь один раз, продиктуйте его по телефону. Он сгорит через сутки, и человек задаст свой код в профиле.',
+    tempAccessDone: 'Код выдан',
+    tempAccessCode: 'Код действует до',
+    tempAccessCopy: 'Скопировать',
+    tempAccessCopied: 'Скопировано',
+    tempAccessOnce: 'Показывается один раз: закроете окно — код не восстановить, придётся выдать новый.',
     blockedSince: (when: string) => `заблокирован ${when}`,
   },
 

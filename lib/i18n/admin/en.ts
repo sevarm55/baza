@@ -48,6 +48,7 @@ export const adminEn: AdminDict = {
     no: 'No',
     save: 'Save',
     cancel: 'Cancel',
+    close: 'Close',
     confirm: 'Confirm',
     reason: 'Reason',
     reasonRequired: 'A reason is required: it goes to the log',
@@ -232,6 +233,15 @@ export const adminEn: AdminDict = {
     resetAccessTitle: (phone: string) => `Reset access for ${phone}?`,
     resetAccessNote: 'The PIN is removed and all sessions end. The person signs in with an SMS code and sets a new PIN.',
     resetDone: 'Access reset',
+    tempAccess: 'Temporary code',
+    tempAccessTitle: (phone: string) => `Temporary code for ${phone}?`,
+    tempAccessNote:
+      'The old code stops working and all sessions end. The new code is shown here once, read it out over the phone. It expires in a day, and the person sets their own code in the profile.',
+    tempAccessDone: 'Code issued',
+    tempAccessCode: 'Valid until',
+    tempAccessCopy: 'Copy',
+    tempAccessCopied: 'Copied',
+    tempAccessOnce: 'Shown once: close this window and the code is gone, you will have to issue a new one.',
     blockedSince: (when: string) => `blocked ${when}`,
   },
 

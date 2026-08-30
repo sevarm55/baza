@@ -108,6 +108,21 @@ export async function attemptLogin(input: {
     return { kind: 'denied' };
   }
 
+  /* Временный код, выданный админом, живёт до своего срока и ни минутой
+     дольше. Продиктованный по телефону код без срока остался бы вторым
+     ключом от мойки навсегда — и у того, кто стоял рядом, тоже. */
+  if (account?.tempAccessUntil && account.tempAccessUntil.getTime() < Date.now()) {
+    await logSecurity({
+      event: 'auth.login.failed',
+      phone,
+      ip,
+      agent,
+      accountId: account.id,
+      data: { reason: 'TEMP_ACCESS_EXPIRED' },
+    });
+    return { kind: 'denied' };
+  }
+
   const point = account ? await pointForLogin(account.id) : undefined;
   const membership = toMembership(point, legacy);
 
@@ -777,7 +792,9 @@ export async function completePinReset(input: {
   await db.transaction(async (tx) => {
     await tx
       .update(accounts)
-      .set({ pinHash, phoneVerifiedAt: new Date() })
+      /* Свой код снимает метку временного: человек снова хозяин входа,
+         и срок, выданный админом, больше ни на что не влияет. */
+      .set({ pinHash, phoneVerifiedAt: new Date(), tempAccessUntil: null, tempAccessBy: null })
       .where(eq(accounts.id, accountId));
     // копия в users, пока схема обязана оставаться совместимой
     await tx.update(users).set({ pinHash }).where(eq(users.accountId, accountId));
