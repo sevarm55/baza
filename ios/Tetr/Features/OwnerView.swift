@@ -57,15 +57,14 @@ struct OwnerView: View {
     private let periods = [("today", L("common.today")), ("month", L("owner.periodMonth")), ("prevmonth", L("owner.periodPrevMonth"))]
 
     var body: some View {
-        Group {
-            if failure == nil, let s = summary, s.stats.count == 0 {
-                emptySummary
-                    .opacity(detailsVisible ? 1 : 0)
-                    .offset(y: detailsVisible || reduceMotion ? 0 : 8)
-            } else {
-                dashboardScroll
-            }
-        }
+        /* Отдельного экрана «данных нет» больше нет.
+         *
+         * Он показывал иллюстрацию вместо сводки, и владелец сказал
+         * прямо: пусть будет тот же экран, только с нулями. Это честнее
+         * и спокойнее — утром человек видит привычную раскладку, а не
+         * другой экран, который надо прочитать заново. Ноль в начале дня
+         * правдив: работы ещё не было. */
+        dashboardScroll
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .top) { chips }
@@ -222,92 +221,6 @@ struct OwnerView: View {
     // ══════════════════════════ показание ══════════════════════════
 
     /**
-     * Период без единой записи — отдельное состояние, а не нулевое табло.
-     *
-     * Ноль выручки, пустая полоса и график без точек выглядят как данные,
-     * которые надо изучать. Здесь изучать нечего: до первой обслуженной
-     * машины сводка ещё не началась. Поэтому весь прибор уступает место
-     * спокойной полноэкранной композиции. Действия здесь нет намеренно:
-     * владелец не обязан сам выходить в смену.
-     */
-    private var emptySummary: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .topLeading) {
-                SummaryEmptyBackdrop()
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(periodDates)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Brand.boardMuted)
-
-                    Spacer(minLength: 16)
-
-                    SummaryEmptyIllustration()
-                        .frame(height: min(270, proxy.size.height * 0.43))
-                        .accessibilityHidden(true)
-
-                    Spacer(minLength: 12)
-
-                    Text(emptySummaryTitle)
-                        .font(.system(size: 27, weight: .semibold, design: .rounded))
-                        .tracking(-0.55)
-                        .foregroundStyle(Brand.onBoard)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(L("owner.emptySummaryNote"))
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 315, alignment: .leading)
-                        .padding(.top, 9)
-
-                    Spacer(minLength: 20)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $showAlerts) {
-            AlertsView(onOpen: { key in
-                if key == "payroll-due" {
-                    NotificationCenter.default.post(name: .openPayroll, object: nil)
-                } else {
-                    showClients = true
-                }
-            })
-            .environmentObject(session)
-        }
-        .sheet(isPresented: $showClients) {
-            /* Лист получает системную шапку: раньше он открывался вообще
-               без заголовка и без «Закрыть» — единственный такой в
-               продукте. */
-            NavigationStack {
-                ClientsView()
-                    .navigationTitle(L("owner.tabClients"))
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button(L("common.close")) { showClients = false }
-                        }
-                    }
-            }
-            .environmentObject(session)
-        }
-    }
-
-    private var emptySummaryTitle: String {
-        switch summaryPeriod {
-        case "month": return L("owner.emptySummaryMonth")
-        case "prevmonth": return L("owner.emptySummaryPrevious")
-        default: return L("owner.emptySummaryToday")
-        }
-    }
-
-    /**
      * Показание прибора: подпись над числом, число по оси, приписка под ним.
      *
      * Прибыль, а не выручка: выручку владелец и так примерно помнит — она
@@ -350,7 +263,6 @@ struct OwnerView: View {
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(s.profit)))
 
-            breakdown(s)
             change
         }
         .padding(20)
@@ -378,58 +290,51 @@ struct OwnerView: View {
     }
 
     /**
-     * Из чего вышел результат — одной полосой, а не тремя колонками.
+     * Приход и вычеты — отдельными плитками под карточкой.
      *
-     * Полоса отвечает на вопрос, которого нет у колонок цифр: КАКОЙ
-     * ДОЛЕЙ. Из каждых двадцати двух тысяч владельцу осталось четыре, и
-     * это видно длиной куска, без чтения.
+     * Тот же приём, что в мобильном вебе (`MStatTile`): цветная точка,
+     * тихая подпись, число. Владелец попросил показать их так же, только
+     * компактно — поэтому плитки низкие, в один ряд и без значков.
+     *
+     * Своей доли владельца среди них нет намеренно: она и есть главное
+     * число над ними, и повторять её плиткой значит показать одни и те
+     * же деньги дважды. Точки цвета остались от полосы долей: тот же
+     * словарь, что на всех остальных экранах продукта.
      */
-    @ViewBuilder
-    private func breakdown(_ s: API.Summary) -> some View {
-        /* В минус полоса не уходит: отрицательного куска не бывает. Когда
-           день ушёл в убыток, владельцу не осталось ничего, и полоса честно
-           состоит из одних расходов — а знак минуса уже стоит в главном
-           числе над ней. */
-        let mine = max(0, s.profit)
-        let parts = Split.money(
-            mine: mine,
-            staff: s.stats.payroll,
-            costs: s.costs.total
-        )
-        let total = parts.reduce(0) { $0 + $1.amount }
-
-        if total > 0 {
-            VStack(alignment: .leading, spacing: 7) {
-                /* Сколько всего пришло. Без этой строки полоса показывала
-                   доли неизвестно от чего. */
-                HStack(spacing: 6) {
-                    Text(L("summary.paidIn"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
-                    Text(money(s.stats.revenue, currency))
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                    Spacer(minLength: 0)
-                }
-
-                SplitBar(parts: parts, height: 12)
-                SplitLegend(parts: parts, currency: currency)
-            }
-            .padding(.top, 16)
-            .frame(maxWidth: 360)
-            /* Читалка экрана произносит показания фразой, а не набором
-               чисел, — и на языке интерфейса, как и всё остальное. */
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                L(
-                    "summary.voiceover",
-                    plain(s.stats.revenue),
-                    plain(s.costs.total),
-                    plain(s.stats.payroll)
-                )
-            )
+    private func moneyTiles(_ s: API.Summary) -> some View {
+        HStack(spacing: 8) {
+            moneyTile(L("summary.paidIn"), s.stats.revenue, dot: Brand.grapeFill)
+            moneyTile(L("summary.toStaff"), s.stats.payroll, dot: Brand.lavenderInk)
+            moneyTile(L("expenses.title"), s.costs.total, dot: Brand.sandInk)
         }
+        .padding(.top, 10)
+    }
+
+    private func moneyTile(_ title: String, _ amount: Int, dot: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(dot)
+                    .frame(width: 6, height: 6)
+                Text(title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+            Text(money(amount, currency))
+                .font(.system(size: 15, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText(value: Double(amount)))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .boardCard(R.small)
+        .accessibilityElement(children: .combine)
     }
 
 
@@ -581,6 +486,8 @@ struct OwnerView: View {
            посмотрел на него и решил, что достаточно приветственного
            листа снизу. Серверные шаги настройки при этом живут — их
            по-прежнему видно в веб-кабинете. */
+        moneyTiles(s)
+
         if summaryPeriod == "today" {
             /* Графика на сегодняшнем экране нет.
 
@@ -1539,264 +1446,5 @@ struct OwnerView: View {
 
 // ══════════════════════ пустая сводка: иллюстрация ══════════════════════
 
-/**
- * Один предмет вместо универсальной placeholder-иконки.
- *
- * Матовая пластина напоминает номерной знак, а проявляющийся на ней график
- * связывает мойку с аналитикой без буквальной сборной машинки. Пена
- * ложится на верхний край, капля уходит с нижнего — объект читается одним
- * целым. Все детали построены SwiftUI-фигурами и остаются резкими при
- * любом масштабе.
- */
-private struct SummaryEmptyIllustration: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var floating = false
 
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .topLeading) {
-                Path { path in
-                    path.move(to: CGPoint(x: 8, y: proxy.size.height * 0.72))
-                    path.addCurve(
-                        to: CGPoint(x: proxy.size.width - 18, y: proxy.size.height * 0.36),
-                        control1: CGPoint(x: proxy.size.width * 0.30, y: proxy.size.height * 0.78),
-                        control2: CGPoint(x: proxy.size.width * 0.58, y: proxy.size.height * 0.23)
-                    )
-                }
-                .stroke(
-                    LinearGradient(
-                        colors: [Brand.grape.opacity(0.08), Brand.grape.opacity(0.42)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [2, 7])
-                )
 
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [Brand.grape.opacity(0.18), Brand.grape.opacity(0)],
-                            center: .center,
-                            startRadius: 5,
-                            endRadius: 132
-                        )
-                    )
-                    .frame(width: 264, height: 166)
-                    .position(x: proxy.size.width * 0.68, y: proxy.size.height * 0.50)
-
-                washPlate
-                    .position(x: proxy.size.width * 0.64, y: proxy.size.height * 0.49)
-
-                drop
-                    .position(x: proxy.size.width * 0.91, y: proxy.size.height * 0.72)
-
-                foam
-                    .position(x: proxy.size.width * 0.35, y: proxy.size.height * 0.25)
-
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Brand.grape.opacity(0.18 + Double(index) * 0.08))
-                        .frame(width: CGFloat(5 + index * 2), height: CGFloat(5 + index * 2))
-                        .position(
-                            x: 18 + CGFloat(index) * 34,
-                            y: proxy.size.height * 0.70 - CGFloat(index) * 9
-                        )
-                }
-            }
-        }
-        .offset(y: floating ? -3 : 2)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                floating = true
-            }
-        }
-    }
-
-    private var washPlate: some View {
-        ZStack {
-            /* Слабое внутреннее свечение делает стекло объёмным, но не
-               превращает пластину в ещё одну карточку интерфейса. */
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Brand.boardSurface, Brand.grape.opacity(0.10)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            HStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Capsule()
-                        .fill(Brand.boardInk.opacity(0.25))
-                        .frame(width: 34, height: 5)
-                    Capsule()
-                        .fill(Brand.boardInk.opacity(0.13))
-                        .frame(width: 22, height: 5)
-                }
-
-                Spacer(minLength: 18)
-
-                ZStack(alignment: .bottomTrailing) {
-                    HStack(alignment: .bottom, spacing: 7) {
-                        bar(height: 18, opacity: 0.42)
-                        bar(height: 29, opacity: 0.64)
-                        bar(height: 43, opacity: 0.94)
-                    }
-
-                    Path { path in
-                        path.move(to: CGPoint(x: 1, y: 45))
-                        path.addCurve(
-                            to: CGPoint(x: 46, y: 5),
-                            control1: CGPoint(x: 15, y: 43),
-                            control2: CGPoint(x: 31, y: 15)
-                        )
-                    }
-                    .stroke(
-                        Brand.grape.opacity(0.72),
-                        style: StrokeStyle(lineWidth: 1.7, lineCap: .round)
-                    )
-                    .frame(width: 48, height: 48)
-                    .offset(x: 3, y: -1)
-                }
-                .frame(width: 58, height: 50)
-            }
-            .padding(.horizontal, 26)
-        }
-        .frame(width: 188, height: 104)
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Brand.boardInk.opacity(0.20), Brand.grape.opacity(0.13)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .rotationEffect(.degrees(-4))
-        .rotation3DEffect(.degrees(7), axis: (x: 0.2, y: 1, z: 0))
-        .shadow(color: Brand.boardInk.opacity(0.10), radius: 22, y: 13)
-    }
-
-    private func bar(height: CGFloat, opacity: Double) -> some View {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [Brand.grape.opacity(opacity), Brand.grape.opacity(opacity * 0.66)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(width: 8, height: height)
-    }
-
-    private var drop: some View {
-        SummaryDropShape()
-            .fill(
-                LinearGradient(
-                    colors: [Brand.boardSurface, Brand.grape.opacity(0.32)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 29, height: 37)
-            .overlay {
-                SummaryDropShape()
-                    .strokeBorder(Brand.grape.opacity(0.38), lineWidth: 0.9)
-            }
-            .shadow(color: Brand.grape.opacity(0.09), radius: 10, y: 6)
-            .rotationEffect(.degrees(14))
-    }
-
-    private var foam: some View {
-        ZStack {
-            bubble(22).offset(x: 0, y: 10)
-            bubble(14).offset(x: 18, y: 0)
-            bubble(10).offset(x: 30, y: 14)
-            bubble(7).offset(x: 14, y: 23)
-        }
-    }
-
-    private func bubble(_ size: CGFloat) -> some View {
-        Circle()
-            .fill(Brand.boardSurface.opacity(0.92))
-            .frame(width: size, height: size)
-            .overlay(Circle().strokeBorder(Brand.boardInk.opacity(0.16), lineWidth: 0.8))
-            .shadow(color: Brand.grape.opacity(0.12), radius: 6, y: 3)
-    }
-
-}
-
-/**
- * Тихая полноэкранная сетка: она заполняет полотно, не притворяясь
- * данными. Дуги продолжают траекторию иллюстрации и не образуют карточку.
- */
-private struct SummaryEmptyBackdrop: View {
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                Circle()
-                    .stroke(Brand.boardInk.opacity(0.045), lineWidth: 1)
-                    .frame(width: 430, height: 430)
-                    .position(x: proxy.size.width * 0.90, y: proxy.size.height * 0.28)
-
-                Circle()
-                    .stroke(Brand.grape.opacity(0.065), lineWidth: 1)
-                    .frame(width: 310, height: 310)
-                    .position(x: proxy.size.width * 0.90, y: proxy.size.height * 0.28)
-
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Brand.grape.opacity(0), Brand.grape.opacity(0.035), Brand.grape.opacity(0)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 1)
-                    .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.71)
-            }
-        }
-    }
-}
-
-private struct SummaryDropShape: InsettableShape {
-    var insetAmount: CGFloat = 0
-
-    func path(in rect: CGRect) -> Path {
-        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
-        var path = Path()
-        path.move(to: CGPoint(x: r.midX, y: r.minY))
-        path.addCurve(
-            to: CGPoint(x: r.maxX, y: r.height * 0.62 + r.minY),
-            control1: CGPoint(x: r.width * 0.62 + r.minX, y: r.height * 0.18 + r.minY),
-            control2: CGPoint(x: r.maxX, y: r.height * 0.42 + r.minY)
-        )
-        path.addCurve(
-            to: CGPoint(x: r.midX, y: r.maxY),
-            control1: CGPoint(x: r.maxX, y: r.height * 0.84 + r.minY),
-            control2: CGPoint(x: r.width * 0.72 + r.minX, y: r.maxY)
-        )
-        path.addCurve(
-            to: CGPoint(x: r.minX, y: r.height * 0.62 + r.minY),
-            control1: CGPoint(x: r.width * 0.28 + r.minX, y: r.maxY),
-            control2: CGPoint(x: r.minX, y: r.height * 0.84 + r.minY)
-        )
-        path.addCurve(
-            to: CGPoint(x: r.midX, y: r.minY),
-            control1: CGPoint(x: r.minX, y: r.height * 0.42 + r.minY),
-            control2: CGPoint(x: r.width * 0.38 + r.minX, y: r.height * 0.18 + r.minY)
-        )
-        path.closeSubpath()
-        return path
-    }
-
-    func inset(by amount: CGFloat) -> SummaryDropShape {
-        var shape = self
-        shape.insetAmount += amount
-        return shape
-    }
-}
