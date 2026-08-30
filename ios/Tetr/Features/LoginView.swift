@@ -463,6 +463,12 @@ struct LoginView: View {
                             .matchedGeometryEffect(id: "role", in: roleMark)
                     }
                 }
+                /* Нажимается вся плашка, а не буквы на ней. Без этой
+                   строки SwiftUI считает целью только сам текст: пустое
+                   поле внутри рамки и заливка под ней целями не
+                   являются, и человек, попавший рядом с подписью,
+                   получает молчание вместо переключения. */
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .disabled(busy)
@@ -853,6 +859,7 @@ struct LoginView: View {
                     .monospacedDigit()
                     .foregroundStyle(left > 0 ? .white.opacity(0.4) : Brand.lime)
                     .frame(height: 36, alignment: .leading)
+                    .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .disabled(busy || left > 0)
@@ -962,6 +969,7 @@ struct LoginView: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(.white.opacity(0.14), lineWidth: 1)
                 )
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .disabled(busy)
