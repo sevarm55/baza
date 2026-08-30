@@ -231,13 +231,6 @@ struct ShiftView: View {
         if onShift {
             // смена открылась — событие дня, с тактильным весом
             if done != nil { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
-            if let openedAt = done?.openedAt, let tenant = session.tenant {
-                await ShiftLiveActivity.shared.start(
-                    openedAt: openedAt,
-                    tenant: tenant,
-                    worker: session.me
-                )
-            }
             await reload()
         }
     }
@@ -256,11 +249,8 @@ struct ShiftView: View {
         }
         if done == nil {
             onShift = true
-        } else if done?.onShift == false, let tenantID = session.tenant?.id {
+        } else if done?.onShift == false {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-            // Закрытие уже подтверждено. Не ждём повторный GET: если связь
-            // исчезнет после POST, остров всё равно обязан пропасть.
-            await ShiftLiveActivity.shared.end(for: tenantID)
         }
         await reload()
     }
@@ -1019,17 +1009,6 @@ struct ShiftView: View {
             guard id == loadID else { return }
             // разбор ответа: показываем как есть — это баг, а не сбой сети
             failure = Failure.text(error)
-        }
-
-        // Даже если GET не прошёл из-за связи, локальная очередь уже знает
-        // про только что записанную машину и обновляет Dynamic Island.
-        if let shift, let tenant = session.tenant {
-            await ShiftLiveActivity.shared.sync(
-                shift: shift,
-                tenant: tenant,
-                worker: session.me,
-                pending: queue.waiting(at: tenant.id)
-            )
         }
     }
 }

@@ -587,10 +587,6 @@ final class Session: ObservableObject {
     }
 
     func signOut() async {
-        // Смена не должна оставаться на Lock Screen после выхода из чужого
-        // аккаунта на общем телефоне мойки.
-        await ShiftLiveActivity.shared.endAll()
-
         // сначала отзываем токен устройства: телефон на мойке переходит из
         // рук в руки, и уведомления о чужой выручке приходить не должны
         await Push.shared.revoke()
