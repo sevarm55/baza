@@ -1169,15 +1169,25 @@ struct OwnerView: View {
                         .foregroundStyle(Brand.boardMuted)
                         .lineLimit(1)
 
-                    /* При нулевой ставке строки долей нет вовсе: у
-                       владельца, который записывает сам, процента нет, и
-                       «ему 0 ֏» в каждой записи — шум. */
+                    /* Доля работника — грейповой плашкой, как в
+                       онбординге: там этот приём владельцу и понравился.
+                       Плашка отделяет чужие деньги от своих одним
+                       взглядом, чего серая строка не делала: три тихие
+                       строки подряд читались одним пятном.
+
+                       При нулевой ставке плашки нет вовсе: у владельца,
+                       который записывает сам, процента нет, и «ему 0 ֏» в
+                       каждой записи — шум. */
                     if (item.staffPercent ?? 0) > 0 {
-                        Text(L("summary.share", money(item.earned, currency)))
-                            .font(.system(size: 12))
+                        Text("+" + money(item.earned, currency))
+                            .font(.system(size: 12, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted.opacity(0.75))
+                            .foregroundStyle(Brand.grape)
                             .lineLimit(1)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Brand.grape.opacity(0.10), in: .rect(cornerRadius: 8, style: .continuous))
+                            .padding(.top, 1)
                     }
                 }
             }

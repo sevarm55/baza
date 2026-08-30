@@ -701,10 +701,16 @@ struct ShiftView: View {
                                строка под ценой повторяла бы одно число
                                дважды. */
                             if order.shared, let mine = order.earned {
-                                Text(money(mine, currency))
-                                    .font(.system(size: 12))
+                                // та же грейповая плашка доли, что в ленте
+                                // владельца и в онбординге
+                                Text("+" + money(mine, currency))
+                                    .font(.system(size: 12, weight: .bold))
                                     .monospacedDigit()
-                                    .foregroundStyle(Brand.boardMuted)
+                                    .foregroundStyle(Brand.grape)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Brand.grape.opacity(0.10), in: .rect(cornerRadius: 8, style: .continuous))
+                                    .padding(.top, 1)
                             }
                         }
 

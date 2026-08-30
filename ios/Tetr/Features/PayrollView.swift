@@ -355,17 +355,11 @@ struct PayrollView: View {
                 Spacer(minLength: 8)
 
                 if day.outstanding > 0 {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(money(day.outstanding, currency))
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Text(L("payroll.dayToPay"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brand.boardMuted)
-                    }
+                    /* Сумма дня переехала вниз, в лаймовую строку под
+                       списком: наверху она спорила с датой за первый
+                       взгляд, а отвечает на вопрос, который возникает
+                       ПОСЛЕ чтения людей. */
+                    EmptyView()
                 } else {
                     /* Коротко: «Ամեն ինչ վճարված է» рядом с датой ломало
                        заголовок на две строки — на телефоне на эту полку
@@ -406,6 +400,34 @@ struct PayrollView: View {
                 }
             }
             .padding(.top, 6)
+
+            /* Итог дня отделён от строк не линией, а лаймом: это не ещё
+               одна строка списка, а ответ, ради которого список показан.
+               Тот же приём, что на слайде онбординга про зарплату, —
+               владелец назвал его красивым, и он же тут уместен. */
+            if day.outstanding > 0 {
+                HStack(spacing: 10) {
+                    Text(L("payroll.dayToPay"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.onLime.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    Spacer(minLength: 8)
+
+                    Text(money(day.outstanding, currency))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onLime)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .contentTransition(.numericText(value: Double(day.outstanding)))
+                }
+                .padding(.horizontal, 13)
+                .padding(.vertical, 12)
+                .background(Brand.lime, in: .rect(cornerRadius: 18, style: .continuous))
+                .padding(.top, 12)
+            }
 
             /* Полосы расчёта внутри дня здесь нет: её место занимает
                причал у нижнего края. Две одинаковые кнопки в одном
