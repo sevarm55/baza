@@ -14,6 +14,7 @@ import SwiftUI
  */
 struct AppearanceView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var phase
 
     /// Какой значок стоит сейчас. Nil — основной.
     @State private var current: String? = UIApplication.shared.alternateIconName
@@ -53,6 +54,14 @@ struct AppearanceView: View {
         .background(Brand.board.ignoresSafeArea())
         .navigationTitle(L("appearance.title"))
         .navigationBarTitleDisplayMode(.inline)
+        /* Правду о значке знает система, а не наша память о нажатии:
+           смену можно отменить в её собственном окне, и тогда отметка на
+           экране осталась бы врать. Перечитываем при каждом возвращении
+           на экран и при возвращении в приложение. */
+        .onAppear { current = UIApplication.shared.alternateIconName }
+        .onChange(of: phase) { _, now in
+            if now == .active { current = UIApplication.shared.alternateIconName }
+        }
     }
 
     /**
