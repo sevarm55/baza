@@ -48,6 +48,8 @@ struct PayrollView: View {
     /// показывал вообще ничего — чистое полотно вместо главного
     /// денежного экрана.
     @State private var loading = false
+    /// Какой из пяти видов карточки дня показан. Временное состояние выбора.
+    @State private var dayStyle = PayrollDayStyle.current
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -334,7 +336,26 @@ struct PayrollView: View {
      * долг: два других числа справочные, и ставить их на то же место
      * значит заставлять выбирать, какое из трёх сейчас важно.
      */
+    /// Карточка дня в выбранном виде плюс переключатель под ней.
     private func dayCard(_ day: API.PayrollBoardDay, today: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                switch dayStyle {
+                case .envelopes: envelopesDay(day, today: today)
+                case .receipt: receiptDay(day, today: today)
+                case .grid: gridDay(day, today: today)
+                case .total: totalDay(day, today: today)
+                case .shares: sharesDay(day, today: today)
+                }
+            }
+            .animation(reduceMotion ? nil : .snappy(duration: Motion.normal), value: dayStyle)
+
+            PayrollDayStyleSwitch(style: $dayStyle)
+        }
+    }
+
+    /// Прежний вид дня — остался как основа под варианты.
+    private func classicDay(_ day: API.PayrollBoardDay, today: String) -> some View {
         let payable = day.people.filter { $0.staffId != nil && $0.earned > 0 }
         let mine = payable.filter { picked.contains(key(day.day, $0)) }
 
@@ -355,11 +376,17 @@ struct PayrollView: View {
                 Spacer(minLength: 8)
 
                 if day.outstanding > 0 {
-                    /* Сумма дня переехала вниз, в лаймовую строку под
-                       списком: наверху она спорила с датой за первый
-                       взгляд, а отвечает на вопрос, который возникает
-                       ПОСЛЕ чтения людей. */
-                    EmptyView()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(money(day.outstanding, currency))
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(L("payroll.dayToPay"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.boardMuted)
+                    }
                 } else {
                     /* Коротко: «Ամեն ինչ վճարված է» рядом с датой ломало
                        заголовок на две строки — на телефоне на эту полку
@@ -401,38 +428,6 @@ struct PayrollView: View {
             }
             .padding(.top, 6)
 
-            /* Итог дня отделён от строк не линией, а лаймом: это не ещё
-               одна строка списка, а ответ, ради которого список показан.
-               Тот же приём, что на слайде онбординга про зарплату, —
-               владелец назвал его красивым, и он же тут уместен. */
-            if day.outstanding > 0 {
-                HStack(spacing: 10) {
-                    /* «Сотрудникам», а не «к выплате»: тем же словом
-                       подписан итог на слайде онбординга, и оно не
-                       повторяет показание в шапке экрана, где «К выплате»
-                       уже стоит. */
-                    Text(L("summary.toStaff"))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Brand.onLime.opacity(0.7))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-
-                    Spacer(minLength: 8)
-
-                    Text(money(day.outstanding, currency))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onLime)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .contentTransition(.numericText(value: Double(day.outstanding)))
-                }
-                .padding(.horizontal, 13)
-                .padding(.vertical, 12)
-                .background(Brand.lime, in: .rect(cornerRadius: 18, style: .continuous))
-                .padding(.top, 12)
-            }
-
             /* Полосы расчёта внутри дня здесь нет: её место занимает
                причал у нижнего края. Две одинаковые кнопки в одном
                экране — не подстраховка, а вопрос «эти две делают одно и
@@ -442,6 +437,465 @@ struct PayrollView: View {
         }
         .padding(16)
         .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
+    }
+
+    // ══════════════ пять видов дня: временные, до выбора ══════════════
+
+    /// Общая шапка дня: дата, состав, итог справа.
+    private func dayHead(_ day: API.PayrollBoardDay, today: String, quiet: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(dayTitle(day.day, today: today))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text("\(Terms.staff(day.people.count, staffRole)) · \(Terms.units(day.units, unitOne))")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+            }
+
+            Spacer(minLength: 8)
+
+            if day.outstanding > 0 && !quiet {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(money(day.outstanding, currency))
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text(L("payroll.dayToPay"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.boardMuted)
+                }
+            } else if day.outstanding == 0 {
+                Label(L("payroll.paid"), systemImage: "checkmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.goodOnBoard)
+                    .fixedSize()
+            }
+        }
+    }
+
+    /// «Выбрать всех» — тихой подписью, общая для всех видов.
+    @ViewBuilder
+    private func selectAll(_ day: API.PayrollBoardDay) -> some View {
+        let payable = day.people.filter { $0.staffId != nil && $0.earned > 0 }
+        let mine = payable.filter { picked.contains(key(day.day, $0)) }
+        if payable.count > 1 && mine.count < payable.count {
+            Button {
+                for person in payable { picked.insert(key(day.day, person)) }
+            } label: {
+                Text(L("payroll.selectAll"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Brand.grape)
+            }
+            .buttonStyle(.press)
+        }
+    }
+
+    /// Отмечен ли человек и можно ли его отмечать.
+    private func toggle(_ person: API.PayrollPerson, day: String) {
+        guard person.staffId != nil, person.earned > 0, !settling else { return }
+        let id = key(day, person)
+        if picked.contains(id) { picked.remove(id) } else { picked.insert(id) }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+
+    /// Разложение суммы человека — общее для видов, где оно раскрывается.
+    @ViewBuilder
+    private func personLines(_ person: API.PayrollPerson, inset: CGFloat) -> some View {
+        if let lines = person.lines {
+            VStack(spacing: 3) {
+                ForEach(lines) { line in
+                    HStack(spacing: 8) {
+                        Text(line.title)
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text(line.formula(money(line.price, currency)))
+                            .foregroundStyle(Brand.boardMuted.opacity(0.85))
+                            .lineLimit(1)
+                        Text(money(line.earned, currency))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                }
+            }
+            .padding(.leading, inset)
+            .padding(.top, 6)
+        }
+    }
+
+    // ── 1. Конверты ──
+
+    /**
+     * Человек — отдельный конверт со своей цветной кромкой.
+     *
+     * Флажка нет: цель касания — вся карточка, а отметка показана
+     * заливкой и галочкой. Деньги отдают человеку, и предметом на экране
+     * должен быть человек, а не строка таблицы.
+     */
+    private func envelopesDay(_ day: API.PayrollBoardDay, today: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            dayHead(day, today: today)
+            selectAll(day)
+
+            ForEach(day.people) { person in
+                let id = key(day.day, person)
+                let on = picked.contains(id)
+                let owed = person.earned > 0 && person.staffId != nil
+                let tone = Brand.personTone(person.name ?? "—")
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(tone.base)
+                            .frame(width: 4, height: 34)
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(person.name ?? "—")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.onBoard)
+                                .lineLimit(1)
+                            Text(facts(person))
+                                .font(.system(size: 12))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.boardMuted)
+                                .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 6)
+
+                        Text(money(owed ? person.earned : person.paid, currency))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+
+                        Image(systemName: on ? "checkmark.circle.fill" : (owed ? "circle" : "checkmark"))
+                            .font(.system(size: on ? 22 : 18, weight: .semibold))
+                            .foregroundStyle(on ? Brand.grape : (owed ? Brand.boardInk.opacity(0.18) : Brand.goodOnBoard))
+                    }
+
+                    personLines(person, inset: 16)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    on ? Brand.grape.opacity(0.08) : Brand.boardInk.opacity(0.035),
+                    in: .rect(cornerRadius: R.small, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: R.small, style: .continuous)
+                        .strokeBorder(on ? Brand.grape.opacity(0.35) : .clear, lineWidth: 1)
+                }
+                .contentShape(.rect)
+                .onTapGesture { toggle(person, day: day.day) }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: R.card, style: .continuous))
+    }
+
+    // ── 2. Чек ──
+
+    /**
+     * Кассовая лента: моноширинные суммы, пунктир, итог внизу.
+     *
+     * Зарплату на мойке отдают наличными из кассы, и форма чека здесь не
+     * стилизация, а привычный человеку способ свести столбик.
+     */
+    private func receiptDay(_ day: API.PayrollBoardDay, today: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            dayHead(day, today: today, quiet: true)
+                .padding(.bottom, 12)
+
+            PayrollDash()
+
+            ForEach(day.people) { person in
+                let id = key(day.day, person)
+                let on = picked.contains(id)
+                let owed = person.earned > 0 && person.staffId != nil
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: on ? "checkmark.square.fill" : (owed ? "square" : "checkmark"))
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(on ? Brand.grape : (owed ? Brand.boardMuted : Brand.goodOnBoard))
+                            .frame(width: 20)
+
+                        Text(person.name ?? "—")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+
+                        Text(money(owed ? person.earned : person.paid, currency))
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                    }
+                    .padding(.vertical, 10)
+                    .contentShape(.rect)
+                    .onTapGesture { toggle(person, day: day.day) }
+
+                    personLines(person, inset: 30)
+                        .padding(.bottom, 6)
+                }
+            }
+
+            PayrollDash()
+                .padding(.bottom, 10)
+
+            HStack(spacing: 8) {
+                Text(L("payroll.dayToPay").uppercased())
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(0.6)
+                    .foregroundStyle(Brand.boardMuted)
+                Spacer(minLength: 8)
+                Text(money(day.outstanding, currency))
+                    .font(.system(size: 19, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Brand.onBoard)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+
+            selectAll(day)
+                .padding(.top, 10)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: R.card, style: .continuous))
+    }
+
+    // ── 3. Сетка ──
+
+    /**
+     * Люди плитками по двое в ряд.
+     *
+     * На мойке их двое-трое, и список из двух строк выглядит недоделанным
+     * списком. Плитки занимают ту же высоту, но читаются набором людей, а
+     * не таблицей; отмеченная заливается грейпом целиком.
+     */
+    private func gridDay(_ day: API.PayrollBoardDay, today: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            dayHead(day, today: today)
+            selectAll(day)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(day.people) { person in
+                    let id = key(day.day, person)
+                    let on = picked.contains(id)
+                    let owed = person.earned > 0 && person.staffId != nil
+                    let tone = Brand.personTone(person.name ?? "—")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Text(String((person.name ?? "—").prefix(1)))
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 28, height: 28)
+                                .background(tone.base, in: .circle)
+
+                            Spacer(minLength: 0)
+
+                            Image(systemName: on ? "checkmark.circle.fill" : (owed ? "circle" : "checkmark"))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(on ? Brand.grape : (owed ? Brand.boardInk.opacity(0.18) : Brand.goodOnBoard))
+                        }
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(person.name ?? "—")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.onBoard)
+                                .lineLimit(1)
+                            Text(money(owed ? person.earned : person.paid, currency))
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text(facts(person))
+                                .font(.system(size: 11))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.boardMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        on ? Brand.grape.opacity(0.10) : Brand.boardInk.opacity(0.035),
+                        in: .rect(cornerRadius: R.small, style: .continuous)
+                    )
+                    .contentShape(.rect)
+                    .onTapGesture { toggle(person, day: day.day) }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: R.card, style: .continuous))
+    }
+
+    // ── 4. Итог сверху ──
+
+    /**
+     * Сначала сумма дня, потом из кого она сложилась.
+     *
+     * Владелец открывает день с одним вопросом: сколько сегодня отдать.
+     * Здесь ответ стоит первым и крупно, а люди идут объяснением под ним.
+     */
+    private func totalDay(_ day: API.PayrollBoardDay, today: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(dayTitle(day.day, today: today))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.boardMuted)
+                .lineLimit(1)
+
+            Text(money(day.outstanding, currency))
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(day.outstanding > 0 ? Brand.onBoard : Brand.goodOnBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .padding(.top, 2)
+
+            Text("\(Terms.staff(day.people.count, staffRole)) · \(Terms.units(day.units, unitOne))")
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .foregroundStyle(Brand.boardMuted)
+                .padding(.top, 2)
+
+            Hairline()
+                .padding(.top, 14)
+
+            ForEach(day.people) { person in
+                let id = key(day.day, person)
+                let on = picked.contains(id)
+                let owed = person.earned > 0 && person.staffId != nil
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(Brand.personTone(person.name ?? "—").base)
+                            .frame(width: 8, height: 8)
+
+                        Text(person.name ?? "—")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                            .lineLimit(1)
+
+                        Text(facts(person))
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 6)
+
+                        Text(money(owed ? person.earned : person.paid, currency))
+                            .font(.system(size: 14, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+
+                        Image(systemName: on ? "checkmark.circle.fill" : (owed ? "circle" : "checkmark"))
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(on ? Brand.grape : (owed ? Brand.boardInk.opacity(0.18) : Brand.goodOnBoard))
+                    }
+                    .padding(.vertical, 11)
+                    .contentShape(.rect)
+                    .onTapGesture { toggle(person, day: day.day) }
+
+                    personLines(person, inset: 18)
+                        .padding(.bottom, 6)
+                }
+            }
+
+            selectAll(day)
+                .padding(.top, 6)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: R.card, style: .continuous))
+    }
+
+    // ── 5. Доли ──
+
+    /**
+     * У каждого — полоса его части дневного фонда.
+     *
+     * Когда людей трое и суммы близки, колонка цифр ничего не говорит о
+     * весе: полоса отвечает на «кто сегодня вытянул день» без чтения.
+     */
+    private func sharesDay(_ day: API.PayrollBoardDay, today: String) -> some View {
+        let fund = max(1, day.people.reduce(0) { $0 + max($1.earned, $1.paid) })
+
+        return VStack(alignment: .leading, spacing: 12) {
+            dayHead(day, today: today)
+            selectAll(day)
+
+            VStack(spacing: 12) {
+                ForEach(day.people) { person in
+                    let id = key(day.day, person)
+                    let on = picked.contains(id)
+                    let owed = person.earned > 0 && person.staffId != nil
+                    let amount = owed ? person.earned : person.paid
+                    let tone = Brand.personTone(person.name ?? "—")
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 10) {
+                            Image(systemName: on ? "checkmark.circle.fill" : (owed ? "circle" : "checkmark"))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(on ? Brand.grape : (owed ? Brand.boardInk.opacity(0.18) : Brand.goodOnBoard))
+
+                            Text(person.name ?? "—")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                                .lineLimit(1)
+
+                            Text(facts(person))
+                                .font(.system(size: 11))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.boardMuted)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 6)
+
+                            Text(money(amount, currency))
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(owed ? Brand.onBoard : Brand.boardMuted)
+                        }
+
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Brand.boardInk.opacity(0.06))
+                                Capsule()
+                                    .fill(owed ? tone.base : Brand.boardInk.opacity(0.15))
+                                    .frame(width: max(6, proxy.size.width * CGFloat(amount) / CGFloat(fund)))
+                            }
+                        }
+                        .frame(height: 8)
+
+                        personLines(person, inset: 0)
+                    }
+                    .contentShape(.rect)
+                    .onTapGesture { toggle(person, day: day.day) }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.boardSurface, in: .rect(cornerRadius: R.card, style: .continuous))
     }
 
     /// Закрытый день ничего не требует и занимает столько места, сколько
