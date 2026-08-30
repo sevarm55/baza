@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { BillingBanner } from '@/components/shell/billing-banner';
+import { TempAccessBanner } from '@/components/shell/temp-access-banner';
 import { BranchLabel, BranchSwitcher } from '@/components/shell/branch-switcher';
 import { BarUserMenu } from '@/components/shell/user-menu';
 import { MobileAppBar } from '@/components/mobile/app-bar';
@@ -30,6 +31,9 @@ export async function SoloShell({
   points,
   currentTid,
   access,
+  /** до какого момента действует временный код; null — код свой */
+  tempAccessUntil = null,
+  timezone,
   shiftOpen,
   children,
 }: {
@@ -39,6 +43,8 @@ export async function SoloShell({
   points: Point[];
   currentTid: string;
   access: Access;
+  tempAccessUntil?: Date | null;
+  timezone: string;
   /** смена открыта: выход переспрашивает */
   shiftOpen: boolean;
   children: ReactNode;
@@ -84,6 +90,9 @@ export async function SoloShell({
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 max-md:m-pad-x max-md:m-tabs-space max-md:pt-2 md:px-6">
         <BillingBanner access={access} role="staff" />
+        {/* Ссылки нет: профиля у мойщика на вебе не существует, свой код
+            он задаёт в приложении. */}
+        <TempAccessBanner until={tempAccessUntil} timezone={timezone} canChange={false} />
         <PageFade>{children}</PageFade>
       </main>
 

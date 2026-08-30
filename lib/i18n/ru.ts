@@ -306,6 +306,9 @@ export const ru: Dict = {
     sending: 'Отправляем…',
     checking: 'Проверяем…',
     forgotPin: 'Забыли код доступа?',
+    tempAccessTitle: 'Ваш код временный',
+    tempAccessNote: (deadline: string) => `Он перестанет работать ${deadline}. Задайте свой код.`,
+    tempAccessAction: 'Задать свой код',
     createPin: 'Создайте код доступа',
     pinMemo: 'Используйте 6 цифр, которые сможете запомнить',
 

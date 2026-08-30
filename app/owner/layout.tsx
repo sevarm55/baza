@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { requireOwner } from '@/lib/auth';
 import { ensureDb } from '@/lib/db/ready';
 import { getTenant, getUser } from '@/lib/queries';
-import { listPoints } from '@/lib/accounts';
+import { accountOf, listPoints } from '@/lib/accounts';
 import { currentAccess } from '@/lib/subscription';
 import { getAlerts } from '@/lib/alerts';
 import { passesEnabled } from '@/lib/features';
@@ -43,6 +43,9 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   if (firstRunActive(me.onboardingStage)) redirect('/onboarding');
 
   const points = me.accountId ? await listPoints(me.accountId) : [];
+  /* Временный код: выдан админом, когда войти было нечем. Оболочка
+     напоминает задать свой, пока метка стоит. */
+  const account = await accountOf(me);
   const passes = passesEnabled();
 
   const alerts = await getAlerts(tenant.id, me.id, tenant.timezone, t.locale);
@@ -58,6 +61,8 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
       passes={passes}
       alerts={alerts}
       access={access}
+      tempAccessUntil={account?.tempAccessUntil ?? null}
+      timezone={tenant.timezone}
       sidebarOpen={sidebarOpen}
       quickAdd={`${unitForms(tenant.unitOne, t.locale).acc}`}
     >

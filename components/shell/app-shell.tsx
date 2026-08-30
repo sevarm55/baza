@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { BillingBanner } from '@/components/shell/billing-banner';
+import { TempAccessBanner } from '@/components/shell/temp-access-banner';
 import { TopBar } from '@/components/shell/top-bar';
 import { MobileAppBar } from '@/components/mobile/app-bar';
 import { MTabBar } from '@/components/mobile/tabs';
@@ -40,6 +41,9 @@ export async function AppShell({
   passes,
   alerts,
   access,
+  /** до какого момента действует временный код; null — код свой */
+  tempAccessUntil = null,
+  timezone,
   sidebarOpen,
   quickAdd,
   narrow = false,
@@ -54,6 +58,8 @@ export async function AppShell({
   passes: boolean;
   alerts: Alert[];
   access: Access;
+  tempAccessUntil?: Date | null;
+  timezone: string;
   sidebarOpen: boolean;
   quickAdd?: string | null;
   /** узкая рабочая область: экран смены, профиль */
@@ -125,6 +131,7 @@ export async function AppShell({
           )}
         >
           <BillingBanner access={access} role="owner" />
+          <TempAccessBanner until={tempAccessUntil} timezone={timezone} canChange />
           <PageFade>{children}</PageFade>
         </main>
 

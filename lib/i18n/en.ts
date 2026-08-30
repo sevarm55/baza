@@ -284,6 +284,9 @@ export const en: Dict = {
     sending: 'Sending…',
     checking: 'Checking…',
     forgotPin: 'Forgot your access code?',
+    tempAccessTitle: 'Your code is temporary',
+    tempAccessNote: (deadline: string) => `It stops working on ${deadline}. Set your own code.`,
+    tempAccessAction: 'Set your own code',
     createPin: 'Create an access code',
     pinMemo: 'Use 6 digits you will remember',
 

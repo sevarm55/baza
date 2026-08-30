@@ -13,7 +13,7 @@ import {
 } from '@/lib/queries';
 import { cashInShift, closedShiftToday, currentShift, whoIsOnShift } from '@/lib/shifts';
 import { hhmm } from '@/lib/time';
-import { listPoints } from '@/lib/accounts';
+import { accountOf, listPoints } from '@/lib/accounts';
 import { formatMoney } from '@/lib/money';
 import { passesEnabled } from '@/lib/features';
 import { priceForTier, tiersOf } from '@/lib/catalog';
@@ -61,7 +61,7 @@ export default async function WorkPage({
 
   const access = currentAccess(tenant);
   if (!access.canRead) redirect('/blocked');
-  const [services, shift, open, closed, points, staff] = await Promise.all([
+  const [services, shift, open, closed, points, staff, account] = await Promise.all([
     listServices(tenant.id),
     getShift(tenant.id, me.id, startOfDay(tenant.timezone)),
     currentShift(tenant.id, me.id, startOfDay(tenant.timezone)),
@@ -73,6 +73,9 @@ export default async function WorkPage({
        загрузку там дороже всего. Себя убираем здесь, а не в форме:
        автор записи участник по определению. */
     listStaff(tenant.id),
+    /* Временный код: выдан админом, когда войти было нечем. Оболочка
+       напоминает задать свой, пока метка стоит. */
+    accountOf(me),
   ]);
 
   /* Кто из коллег сейчас на мойке. Отметить участником можно только
@@ -356,6 +359,8 @@ export default async function WorkPage({
         passes={passesEnabled()}
         alerts={alerts}
         access={access}
+        tempAccessUntil={account?.tempAccessUntil ?? null}
+        timezone={tenant.timezone}
         sidebarOpen={sidebarOpen}
         quickAdd={null}
         narrow
@@ -373,6 +378,8 @@ export default async function WorkPage({
       points={points}
       currentTid={tenant.id}
       access={access}
+      tempAccessUntil={account?.tempAccessUntil ?? null}
+      timezone={tenant.timezone}
       shiftOpen={onShift}
     >
       {body}

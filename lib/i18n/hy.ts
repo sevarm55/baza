@@ -338,6 +338,9 @@ export const hy = {
     sending: 'Ուղարկվում է…',
     checking: 'Ստուգվում է…',
     forgotPin: 'Մոռացե՞լ եք մուտքի կոդը',
+    tempAccessTitle: 'Ձեր կոդը ժամանակավոր է',
+    tempAccessNote: (deadline: string) => `Այն կդադարի աշխատել ${deadline}․ դրեք ձեր կոդը։`,
+    tempAccessAction: 'Դնել իմ կոդը',
     createPin: 'Ստեղծեք մուտքի կոդ',
     pinMemo: 'Օգտագործեք 6 թիվ, որոնք կհիշեք',
 
