@@ -407,7 +407,11 @@ struct PayrollView: View {
                владелец назвал его красивым, и он же тут уместен. */
             if day.outstanding > 0 {
                 HStack(spacing: 10) {
-                    Text(L("payroll.dayToPay"))
+                    /* «Сотрудникам», а не «к выплате»: тем же словом
+                       подписан итог на слайде онбординга, и оно не
+                       повторяет показание в шапке экрана, где «К выплате»
+                       уже стоит. */
+                    Text(L("summary.toStaff"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.onLime.opacity(0.7))
                         .lineLimit(1)
