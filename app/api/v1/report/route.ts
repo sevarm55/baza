@@ -4,9 +4,13 @@ import { daysInMonthOf } from '@/lib/time';
 import {
   getCostsByCategory,
   getEarnedByService,
+  getHeatmap,
   getMonthBase,
   getMonthlyReport,
+  getRangeSeries,
+  getRangeSummary,
 } from '@/lib/reports';
+import { listPoints } from '@/lib/accounts';
 import { authorize, denied } from '@/lib/api/guard';
 import { failFromError, ok } from '@/lib/api/respond';
 import { serviceNameTerm } from '@/lib/i18n/terms';
@@ -55,17 +59,46 @@ export async function GET(request: Request) {
     const index = Number.isInteger(asked) && asked >= 0 && asked < shown.length ? asked : 0;
     const current = shown[index];
 
-    const [costs, earned, split, base] = await Promise.all([
-      getCostsByCategory(
-        ctx.tenant.id,
-        current.from,
-        current.to,
-        daysInMonthOf(ctx.tenant.timezone, current.from),
-      ),
+    const spread = daysInMonthOf(ctx.tenant.timezone, current.from);
+
+    const [costs, earned, split, base, heat, series] = await Promise.all([
+      getCostsByCategory(ctx.tenant.id, current.from, current.to, spread),
       getEarnedByService(ctx.tenant.id, current.from, current.to),
       getPaymentSplit(ctx.tenant.id, current.from, current.to),
       getMonthBase(ctx.tenant.id, ctx.tenant.timezone, current),
+      /* Загрузка по времени: день недели × час. Тот же запрос, что рисует
+         тепловую карту в кабинете. */
+      getHeatmap(ctx.tenant.id, current.from, current.to, ctx.tenant.timezone),
+      /* Ряд по дням месяца: выручка и машины. По часам не просим —
+         месяц по часам это семьсот точек, из которых на телефоне
+         читается ноль. */
+      getRangeSeries(
+        ctx.tenant.id,
+        { from: current.from, to: current.to, byHour: false, spread, days: spread },
+        ctx.tenant.timezone,
+      ),
     ]);
+
+    /**
+     * Филиалы рядом за тот же отрезок.
+     *
+     * Только те, где человек владелец: сравнивать чужую выручку он права
+     * не имеет. Один филиал — блока нет вовсе: сравнивать не с чем, а
+     * пустая карточка «сравнение» на экране мойки с одной точкой это
+     * обещание того, чего у неё нет.
+     */
+    const owned = (await listPoints(ctx.account.id)).filter((p) => p.role === 'owner');
+    const branches =
+      owned.length > 1
+        ? (
+            await Promise.all(
+              owned.map(async (p) => {
+                const sum = await getRangeSummary(p.id, current.from, current.to, spread);
+                return { id: p.id, name: p.name, revenue: sum.revenue, count: sum.count };
+              }),
+            )
+          ).sort((a, b) => b.revenue - a.revenue)
+        : [];
 
     return ok({
       /* Ряд месяцев целиком: по нему приложение рисует и выбор месяца, и
@@ -126,6 +159,12 @@ export async function GET(request: Request) {
         monthly: c.monthly,
       })),
       split,
+      /* Три разреза, которых в приложении не было, а в кабинете были:
+         когда приезжают, как шёл месяц по дням, и как филиалы смотрятся
+         рядом. Считает всё тот же код, что и кабинет. */
+      heat: heat.map((c) => ({ dow: c.dow, hour: c.hour, count: c.count, revenue: c.revenue })),
+      series: series.map((p) => ({ key: p.key, revenue: p.revenue, count: p.count })),
+      branches,
     });
   } catch (e) {
     return failFromError(e);

@@ -1121,6 +1121,45 @@ enum API {
         var value: Int { revenue ?? amount ?? 0 }
     }
 
+    /// Клетка загрузки: день недели (1 — понедельник) и час.
+    struct HeatCell: Decodable, Identifiable {
+        let dow: Int
+        let hour: Int
+        let count: Int
+        let revenue: Int
+
+        var id: Int { dow * 100 + hour }
+    }
+
+    /// Точка ряда по дням месяца.
+    ///
+    /// Не `SeriesPoint`: то имя занято рядом сводки, у которого нет
+    /// счётчика машин. Два разных ряда с одним именем — верный способ
+    /// однажды нарисовать один вместо другого.
+    struct ReportPoint: Decodable, Identifiable {
+        /// «2026-08-23 00» — как отдаёт база.
+        let key: String
+        let revenue: Int
+        let count: Int
+
+        var id: String { key }
+
+        /// День месяца числом: из ключа, без форматтеров.
+        var day: Int {
+            let parts = key.split(separator: "-")
+            guard parts.count >= 3 else { return 0 }
+            return Int(parts[2].prefix(2)) ?? 0
+        }
+    }
+
+    /// Филиал в сравнении за тот же отрезок.
+    struct BranchLine: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let revenue: Int
+        let count: Int
+    }
+
     struct Report: Decodable {
         let months: [ReportMonth]
         let current: ReportCurrent
@@ -1128,6 +1167,14 @@ enum API {
         let services: [ReportLine]
         let costsByCategory: [ReportLine]
         let split: [SplitSegment]
+
+        /* Три разреза, которых раньше не было. Необязательные по общему
+           правилу этого файла: приложение бывает новее сервера, и
+           обязательное поле здесь означало бы экран «не удалось» вместо
+           отчёта у каждого, кто обновился раньше сервера. */
+        let heat: [HeatCell]?
+        let series: [ReportPoint]?
+        let branches: [BranchLine]?
     }
 }
 

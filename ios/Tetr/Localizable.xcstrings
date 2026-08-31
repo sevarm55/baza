@@ -9329,6 +9329,46 @@
         }
       }
     },
+    "report.heatTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "When they come" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Երբ են գալիս" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Когда приезжают" } }
+      }
+    },
+    "report.heatHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tap a square" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Սեղմեք վանդակը" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нажмите на клетку" } }
+      }
+    },
+    "report.trendTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Day by day" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Օրերով" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "По дням" } }
+      }
+    },
+    "report.trendHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tap a bar" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Սեղմեք սյունը" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нажмите на столбик" } }
+      }
+    },
+    "report.branchesTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Branches" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Մասնաճյուղեր" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Филиалы" } }
+      }
+    },
     "roles.owner" : {
       "extractionState" : "manual",
       "localizations" : {

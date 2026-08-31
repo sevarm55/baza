@@ -73,9 +73,32 @@ struct ReportView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         reading(report)
                         composition(report.current)
+
+                        /* Когда приезжают и как шёл месяц — сразу после
+                           состава, до разрезов по деньгам: это вопросы
+                           про работу мойки, а не про её бухгалтерию, и
+                           владелец задаёт их первыми. */
+                        if let heat = report.heat, heat.contains(where: { $0.count > 0 }) {
+                            section(L("report.heatTitle"), total: report.current.count)
+                            ReportHeatmap(cells: heat, currency: currency, unit: unit)
+                        }
+
+                        if let series = report.series, series.count > 1 {
+                            section(L("report.trendTitle"), total: report.current.revenue)
+                            ReportTrend(points: series, currency: currency)
+                        }
+
                         income(report)
                         outgo(report.costsByCategory)
                         team(report.current)
+
+                        /* Филиалы последними: это вопрос владельца двух
+                           точек, а таких меньшинство, и до него доходят
+                           те, кто уже прочитал свою мойку. */
+                        if let branches = report.branches, branches.count > 1 {
+                            section(L("report.branchesTitle"), total: branches.reduce(0) { $0 + $1.revenue })
+                            ReportBranches(branches: branches, currency: currency, unit: unit)
+                        }
                     }
                     /* Пока идёт ответ по другому месяцу, содержимое гаснет,
                        но остаётся на месте: график со свежим выбором стоит
