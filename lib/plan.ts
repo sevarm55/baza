@@ -42,4 +42,4 @@ export const APP_STORE_URL = 'https://apps.apple.com/app/id6796829076';
  * В обратном порядке все живые клиенты упрутся в стену, за которой
  * магазин ещё показывает старую версию.
  */
-export const IOS_APP_LATEST = '1.1';
+export const IOS_APP_LATEST = '1.2';
