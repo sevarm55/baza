@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       niche?: string;
       businessName?: string;
       ownerName?: string;
+      currency?: string;
       phone?: string;
       pin?: string;
       country?: string;
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
         niche: str(input.niche),
         businessName: str(input.businessName),
         ownerName: str(input.ownerName),
+        currency: str(input.currency) || undefined,
         phone: str(input.phone),
         pin: str(input.pin),
         countryCode: str(input.country) || undefined,

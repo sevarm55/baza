@@ -83,6 +83,10 @@ struct LoginView: View {
     @State private var newPin = ""
     @State private var repeatPin = ""
     @State private var businessName = ""
+    /// Валюта новой мойки. Выбирается здесь и больше нигде: все суммы
+    /// бизнеса лежат в ней, и сменить её потом значило бы объявить
+    /// вчерашние двенадцать тысяч драм двенадцатью тысячами долларов.
+    @State private var currency = "AMD"
     @State private var ownerName = ""
 
     @State private var who: Who = .owner
@@ -678,6 +682,62 @@ struct LoginView: View {
                     .accessibilityIdentifier("login.ownerName")
                     .accessibilityLabel(L("onboarding.ownerName"))
             }
+
+            currencyChoice
+        }
+    }
+
+    /**
+     * Валюта: пять кнопок в ряд, драм выбран заранее.
+     *
+     * Не выпадающий список: вариантов пять, и список ради пяти пунктов
+     * это лишнее нажатие и закрытая от глаз строка выбора. Ряд отвечает
+     * на вопрос «а что вообще есть» до того, как его задали.
+     *
+     * Подпись под рядом честно говорит, что потом не поменять. Сказать
+     * это здесь дешевле, чем объясняться через месяц: пересчитывать
+     * прошлые суммы не по чему, а оставить их как есть значит смешать в
+     * одном отчёте разные деньги.
+     */
+    private var currencyChoice: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(L("onboarding.currency"))
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(.white.opacity(0.55))
+
+            HStack(spacing: 6) {
+                ForEach(Money.currencies, id: \.self) { code in
+                    let on = code == currency
+                    Button {
+                        currency = code
+                    } label: {
+                        VStack(spacing: 1) {
+                            Text(Money.symbol(code))
+                                .font(.system(size: 15, weight: .bold))
+                            Text(code)
+                                .font(.system(size: 9, weight: .semibold))
+                                .opacity(0.7)
+                        }
+                        .foregroundStyle(on ? Brand.grapeDeep : .white.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(
+                            on ? Brand.lime : .white.opacity(0.08),
+                            in: .rect(cornerRadius: 12, style: .continuous)
+                        )
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(code)
+                    .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                }
+            }
+
+            Text(L("onboarding.currencyOnce"))
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.45))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -1176,7 +1236,8 @@ struct LoginView: View {
             try await session.completeSignUp(
                 ticket: ticket,
                 businessName: businessName.trimmingCharacters(in: .whitespaces),
-                ownerName: ownerName.trimmingCharacters(in: .whitespaces)
+                ownerName: ownerName.trimmingCharacters(in: .whitespaces),
+                currency: currency
             )
         }
     }

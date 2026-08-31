@@ -326,6 +326,30 @@ struct ProfileView: View {
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
             }
             field(L("owner.clientName"), $myName)
+
+            /* Валюта только для чтения, и это не забытая кнопка. Она
+               выбрана при заведении мойки, и все суммы бизнеса лежат в
+               ней: сменить её значило бы объявить вчерашние двенадцать
+               тысяч драм двенадцатью тысячами долларов. Пересчитать не по
+               чему, а оставить как есть — смешать в одном отчёте разные
+               деньги.
+
+               Показываем всё равно: человек должен видеть, в чём считает,
+               а не догадываться по знаку рядом с числами. */
+            if isOwner, let code = session.tenant?.currency {
+                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                HStack {
+                    Text(L("profile.currency"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.boardMuted)
+                    Spacer(minLength: 8)
+                    Text("\(Money.symbol(code))\u{202F}\(code)")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Brand.onBoard)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
         }
     }
 

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users, services, type Account } from './db/schema';
 import { FIRST_RUN_START } from './first-run-stage';
+import { isCurrency } from './money';
 import { getNiche, type NicheKey } from './niches';
 import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
@@ -14,6 +15,13 @@ export type CreateBusinessInput = {
   niche: NicheKey;
   businessName: string;
   ownerName: string;
+  /**
+   * Валюта бизнеса. Выбирается здесь и больше нигде.
+   *
+   * Нет значения — драм: так стоит в схеме и так работают все мойки,
+   * заведённые до появления выбора.
+   */
+  currency?: string;
   /**
    * Кто заводит. Либо номер с кодом — так приходит регистрация снаружи,
    * либо уже опознанный человек — так приходит вторая точка из кабинета,
@@ -79,6 +87,9 @@ export async function createBusiness(input: CreateBusinessInput) {
         clientIdType: niche.clientIdType,
         staffRole: niche.staffRole,
         unitOne: niche.unitOne,
+        /* Чужую строку сюда не пропускаем: в базе валюта живёт как есть,
+           и «руб» вместо «RUB» сломал бы форматирование всех сумм. */
+        currency: input.currency && isCurrency(input.currency) ? input.currency : 'AMD',
         plan: trialGranted ? 'trial' : 'unpaid',
         trialEndsAt,
       })

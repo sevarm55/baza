@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       niche?: string;
       businessName?: string;
       ownerName?: string;
+      currency?: string;
       device?: string;
       installId?: string;
     }>(request);
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         niche: str(input.niche),
         businessName: str(input.businessName),
         ownerName: str(input.ownerName),
+        currency: str(input.currency) || undefined,
         ip,
         signals,
       });

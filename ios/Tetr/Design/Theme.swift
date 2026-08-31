@@ -224,9 +224,55 @@ func money(_ amount: Int, _ currency: String = "AMD") -> String {
        владелец ни читал экран. */
     f.groupingSeparator = LangStore.currentLang.groupSeparator
     f.decimalSeparator = LangStore.currentLang.decimalSeparator
-    let number = f.string(from: NSNumber(value: amount)) ?? "\(amount)"
-    let symbol = currency == "AMD" ? "֏" : currency
-    return "\(number)\u{202F}\(symbol)"
+
+    /* Дробная часть, где она есть. Деньги везде целые в минимальных
+       единицах: у драма это сам драм, у доллара цент. Без деления
+       двенадцать долларов показывались бы как «1 200 USD» — ровно тот
+       случай, когда цифра на экране не та, что в кассе. */
+    let decimals = Money.decimals(currency)
+    let scale = Int(pow(10.0, Double(decimals)))
+    let negative = amount < 0
+    let abs = Swift.abs(amount)
+
+    var number = f.string(from: NSNumber(value: abs / scale)) ?? "\(abs / scale)"
+    if decimals > 0 {
+        let rest = String(abs % scale)
+        number += LangStore.currentLang.decimalSeparator
+            + String(repeating: "0", count: max(0, decimals - rest.count)) + rest
+    }
+    if negative { number = "−" + number }
+
+    return "\(number)\u{202F}\(Money.symbol(currency))"
+}
+
+/**
+ * Валюты, которые продукт умеет считать.
+ *
+ * Тот же список и те же знаки, что на сервере (`lib/money.ts`). Держать
+ * их согласованными обязательно: сумма в приложении и в браузере
+ * обязана выглядеть одинаково до символа, иначе владелец решит, что одна
+ * из двух врёт.
+ *
+ * Валюта выбирается один раз, при заведении мойки, и потом не меняется.
+ */
+enum Money {
+    static let currencies = ["AMD", "RUB", "USD", "EUR", "GEL"]
+
+    static func symbol(_ code: String) -> String {
+        switch code {
+        case "AMD": return "֏"
+        case "RUB": return "₽"
+        case "USD": return "$"
+        case "EUR": return "€"
+        case "GEL": return "₾"
+        default: return code
+        }
+    }
+
+    /// Сколько знаков после запятой. У драма их нет вовсе.
+    static func decimals(_ code: String) -> Int {
+        code == "AMD" ? 0 : 2
+    }
 }
 
 /**

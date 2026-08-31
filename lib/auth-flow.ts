@@ -340,6 +340,8 @@ export type RegisterDraft = {
   niche: string;
   businessName: string;
   ownerName: string;
+  /** валюта бизнеса: выбирается один раз, здесь */
+  currency?: string;
   phone: string;
   pin: string;
   countryCode?: string;
@@ -417,6 +419,7 @@ export async function beginRegistration(
       niche,
       businessName,
       ownerName,
+      currency: String(draft.currency ?? 'AMD'),
       // в заявке между шагами лежит только хеш
       pinHash: await hashPin(pin),
     },
@@ -467,6 +470,7 @@ export async function completeRegistration(input: {
     niche: string;
     businessName: string;
     ownerName: string;
+    currency?: string;
     pinHash: string;
   }>({
     challengeId: input.challengeId,
@@ -488,13 +492,14 @@ export async function completeRegistration(input: {
   }
 
   const phone = verified.challenge.phone;
-  const { niche, businessName, ownerName, pinHash } = verified.payload;
+  const { niche, businessName, ownerName, currency, pinHash } = verified.payload;
 
   try {
     const { tenant, owner } = await createBusiness({
       niche: niche as NicheKey,
       businessName,
       ownerName,
+      currency: currency as string | undefined,
       phone,
       pinHash,
       phoneVerified: true,
@@ -1081,6 +1086,8 @@ export async function completeSignUp(input: {
   niche: string;
   businessName: string;
   ownerName: string;
+  /** валюта бизнеса: выбирается один раз, здесь */
+  currency?: string;
   ip: string | null;
   signals: DeviceSignals;
 }): Promise<SignUpResult> {
@@ -1108,6 +1115,7 @@ export async function completeSignUp(input: {
       niche: input.niche as NicheKey,
       businessName,
       ownerName,
+      currency: input.currency,
       phone: claims.phone,
       pinHash: NO_PIN,
       phoneVerified: true,

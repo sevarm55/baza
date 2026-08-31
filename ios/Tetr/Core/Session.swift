@@ -381,7 +381,7 @@ final class Session: ObservableObject {
      * заготовка и не предмет разговора с клиентом (см. PRODUCT.md).
      * Показать их списком значило бы предложить то, чего мы не продаём.
      */
-    func completeSignUp(ticket: String, businessName: String, ownerName: String) async throws {
+    func completeSignUp(ticket: String, businessName: String, ownerName: String, currency: String) async throws {
         let result: API.EntryResult = try await api.send(
             "auth/entry/verify",
             method: "POST",
@@ -390,6 +390,7 @@ final class Session: ObservableObject {
                 "niche": Self.niche,
                 "businessName": businessName,
                 "ownerName": ownerName,
+                "currency": currency,
                 "device": UIDevice.current.name,
                 "installId": Self.installId,
             ],

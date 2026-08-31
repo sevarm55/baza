@@ -9369,6 +9369,30 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Филиалы" } }
       }
     },
+    "onboarding.currency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "CURRENCY" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "ԱՐԺՈՒՅԹ" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ВАЛЮТА" } }
+      }
+    },
+    "onboarding.currencyOnce" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Chosen once: all sums live in it and it cannot be changed later." } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Ընտրվում է մեկ անգամ․ բոլոր գումարներն այս արժույթով են և հետո չեն փոխվում։" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выбирается один раз: в ней лежат все суммы, и потом её не поменять." } }
+      }
+    },
+    "profile.currency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Currency" } },
+        "hy" : { "stringUnit" : { "state" : "translated", "value" : "Արժույթ" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Валюта" } }
+      }
+    },
     "roles.owner" : {
       "extractionState" : "manual",
       "localizations" : {

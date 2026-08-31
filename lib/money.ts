@@ -27,6 +27,26 @@ export function isSaneMoney(value: unknown): value is number {
 const DECIMALS: Record<string, number> = { AMD: 0, RUB: 2, USD: 2, EUR: 2, GEL: 2 };
 const SYMBOLS: Record<string, string> = { AMD: '֏', RUB: '₽', USD: '$', EUR: '€', GEL: '₾' };
 
+/**
+ * Валюты, которые продукт умеет считать.
+ *
+ * Список закрытый и коротким останется: валюта это не настройка вкуса, а
+ * то, в чём лежат все суммы бизнеса. Добавить сюда строку без записи в
+ * DECIMALS и SYMBOLS нельзя — цена в копейках посчитается как в целых.
+ *
+ * Выбирается один раз, при заведении мойки, и потом не меняется. Смена
+ * означала бы, что вчерашние двенадцать тысяч драм сегодня стали
+ * двенадцатью тысячами долларов: пересчитывать их не по чему, а
+ * оставить как есть значит смешать в одном отчёте разные деньги.
+ */
+export const CURRENCIES = ['AMD', 'RUB', 'USD', 'EUR', 'GEL'] as const;
+export type Currency = (typeof CURRENCIES)[number];
+
+export function isCurrency(value: string): value is Currency {
+  return (CURRENCIES as readonly string[]).includes(value);
+}
+
+
 /* toLocaleString('hy-AM') даёт разный результат в Node и в браузере:
    на сервере выходило «5 000», в браузере «5,000». На одном экране
    уживались оба варианта, а React ругался на несовпадение разметки.
