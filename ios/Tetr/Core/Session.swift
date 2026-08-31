@@ -88,6 +88,30 @@ final class Session: ObservableObject {
      */
     @Published private(set) var storeVersion: String?
 
+    /// Когда в последний раз спрашивали сервер о себе. По нему решаем,
+    /// стоит ли перечитывать при возвращении в приложение.
+    private var loadedAt: Date?
+
+    /**
+     * Перечитать себя, вернувшись в приложение.
+     *
+     * Телефон держит приложение в памяти сутками, и до этого метода
+     * версия и срок подписки читались только при холодном запуске.
+     * Значит стену обновления и экран истёкшего срока человек не видел,
+     * пока не убьёт приложение руками, — а руками его не убивает никто.
+     * Ровно так и вышло с 1.2: сервер уже говорил «последняя 1.2», а
+     * приложение, открытое из фона, продолжало считать последней 1.1.
+     *
+     * Минута паузы — чтобы переключение между приложениями и возврат из
+     * камеры не превращались в очередь запросов. Отказ гасим: связи нет,
+     * значит показываем то, что знали, а не ошибку поверх работы.
+     */
+    func refreshOnReturn() async {
+        guard state == .signedIn else { return }
+        guard Date().timeIntervalSince(loadedAt ?? .distantPast) > 60 else { return }
+        try? await loadBootstrap()
+    }
+
     /// Своя версия из настроек сборки — та же, что видит App Store.
     static let installedVersion =
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
@@ -853,6 +877,7 @@ final class Session: ObservableObject {
         let boot: API.Bootstrap = try await authed { token in
             try await self.api.send("bootstrap", token: token, as: API.Bootstrap.self)
         }
+        loadedAt = Date()
         tenant = boot.tenant
         me = boot.me
         access = boot.access

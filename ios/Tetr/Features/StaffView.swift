@@ -78,9 +78,7 @@ struct StaffView: View {
                         /* Места людей: кружок лица, имя и ставка. Кружки, а
                            не квадраты — подставить круг на место квадрата
                            заметнее, чем не рисовать ничего. */
-                        Delayed(active: true) { TetrSkeletonList(rows: 3, avatar: true) }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 18)
+                        Delayed(active: true) { TetrScreenLoader(height: 200) }
                     } else if failed, staff.isEmpty {
                         TetrFailure(
                             title: L("common.loadFailed"),

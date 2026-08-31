@@ -135,7 +135,7 @@ struct ExpensesView: View {
                    секунды: быстрый ответ не должен успевать мигнуть
                    скелетом. */
                 Delayed(active: true) {
-                    TetrScreenSkeleton(rows: 5)
+                    TetrScreenLoader(height: 300)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

@@ -20,6 +20,9 @@ struct ClientsView: View {
 
     @State private var clients: [API.Client] = []
     @State private var loaded = false
+    /// Выбранный вид списка. ВРЕМЕННО: пять видов на выбор владельца,
+    /// после выбора остаётся один и `ClientsListStyles.swift` уходит.
+    @State private var style = ClientsListStyle.current
     /**
      * Почему список пуст.
      *
@@ -103,8 +106,17 @@ struct ClientsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            /* Ленивая укладка, а не обычная. Обычный VStack строит все
+               строки сразу, и на трёхстах клиентах экран замирал на
+               секунду-полторы прямо при открытии: телефон рисовал
+               триста карточек, из которых видно семь. Ленивая строит по
+               мере прокрутки. */
+            LazyVStack(spacing: 10) {
                 if loaded { head }
+
+                /* ВРЕМЕННО: выбор вида списка. Уйдёт вместе с
+                   `ClientsListStyles.swift`, когда вид выберут. */
+                if loaded { ClientsListStyleSwitch(style: $style) }
 
                 if grouped {
                     if !lost.isEmpty { group(L("clients.worthCalling"), lost, lostOnes: true) }
@@ -114,8 +126,7 @@ struct ClientsView: View {
                 }
 
                 if !loaded {
-                    Delayed(active: true) { TetrSkeletonList(rows: 6) }
-                        .padding(.top, 8)
+                    Delayed(active: true) { TetrScreenLoader(height: 280) }
                 } else if failed, clients.isEmpty {
                     TetrFailure(
                         title: L("common.loadFailed"),
@@ -367,7 +378,7 @@ struct ClientsView: View {
      * читается одним списком, и «кому позвонить» тонет в «всех».
      */
     private func group(_ title: String, _ items: [API.Client], lostOnes: Bool) -> some View {
-        VStack(spacing: lostOnes ? 8 : 0) {
+        VStack(spacing: 0) {
             HStack {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
@@ -382,22 +393,51 @@ struct ClientsView: View {
             .padding(.top, 14)
             .padding(.bottom, 6)
 
-            ForEach(items) { client in
-                if lostOnes {
-                    Button { opened = client } label: { row(client, tone: .amber) }
-                        .buttonStyle(.press)
-                } else {
-                    Button { opened = client } label: { plainRow(client) }
-                        .buttonStyle(.press)
-                    if client.id != items.last?.id {
-                        Rectangle()
-                            .fill(Brand.boardInk.opacity(0.07))
-                            .frame(height: 1)
+            if style.isGrid {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(items) { client in
+                        Button { opened = client } label: { styled(client, lost: lostOnes) }
+                            .buttonStyle(.press)
                     }
+                }
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(items) { client in
+                        Button { opened = client } label: { styled(client, lost: lostOnes) }
+                            .buttonStyle(.press)
+                        if client.id != items.last?.id {
+                            Rectangle()
+                                .fill(Brand.boardInk.opacity(0.07))
+                                .frame(height: 1)
+                                .padding(.leading, 14)
+                        }
+                    }
+                }
+                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
                 }
             }
         }
     }
+
+    /// Строка клиента в выбранном виде.
+    private func styled(_ client: API.Client, lost: Bool) -> some View {
+        ClientRowView(
+            style: style,
+            key: client.key,
+            name: client.name,
+            subtitle: visitLine(client),
+            amount: money(client.total, currency),
+            visits: client.visits,
+            isLost: lost,
+            share: best > 0 ? Double(client.total) / Double(best) : 0
+        )
+    }
+
+    /// Сумма лучшего клиента — шкала для вида «полосы».
+    private var best: Int { clients.map(\.total).max() ?? 0 }
 
     private func row(_ client: API.Client, tone: Tone) -> some View {
         HStack(spacing: 12) {

@@ -48,7 +48,7 @@ struct ServicesView: View {
                 serviceRail
 
                 if !loaded {
-                    Delayed(active: true) { TetrSkeletonList(rows: 5) }
+                    Delayed(active: true) { TetrScreenLoader(height: 260) }
                         .padding(.horizontal, 4)
                 } else if failed, services.isEmpty {
                     TetrFailure(

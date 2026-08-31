@@ -84,6 +84,22 @@ struct OwnerView: View {
                     details(s)
                         .opacity(detailsVisible ? 1 : 0)
                         .offset(y: detailsVisible || reduceMotion ? 0 : 8)
+                        /* Пока едут числа другого периода, на месте
+                           деталей стоит знак продукта. Сами детали при
+                           этом уже уехали в прозрачность — так задумано,
+                           уход разом читается как смена периода, — но без
+                           знака между уходом и приходом остаётся секунда
+                           пустого экрана, и она читается поломкой.
+
+                           Накладкой, а не заменой: место занимают всё те
+                           же детали, и высота экрана не прыгает. */
+                        .overlay {
+                            if loading, !detailsVisible {
+                                TetrLoader(size: 26, tint: Brand.grape)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .animation(Motion.content, value: loading)
                 } else {
                     /* Первая загрузка: место щита, а не пустой экран. */
                     Delayed(active: loading) {
