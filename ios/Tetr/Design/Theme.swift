@@ -720,6 +720,57 @@ extension View {
  * При «Уменьшении движения» столбики стоят лесенкой и вместо них дышит
  * прозрачность: настройка запрещает движение, а не признак работы.
  */
+/**
+ * Круглая загрузка.
+ *
+ * Кольцо-дорожка и дуга, которая по нему бежит. Ничего, кроме «идёт
+ * работа», она не сообщает — и не должна: место, где она стоит, само
+ * говорит, что именно грузится.
+ *
+ * Почему круг, а не знак марки. Знак из четырёх столбиков придуман для
+ * заставки: он показывается один раз, в тишине, и его разглядывают.
+ * Внутри продукта его показывают по десять раз в день по секунде, и там
+ * он читается не маркой, а миганием — фигура успевает начать движение и
+ * не успевает его закончить. Круг же с первого кадра выглядит одинаково
+ * и на секунде, и на десяти.
+ *
+ * Дуга в четверть окружности: короче — читается точкой, длиннее —
+ * кольцом, у которого непонятно, крутится ли оно вообще. Оборот за
+ * девять десятых секунды: быстрее суетится, медленнее выглядит зависшим.
+ */
+struct TetrSpinner: View {
+    var size: CGFloat = 26
+    var tint: Color = Brand.grape
+    /// Толщина кольца. По умолчанию восьмая часть поперечника: тоньше
+    /// пропадает на светлом табло, толще превращается в бублик.
+    var weight: CGFloat?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var line: CGFloat { weight ?? max(2, size / 8) }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: reduceMotion)) { ctx in
+            let turn = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.9) / 0.9
+
+            ZStack {
+                Circle()
+                    .stroke(tint.opacity(0.14), lineWidth: line)
+
+                /* Дуга рисуется от нуля и поворачивается целиком: так у
+                   неё постоянная длина, и глаз читает одно движение, а не
+                   растущий и сжимающийся хвост. */
+                Circle()
+                    .trim(from: 0, to: 0.25)
+                    .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(reduceMotion ? -90 : turn * 360 - 90))
+            }
+            .frame(width: size, height: size)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 struct TetrLoader: View {
     /// Высота фигуры. Ширина считается от неё.
     var size: CGFloat = 22

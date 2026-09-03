@@ -407,7 +407,7 @@ struct ProfileView: View {
             if lock.available {
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
                 toggleRow(
-                    L("lock.unlockWith", lock.kindName),
+                    L("lock.quickSignIn", lock.kindName),
                     L("profile.lockNote"),
                     isOn: $lock.enabled
                 )

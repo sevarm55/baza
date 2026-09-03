@@ -121,7 +121,7 @@ struct TetrScreenLoader: View {
     var height: CGFloat = 220
 
     var body: some View {
-        TetrLoader(size: 26, tint: Brand.grape)
+        TetrSpinner(size: 28)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .accessibilityElement()
@@ -301,7 +301,18 @@ struct Delayed<Content: View>: View {
     @State private var flag = DelayedFlag()
 
     var body: some View {
-        Group {
+        /* Прозрачная точка нулевого размера — не украшение, а
+           необходимость. Раньше здесь стояла `Group`, которая до порога
+           не содержала ничего, и у пустого вида SwiftUI не зовёт
+           `onAppear`: таймер не запускался, `shown` не вставало, и
+           загрузка не показывалась НИКОГДА. Снаружи это выглядело как
+           «полторы секунды пустого экрана, потом сразу данные» — ровно
+           то, на что жаловался владелец.
+
+           Точка даёт виду тело, обработчик срабатывает, а размер задаёт
+           содержимое: ноль на ноль ничего не занимает. */
+        ZStack {
+            Color.clear.frame(width: 0, height: 0)
             if active && flag.shown { content }
         }
         .onAppear { flag.update(active) }

@@ -20,9 +20,6 @@ struct ClientsView: View {
 
     @State private var clients: [API.Client] = []
     @State private var loaded = false
-    /// Выбранный вид списка. ВРЕМЕННО: пять видов на выбор владельца,
-    /// после выбора остаётся один и `ClientsListStyles.swift` уходит.
-    @State private var style = ClientsListStyle.current
     /**
      * Почему список пуст.
      *
@@ -113,10 +110,6 @@ struct ClientsView: View {
                мере прокрутки. */
             LazyVStack(spacing: 10) {
                 if loaded { head }
-
-                /* ВРЕМЕННО: выбор вида списка. Уйдёт вместе с
-                   `ClientsListStyles.swift`, когда вид выберут. */
-                if loaded { ClientsListStyleSwitch(style: $style) }
 
                 if grouped {
                     if !lost.isEmpty { group(L("clients.worthCalling"), lost, lostOnes: true) }
@@ -393,85 +386,48 @@ struct ClientsView: View {
             .padding(.top, 14)
             .padding(.bottom, 6)
 
-            if style.isGrid {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(items) { client in
-                        Button { opened = client } label: { styled(client, lost: lostOnes) }
-                            .buttonStyle(.press)
+            LazyVStack(spacing: 0) {
+                ForEach(items) { client in
+                    Button { opened = client } label: { clientRow(client, lost: lostOnes) }
+                        .buttonStyle(.press)
+                    if client.id != items.last?.id {
+                        Rectangle()
+                            .fill(Brand.boardInk.opacity(0.07))
+                            .frame(height: 1)
+                            .padding(.leading, 14)
                     }
                 }
-            } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(items) { client in
-                        Button { opened = client } label: { styled(client, lost: lostOnes) }
-                            .buttonStyle(.press)
-                        if client.id != items.last?.id {
-                            Rectangle()
-                                .fill(Brand.boardInk.opacity(0.07))
-                                .frame(height: 1)
-                                .padding(.leading, 14)
-                        }
-                    }
-                }
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                }
+            }
+            .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(
+                        lostOnes ? Brand.warnOnBoard.opacity(0.22) : Brand.boardInk.opacity(0.07),
+                        lineWidth: 0.8
+                    )
             }
         }
     }
 
-    /// Строка клиента в выбранном виде.
-    private func styled(_ client: API.Client, lost: Bool) -> some View {
-        ClientRowView(
-            style: style,
-            key: client.key,
-            name: client.name,
-            subtitle: visitLine(client),
-            amount: money(client.total, currency),
-            visits: client.visits,
-            isLost: lost,
-            share: best > 0 ? Double(client.total) / Double(best) : 0
-        )
-    }
-
-    /// Сумма лучшего клиента — шкала для вида «полосы».
-    private var best: Int { clients.map(\.total).max() ?? 0 }
-
-    private func row(_ client: API.Client, tone: Tone) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(client.key)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(tone.ink)
-                    .lineLimit(1)
-                Text(visitLine(client))
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(tone.ink.opacity(0.72))
+    /**
+     * Строка клиента.
+     *
+     * Чернила по бумаге: заливки нет ни у кого. Тот, кому стоит
+     * позвонить, отличается ровно двумя знаками — янтарной точкой слева и
+     * янтарной подписью под номером, — и это заметно именно потому, что
+     * больше ничем строки не отличаются.
+     *
+     * Раньше такие лежали тёмно-коричневыми плитками, и на белом табло
+     * это читалось грязью, а не поводом.
+     */
+    private func clientRow(_ client: API.Client, lost: Bool) -> some View {
+        HStack(spacing: 10) {
+            if lost {
+                Circle()
+                    .fill(Brand.warnOnBoard)
+                    .frame(width: 7, height: 7)
             }
-            Spacer(minLength: 8)
-            Text(money(client.total, currency))
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(tone.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
 
-            /* Шеврон, а не просто нажимаемая строка. Строка без знака
-               выглядит подписью: человек не пробует по ней тапнуть и не
-               узнаёт, что за ней что-то есть. */
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(tone.ink.opacity(0.45))
-        }
-        .tile(tone, radius: 20, pad: 14)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func plainRow(_ client: API.Client) -> some View {
-        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(client.key)
@@ -479,9 +435,8 @@ struct ClientsView: View {
                         .foregroundStyle(Brand.onBoard)
                         .lineLimit(1)
 
-                    /* Метка постоянного. До неё это читалось только
-                       счётчиком визитов, а «сколько раз был» и «свой ли
-                       это человек» — разные вопросы, и второй решается
+                    /* Метка постоянного: «сколько раз был» и «свой ли это
+                       человек» — разные вопросы, и второй решается
                        взглядом. */
                     if client.visits > 1 {
                         Text(L("owner.clientLoyal"))
@@ -494,9 +449,7 @@ struct ClientsView: View {
 
                     /* Имя рядом с номером, а не строкой под ним: строкой
                        оно делало запись с контактами выше соседних, и
-                       список получался рваным. Телефон остаётся в
-                       карточке — в строку он не помещается, а звонят всё
-                       равно оттуда. */
+                       список получался рваным. */
                     if let name = client.name, !name.isEmpty {
                         Text(name)
                             .font(.system(size: 12))
@@ -504,22 +457,31 @@ struct ClientsView: View {
                             .lineLimit(1)
                     }
                 }
+
                 Text(visitLine(client))
                     .font(.system(size: 12))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(lost ? Brand.warnOnBoard : Brand.boardMuted)
+                    .lineLimit(1)
             }
+
             Spacer(minLength: 8)
+
             Text(money(client.total, currency))
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.onBoard)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
 
+            /* Шеврон, а не просто нажимаемая строка. Строка без знака
+               выглядит подписью: по ней не пробуют тапнуть и не узнают,
+               что за ней что-то есть. */
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                .foregroundStyle(Brand.boardInk.opacity(0.28))
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 14)
         .padding(.vertical, 11)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)

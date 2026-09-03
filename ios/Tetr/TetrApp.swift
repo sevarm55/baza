@@ -106,7 +106,6 @@ struct TetrApp: App {
                     switch new {
                     case .background:
                         BackgroundSync.schedule()
-                        lock.lockIfNeeded(hasSession: session.state == .signedIn)
                     case .active:
                         /* Спрашиваем сервер о себе заново. Без этого
                            версия и срок подписки узнавались только при
@@ -209,10 +208,7 @@ struct RootView: View {
                 TetrLoader(size: 40, tint: Brand.lime)
             }
             .preferredColorScheme(.dark)
-            .task {
-                await session.start()
-                lock.lockIfNeeded(hasSession: session.state == .signedIn)
-            }
+            .task { await session.start() }
 
         case .signedOut:
             if firstRun {
@@ -225,9 +221,7 @@ struct RootView: View {
             }
 
         case .signedIn:
-            if lock.locked {
-                LockView()
-            } else if session.access?.canRead == false {
+            if session.access?.canRead == false {
                 /* Срок вышел — вместо всего продукта один экран. Стоит
                    выше замка по смыслу, но ниже по порядку: сначала
                    человек доказывает, что это его телефон, и только

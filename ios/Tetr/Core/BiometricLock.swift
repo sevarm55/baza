@@ -1,27 +1,32 @@
 import LocalAuthentication
 import SwiftUI
 
-/// Замок на приложении.
-///
-/// В нём лежит выручка бизнеса и зарплаты людей, а телефон мойщика на
-/// мойке живёт где придётся. PIN спрашивать при каждом запуске — значит
-/// сорок раз в смену; Face ID снимает это одним взглядом.
-///
-/// Политика намеренно `deviceOwnerAuthentication`, а не только биометрия:
-/// она допускает код-пароль телефона как запасной путь. С одной биометрией
-/// человек с мокрыми руками или в маске оказался бы заперт снаружи —
-/// приложение бы работало, а войти было нельзя.
+/**
+ * Быстрый вход по лицу.
+ *
+ * Раньше это был замок на всё приложение: каждый выход в фон закрывал
+ * продукт, и вернуться можно было только через Face ID. Владелец сказал
+ * прямо — не при каждом открытии. Он прав: телефон открывают по десять
+ * раз за смену, и десять проверок лица за то, что человек посмотрел
+ * время, продукт не защищают, а изматывают.
+ *
+ * Осталось единственное место, где проверка лица окупается, — экран
+ * входа. Сессия хранится в телефоне, и лицо подтверждает, что телефон в
+ * руках хозяина: тогда не надо заново набирать код из SMS или код
+ * доступа. Выключен — сохранённый вход не предлагается вовсе, и человек
+ * входит кодом, как обычно.
+ *
+ * Политика намеренно `deviceOwnerAuthentication`, а не только биометрия:
+ * она допускает код-пароль телефона как запасной путь. С одной биометрией
+ * человек с мокрыми руками или в маске оказался бы заперт снаружи —
+ * приложение бы работало, а войти было нельзя.
+ */
 @MainActor
 final class BiometricLock: ObservableObject {
     private static let key = "tetr.lock.enabled"
 
-    @Published private(set) var locked = false
-
     @Published var enabled: Bool {
-        didSet {
-            UserDefaults.standard.set(enabled, forKey: Self.key)
-            if !enabled { locked = false }
-        }
+        didSet { UserDefaults.standard.set(enabled, forKey: Self.key) }
     }
 
     /// Есть ли чем открывать: биометрия или хотя бы код-пароль.
@@ -39,37 +44,17 @@ final class BiometricLock: ObservableObject {
     }
 
     init() {
-        /* По умолчанию выключен. Раньше был включён из соображения «продукт
-           про деньги», но соображение не выдержало встречи с мойкой:
-           телефон там общий, руки мокрые, и Face ID на морозе с закрытым
-           лицом не срабатывает. Человек упирался в замок на своём же
-           экране записи, ещё не поняв, откуда тот взялся. Кому нужен
-           замок, включает его одним переключателем в профиле. */
+        /* По умолчанию выключен: телефон на мойке общий, руки мокрые, и
+           предлагать вход по лицу тому, кто его не просил, незачем.
+           Включается одним переключателем в профиле. */
         enabled = UserDefaults.standard.object(forKey: Self.key) as? Bool ?? false
     }
 
-    /// Закрыть, если есть что закрывать. Зовётся на запуске и при уходе
-    /// приложения в фон.
-    func lockIfNeeded(hasSession: Bool) {
-        #if DEBUG
-        /* Указано на локальный сервер — значит идёт проверка, и замок
-           закрывает собой ровно те экраны, которые проверяют. Открыть его
-           автоматикой нечем: в симуляторе нет ни лица, ни кода-пароля. */
-        if ProcessInfo.processInfo.environment["TETR_API"] != nil {
-            locked = false
-            return
-        }
-        #endif
+    /// Предлагать ли сохранённый вход. И только он: замка на приложении
+    /// больше нет.
+    var quickSignIn: Bool { enabled && available }
 
-        locked = enabled && available && hasSession
-    }
-
-    func unlock() async {
-        locked = !(await authenticate(reason: L("lock.unlock")))
-    }
-
-    /// Та же системная проверка нужна быстрому сохранённому входу. Один
-    /// метод гарантирует, что замок и аватар не расходятся по безопасности.
+    /// Системная проверка: лицо, отпечаток или код-пароль телефона.
     func authenticate(reason: String) async -> Bool {
         let context = LAContext()
         context.localizedFallbackTitle = ""
@@ -80,66 +65,6 @@ final class BiometricLock: ObservableObject {
             )
         } catch {
             return false
-        }
-    }
-}
-
-/// Экран замка.
-///
-/// Ничего, кроме кнопки: показывать здесь цифры смысла нет — ради того,
-/// чтобы их не показывать, замок и стоит.
-struct LockView: View {
-    @EnvironmentObject private var lock: BiometricLock
-    @EnvironmentObject private var session: Session
-
-    /// Автоматически пробуем ровно один раз.
-    ///
-    /// Иначе получается ловушка: системный запрос закрывает экран целиком,
-    /// отказ возвращает нас сюда, и `.task` тут же зовёт его снова. До
-    /// кнопок под ним не добраться никогда — ни до повтора, ни до выхода.
-    @State private var tried = false
-
-    var body: some View {
-        ZStack {
-            Brand.heroGradient.ignoresSafeArea()
-
-            VStack(spacing: 18) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(Brand.lime)
-
-                Text("TETRIN")
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(4)
-                    .foregroundStyle(.white.opacity(0.7))
-
-                Button(L("lock.unlockWith", lock.kindName)) {
-                    Task { await lock.unlock() }
-                }
-                .buttonStyle(LimeButton())
-                .padding(.horizontal, 40)
-                .padding(.top, 10)
-
-                /* Выход отсюда обязателен. Замок может не открыться по
-                   причинам, которых человек не выбирал: Face ID сломался,
-                   лицо в маске, код-пароль сменили. Без этой кнопки он
-                   заперт снаружи собственного приложения — и починить
-                   это можно будет только переустановкой.
-                   Вход по телефону и PIN остаётся всегда. */
-                Button(L("lock.usePhone")) {
-                    Task { await session.signOut() }
-                }
-                .font(.system(size: 14.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-                .padding(.top, 6)
-            }
-        }
-        .preferredColorScheme(.dark)
-        // пробуем сразу: лишнее касание на входе никому не нужно
-        .task {
-            guard !tried else { return }
-            tried = true
-            await lock.unlock()
         }
     }
 }

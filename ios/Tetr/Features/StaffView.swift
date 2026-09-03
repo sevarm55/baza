@@ -24,6 +24,8 @@ struct StaffView: View {
     /// Открыта настройка общего процента команды.
     @State private var teamOpen = false
     @State private var loaded = false
+    /// Выбранная композиция. ВРЕМЕННО: пять видов на выбор владельца,
+    /// после выбора остаётся один и `StaffScreenStyles.swift` уходит.
     /**
      * Почему список пуст.
      *
@@ -64,62 +66,27 @@ struct StaffView: View {
     private var owners: [API.StaffMember] { ordered.filter { $0.role == "owner" } }
 
     var body: some View {
-        ScrollView {
-            /* Одна коробка на группу, а не карточка на человека.
-               Плитка под каждым была ошибкой ровно в том, в чём ошибаются
-               все дашборды: цвет шёл сплошной заливкой, и два человека
-               подряд читались двумя одинаковыми фиолетовыми кирпичами, а
-               не двумя разными людьми. Цвет человека остался, но ушёл туда,
-               где он и работает опознавательным знаком, — в кружок с
-               буквой. Всё остальное чернила по бумаге. */
-            VStack(spacing: 12) {
-                card {
-                    if !loaded {
-                        /* Места людей: кружок лица, имя и ставка. Кружки, а
-                           не квадраты — подставить круг на место квадрата
-                           заметнее, чем не рисовать ничего. */
-                        Delayed(active: true) { TetrScreenLoader(height: 200) }
-                    } else if failed, staff.isEmpty {
-                        TetrFailure(
-                            title: L("common.loadFailed"),
-                            note: failNote,
-                            retry: { await reload() }
-                        )
-                    } else if crew.isEmpty {
-                        staffEmpty
-                    }
+        /* Стеклянные плиты живут в общем контейнере: он даёт системе
+           видеть их как одну группу и правильно считать преломление на
+           границах, когда список прокручивается под ними.
 
-                    ForEach(Array(crew.enumerated()), id: \.element.id) { index, person in
-                        if index > 0 { separator }
-                        row(person)
-                    }
-
-                    if loaded, !crew.isEmpty { separator }
-                    addRow
+           Две плиты, а не три и не десять. Люди — однородный список, и
+           каждому по стеклу превратило бы экран в мозаику; правило
+           оплаты и владелец — другая порода вещи, и им своя плита. */
+        GlassEffectContainer(spacing: 22) {
+            ScrollView {
+                VStack(spacing: 22) {
+                    crewSection
+                    rulesSection
                 }
-
-                if loaded, !owners.isEmpty {
-                    card {
-                        ForEach(Array(owners.enumerated()), id: \.element.id) { index, person in
-                            if index > 0 { separator }
-                            row(person)
-                        }
-                    }
-                }
-
-                /* Совместная работа — своей коробкой, а не строкой под
-                   людьми. Свойство трогают раз в год, но искать его человек
-                   будет здесь же: это условие оплаты труда, и место ему
-                   рядом со ставками. Отдельная коробка держит его рядом,
-                   не выдавая при этом за ещё одного человека в списке. */
-                card { teamRow }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 28)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { addButton }
         .sheet(item: $editing) { person in
             StaffEditor(person: person) { await reload() }
                 .presentationDetents([.medium, .large])
@@ -139,22 +106,208 @@ struct StaffView: View {
         .refreshable { await reload() }
     }
 
-    /// Коробка списка: фон, скругление и волосяная обводка. Одна на группу.
-    @ViewBuilder
-    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(spacing: 0) { content() }
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+    // ══════════════════ экран команды ══════════════════
+
+    private var currency: String { session.tenant?.currency ?? "AMD" }
+    private var totalDue: Int { crew.compactMap(\.due).reduce(0, +) }
+    private var onShiftCount: Int { crew.filter { $0.onShift == true }.count }
+
+    /**
+     * Люди: одна стеклянная плита, внутри строки.
+     *
+     * Стекло здесь нативное, то самое, которым система рисует панели на
+     * iOS 26. Оно даёт списку глубину, которой не даёт плоская белая
+     * заливка: под ним видно полотно, и плита читается лежащей НА экране,
+     * а не нарисованной в нём.
+     *
+     * Плита одна на группу, а не карточка на человека: люди — однородный
+     * список, и десять отдельных стёкол превратили бы его в мозаику.
+     * Внутри строки разделены волосяной чертой с отступом под кружок —
+     * так глаз ведёт по именам, а не спотыкается о линии во всю ширину.
+     */
+    private var crewSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHead(
+                Terms.staff(session.tenant?.staffRole ?? "").many,
+                note: loaded && totalDue > 0 ? money(totalDue, currency) : nil
+            )
+
+            VStack(spacing: 0) {
+                crewContent
+
+                ForEach(Array(crew.enumerated()), id: \.element.id) { index, person in
+                    if index > 0 { hairline }
+                    personRow(person)
+                }
             }
+            .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
+        }
     }
 
-    private var separator: some View {
+    /**
+     * Правила и владелец: вторая плита.
+     *
+     * Отдельной плитой, а не строками под людьми: это не человек, а
+     * устройство мойки. Одна плита на обе строки, потому что вопрос у
+     * них общий — как здесь платят и кто здесь главный.
+     */
+    private var rulesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHead(L("staff.rulesSection"), note: nil)
+
+            VStack(spacing: 0) {
+                teamRow
+
+                if loaded, !owners.isEmpty {
+                    ForEach(owners) { person in
+                        hairline
+                        personRow(person)
+                    }
+                }
+            }
+            .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
+        }
+    }
+
+    /// Подпись группы: слово слева, при нужде число справа. Тихая, серым.
+    private func sectionHead(_ title: String, note: String?) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.boardMuted)
+            Spacer(minLength: 8)
+            if let note {
+                Text(note)
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.boardMuted)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 8)
+    }
+
+    /// Волосяная черта с отступом под кружок: линия во всю ширину режет
+    /// список на куски, а с отступом ведёт взгляд по именам.
+    private var hairline: some View {
         Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
+            .fill(Brand.boardInk.opacity(0.08))
             .frame(height: 0.7)
-            .padding(.leading, 70)
+            .padding(.leading, 68)
+    }
+
+    @ViewBuilder
+    private var crewContent: some View {
+        if !loaded {
+            Delayed(active: true) { TetrScreenLoader(height: 180) }
+        } else if failed, staff.isEmpty {
+            TetrFailure(title: L("common.loadFailed"), note: failNote, retry: { await reload() })
+        } else if crew.isEmpty {
+            staffEmpty
+        }
+    }
+
+    /**
+     * Строка человека.
+     *
+     * Слева кружок с буквой и зелёной точкой смены, в середине имя и
+     * работа за месяц, справа доля и долг. Владельцу вместо доли слово:
+     * у него она обычно нулевая, и «0 %» рядом с именем читается ошибкой,
+     * а не «долю не берёт».
+     *
+     * Сумма к выдаче — единственное, что набрано жирным и округлым: это
+     * ответ на вопрос, с которым сюда приходят.
+     */
+    private func personRow(_ person: API.StaffMember) -> some View {
+        let owner = person.role == "owner"
+
+        return Button {
+            if !person.isMe { editing = person }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack(alignment: .bottomTrailing) {
+                    Text(String(person.name.prefix(1)))
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(Brand.personTone(person.name).base, in: .circle)
+
+                    if person.onShift == true {
+                        Circle()
+                            .fill(Brand.goodOnBoard)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().strokeBorder(Brand.board, lineWidth: 2.5))
+                            .offset(x: 2, y: 2)
+                            .accessibilityLabel(L("staff.onShift"))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(person.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                            .lineLimit(1)
+
+                        if person.isMe {
+                            Text(L("common.you"))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Brand.boardMuted)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6, style: .continuous))
+                        }
+                    }
+
+                    Text(personNote(person))
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    if owner {
+                        Text(L("roles.owner"))
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.boardMuted)
+                    } else {
+                        Text("\(person.percent)%")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.boardMuted)
+
+                        if let due = person.due, due > 0 {
+                            Text(money(due, currency))
+                                .font(.system(size: 19, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.onBoard)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+        .disabled(person.isMe)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Вторая строка человека: работа за месяц, а если её нет — телефон.
+    /// Пустая строка на месте работы читалась бы «данные не пришли».
+    private func personNote(_ person: API.StaffMember) -> String {
+        if let cars = person.cars, let earned = person.earned, cars > 0 {
+            return "\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, currency))"
+        }
+        return person.phone
     }
 
     private var staffEmpty: some View {
@@ -181,153 +334,46 @@ struct StaffView: View {
         .padding(.vertical, 25)
     }
 
-    /**
-     * Строка человека.
-     *
-     * Слева кружок его цветом — единственное цветное пятно на экране, и
-     * потому опознаётся мгновенно. Справа процент: это условие сделки, оно
-     * у каждого своё и ради него сюда заходят. Между ними одна приглушённая
-     * строка фактов, разделённых точкой, а не тире.
-     *
-     * «Сколько должен» набрано чернилами, а не серым, и стоит под
-     * процентом: это единственное число на экране, по которому что-то
-     * делают руками, и оно не должно тонуть среди справочных.
-     */
-    private func row(_ person: API.StaffMember) -> some View {
-        let tone = Brand.personTone(person.name)
-        let owner = person.role == "owner"
-        let currency = session.tenant?.currency ?? "AMD"
-
-        return Button {
-            // себя владелец не правит и не отключает — открывать редактор
-            // незачем
-            if !person.isMe { editing = person }
-        } label: {
-            HStack(spacing: 14) {
-                ZStack(alignment: .bottomTrailing) {
-                    Text(String(person.name.prefix(1)))
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 42, height: 42)
-                        .background(tone.base, in: .circle)
-
-                    /* Стоит ли он на мойке прямо сейчас. Точкой, а не
-                       словом: это состояние, а не звание, и общий язык
-                       «онлайн» читается без подписи. Кайма цвета бумаги
-                       отделяет её от кружка, иначе на тёмном пятне зелёное
-                       сливается. */
-                    if person.onShift == true {
-                        Circle()
-                            .fill(Brand.goodOnBoard)
-                            .frame(width: 11, height: 11)
-                            .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 2))
-                            .offset(x: 1, y: 1)
-                            .accessibilityLabel(L("staff.onShift"))
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(person.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
-                            .lineLimit(1)
-                        if person.isMe {
-                            Text(L("common.you"))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Brand.boardMuted)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6, style: .continuous))
-                        }
-                    }
-
-                    /* Работа за месяц отдельной строкой от телефона: одной
-                       они не помещались и обрывались на середине суммы, а
-                       обрезанные деньги хуже, чем никаких. */
-                    if let cars = person.cars, let earned = person.earned, cars > 0 {
-                        Text("\(Terms.units(cars, session.tenant?.unitOne ?? "")) · \(money(earned, currency))")
-                            .font(.system(size: 13))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                    }
-
-                    Text(person.phone)
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted.opacity(0.75))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 1) {
-                    /* Владельцу вместо ставки слово: у него доля обычно
-                       нулевая, и «0 %» рядом с именем читается ошибкой, а
-                       не «долю не берёт». */
-                    if owner {
-                        Text(L("roles.owner"))
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brand.boardMuted)
-                    } else {
-                        Text("\(person.percent)%")
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
-                        Text(L("staff.perRecord"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brand.boardMuted)
-                    }
-
-                    if let due = person.due, due > 0 {
-                        Text(L("staff.due", money(due, currency)))
-                            .font(.system(size: 12, weight: .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
-                            .padding(.top, 3)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.press)
-        .disabled(person.isMe)
-        .accessibilityElement(children: .combine)
-    }
-
     /// Добавление — последней строкой того же списка, а не отдельной
     /// плашкой под ним.
     ///
     /// Плюсик в углу панели ищут глазами; строка стоит там, где список
     /// кончается, то есть ровно там, куда смотрит человек, не нашедший
     /// нужного имени.
-    private var addRow: some View {
-        Button {
+    /**
+     * «Добавить мойщика» — прижата ко дну, над панелью вкладок.
+     *
+     * Раньше это была последняя строка в коробке людей, и до неё
+     * приходилось долистывать: у мойки с шестью мойщиками кнопка
+     * оказывалась за краем экрана. Теперь она на одном месте всегда, и
+     * рука находит её не глядя — тем же движением, что «+ машину» на
+     * смене.
+     *
+     * Подложка цветом полотна, а не материалом: материал серый и на
+     * тёмной теме читался бы отдельной плитой. Сверху короткий градиент,
+     * чтобы список уходил под кнопку, а не обрывался под ней ножом.
+     */
+    private var addButton: some View {
+        Button(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc)) {
             adding = true
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.grape)
-                    .frame(width: 42, height: 42)
-                    .background(Brand.grape.opacity(0.10), in: .circle)
-                Text(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc))
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Brand.grape)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
-            .contentShape(.rect)
         }
-        .buttonStyle(.press)
+        .buttonStyle(LimeButton())
+        .padding(.horizontal, 16)
+        .padding(.top, 18)
+        .padding(.bottom, 8)
+        .background {
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Brand.board.opacity(0), Brand.board],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 20)
+
+                Brand.board
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     /**

@@ -43,8 +43,6 @@ struct ServicesView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if loaded && !services.isEmpty { reading }
-
                 serviceRail
 
                 if !loaded {
@@ -75,6 +73,7 @@ struct ServicesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { newServiceButton }
         /* Полоска захвата видима нарочно: лист и раньше закрывался
            смахиванием, но без неё об этом никто не догадывался и искал
            кнопку. */
@@ -151,54 +150,6 @@ struct ServicesView: View {
     }
 
     /**
-     * Обложка прайса.
-     *
-     * Была плашка грейпом во всю ширину: белый текст, лаймовая надпись,
-     * сумма справа. Она весила больше самого прайса, хотя говорит одно
-     * число, и первым на экране читалась заливка, а не цены.
-     *
-     * Теперь это бумага, как и всё под ней. Работает разница размеров, а
-     * не разница цвета: средний чек набран крупно и чернилами, число услуг
-     * стоит рядом мелким и приглушённым. Имя раздела ушло совсем — оно уже
-     * написано в панели сверху, и повторять его значило бы отдать
-     * заголовку треть первого экрана.
-     */
-    private var reading: some View {
-        let avg = services.isEmpty ? 0 : services.reduce(0) { $0 + $1.price } / services.count
-
-        return HStack(alignment: .bottom, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(L("services.avgPrice"))
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .tracking(1.3)
-                    .foregroundStyle(Brand.boardMuted)
-                Text(money(avg, currency))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-                    // сумма меняется цифрами на месте, а не подменой строки
-                    .contentTransition(.numericText(value: Double(avg)))
-            }
-
-            Spacer(minLength: 8)
-
-            Text(L("services.count", services.count))
-                .font(.system(size: 13))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 28, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-        }
-    }
-
-    /**
      * Список, а не лента.
      *
      * Услуги лежали горизонтальными билетами: чтобы увидеть пятую, надо
@@ -239,34 +190,42 @@ struct ServicesView: View {
                 }
             }
 
-            if !services.isEmpty {
-                Divider().overlay(Brand.boardInk.opacity(0.07)).padding(.leading, 14)
-            }
-
-            /* Добавление — последней строкой списка, а не отдельной
-               плиткой: новая услуга встаёт туда же, где уже стоят
-               остальные, и глазу не нужно искать другое место. */
-            Button {
-                adding = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .bold))
-                    Text(L("settings.newService"))
-                        .font(.system(size: 15, weight: .semibold))
-                    Spacer()
-                }
-                .foregroundStyle(Brand.grape)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 52)
-            }
-            .buttonStyle(.press)
         }
         .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
         }
+    }
+
+    /**
+     * Новая услуга — прижата ко дну, над панелью вкладок.
+     *
+     * Раньше это была последняя строка списка. На прайсе из десяти
+     * позиций до неё приходилось долистывать, а завести услугу хотят чаще
+     * всего именно тогда, когда список уже длинный. Внизу она на одном
+     * месте всегда — тем же движением, что «Добавить мойщика» в
+     * «Команде».
+     */
+    private var newServiceButton: some View {
+        Button(L("settings.newService")) { adding = true }
+            .buttonStyle(LimeButton())
+            .padding(.horizontal, 16)
+            .padding(.top, 18)
+            .padding(.bottom, 8)
+            .background {
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [Brand.board.opacity(0), Brand.board],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 20)
+
+                    Brand.board
+                }
+                .ignoresSafeArea(edges: .bottom)
+            }
     }
 
     private var tiersButton: some View {
@@ -295,13 +254,15 @@ struct ServicesView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
+            /* Капсула, а не скруглённый прямоугольник: строка про классы
+               не часть прайса, а вход в его настройку. Другая форма
+               говорит это раньше, чем прочитан текст, — и не даёт
+               принять её за шестую услугу под списком из пяти. */
+            .background(Brand.boardSurface, in: .capsule)
+            .overlay { Capsule().strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8) }
         }
         .buttonStyle(.press)
     }

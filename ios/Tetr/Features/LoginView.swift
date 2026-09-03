@@ -324,7 +324,7 @@ struct LoginView: View {
      */
     @ViewBuilder
     private var form: some View {
-        if let account = session.rememberedAccount, !manual, stage == .entry {
+        if let account = session.rememberedAccount, lock.quickSignIn, !manual, stage == .entry {
             remembered(account)
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -1285,6 +1285,10 @@ struct LoginView: View {
          * путём, что и просроченный сохранённый вход. Пароль от телефона
          * мойщик может не знать, свой код доступа знает всегда.
          */
+        /* Проверка обязательна и не зависит от настройки: сохранённый
+           вход предлагается ТОЛЬКО при включённом быстром входе, а
+           пускать по нажатию без лица значило бы отдать чужой кассе
+           первому, кто взял телефон. */
         if lock.available {
             guard await lock.authenticate(reason: L("auth.signInAs", account.name)) else {
                 fallBackToManual(account, why: L("lock.failed", lock.kindName))
