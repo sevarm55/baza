@@ -1,5 +1,5 @@
 import type { Dict } from './hy';
-import { BRAND } from '../brand';
+import { BRAND, SUPPORT_PHONE_HUMAN } from '../brand';
 
 /**
  * Русский интерфейс Tetrin.
@@ -192,6 +192,8 @@ export const ru: Dict = {
       title: 'Начните с одной машины.',
       lead: 'Запишите первую машину сегодня, а вечером увидите результат дня.',
       note: (days: number) => `${days} дней бесплатно · без карты`,
+      callNote: 'Проще спросить? Позвоните',
+      callHours: 'Отвечаем каждый день, 10:00–20:00',
     },
     faq: {
       title: 'Вопросы, которые задают владельцы',
@@ -484,7 +486,7 @@ export const ru: Dict = {
     wallLead:
       'Ваши данные на месте: записи, выручка, база клиентов. Ничего не потеряно.',
     wallContinue: 'Чтобы продолжить, позвоните',
-    wallPhone: '+374 99 855 546',
+    wallPhone: SUPPORT_PHONE_HUMAN,
     wallDownload: 'Скачать данные',
     wallDelete: 'Удалить бизнес',
     wallDeleteNote: 'После удаления восстановить нельзя.',

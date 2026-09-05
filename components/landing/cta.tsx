@@ -3,11 +3,15 @@
 import { motion, useReducedMotion } from 'motion/react';
 
 import { AuthTrigger } from '@/components/auth-buttons';
-import { buttonVariants } from '@/components/ui/button';
+import { ACTION } from '@/components/landing/auth-ui';
 import { cn } from '@/lib/utils';
 
 /**
- * Единственная кнопка витрины. Открывает окно регистрации.
+ * Кнопка регистрации. Стоит на первом экране и у цены.
+ *
+ * Единственной она была недолго: на странице высотой в десять тысяч
+ * точек один призыв внизу означал, что убеждённый третьей секцией не
+ * может нажать ничего до самого низа.
  *
  * Здесь была магнитная кнопка, тянущаяся к курсору. Убрана сознательно,
  * и стоит записать почему — без неё соблазн вернуть велик.
@@ -17,6 +21,10 @@ import { cn } from '@/lib/utils';
  * клика не засчитывает. Промахнуться легче всего у края, то есть ровно
  * там, где курсор оказывается после притяжения. Кнопка на витрине одна и
  * ведёт к регистрации; цена ошибки тут выше любого впечатления.
+ *
+ * Вид общий с кнопкой двери и с прилипшей полосой (`ACTION` в
+ * `components/landing/auth-ui.tsx`): грейп кабинета был бы третьим
+ * цветом на странице, где сигнальный цвет один и он тёплый.
  *
  * Осталось движение, которое промахнуться не может в принципе: под
  * курсором кнопка чуть растёт. Увеличение только добавляет площади,
@@ -34,7 +42,7 @@ export function Cta({ label, className }: { label: string; className?: string })
     >
       <AuthTrigger
         mode="register"
-        className={cn(buttonVariants({ size: 'lg' }), 'px-7 text-[15px]', className)}
+        className={cn(ACTION, 'px-8', className)}
       >
         {label}
       </AuthTrigger>

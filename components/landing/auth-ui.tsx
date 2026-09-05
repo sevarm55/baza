@@ -36,6 +36,24 @@ import { cn } from '@/lib/utils';
 /** Тёплый цвет витрины. Тот же, что горит в первом экране. */
 const WARM = 'bg-[#c0390f] dark:bg-[#ff6a2a]';
 
+/**
+ * Вид главного действия.
+ *
+ * Строкой, а не только компонентом, потому что кнопок этого вида на
+ * витрине три и они обязаны совпасть до точки: кнопка первого экрана,
+ * кнопка у цены и прилипшая полоса на телефоне — плюс кнопка в самой
+ * двери. Человек нажимает одну и сразу видит другую.
+ */
+export const ACTION = [
+  'flex h-14 items-center justify-center gap-2.5 rounded-2xl px-6',
+  'text-[15px] font-semibold tracking-[-0.01em]',
+  WARM,
+  'text-[#fffde3] dark:text-[#10100e]',
+  'transition-[filter,transform] duration-150 hover:brightness-110 active:translate-y-px',
+  'outline-none focus-visible:ring-3 focus-visible:ring-[#c0390f]/40 dark:focus-visible:ring-[#ff6a2a]/40',
+  'disabled:pointer-events-none disabled:opacity-55',
+].join(' ');
+
 const WARM_TEXT = 'text-[#c0390f] dark:text-[#ff6a2a]';
 
 const EYEBROW =
@@ -66,16 +84,7 @@ export function AuthButton({
       <button
         {...rest}
         aria-busy={busy || undefined}
-        className={cn(
-          'flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-6',
-          'text-[15px] font-semibold tracking-[-0.01em]',
-          WARM,
-          'text-[#fffde3] dark:text-[#10100e]',
-          'transition-[filter,transform] duration-150 hover:brightness-110 active:translate-y-px',
-          'outline-none focus-visible:ring-3 focus-visible:ring-[#c0390f]/40 dark:focus-visible:ring-[#ff6a2a]/40',
-          'disabled:pointer-events-none disabled:opacity-55',
-          className,
-        )}
+        className={cn(ACTION, 'w-full', className)}
       >
         {busy ? (
           <span

@@ -8,7 +8,9 @@ import { HeroBackground } from '@/components/hero-background';
 import { LanguagePicker } from '@/components/language-picker';
 import { AppStore } from '@/components/landing/app';
 import { Cabinet } from '@/components/landing/cabinet';
+import { Cta } from '@/components/landing/cta';
 import { Enter } from '@/components/landing/enter';
+import { Hail } from '@/components/landing/hail';
 import { Flow } from '@/components/landing/flow';
 import { Grain } from '@/components/landing/grain';
 import { Offer } from '@/components/landing/offer';
@@ -135,10 +137,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
                 </h1>
               </Reveal>
 
-              <Reveal delay={0.42} blur={10} y={14} className="mt-7 md:mt-8">
-                <p className="text-[15px] text-[#1a120e]/65 md:text-base dark:text-white/60">
-                  {t.landing.hero.note(TRIAL_DAYS)}
-                </p>
+              {/* Кнопка на первом экране. До этого её тут не было вовсе:
+                  единственный призыв стоял внизу страницы, в десяти
+                  тысячах точек от заголовка, и большинство до него просто
+                  не доходило. Подпись под кнопкой, а не над: она
+                  оговаривает действие, а не предваряет его. */}
+              <Reveal delay={0.42} blur={10} y={14} className="mt-8 md:mt-10">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                  <Cta label={t.landing.hero.cta} />
+                  <span className="text-[14px] text-[#1a120e]/65 md:text-[15px] dark:text-white/60">
+                    {t.landing.hero.note(TRIAL_DAYS)}
+                  </span>
+                </div>
               </Reveal>
             </div>
           </div>
@@ -154,6 +164,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <AppStore t={t} />
       <Offer t={t} />
       <Questions t={t} />
+
+      {/* Прилипший призыв на телефоне. Ставится последним: он `fixed`,
+          и место в потоке ему не нужно. */}
+      <Hail label={t.landing.hero.cta} note={t.landing.hero.note(TRIAL_DAYS)} />
     </>
   );
 }

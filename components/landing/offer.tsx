@@ -1,4 +1,5 @@
 import type { Dict } from '@/lib/i18n';
+import { SUPPORT_PHONE, SUPPORT_PHONE_HUMAN } from '@/lib/brand';
 import { formatMoney } from '@/lib/money';
 import { PRICE, TRIAL_DAYS } from '@/lib/plan';
 
@@ -87,6 +88,22 @@ export function Offer({ t }: { t: Dict }) {
             <span className="text-[13px] text-muted-foreground md:text-sm">
               {c.note(TRIAL_DAYS)}
             </span>
+          </div>
+
+          {/* Вторая дверь, и не для сомневающихся, а для тех, кто вообще
+              не заводит учётные записи, пока не поговорит с человеком.
+              Хозяин мойки сначала звонит. Номер стоит именно здесь,
+              рядом с ценой, потому что решение принимают на этой строке,
+              а не в подвале. */}
+          <div className="mt-7 border-t border-border pt-6 md:mt-9">
+            <p className="text-[13px] text-muted-foreground">{c.callNote}</p>
+            <a
+              href={`tel:${SUPPORT_PHONE}`}
+              className="num mt-1.5 inline-block text-[19px] tracking-[-0.01em] hover:underline md:text-[21px]"
+            >
+              {SUPPORT_PHONE_HUMAN}
+            </a>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">{c.callHours}</p>
           </div>
         </div>
       </div>

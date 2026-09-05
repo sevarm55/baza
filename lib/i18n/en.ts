@@ -1,5 +1,5 @@
 import type { Dict } from './hy';
-import { BRAND } from '../brand';
+import { BRAND, SUPPORT_PHONE_HUMAN } from '../brand';
 
 /**
  * English interface of Tetrin.
@@ -180,6 +180,8 @@ export const en: Dict = {
       title: 'Start with one car.',
       lead: 'Record the first car today and see the day’s result in the evening.',
       note: (days: number) => `${days} days free · no card`,
+      callNote: 'Easier to ask? Call us',
+      callHours: 'We answer every day, 10:00–20:00',
     },
     faq: {
       title: 'Questions owners ask',
@@ -438,7 +440,7 @@ export const en: Dict = {
     wallTitle: 'The term has ended',
     wallLead: 'Your data is where it was: records, revenue, the client base. Nothing is lost.',
     wallContinue: 'To continue, call',
-    wallPhone: '+374 99 855 546',
+    wallPhone: SUPPORT_PHONE_HUMAN,
     wallDownload: 'Download the data',
     wallDelete: 'Delete the business',
     wallDeleteNote: 'Once deleted it cannot be restored.',

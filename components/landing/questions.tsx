@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SUPPORT_PHONE, SUPPORT_PHONE_HUMAN } from '@/lib/brand';
 
 import {
   Accordion,
@@ -60,11 +61,23 @@ export function Questions({ t }: { t: Dict }) {
       </section>
 
       <footer className="bg-[var(--landing-bg)]">
-        <div className="mx-auto flex w-full max-w-[1360px] flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-border px-5 py-6 text-xs text-muted-foreground md:px-10">
+        <div /* Поле снизу под прилипшую полосу: на телефоне она `fixed` и
+             накрывала подвал целиком — вместе с телефоном и обеими
+             обязательными ссылками, которых требует App Store. */
+          className="mx-auto flex w-full max-w-[1360px] flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-border px-5 pt-6 pb-[8rem] text-xs text-muted-foreground md:px-10 md:pb-6">
           <span>
             {t.app.name} · {t.landing.footer}
           </span>
-          <nav aria-label={t.landing.footerAria} className="flex gap-5">
+          <nav aria-label={t.landing.footerAria} className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            {/* Телефон первым и не ссылкой-словом, а самим номером.
+                Покупатель тут не системный администратор, а хозяин мойки:
+                он сначала звонит и только потом заводит учётную запись, и
+                видимый номер снимает главное возражение — «а кто это
+                вообще». Раньше номер был только на странице поддержки,
+                куда с витрины не заходят. */}
+            <a href={`tel:${SUPPORT_PHONE}`} className="num text-foreground hover:underline">
+              {SUPPORT_PHONE_HUMAN}
+            </a>
             <Link href="/privacy" className="hover:text-foreground">
               {t.legal.privacy}
             </Link>

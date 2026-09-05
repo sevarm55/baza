@@ -7,6 +7,7 @@ import { StagingBadge } from '@/components/staging-badge';
 import { isStaging, stagingLabel } from '@/lib/staging';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
+import { env } from '@/lib/env';
 import { getDict, getLocale } from '@/lib/i18n/server';
 import { I18nProvider } from '@/lib/i18n/client';
 
@@ -107,11 +108,25 @@ const wordmarkArmenian = localFont({
 });
 
 /**
- * Заголовок вкладки и описание — на языке страницы.
+ * Заголовок вкладки, описание и карточка ссылки — на языке страницы.
  *
  * Название продукта не переводится ни на одном языке: Tetrin — марка.
  * Переводится строка под ним, потому что её читает и человек в поиске,
  * и предпросмотр ссылки в мессенджере.
+ *
+ * КАРТОЧКА ССЫЛКИ — не украшение, а первый экран продукта.
+ *
+ * Клиент сюда приходит не из поиска: один хозяин мойки кидает ссылку
+ * другому в WhatsApp или Viber. До этой правки тот видел голый адрес без
+ * картинки и подписи — ровно так выглядит рассылка, и так её и
+ * закрывают. Кадр собран из робота и заголовка первого экрана
+ * (`public/og/*.jpg`), по одному на язык: подпись в нём набрана тем же
+ * начертанием, что и на самой витрине.
+ *
+ * `metadataBase` обязателен: без него Next оставляет в `og:image`
+ * относительный путь, а мессенджеры его не разворачивают и картинку не
+ * показывают вовсе. Берётся из окружения, потому что адресов у продукта
+ * два — боевой и стенд.
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getDict();
@@ -130,6 +145,21 @@ export async function generateMetadata(): Promise<Metadata> {
         { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       ],
       apple: '/apple-icon.png',
+    },
+    metadataBase: new URL(env('PUBLIC_ORIGIN') ?? 'https://tetrin.pro'),
+    openGraph: {
+      type: 'website',
+      siteName: t.app.name,
+      title: t.landing.hero.title,
+      description: t.app.tagline,
+      locale: t.locale,
+      images: [{ url: `/og/${t.locale}.jpg`, width: 1200, height: 630, alt: t.landing.hero.title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t.landing.hero.title,
+      description: t.app.tagline,
+      images: [`/og/${t.locale}.jpg`],
     },
   };
 }
