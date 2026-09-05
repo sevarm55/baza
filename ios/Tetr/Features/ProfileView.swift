@@ -31,7 +31,7 @@ struct ProfileView: View {
     /// второе обязано сказать о себе вслух.
     @State private var saveFailed = false
 
-    @State private var changingPin = false
+    @State private var changingPassword = false
     @State private var notifyOrders = true
     @State private var deleting = false
 
@@ -114,7 +114,7 @@ struct ProfileView: View {
             .accessibilityLabel(L("common.back"))
             .padding(.leading, 10)
         }
-        .sheet(isPresented: $changingPin) { PinChangeView() }
+        .sheet(isPresented: $changingPassword) { PasswordChangeView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
         .sheet(item: $exported) { url in ShareSheet(url: url) }
         .task {
@@ -559,10 +559,9 @@ struct ProfileView: View {
             /* Код, номер, устройства и выгрузка — один список учётной записи.
                Общая поверхность делает экран короче и яснее, не пряча ни одного действия. */
             VStack(spacing: 0) {
-                action(session.hasPin ? L("auth.changePin") : L("auth.setPin"),
-                       session.hasPin ? L("profile.pinNote") : L("auth.pinNoneNote"),
+                action(L("auth.changePassword"), L("auth.passwordChangedNote"),
                        icon: "lock.rotation", danger: false) {
-                    changingPin = true
+                    changingPassword = true
                 }
 
                 profileDivider
@@ -897,33 +896,38 @@ private struct AccessSkin: ViewModifier {
  * шесть: смена кода не работала ни у кого, кто завёл его после перехода
  * на шестизначный, и отвечала общей ошибкой.
  */
-struct PinChangeView: View {
+/**
+ * Смена пароля.
+ *
+ * Пришла на место смены PIN. PIN был вторым ключом от входа, пока вход
+ * держался на телефоне и коде из SMS; теперь входят логином и паролем, и
+ * второго ключа не осталось — остался один, и меняют именно его.
+ *
+ * Текущий спрашивается обязательно: человек уже вошёл, но телефон лежит
+ * на мойке разблокированным, и сменить чужой пароль, взяв трубку со
+ * стола, было бы слишком просто.
+ *
+ * Повтор нового ловит опечатку. Пароль набирают вслепую, и после смены
+ * все остальные устройства выходят: ошибиться здесь значит запереть себя
+ * снаружи собственной мойки.
+ */
+struct PasswordChangeView: View {
     @EnvironmentObject private var session: Session
     @Environment(\.dismiss) private var dismiss
 
     @State private var current = ""
     @State private var next = ""
     @State private var again = ""
+    @State private var shown = false
     @State private var error: String?
     @State private var busy = false
-    /// Человек нажал «удалить» и ещё не подтвердил.
-    @State private var confirmingDelete = false
-
-    /// Есть ли что менять. Нет — экран создаёт код впервые.
-    private var changing: Bool { session.hasPin }
-
-    /// Достаточно ли введено, чтобы удалить: нового кода тут не нужно,
-    /// нужен только текущий.
-    private var readyToDelete: Bool {
-        !busy && current.count >= API.pinMinLength
-    }
 
     private var ready: Bool {
-        guard !busy, next.count == API.pinLength, next == again else { return false }
-        /* Ввод СУЩЕСТВУЮЩЕГО кода не ограничен шестью: у заведённых до
-           перехода их четыре, и требовать шесть значило бы запереть их
-           снаружи собственного профиля. */
-        return changing ? current.count >= API.pinMinLength : true
+        /* Длину нового проверяет сервер — правило про восемь знаков живёт
+           там. Здесь гасим кнопку только на пустых полях и на расхождении
+           повтора: ругаться на четвёртом знаке значит ругаться на
+           человека, который ещё печатает. */
+        !busy && !current.isEmpty && !next.isEmpty && next == again
     }
 
     var body: some View {
@@ -943,24 +947,22 @@ struct PinChangeView: View {
                                     .foregroundStyle(Brand.grape)
                             }
 
-                            Text(changing ? L("auth.changePin") : L("auth.setPin"))
+                            Text(L("auth.changePassword"))
                                 .font(.system(size: 27, weight: .bold, design: .rounded))
                                 .foregroundStyle(Brand.onBoard)
 
-                            Text(changing ? L("profile.pinChangedNote") : L("auth.pinMemo"))
+                            Text(L("auth.passwordChangedNote"))
                                 .font(.system(size: 15))
                                 .foregroundStyle(Brand.boardMuted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
                         VStack(spacing: 0) {
-                            if changing {
-                                pin(L("auth.currentPin"), $current)
-                                divider
-                            }
-                            pin(L("auth.newPin"), $next)
+                            secret(L("auth.currentPassword"), $current)
                             divider
-                            pin(L("common.retry"), $again)
+                            secret(L("auth.newPassword"), $next)
+                            divider
+                            secret(L("auth.confirmPassword"), $again)
                         }
                         .padding(.horizontal, 17)
                         .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -970,11 +972,11 @@ struct PinChangeView: View {
                         }
 
                         if !again.isEmpty && next != again {
-                            Label(L("auth.pinMismatch"), systemImage: "exclamationmark.circle.fill")
+                            Label(L("auth.passwordMismatch"), systemImage: "exclamationmark.circle.fill")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(Brand.badOnBoard)
-                        } else if !changing {
-                            Text(L("auth.pinNoneNote"))
+                        } else {
+                            Text(L("auth.passwordHint"))
                                 .font(.system(size: 13))
                                 .foregroundStyle(Brand.boardMuted)
                         }
@@ -987,23 +989,6 @@ struct PinChangeView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
-
-                        if changing {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(L("auth.deleteAccessCodeNote"))
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Brand.boardMuted)
-
-                                Button(L("auth.deleteAccessCode"), role: .destructive) {
-                                    confirmingDelete = true
-                                }
-                                .font(.system(size: 15, weight: .semibold))
-                                .disabled(!readyToDelete)
-                            }
-                            .padding(17)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Brand.badOnBoard.opacity(0.065), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 18)
@@ -1012,7 +997,7 @@ struct PinChangeView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                Button(changing ? L("common.edit") : L("common.save")) {
+                Button(L("auth.savePassword")) {
                     Task { await change() }
                 }
                 .buttonStyle(LimeButton(loading: busy, busyTitle: L("common.saving")))
@@ -1021,23 +1006,21 @@ struct PinChangeView: View {
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
             }
-            .confirmationDialog(
-                L("auth.deleteAccessCodeAsk"),
-                isPresented: $confirmingDelete,
-                titleVisibility: .visible
-            ) {
-                Button(L("auth.deleteAccessCode"), role: .destructive) {
-                    Task { await remove() }
-                }
-                Button(L("common.cancel"), role: .cancel) {}
-            } message: {
-                Text(L("auth.deleteAccessCodeNote"))
-            }
-            .navigationTitle(changing ? L("auth.changePin") : L("auth.setPin"))
+            .navigationTitle(L("auth.changePassword"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("common.close")) { dismiss() }.disabled(busy)
+                }
+                /* Глаз в панели, а не у каждого поля: полей три, и три
+                   глаза в столбик читаются как три разные настройки. */
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        shown.toggle()
+                    } label: {
+                        Image(systemName: shown ? "eye.slash" : "eye")
+                    }
+                    .accessibilityLabel(L(shown ? "auth.hidePassword" : "auth.showPassword"))
                 }
             }
         }
@@ -1049,70 +1032,44 @@ struct PinChangeView: View {
             .frame(height: 1)
     }
 
-    /**
-     * Строка кода: подпись слева, точки справа.
-     *
-     * Не `LabeledContent`: он отдаёт полю фиксированную долю строки и
-     * режет подпись многоточием — «Текущий код дост…». После
-     * переименования PIN в «код доступа» подписи стали длиннее, и обрезалась
-     * ровно та, по которой человек отличает текущий код от нового.
-     * Здесь подпись берёт себе всё, что ей нужно, а поле — остаток.
-     */
-    private func pin(_ title: String, _ value: Binding<String>) -> some View {
+    /// Строка пароля: подпись слева, поле справа. Подпись берёт себе
+    /// столько, сколько ей нужно, а поле — остаток: `LabeledContent`
+    /// режет подпись многоточием ровно там, где по ней и отличают
+    /// текущий пароль от нового.
+    private func secret(_ title: String, _ value: Binding<String>) -> some View {
         HStack(spacing: 12) {
             Text(title)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .layoutPriority(1)
 
-            SecureField("••••••", text: value)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.leading)
-                .monospaced()
-                .onChange(of: value.wrappedValue) { _, v in
-                    let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
-                    if clean != v { value.wrappedValue = clean }
+            Group {
+                if shown {
+                    TextField("", text: value)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } else {
+                    SecureField("", text: value)
                 }
+            }
+            .multilineTextAlignment(.leading)
         }
         .frame(minHeight: 58)
     }
 
     private func change() async {
         busy = true
-        defer { busy = false }
         error = nil
+        defer { busy = false }
 
         do {
-            try await session.changePin(current: changing ? current : "", next: next)
+            try await session.changePassword(current: current, next: next)
             dismiss()
         } catch let e as APIError {
-            current = ""
             switch e.code {
-            case "WRONG_CREDENTIALS": error = L("auth.wrongPin")
-            case "TOO_MANY_TRIES": error = L("auth.throttled")
-            case "PIN_WEAK":
-                error = e.reason == "TRIVIAL_PIN" ? L("auth.pinTrivial") : L("auth.pinMemo")
-            default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
-            }
-        } catch {
-            self.error = L("payroll.failed")
-        }
-    }
-
-    /// Убрать ПИН. Разбор отказов тот же, что у изменения: там и
-    /// здесь сервер отвечает про один и тот же введённый код.
-    private func remove() async {
-        busy = true
-        defer { busy = false }
-        error = nil
-
-        do {
-            try await session.deletePin(current: current)
-            dismiss()
-        } catch let e as APIError {
-            current = ""
-            switch e.code {
-            case "WRONG_CREDENTIALS": error = L("auth.wrongPin")
+            case "WRONG_CREDENTIALS": error = L("auth.wrongPassword")
+            case "PASSWORD_SHORT": error = L("auth.passwordShort")
+            case "PASSWORD_COMMON": error = L("auth.passwordCommon")
             case "TOO_MANY_TRIES": error = L("auth.throttled")
             default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }

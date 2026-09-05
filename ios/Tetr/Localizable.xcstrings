@@ -436,6 +436,29 @@
         }
       }
     },
+    "auth.changePassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Փոխել գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change password"
+          }
+        }
+      }
+    },
     "auth.changePhone": {
       "extractionState": "manual",
       "localizations": {
@@ -620,6 +643,29 @@
         }
       }
     },
+    "auth.confirmPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կրկնեք գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторите пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat the password"
+          }
+        }
+      }
+    },
     "auth.country": {
       "extractionState": "manual",
       "localizations": {
@@ -639,6 +685,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код страны"
+          }
+        }
+      }
+    },
+    "auth.currentPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ընթացիկ գաղտնաբառ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current password"
           }
         }
       }
@@ -1218,6 +1287,29 @@
         }
       }
     },
+    "auth.newPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նոր գաղտնաբառ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New password"
+          }
+        }
+      }
+    },
     "auth.newPin": {
       "extractionState": "manual",
       "localizations": {
@@ -1517,6 +1609,29 @@
         }
       }
     },
+    "auth.passwordChangedNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Փոփոխությունից հետո բոլոր սարքերը դուրս կգան, ներառյալ այս մեկը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После изменения выйдут все устройства, включая это."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All devices will sign out, including this one."
+          }
+        }
+      }
+    },
     "auth.passwordCommon": {
       "extractionState": "manual",
       "localizations": {
@@ -1582,6 +1697,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Password"
+          }
+        }
+      }
+    },
+    "auth.passwordMismatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գաղտնաբառերը չեն համընկնում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароли не совпадают"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords do not match"
           }
         }
       }
@@ -2157,6 +2295,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Это ваш текущий номер"
+          }
+        }
+      }
+    },
+    "auth.savePassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Պահպանել գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save password"
           }
         }
       }

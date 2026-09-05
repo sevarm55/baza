@@ -467,56 +467,34 @@ final class Session: ObservableObject {
     /// Решает не приложение, а сервер, и по хешу в базе, а не по тому,
     /// что мы прислали, — присланный признак «у меня нет кода» был бы
     /// способом сменить чужой код, не зная старого.
-    func changePin(current: String, next: String) async throws {
-        let device = UIDevice.current.name
-        var payload: [String: Any] = ["next": next, "device": device]
-        if !current.isEmpty { payload["current"] = current }
-
-        let issued: API.Tokens = try await authed { token in
-            try await self.api.send(
-                "profile/pin",
-                method: "POST",
-                body: payload,
-                token: token,
-                as: API.Tokens.self
-            )
-        }
-        accessToken = issued.access
-        refreshToken = issued.refresh
-        // в профиле после этого стоит «сменить», а не «задать»
-        try? await loadBootstrap()
-    }
-
     /**
-     * Убрать ПИН совсем.
+     * Сменить пароль.
      *
-     * Человек возвращается в то состояние, в котором живёт каждый, кто
-     * завёл мойку по коду из SMS: постоянного кода нет, вход только
-     * сообщением. Текущий код спрашивается обязательно — телефон бывает
-     * разблокирован и лежит на мойке.
-     *
-     * Запертым после этого никто не остаётся: вход по коду из SMS
-     * работает на любой номер, а подтверждение удаления бизнеса само
-     * переходит на SMS. Остальные устройства выходят, это остаётся:
-     * сервер выдаёт новую пару взамен погашенной.
+     * После смены сервер гасит все сессии, включая эту, и тут же выдаёт
+     * новую пару токенов на это устройство: человека, который только что
+     * сменил пароль, выкидывать из приложения незачем. Остальные телефоны
+     * выходят — в этом весь смысл.
      */
-    func deletePin(current: String) async throws {
+    func changePassword(current: String, next: String) async throws {
         let issued: API.Tokens = try await authed { token in
             try await self.api.send(
-                "profile/pin",
-                method: "DELETE",
-                body: ["current": current, "device": UIDevice.current.name],
+                "profile/password",
+                method: "POST",
+                body: [
+                    "current": current,
+                    "next": next,
+                    "device": UIDevice.current.name,
+                ],
                 token: token,
                 as: API.Tokens.self
             )
         }
+        /* Токены сами уезжают в Keychain: у обоих свойств стоит
+           `didSet`. Отдельного сохранения не нужно. */
         accessToken = issued.access
         refreshToken = issued.refresh
-        // в профиле после этого стоит «создать», а не «изменить»
-        try? await loadBootstrap()
     }
 
-    /// Имя человека и название бизнеса.
     func saveProfile(
         name: String?,
         businessName: String?,

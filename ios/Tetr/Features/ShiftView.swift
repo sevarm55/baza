@@ -36,7 +36,7 @@ struct ShiftView: View {
     /// Запись, которую собираются отменить. Пусто — вопроса нет.
     @State private var revoking: API.ShiftOrder?
     /// Открыт лист смены кода: временный просят сменить на свой.
-    @State private var changingPin = false
+    @State private var changingPassword = false
     /// Несохранённая запись, которую собираются выбросить из очереди.
     @State private var dropping: OrderQueue.Item?
     /**
@@ -88,7 +88,7 @@ struct ShiftView: View {
         // край при прокрутке.
         .safeAreaInset(edge: .top) { toggleBar }
         .safeAreaInset(edge: .bottom) { recordButton }
-        .sheet(isPresented: $changingPin) { PinChangeView() }
+        .sheet(isPresented: $changingPassword) { PasswordChangeView() }
         .sheet(isPresented: $handingOver) {
             HandoverView(
                 expected: shift?.cashSoFar ?? 0,
@@ -528,7 +528,7 @@ struct ShiftView: View {
      */
     private func tempAccessNote(_ until: Date) -> some View {
         Button {
-            changingPin = true
+            changingPassword = true
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "key.horizontal.fill")
