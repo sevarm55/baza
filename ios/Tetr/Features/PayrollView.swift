@@ -308,6 +308,7 @@ struct PayrollView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 6)
                     .padding(.top, 6)
+                    .contentShape(.rect)
             }
             .buttonStyle(.press)
 

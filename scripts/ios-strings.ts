@@ -112,7 +112,7 @@ export const IOS_ONLY: Record<string, Row> = {
   'calendar.title': { hy: 'Օրացույց', ru: 'Календарь', en: 'Calendar' },
   'calendar.lead': { hy: 'Օրեր, ամիսներ, ամբողջ պատմությունը', ru: 'Дни, месяцы, вся история', en: 'Days, months, the whole history' },
   'calendar.nextMonth': { hy: 'Հաջորդ ամիս', ru: 'Следующий месяц', en: 'Next month' },
-  'calendar.monthProfit': { hy: 'Ամսվա շահույթ', ru: 'Прибыль за месяц', en: "The month's profit" },
+  'calendar.monthProfit': { hy: 'Ամսվա մաքուր եկամուտ', ru: 'Прибыль за месяц', en: "The month's profit" },
   'calendar.monthInTheRed': { hy: 'Ամիսը մինուսում', ru: 'Месяц в минусе', en: 'The month is in the red' },
   'calendar.weekShape': { hy: 'Շաբաթվա պատկերը', ru: 'Картина недели', en: 'The shape of the week' },
   'day.empty': { hy: 'Այս օրը գրանցումներ չկան', ru: 'В этот день записей нет', en: 'No records on this day' },
@@ -468,7 +468,7 @@ export const IOS_ONLY: Record<string, Row> = {
   },
   'onboarding.s3Title': { hy: 'Երևում է, թե որքան է մնում', ru: 'Видно, сколько остаётся', en: 'You see what is left' },
   'onboarding.s3Body': {
-    hy: 'Հասույթից հանվում են աշխատավարձը և ծախսերը՝ վարձ, քիմիա, հոսանք։ Մնացածը ձեր շահույթն է։',
+    hy: 'Հասույթից հանվում են աշխատավարձը և ծախսերը՝ վարձ, քիմիա, հոսանք։ Մնացածը ձեր մաքուր եկամուտն է։',
     ru: 'Из выручки вычитаются зарплата и расходы: аренда, химия, электричество. Остальное ваша прибыль.',
     en: 'Payroll and expenses come off the revenue: rent, chemicals, electricity. The rest is your profit.',
   },

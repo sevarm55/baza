@@ -182,6 +182,11 @@ struct ServicesView: View {
                     }
                     .padding(.horizontal, 14)
                     .frame(minHeight: 54)
+                    /* Нажимается вся строка, а не буквы на ней. Без этой
+                       строки SwiftUI считает целью только текст: пустое
+                       поле между названием и ценой целью не является, и
+                       палец, попавший в середину, получает молчание. */
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.press)
 
@@ -690,6 +695,7 @@ struct TierEditor: View {
                             .foregroundStyle(Brand.grape)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
+                            .contentShape(.rect)
                         }
                         .buttonStyle(.press)
                     }
@@ -704,11 +710,15 @@ struct TierEditor: View {
                         .padding(.horizontal, 4)
                 }
 
-                Text(clean.isEmpty
-                     ? L("services.noTiersNote")
-                     : L("services.tiersApplyNote", clean.count))
+                /* Один класс сохранить нельзя, и об этом надо сказать
+                   вслух. Правило верное — один класс это не выбор, а
+                   лишняя строка в каждой цене, — но раньше оно жило
+                   только в погашенной кнопке: человек вписывал «Седан»,
+                   жал «Сохранить» и не понимал, что не так. Кнопка,
+                   которая не отвечает, читается поломкой. */
+                Text(noteText)
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(clean.count == 1 ? Brand.warnOnBoard : Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 6)
                     .padding(.top, 4)
@@ -732,6 +742,15 @@ struct TierEditor: View {
             }
         }
         }
+    }
+
+    /// Что написано под списком: подсказка про один класс важнее
+    /// рассказа о том, что будет после сохранения.
+    private var noteText: String {
+        if clean.count == 1 { return L("services.tiersNeedTwo") }
+        return clean.isEmpty
+            ? L("services.noTiersNote")
+            : L("services.tiersApplyNote", clean.count)
     }
 
     private func binding(_ i: Int) -> Binding<String> {

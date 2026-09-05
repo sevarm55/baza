@@ -588,6 +588,7 @@ struct ProfileView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.press)
         .disabled(exporting)
@@ -669,6 +670,7 @@ struct ProfileView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(.rect)
     }
 
     private var profileDivider: some View {

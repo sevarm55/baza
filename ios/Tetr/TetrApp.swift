@@ -313,6 +313,29 @@ struct MainTabs: View {
        записать машину — это смена. */
     @State private var tab = Tabs.shift
 
+    /**
+     * Значок вкладки, который отзывается на нажатие.
+     *
+     * Отскок рисует сама система: `symbolEffect(.bounce)` — родное
+     * движение SF Symbols, и оно живёт в той же панели, что и всё
+     * остальное. Ради этого вкладки собраны с ярлыком вручную:
+     * `Tab(systemImage:)` берёт голое имя значка, и повесить на него
+     * ничего нельзя.
+     *
+     * Пружина срабатывает на смену выбранной вкладки, а не на каждое
+     * касание: тыкать в уже открытую вкладку и получать прыжок — это
+     * движение без события.
+     */
+    @ViewBuilder
+    private func tabLabel(_ title: String, _ icon: String, value: Tabs) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: icon)
+                .symbolEffect(.bounce, options: .nonRepeating, value: tab == value)
+        }
+    }
+
     enum Tabs { case shift, summary, payroll, more }
 
     /// Куда попадает человек при входе и при смене точки.
@@ -333,7 +356,7 @@ struct MainTabs: View {
                же во всех нишах один и тот же — журнал за смену, — и планшет
                одинаково читается и как карта приёма, и как лист заказов.
                Заодно это ровно то, что значит армянское «տետր» — тетрадь. */
-            Tab(L("tab.shift"), systemImage: "list.clipboard.fill", value: Tabs.shift) {
+            Tab(value: Tabs.shift) {
                 NavigationStack {
                     ShiftView()
                         .navigationTitle(session.canSwitch ? "" : (session.tenant?.name ?? "Tetrin"))
@@ -355,10 +378,12 @@ struct MainTabs: View {
                             signOut
                         }
                 }
-            }
+            } label: {
+                    tabLabel(L("tab.shift"), "list.clipboard.fill", value: Tabs.shift)
+                }
 
             if session.me?.isOwner == true {
-                Tab(L("tab.summary"), systemImage: "chart.bar.fill", value: Tabs.summary) {
+                Tab(value: Tabs.summary) {
                     NavigationStack {
                         /* Без заголовка панели: на этом экране заголовок
                            страницы — дата, и «Ամփոփում» над ней было бы
@@ -371,9 +396,11 @@ struct MainTabs: View {
                         OwnerView()
                             .toolbar(.hidden, for: .navigationBar)
                     }
+                } label: {
+                    tabLabel(L("tab.summary"), "chart.bar.fill", value: Tabs.summary)
                 }
 
-                Tab(L("tab.payroll"), systemImage: "banknote.fill", value: Tabs.payroll) {
+                Tab(value: Tabs.payroll) {
                     NavigationStack {
                         /* Без заголовка панели: показание «Վճարելու է» и
                            есть заголовок страницы, а «Աշխատավարձեր» над ним
@@ -382,12 +409,14 @@ struct MainTabs: View {
                         PayrollView()
                             .toolbar(.hidden, for: .navigationBar)
                     }
+                } label: {
+                    tabLabel(L("tab.payroll"), "banknote.fill", value: Tabs.payroll)
                 }
 
                 // Разделы, куда заходят редко. Вкладок должно быть столько,
                 // сколько экранов открывают каждый день; прайс правят раз
                 // в месяц — ему в панели не место.
-                Tab(L("tab.more"), systemImage: "ellipsis.circle.fill", value: Tabs.more) {
+                Tab(value: Tabs.more) {
                     NavigationStack {
                         /* Без заголовка панели: имя раздела уже написано во
                            вкладке, а прозрачная панель поверх плиток давала
@@ -395,6 +424,8 @@ struct MainTabs: View {
                         MoreView()
                             .toolbar(.hidden, for: .navigationBar)
                     }
+                } label: {
+                    tabLabel(L("tab.more"), "ellipsis.circle.fill", value: Tabs.more)
                 }
             }
         }
