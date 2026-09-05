@@ -129,6 +129,11 @@ function smtpProvider(host: string): MailProvider {
         host,
         port,
         secure: port === 465,
+        /* На 587 шифрование включается уже внутри разговора, командой
+           STARTTLS. По умолчанию клиент пробует её и молча продолжает
+           открытым текстом, если сервер не предложил, — а мы шлём туда
+           пароль. `requireTLS` превращает это в отказ. */
+        requireTLS: port !== 465,
         auth: user && password ? { user, pass: password } : undefined,
       });
 
