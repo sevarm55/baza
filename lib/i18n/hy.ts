@@ -1405,7 +1405,7 @@ export const hy = {
     lostNote: (days: number) => `Ավելի քան ${days} օր։ Զանգը էժան է նոր հաճախորդ բերելուց։`,
     lostAction: 'Տեսնել ու զանգել',
     payrollTitle: 'Աշխատավարձ վճարելու ժամանակն է',
-    payrollNote: (days: number) => `Վերջին վճարումից անցել է ${days} օր։`,
+    payrollNote: (days: number) => `Աշխատանքի գումարը սպասում է ${days} օր։`,
     payrollAction: 'Բացել աշխատավարձերը',
   },
 

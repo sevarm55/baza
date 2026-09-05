@@ -1106,7 +1106,7 @@ export const ru: Dict = {
     lostAction: 'Посмотреть и позвонить',
     payrollTitle: 'Пора выплатить зарплату',
     payrollNote: (days: number) =>
-      `С последней выплаты прошло ${days} ${pl(days, 'день', 'дня', 'дней')}.`,
+      `Деньги за работу ждут ${days} ${pl(days, 'день', 'дня', 'дней')}.`,
     payrollAction: 'Открыть зарплаты',
   },
 

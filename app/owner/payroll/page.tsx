@@ -4,8 +4,8 @@ import { Clock3, UserPlus, Wallet } from 'lucide-react';
 import { requireOwner } from '@/lib/auth';
 import { getTenant, listStaff } from '@/lib/queries';
 import { getPayrollBoard, type BoardPayment } from '@/lib/payroll-board';
-import { PAYROLL_AFTER_DAYS } from '@/lib/alerts';
-import { daysSince, hhmm, ymd } from '@/lib/time';
+import { daysOwed, PAYROLL_AFTER_DAYS } from '@/lib/alerts';
+import { hhmm, ymd } from '@/lib/time';
 import { PageHeader } from '@/components/patterns/page-header';
 import { MTitle } from '@/components/mobile';
 import { EmptyState } from '@/components/patterns/states';
@@ -152,12 +152,13 @@ export default async function PayrollPage() {
     });
   }
 
-  /* Повод «пора платить» — тем же порогом, что у колокольчика: два
-     разных правила на одно состояние означали бы, что продукт спорит
-     сам с собой. */
-  const idleDays = board.lastPaidAt ? daysSince(board.lastPaidAt) : null;
-  const nagging =
-    board.totals.outstanding > 0 && idleDays !== null && idleDays >= PAYROLL_AFTER_DAYS;
+  /* Повод «пора платить» — тем же порогом И тем же расчётом, что у
+     колокольчика (`daysOwed` в `lib/alerts.ts`): два разных правила на
+     одно состояние означали бы, что продукт спорит сам с собой. Он и
+     спорил — страница считала от последней выплаты и при её отсутствии
+     молчала вовсе, а колокольчик в том же случае кричал. */
+  const idleDays = daysOwed(board.days, zone);
+  const nagging = board.totals.outstanding > 0 && idleDays >= PAYROLL_AFTER_DAYS;
 
   /* Кому должны, от большего долга к меньшему — стопка лиц наверху
      телефонного экрана. Один человек может стоять в нескольких днях;

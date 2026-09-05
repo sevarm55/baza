@@ -1058,7 +1058,7 @@ export const en: Dict = {
     lostAction: 'Look and call',
     payrollTitle: "It's time to pay wages",
     payrollNote: (days: number) =>
-      `${days} ${pl(days, 'day has', 'days have')} passed since the last payout.`,
+      `Money for the work has been waiting ${days} ${pl(days, 'day', 'days')}.`,
     payrollAction: 'Open payroll',
   },
 
