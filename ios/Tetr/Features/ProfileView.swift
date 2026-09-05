@@ -47,12 +47,19 @@ struct ProfileView: View {
     /// Фото раскрыто во всю ширину.
     @State private var photoOpen = false
 
+    /// Насколько проявлена полоса под часами: 0 — фото ещё стоит вверху,
+    /// 1 — оно ушло, и под статусом лежит полотно.
+    @State private var cover: Double = 0
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
     private var isOwner: Bool { session.me?.isOwner == true }
 
     private let gap: CGFloat = 10
+
+    /// Высота шапки под полосой статуса: фото, имя и номер.
+    private let brow: CGFloat = 114
 
     var body: some View {
         GeometryReader { geo in
@@ -91,11 +98,17 @@ struct ProfileView: View {
                 } else if photoOpen, y > 38 {
                     setPhoto(false)
                 }
+                /* Полосу трогаем только на её же отрезке: наблюдатель
+                   срабатывает на каждом кадре прокрутки, и записывать
+                   состояние всю дорогу значит пересобирать экран впустую. */
+                let next = min(1, max(0, (y - (brow - 24)) / 24))
+                if abs(next - cover) > 0.01 { cover = next }
             }
             /* Фото уходит под часы, как в мессенджерах: иначе раскрытие
                упирается в полосу статуса и читается как картинка в рамке,
                а не как верх экрана. */
             .ignoresSafeArea(edges: .top)
+            .overlay(alignment: .top) { statusBar(safeTop: geo.safeAreaInsets.top) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
@@ -123,6 +136,33 @@ struct ProfileView: View {
             notifyOrders = session.me?.notifyOrders ?? true
             filled = true
         }
+    }
+
+    /**
+     * Полотно за часами.
+     *
+     * Фото уходит под статус намеренно: на тёмном шёлке время читается, и
+     * верх экрана не выглядит картинкой в рамке. Но следом за фото под часы
+     * едут белые карточки, и слово «Бизнес» вставало ровно за цифрами.
+     *
+     * Поэтому полоса не висит всегда, а проявляется за последние 24 точки
+     * хода — ровно тогда, когда низ фото подходит к часам снизу. Ниже
+     * полосы короткий сход в прозрачность: жёсткая линия поперёк экрана
+     * читалась бы как вторая панель, которой здесь нет.
+     */
+    private func statusBar(safeTop: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            Brand.board.frame(height: safeTop)
+            LinearGradient(
+                colors: [Brand.board, Brand.board.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 10)
+        }
+        .opacity(cover)
+        .allowsHitTesting(false)
+        .ignoresSafeArea(edges: .top)
     }
 
     // ══════════════════════════ кто я ══════════════════════════
@@ -159,7 +199,7 @@ struct ProfileView: View {
     private func header(width: CGFloat, safeTop: CGFloat) -> some View {
         let name = session.me?.name ?? "—"
         let tone = Brand.personTone(name)
-        let height = safeTop + 114
+        let height = safeTop + brow
         let side: CGFloat = photoOpen ? width : 82
         let tall: CGFloat = photoOpen ? height : 82
         let top: CGFloat = photoOpen ? 0 : safeTop + 14
@@ -330,11 +370,12 @@ struct ProfileView: View {
              * выбрал до этого, пропадает вместе с заявкой, если он до
              * почты не дошёл.
              *
-             * Как только приходит первая машина, выбор закрывается
-             * навсегда: все суммы лежат в валюте, сменить её значило бы
-             * объявить вчерашние двенадцать тысяч драм двенадцатью
-             * тысячами долларов. Пересчитать не по чему, а оставить как
-             * есть — смешать в одном отчёте разные деньги. Запрет держит
+             * Как только записаны первые деньги — машина, расход,
+             * выплата или абонемент, — выбор закрывается навсегда: все
+             * суммы лежат в валюте, сменить её значило бы объявить
+             * вчерашние двенадцать тысяч драм двенадцатью тысячами
+             * долларов. Пересчитать не по чему, а оставить как есть —
+             * смешать в одном отчёте разные деньги. Запрет держит
              * сервер; экран только перестаёт предлагать.
              */
             if isOwner, let code = session.tenant?.currency {
