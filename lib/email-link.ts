@@ -125,6 +125,42 @@ export async function startLink(input: {
   };
 }
 
+export type PeekLink<P> =
+  | { ok: true; email: string; payload: P }
+  | { ok: false; reason: 'INVALID' | 'EXPIRED' };
+
+/**
+ * Посмотреть заявку, не гася её.
+ *
+ * Нужно ровно затем, чтобы страница по ссылке показала человеку, что
+ * именно он подтверждает, и сделала это ДО того, как ссылка сгорит.
+ * Гасит её нажатие кнопки, а не открытие страницы: почтовые
+ * антивирусы — Safe Links у Outlook и его родня — ходят по ссылкам сами,
+ * заранее, и одноразовая ссылка сгорала бы раньше, чем её увидит
+ * получатель. Наружу отсюда уходит только то, что человек и так написал
+ * сам на первом шаге.
+ */
+export async function peekLink<P = Record<string, unknown>>(input: {
+  token: string;
+  purpose: LinkPurpose;
+}): Promise<PeekLink<P>> {
+  const token = String(input.token ?? '');
+  if (token.length < 20) return { ok: false, reason: 'INVALID' };
+
+  const [row] = await db
+    .select()
+    .from(authChallenges)
+    .where(
+      and(eq(authChallenges.codeHash, hashToken(token)), eq(authChallenges.purpose, input.purpose)),
+    )
+    .limit(1);
+
+  if (!row || row.consumedAt) return { ok: false, reason: 'INVALID' };
+  if (row.expiresAt.getTime() < Date.now()) return { ok: false, reason: 'EXPIRED' };
+
+  return { ok: true, email: row.email ?? '', payload: (row.payload ?? {}) as P };
+}
+
 export type VerifyLink<P> =
   | { ok: true; challengeId: string; email: string; payload: P }
   | { ok: false; reason: 'INVALID' | 'EXPIRED' };

@@ -206,6 +206,15 @@ export const en: Dict = {
   },
 
   auth: {
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+
+    businessName: 'Business name',
+    yourName: 'Your name',
+    signUp: 'Create',
+    haveAccount: 'Already have an account? Sign in',
+    noAccount: 'No account? Create one',
+
     /* Email and password sign-in. The old keys stay while the app still
        uses the SMS code. */
     emailLabel: 'Email',

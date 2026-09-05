@@ -103,12 +103,20 @@ export function AuthDialog({
       data-open={open ? 'true' : undefined}
       aria-label={mode === 'register' ? t.auth.createTitle : t.auth.welcome}
       className={cn(
-        /* Лист прибит к правому краю во всю высоту: у нативного окна поля
-           по умолчанию `auto`, и без явного нуля оно встало бы по центру. */
-        'fixed top-0 right-0 bottom-0 left-auto m-0 h-full max-h-full w-[min(31rem,100vw)] max-w-full',
-        'overflow-visible bg-transparent p-0 text-foreground max-sm:w-full',
+        /* Окно по центру, а не панель у края.
+           Панель во всю высоту была ошибкой, и видно её стало на
+           регистрации: у формы пять полей, а у панели девятьсот точек
+           высоты, и поля расползались по ней с провалами между собой.
+           Окно по содержимому такого выбора не оставляет — оно ровно
+           такой высоты, сколько в нём есть.
+           На телефоне оно приходит снизу и занимает ширину целиком:
+           там до верхнего края не дотянуться большим пальцем. */
+        'fixed inset-0 m-0 h-full max-h-full w-full max-w-full',
+        'grid place-items-center overflow-y-auto overscroll-contain bg-transparent p-4',
+        'max-sm:place-items-end max-sm:p-0',
+        'text-foreground',
         'backdrop:bg-transparent backdrop:transition-[background-color,backdrop-filter] backdrop:duration-300',
-        'data-open:backdrop:bg-[#10100e]/55 data-open:backdrop:backdrop-blur-[3px]',
+        'data-open:backdrop:bg-[#10100e]/60 data-open:backdrop:backdrop-blur-[4px]',
       )}
       onCancel={(e) => {
         e.preventDefault();
@@ -124,17 +132,20 @@ export function AuthDialog({
         ref={panel}
         tabIndex={-1}
         className={cn(
-          'relative isolate flex h-full w-full flex-col overflow-hidden outline-none',
-          'border-l border-border bg-[var(--landing-bg)]',
-          'max-sm:border-t max-sm:border-l-0 max-sm:border-border',
-          /* Выезд: сбоку на широком экране, снизу на телефоне. И там, и
-             там из размытия и той же кривой, что у текста витрины
-             (`components/landing/reveal.tsx`). */
-          'translate-x-8 opacity-0 blur-[8px] max-sm:translate-x-0 max-sm:translate-y-10',
+          'relative isolate flex w-full flex-col overflow-hidden outline-none',
+          /* Ширина обычного окна входа, а не половины экрана. Высота по
+             содержимому; когда его больше экрана, прокручивается сам
+             `dialog` снаружи, и кольцо фокуса не обрезается. */
+          'w-[min(26rem,100%)] rounded-[1.75rem] border border-border bg-[var(--landing-bg)]',
+          'max-sm:w-full max-sm:rounded-b-none max-sm:rounded-t-[1.75rem] max-sm:border-x-0 max-sm:border-b-0',
+          /* Появление из размытия и той же кривой, что у текста витрины
+             (`components/landing/reveal.tsx`): на широком экране окно
+             чуть подрастает, на телефоне лист приходит снизу. */
+          'scale-[0.97] opacity-0 blur-[8px] max-sm:scale-100 max-sm:translate-y-10',
           'transition-[opacity,transform,filter] duration-[360ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
-          'in-data-open:translate-x-0 in-data-open:opacity-100 in-data-open:blur-[0px]',
+          'in-data-open:scale-100 in-data-open:opacity-100 in-data-open:blur-[0px]',
           'max-sm:in-data-open:translate-y-0',
-          'motion-reduce:translate-x-0 motion-reduce:translate-y-0 motion-reduce:blur-[0px] motion-reduce:transition-none',
+          'motion-reduce:scale-100 motion-reduce:translate-y-0 motion-reduce:blur-[0px] motion-reduce:transition-none',
         )}
       >
         {/* Отсвет первого экрана. Тот же тёплый свет, что горит в кадре
@@ -144,7 +155,7 @@ export function AuthDialog({
             строкой шума. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute -top-40 -right-24 size-[26rem] rounded-full opacity-70 blur-3xl dark:opacity-100"
+          className="pointer-events-none absolute -top-32 -right-20 size-[22rem] rounded-full opacity-70 blur-3xl dark:opacity-100"
           style={{
             background: 'radial-gradient(circle, rgba(255,74,0,0.20), rgba(255,74,0,0) 70%)',
           }}
@@ -152,7 +163,7 @@ export function AuthDialog({
 
         <Grain inside />
 
-        <header className="relative z-10 flex shrink-0 items-center justify-between px-8 py-7 max-sm:px-6">
+        <header className="relative z-10 flex shrink-0 items-center justify-between px-7 pt-6 pb-2 max-sm:px-6">
           {/* Марка ровно та же, что в шапке витрины: прописные Unbounded
               в мелкую разрядку. Человек читал её десять секунд назад. */}
           <span className="font-wordmark text-[16px] leading-none tracking-[0.06em] select-none">
@@ -172,13 +183,13 @@ export function AuthDialog({
           </button>
         </header>
 
-        {/* Разговор прижат к низу: сверху остаётся воздух, как на самой
-            витрине, а руки человека остаются у нижнего края экрана. Поля
-            прокрутки уводим наружу, чтобы кольцо фокуса не обрезалось. */}
+        {/* Прокрутки внутри окна нет намеренно: прокручивается сам
+            `dialog` снаружи. Внутренняя обрезала бы кольцо фокуса у
+            крайних полей и уводила бы кнопку под невидимый край. */}
         <div
           className={cn(
-            'relative z-10 flex min-h-0 flex-1 flex-col justify-end overflow-y-auto overscroll-contain',
-            'px-8 pt-6 pb-10 max-sm:px-6 max-sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]',
+            'relative z-10 flex flex-col',
+            'px-7 pt-2 pb-8 max-sm:px-6 max-sm:pb-[calc(2rem+env(safe-area-inset-bottom))]',
           )}
         >
           <AuthSurface

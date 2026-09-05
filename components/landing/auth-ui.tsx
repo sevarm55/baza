@@ -26,11 +26,12 @@ import { cn } from '@/lib/utils';
  * Общее правило форм: капсул нет. Скругление крупное, но рамка остаётся
  * прямоугольной — так же, как везде в продукте.
  *
- * Поля без коробок. Подпись стоит над строкой мелкими прописными в
- * разрядку, значение набирается крупно, снизу волосяная линия. В фокусе
- * поверх неё выезжает вторая, тёплая и в два раза толще: ширина линии не
- * меняется, поэтому раскладка не дёргается, а указатель фокуса виден
- * издалека.
+ * Поля были без коробок: подпись, крупное значение и волосяная линия
+ * снизу. Разворот витрины это выдерживал, окно входа — нет. На тёмном
+ * грунте линия сливалась с фоном, и человек не видел, куда нажимать; на
+ * регистрации таких невидимых мест оказалось пять подряд. Теперь у поля
+ * есть рамка и заливка чуть светлее листа, а тёплый цвет достался
+ * фокусу.
  */
 
 /** Тёплый цвет витрины. Тот же, что горит в первом экране. */
@@ -56,8 +57,35 @@ export const ACTION = [
 
 const WARM_TEXT = 'text-[#c0390f] dark:text-[#ff6a2a]';
 
-const EYEBROW =
-  'block text-[11px] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase';
+/**
+ * Подпись поля.
+ *
+ * Была мелкими прописными в разрядку — набор витрины. В окне входа он
+ * оказался неуместен: прописные читаются медленнее строчных, а читать их
+ * приходится подряд пять раз, по числу полей регистрации. Здесь обычный
+ * регистр и обычный кегль, как в любой форме, которую человек уже
+ * заполнял.
+ */
+const EYEBROW = 'block text-[13px] leading-none font-medium text-muted-foreground';
+
+/**
+ * Коробка поля.
+ *
+ * Раньше поля были без неё: подпись, значение и волосяная линия снизу.
+ * На светлом листе это читалось, на тёмном — нет: линия сливалась с
+ * фоном, и человек не видел, куда нажимать. Рамка отвечает на этот
+ * вопрос до того, как он задан.
+ *
+ * Заливка чуть светлее листа, а не белая: окно стоит на тёмном грунте
+ * витрины, и белое поле в нём было бы дырой.
+ */
+const BOX = [
+  'h-12 w-full rounded-xl border border-border bg-foreground/[0.03] px-4',
+  'text-[15px] tracking-[-0.01em] outline-none transition-[border-color,box-shadow]',
+  'placeholder:text-muted-foreground/45',
+  'focus-visible:border-[#c0390f] focus-visible:ring-3 focus-visible:ring-[#c0390f]/25',
+  'dark:bg-white/[0.04] dark:focus-visible:border-[#ff6a2a] dark:focus-visible:ring-[#ff6a2a]/25',
+].join(' ');
 
 /**
  * Главное действие. Одно на экран.
@@ -125,53 +153,43 @@ export function AuthLink({
   );
 }
 
-/** Линия под полем: волосяная всегда, тёплая и толстая в фокусе. */
-function Rule() {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 block h-[2px]"
-    >
-      <span className="absolute inset-x-0 bottom-0 h-px bg-border" />
-      <span
-        className={cn(
-          'absolute inset-x-0 bottom-0 h-[2px] origin-left scale-x-0',
-          'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-          'peer-focus-within:scale-x-100 peer-focus:scale-x-100',
-          WARM,
-        )}
-      />
-    </span>
-  );
-}
-
-/** Поле без коробки: подпись сверху, крупное значение, линия снизу. */
+/**
+ * Поле без коробки: подпись сверху, крупное значение, линия снизу.
+ *
+ * `hint` — строка под линией, тихая. Не подсказка внутри поля: та
+ * исчезает от первой буквы, а сказанное ею («не короче восьми знаков»,
+ * «владелец входит почтой») нужно как раз в тот момент, когда человек
+ * уже печатает.
+ */
 export function AuthField({
   label,
+  hint,
   invalid = false,
   className,
+  id: givenId,
   ...rest
-}: React.ComponentProps<'input'> & { label: string; invalid?: boolean }) {
-  const id = useId();
+}: React.ComponentProps<'input'> & { label: string; hint?: string; invalid?: boolean }) {
+  const autoId = useId();
+  const id = givenId ?? autoId;
+  const hintId = `${id}-hint`;
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
+    <div className={cn('flex flex-col gap-2', className)}>
       <label htmlFor={id} className={EYEBROW}>
         {label}
       </label>
-      <div className="relative">
-        <input
-          id={id}
-          {...rest}
-          aria-invalid={invalid || undefined}
-          className={cn(
-            'peer w-full bg-transparent pb-3 text-[19px] tracking-[-0.01em] outline-none',
-            'placeholder:text-muted-foreground/45',
-            invalid && 'text-[#c0390f] dark:text-[#ff6a2a]',
-          )}
-        />
-        <Rule />
-      </div>
+      <input
+        id={id}
+        {...rest}
+        aria-invalid={invalid || undefined}
+        aria-describedby={hint ? hintId : undefined}
+        className={cn(BOX, invalid && 'border-[#c0390f] dark:border-[#ff6a2a]')}
+      />
+      {hint && (
+        <p id={hintId} className="text-[12.5px] leading-snug text-muted-foreground">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -212,14 +230,14 @@ export function AuthPhone({
   const c = findCountry(code);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <label htmlFor={id} className={EYEBROW}>
         {label}
       </label>
 
-      <div className="relative">
-        <div className="peer flex items-baseline gap-3 pb-3">
-          <span className="relative flex shrink-0 items-center gap-1.5 text-[19px] tracking-[-0.01em]">
+      <div className={cn(BOX, 'flex items-center gap-2 p-0 pl-4', invalid && 'border-[#c0390f] dark:border-[#ff6a2a]')}>
+        <div className="flex w-full items-center gap-2">
+          <span className="relative flex shrink-0 items-center gap-1.5 text-[15px] tracking-[-0.01em]">
             <span aria-hidden>{c.flag}</span>
             <span className="num" aria-hidden>
               +{c.dial}
@@ -262,13 +280,12 @@ export function AuthPhone({
             }}
             placeholder={c.example}
             className={cn(
-              'num w-full min-w-0 bg-transparent text-[19px] tracking-[0.01em] outline-none',
+              'num h-12 w-full min-w-0 bg-transparent pr-4 text-[15px] tracking-[0.01em] outline-none',
               'placeholder:text-muted-foreground/40',
               invalid && 'text-[#c0390f] dark:text-[#ff6a2a]',
             )}
           />
         </div>
-        <Rule />
       </div>
     </div>
   );
@@ -337,16 +354,21 @@ export function AuthRoles({
 export function AuthHead({
   title,
   subtitle,
+  className,
 }: {
   title: string;
   subtitle: string;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="font-wordmark text-[26px] leading-[1.08] tracking-[-0.015em] uppercase md:text-[30px]">
+    <div className={cn('flex flex-col gap-2', className)}>
+      {/* Заголовок окна, а не витрины: прежние тридцать точек прописными
+          занимали четверть высоты и кричали там, где человек уже принял
+          решение и просто хочет войти. */}
+      <h2 className="font-wordmark text-[22px] leading-[1.1] tracking-[-0.01em] uppercase">
         {title}
       </h2>
-      <p className="max-w-[34ch] text-[14px] leading-relaxed text-muted-foreground">
+      <p className="max-w-[36ch] text-[13.5px] leading-relaxed text-muted-foreground">
         {subtitle}
       </p>
     </div>
