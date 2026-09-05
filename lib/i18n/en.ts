@@ -864,7 +864,6 @@ export const en: Dict = {
     vsLastWeek: 'A week ago at this hour',
     vsPrevPeriod: 'Last month',
     inTheRed: "You're in the red",
-    noBase: 'Nothing to compare with',
     emptyToday: 'No records today yet',
 
     colService: 'Service',

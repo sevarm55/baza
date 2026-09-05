@@ -59,6 +59,8 @@ export async function TodayMobile({
   signals,
   currency,
   unitOne,
+  revenueHref,
+  expensesHref,
 }: {
   isToday: boolean;
   profit: number;
@@ -77,6 +79,10 @@ export async function TodayMobile({
   signals: Signal[];
   currency: string;
   unitOne: string;
+  /** разбор выручки: день целиком или месяц по дням */
+  revenueHref: string;
+  /** список трат за тот же отрезок */
+  expensesHref: string;
 }) {
   const t = await getDict();
   const money = (n: number) => formatMoney(n, currency, t.locale);
@@ -165,6 +171,7 @@ export async function TodayMobile({
           label={unitWord(count, unitOne, t.locale)}
           value={String(count)}
           note={`${t.owner.avgCheck} ${money(avgCheck)}`}
+          href={revenueHref}
         />
         {isToday ? (
           <MStatTile
@@ -174,7 +181,7 @@ export async function TodayMobile({
             href="/owner/staff"
           />
         ) : (
-          <MStatTile icon={Coins} label={t.owner.revenue} value={money(revenue)} />
+          <MStatTile icon={Coins} label={t.owner.revenue} value={money(revenue)} href={revenueHref} />
         )}
         <MStatTile
           icon={Wallet}
@@ -188,7 +195,7 @@ export async function TodayMobile({
           label={t.expenses.title}
           value={money(costsTotal)}
           dot={costsTotal > 0 ? 'var(--m-step-3)' : undefined}
-          href="/owner/expenses"
+          href={expensesHref}
         />
       </MGrid>
 

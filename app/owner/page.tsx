@@ -263,22 +263,34 @@ export default async function TodayPage({
 
   const dayLabel = periodDates(from, to, tenant.timezone, byHour, t.locale);
 
-  /* Сравнение с прошлым отрезком: подпись к показанию, не показание. */
-  const compare = (
+  /* Сравнение с прошлым отрезком: подпись к показанию, не показание.
+     Без базы не выводится ничего.
+
+     Здесь стояла честная подпись «сравнивать не с чем». Звучит
+     аккуратно, а на экране получалось так: у первого показания рядом с
+     числом висела серая строка, которой у трёх соседних нет, и полоса
+     переставала читаться полосой — первая ячейка была устроена иначе
+     остальных. Плюс та же подпись повторялась в шапке графика, то есть
+     об одном и том же отсутствии сообщали дважды. Отсутствие сравнения
+     видно по отсутствию сравнения. */
+  const hasBase = prevStats.count > 0;
+  const compare = hasBase ? <Delta value={diff} formatted={money(Math.abs(diff))} /> : undefined;
+  const compareLong = hasBase ? (
     <Delta
-      value={prevStats.count === 0 ? null : diff}
+      value={diff}
       formatted={money(Math.abs(diff))}
-      noBase={t.owner.noBase}
-    />
-  );
-  const compareLong = (
-    <Delta
-      value={prevStats.count === 0 ? null : diff}
-      formatted={money(Math.abs(diff))}
-      noBase={t.owner.noBase}
       suffix={isToday ? t.owner.vsLastWeek : t.owner.vsPrev}
     />
-  );
+  ) : undefined;
+
+  /* Куда ведёт каждое число полосы: туда, где видно, из чего оно
+     сложилось. Отрезок сохраняется — уйти по «зарплате за прошлый
+     месяц» и попасть на текущий было бы хуже, чем не уйти вовсе. */
+  const expensesHref = period === 'prevmonth' ? '/owner/expenses?m=prev' : '/owner/expenses';
+  const revenueHref = isToday
+    ? `/owner/day/${ymd(from, tenant.timezone)}`
+    : `/owner/calendar?m=${ymd(from, tenant.timezone).slice(0, 7)}`;
+  const profitHref = `/owner/reports?tab=finance&r=${period}`;
 
   const chart = flow ? (
     <FlowChart points={flow} currency={tenant.currency} unitOne={tenant.unitOne} byHour={byHour} />
@@ -334,7 +346,7 @@ export default async function TodayPage({
           count={stats.count}
           avgCheck={stats.avgCheck}
           diff={diff}
-          hasBase={prevStats.count > 0}
+          hasBase={hasBase}
           crew={crew}
           presentCount={present.length}
           mix={mix}
@@ -342,6 +354,8 @@ export default async function TodayPage({
           signals={signals}
           currency={tenant.currency}
           unitOne={tenant.unitOne}
+          revenueHref={revenueHref}
+          expensesHref={expensesHref}
         />
       </MobileOnly>
 
@@ -370,6 +384,7 @@ export default async function TodayPage({
       <MetricStrip columns={4}>
         <Metric
           size="lg"
+          href={profitHref}
           label={profit >= 0 ? t.owner.profit : t.owner.inTheRed}
           value={money(profit)}
           tone={profit < 0 ? 'destructive' : 'default'}
@@ -381,6 +396,7 @@ export default async function TodayPage({
           }
         />
         <Metric
+          href={revenueHref}
           label={t.owner.revenue}
           value={money(stats.revenue)}
           hint={
@@ -391,11 +407,13 @@ export default async function TodayPage({
           }
         />
         <Metric
+          href="/owner/payroll"
           label={t.owner.payrollAccrued}
           value={stats.payroll > 0 ? `−${money(stats.payroll)}` : money(0)}
           hint={staffCount(isToday ? present.length : crew.length, tenant.staffRole, t.locale) + (isToday ? ` ${t.owner.onShift.toLocaleLowerCase(t.locale)}` : '')}
         />
         <Metric
+          href={expensesHref}
           label={t.owner.costs}
           value={costs.total > 0 ? `−${money(costs.total)}` : money(0)}
           hint={costsHint || undefined}

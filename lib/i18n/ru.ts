@@ -912,7 +912,6 @@ export const ru: Dict = {
     vsLastWeek: 'Неделю назад в это же время',
     vsPrevPeriod: 'Прошлый месяц',
     inTheRed: 'Вы в минусе',
-    noBase: 'Сравнивать не с чем',
     emptyToday: 'Сегодня записей пока нет',
 
     colService: 'Услуга',
