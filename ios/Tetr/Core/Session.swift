@@ -276,6 +276,10 @@ final class Session: ObservableObject {
      * ссылке перейдёт. Поэтому здесь нет ни токенов, ни входа — экрану
      * остаётся сказать «проверьте почту».
      *
+     * Полей три, и это следствие того же: всё, что не спросили, не
+     * пропадёт вместе с заявкой, до которой человек может не дойти. Имя
+     * берётся из адреса, телефон и валюта спрашиваются внутри.
+     *
      * Возвращается адрес, каким его принял сервер: показать надо именно
      * его, а не то, что человек набрал, — регистр и пробелы там уже
      * приведены к одному виду.
@@ -283,12 +287,8 @@ final class Session: ObservableObject {
     func signUp(
         niche: String,
         businessName: String,
-        ownerName: String,
         email: String,
-        password: String,
-        phone: String,
-        currency: String,
-        country: String
+        password: String
     ) async throws -> String {
         let started: API.SignupStarted = try await api.send(
             "auth/signup",
@@ -296,15 +296,8 @@ final class Session: ObservableObject {
             body: [
                 "niche": niche,
                 "businessName": businessName,
-                "ownerName": ownerName,
                 "email": email,
                 "password": password,
-                "phone": phone,
-                /* Валюта выбирается здесь и больше нигде: потом её не
-                   меняют. Не послать её значит молча оставить мойку на
-                   драмах. */
-                "currency": currency,
-                "country": country,
                 /* Язык письма. Берём тот, на котором человек видит
                    приложение: армянское письмо на русском интерфейсе —
                    то же самое, что письмо на суахили. */
@@ -524,10 +517,11 @@ final class Session: ObservableObject {
     }
 
     /// Имя человека и название бизнеса.
-    func saveProfile(name: String?, businessName: String?) async throws {
+    func saveProfile(name: String?, businessName: String?, currency: String? = nil) async throws {
         var payload: [String: Any] = [:]
         if let name { payload["name"] = name }
         if let businessName { payload["businessName"] = businessName }
+        if let currency { payload["currency"] = currency }
         guard !payload.isEmpty else { return }
 
         _ = try await authed { token in

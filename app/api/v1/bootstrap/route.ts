@@ -4,6 +4,7 @@ import { listServices, listStaff, startOfDay } from '@/lib/queries';
 import { whoIsOnShift } from '@/lib/shifts';
 import { listPoints } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
+import { hasOrders } from '@/lib/profile';
 import { passesEnabled } from '@/lib/features';
 import { authorize, denied } from '@/lib/api/guard';
 import { clientIdLabelTerm, serviceNameTerm, staffRoleTerm, unitForms } from '@/lib/i18n/terms';
@@ -56,6 +57,9 @@ export async function GET(request: Request) {
         id: ctx.tenant.id,
         name: ctx.tenant.name,
         currency: ctx.tenant.currency,
+        /* Можно ли ещё её сменить. Первая же запись закрывает выбор
+           навсегда: суммы лежат в валюте, пересчитать их не по чему. */
+        currencyLocked: await hasOrders(ctx.tenant.id),
         locale: ctx.tenant.locale,
         timezone: ctx.tenant.timezone,
         /* Заводские слова ниши приезжают на языке телефона; своё

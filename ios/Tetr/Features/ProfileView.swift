@@ -327,30 +327,100 @@ struct ProfileView: View {
             }
             field(L("owner.clientName"), $myName)
 
-            /* Валюта только для чтения, и это не забытая кнопка. Она
-               выбрана при заведении мойки, и все суммы бизнеса лежат в
-               ней: сменить её значило бы объявить вчерашние двенадцать
-               тысяч драм двенадцатью тысячами долларов. Пересчитать не по
-               чему, а оставить как есть — смешать в одном отчёте разные
-               деньги.
-
-               Показываем всё равно: человек должен видеть, в чём считает,
-               а не догадываться по знаку рядом с числами. */
+            /* Валюта: выбор, пока в мойке пусто, и надпись после.
+             *
+             * Спрашивается здесь, а не на регистрации. До перехода по
+             * ссылке из письма мойки ещё не существует, и всё, что человек
+             * выбрал до этого, пропадает вместе с заявкой, если он до
+             * почты не дошёл.
+             *
+             * Как только приходит первая машина, выбор закрывается
+             * навсегда: все суммы лежат в валюте, сменить её значило бы
+             * объявить вчерашние двенадцать тысяч драм двенадцатью
+             * тысячами долларов. Пересчитать не по чему, а оставить как
+             * есть — смешать в одном отчёте разные деньги. Запрет держит
+             * сервер; экран только перестаёт предлагать.
+             */
             if isOwner, let code = session.tenant?.currency {
                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
-                HStack {
-                    Text(L("profile.currency"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
-                    Text("\(Money.symbol(code))\u{202F}\(code)")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
+
+                if session.tenant?.currencyLocked == true {
+                    HStack {
+                        Text(L("profile.currency"))
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.boardMuted)
+                        Spacer(minLength: 8)
+                        Text("\(Money.symbol(code))\u{202F}\(code)")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Brand.onBoard)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                } else {
+                    currencyPicker(code)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
             }
         }
+    }
+
+    /**
+     * Ряд валют, пока их ещё можно менять.
+     *
+     * Не выпадающий список: вариантов пять, и список ради пяти пунктов —
+     * это лишнее нажатие и закрытая от глаз строка выбора. Ряд отвечает
+     * на вопрос «а что вообще есть» до того, как его задали.
+     *
+     * Сохраняется сразу по нажатию, без общей кнопки: выбор один, и
+     * заставлять человека искать «сохранить» ради одного нажатия значит
+     * придумывать ему работу.
+     */
+    private func currencyPicker(_ current: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L("onboarding.currency"))
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(Brand.boardMuted)
+
+            HStack(spacing: 6) {
+                ForEach(Money.currencies, id: \.self) { code in
+                    let on = code == current
+                    Button {
+                        Task { await pickCurrency(code) }
+                    } label: {
+                        VStack(spacing: 1) {
+                            Text(Money.symbol(code))
+                                .font(.system(size: 15, weight: .bold))
+                            Text(code)
+                                .font(.system(size: 9, weight: .semibold))
+                                .opacity(0.7)
+                        }
+                        .foregroundStyle(on ? Brand.grapeDeep : Brand.onBoard.opacity(0.7))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(
+                            on ? Brand.lime : Brand.boardInk.opacity(0.06),
+                            in: .rect(cornerRadius: 12, style: .continuous)
+                        )
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(code)
+                    .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                }
+            }
+
+            Text(L("onboarding.currencyOnce"))
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.boardMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    private func pickCurrency(_ code: String) async {
+        guard code != session.tenant?.currency else { return }
+        try? await session.saveProfile(name: nil, businessName: nil, currency: code)
     }
 
     private func field(_ title: String, _ value: Binding<String>) -> some View {

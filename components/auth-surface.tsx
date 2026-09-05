@@ -11,7 +11,6 @@ import {
   AuthField,
   AuthHead,
   AuthLink,
-  AuthPhone,
 } from '@/components/landing/auth-ui';
 import { PersonAvatar } from '@/components/patterns/person';
 import { useT } from '@/lib/i18n/client';
@@ -170,14 +169,6 @@ function Conversation({
         />
 
         <AuthField
-          label={t.auth.yourName}
-          name="ownerName"
-          autoComplete="name"
-          required
-          invalid={Boolean(error)}
-        />
-
-        <AuthField
           label={t.auth.registerEmail}
           name="email"
           type="email"
@@ -188,8 +179,6 @@ function Conversation({
           required
           invalid={Boolean(error)}
         />
-
-        <AuthPhone label={t.auth.phone} countryLabel={t.auth.country} invalid={Boolean(error)} />
 
         <PasswordField
           label={t.auth.registerPassword}

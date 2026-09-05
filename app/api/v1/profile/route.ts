@@ -15,11 +15,14 @@ export async function PATCH(request: Request) {
     const ctx = await authorize(request, { anyPlan: true });
     if (denied(ctx)) return ctx;
 
-    const input = await body<{ name?: string; businessName?: string }>(request);
+    const input = await body<{ name?: string; businessName?: string; currency?: string }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
-    // название бизнеса общее, а не личное: меняет только владелец
-    if (input.businessName !== undefined && ctx.user.role !== 'owner') {
+    // название бизнеса и валюта общие, а не личные: меняет только владелец
+    if (
+      (input.businessName !== undefined || input.currency !== undefined) &&
+      ctx.user.role !== 'owner'
+    ) {
       return fail('FORBIDDEN', 403);
     }
 
@@ -28,6 +31,7 @@ export async function PATCH(request: Request) {
       tenantId: ctx.tenant.id,
       name: input.name,
       businessName: input.businessName,
+      currency: input.currency,
     });
 
     return noContent();

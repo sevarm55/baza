@@ -208,11 +208,20 @@ export async function noteLoginSucceeded(input: {
 export type RegisterDraft = {
   niche: string;
   businessName: string;
-  ownerName: string;
+  /**
+   * Имя владельца. Не обязательно.
+   *
+   * До перехода по ссылке из письма не создаётся ничего: всё, что
+   * человек набрал, час лежит в заявке и пропадает, если он до почты не
+   * дошёл. Поэтому спрашиваем только то, чем он будет входить, и то, без
+   * чего мойку не назвать. Имя, если его не дали, берётся из адреса и
+   * правится в профиле — там это одно поле, а не повод к анкете.
+   */
+  ownerName?: string;
   email: string;
   password: string;
-  /** телефон владельца: связь, а не вход */
-  phone: string;
+  /** телефон владельца: связь, а не вход, и потому не обязателен */
+  phone?: string;
   /**
    * Заявку завело приложение, а не браузер.
    *
@@ -276,14 +285,21 @@ export async function beginRegistration(
   const ownerName = String(draft.ownerName ?? '').trim();
   const email = String(draft.email ?? '').trim();
   const password = String(draft.password ?? '');
-  const phone = normalizePhone(String(draft.phone ?? ''), draft.countryCode);
+  /* Пустую строку не нормализуем: `normalizePhone('')` вернул бы код
+     страны без номера, и «телефона нет» превратилось бы в «+374». */
+  const given = String(draft.phone ?? '').trim();
+  const phone = given ? normalizePhone(given, draft.countryCode) : '';
   const locale: Locale = draft.locale ?? 'hy';
 
   if (!isNicheAvailable(niche)) return { ok: false, problem: 'NICHE' };
   if (businessName.length < 2 || businessName.length > 80) return { ok: false, problem: 'NAME' };
-  if (ownerName.length < 2 || ownerName.length > 80) return { ok: false, problem: 'NAME' };
+  if (ownerName && (ownerName.length < 2 || ownerName.length > 80)) {
+    return { ok: false, problem: 'NAME' };
+  }
   if (!isValidEmail(email)) return { ok: false, problem: 'EMAIL' };
-  if (!isValidPhone(phone, draft.countryCode)) return { ok: false, problem: 'PHONE' };
+  /* Пустой телефон пропускаем: его спрашивают в профиле, когда человек
+     уже внутри. Данный — проверяем, иначе в базу ляжет мусор. */
+  if (phone && !isValidPhone(phone, draft.countryCode)) return { ok: false, problem: 'PHONE' };
 
   const bad = checkPassword(password);
   if (bad === 'short' || bad === 'long') return { ok: false, problem: 'PASSWORD_SHORT' };
@@ -294,7 +310,7 @@ export async function beginRegistration(
      занят, и заставлять человека идти в почту ради отказа — хуже, чем
      сказать сразу. */
   if (await accountByEmail(email)) return { ok: false, problem: 'EMAIL_TAKEN' };
-  if (await accountByPhone(phone)) return { ok: false, problem: 'PHONE_TAKEN' };
+  if (phone && (await accountByPhone(phone))) return { ok: false, problem: 'PHONE_TAKEN' };
 
   const started = await startLink({
     purpose: 'register',
@@ -384,7 +400,12 @@ export async function completeRegistration(input: {
   }
 
   const email = verified.email;
-  const { niche, businessName, ownerName, phone, currency, fromApp, passwordHash } = verified.payload;
+  const { niche, businessName, phone, currency, fromApp, passwordHash } = verified.payload;
+
+  /* Имени может не быть: на регистрации его больше не спрашивают. Берём
+     часть адреса до собаки — это лучше пустой строки в шапке кабинета и
+     честнее выдуманного «Владелец». В профиле правится одним полем. */
+  const ownerName = String(verified.payload.ownerName ?? '').trim() || email.split('@')[0];
 
   /* Пока человек ходил в почту, адрес могли занять. Редко, но возможно:
      две вкладки, две регистрации. */

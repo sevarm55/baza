@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { accounts, tenants, users } from './db/schema';
+import { accounts, orders, tenants, users } from './db/schema';
 import { hashPin, hasPin, NO_PIN, verifyPin } from './pin';
 import { pinProblem } from './phone';
 import { revokeAccountSessions } from './auth';
 import { accountOf } from './accounts';
+import { isCurrency } from './money';
 
 /**
  * Профиль: имя, название бизнеса, PIN.
@@ -20,7 +21,16 @@ import { accountOf } from './accounts';
  */
 
 export class ProfileError extends Error {
-  constructor(code: 'BAD_PIN' | 'TRIVIAL_PIN' | 'WRONG_PIN' | 'BAD_NAME') {
+  constructor(
+    code:
+      | 'BAD_PIN'
+      | 'TRIVIAL_PIN'
+      | 'WRONG_PIN'
+      | 'BAD_NAME'
+      | 'BAD_CURRENCY'
+      /** в мойке уже есть записи — валюту не трогаем */
+      | 'CURRENCY_LOCKED',
+  ) {
     super(code);
   }
 }
@@ -144,6 +154,17 @@ export async function saveProfile(input: {
   tenantId: string;
   name?: string;
   businessName?: string;
+  /**
+   * Валюта мойки.
+   *
+   * Меняется, только пока в мойке нет ни одной записи. Дальше нельзя:
+   * все суммы лежат в ней, пересчитать их не по чему, а оставить как
+   * есть значит смешать в одном отчёте разные деньги. Раньше её
+   * спрашивали на регистрации; теперь — здесь, потому что до перехода по
+   * ссылке из письма мойки ещё не существует, и выбор пропадал бы вместе
+   * с заявкой у всех, кто до почты не дошёл.
+   */
+  currency?: string;
 }) {
   if (input.name !== undefined) {
     const name = input.name.trim();
@@ -156,4 +177,26 @@ export async function saveProfile(input: {
     if (businessName.length < 2) throw new ProfileError('BAD_NAME');
     await db.update(tenants).set({ name: businessName }).where(eq(tenants.id, input.tenantId));
   }
+
+  if (input.currency !== undefined) {
+    const currency = input.currency.trim().toUpperCase();
+    if (!isCurrency(currency)) throw new ProfileError('BAD_CURRENCY');
+
+    /* Запрет держит сервер, а не экран. Экран прячет выбор, когда записи
+       уже есть, но между тем, как он это узнал, и нажатием могла пройти
+       первая машина — а такую подмену никакой отчёт не переживёт. */
+    if (await hasOrders(input.tenantId)) throw new ProfileError('CURRENCY_LOCKED');
+
+    await db.update(tenants).set({ currency }).where(eq(tenants.id, input.tenantId));
+  }
+}
+
+/** Была ли в мойке хоть одна запись. */
+export async function hasOrders(tenantId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.tenantId, tenantId))
+    .limit(1);
+  return Boolean(row);
 }

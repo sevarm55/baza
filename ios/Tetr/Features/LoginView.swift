@@ -67,14 +67,9 @@ struct LoginView: View {
     /// Регистрация и восстановление: адрес, на который уйдёт письмо.
     @State private var email = ""
     @State private var businessName = ""
-    @State private var ownerName = ""
+    /// Код страны нужен телефонному логину сотрудника: он набирает
+    /// национальную часть, а сверяет сервер по E.164.
     @State private var country = Countries.default
-    /// Телефон владельца при регистрации: связь, а не вход.
-    @State private var phone = ""
-    /// Валюта новой мойки. Выбирается здесь и больше нигде: все суммы
-    /// бизнеса лежат в ней, и сменить её потом значило бы объявить
-    /// вчерашние двенадцать тысяч драм двенадцатью тысячами долларов.
-    @State private var currency = "AMD"
 
     @State private var stage: Stage = .entry
     @State private var error: String?
@@ -85,7 +80,7 @@ struct LoginView: View {
 
     @FocusState private var focus: Field?
 
-    private enum Field { case login, password, email, businessName, ownerName, phone }
+    private enum Field { case login, password, email, businessName }
 
     /// Что сейчас на экране.
     private enum Stage: Equatable {
@@ -481,24 +476,31 @@ struct LoginView: View {
      * чем он будет входить: пока не назвал дело, вопрос «придумайте
      * пароль» звучит как анкета ради анкеты.
      */
+    /**
+     * Регистрация: три поля и ни одного лишнего.
+     *
+     * Раньше их было шесть, и это была анкета. Причина не в красоте: до
+     * перехода по ссылке из письма НЕ СОЗДАЁТСЯ НИЧЕГО. Всё, что человек
+     * набрал, час лежит в заявке и пропадает, если он до почты не дошёл.
+     * Спрашивать телефон, имя и валюту у того, кто ещё не доказал, что
+     * ящик его, — работа, которая чаще всего выбрасывается.
+     *
+     * Осталось то, чем он будет входить, и то, без чего мойку не назвать.
+     * Имя берётся из адреса и правится в профиле. Телефон там же, когда
+     * понадобится. Валюту спрашиваем внутри — там, где она наконец
+     * что-то значит.
+     */
     private var registerFields: some View {
         VStack(alignment: .leading, spacing: 14) {
             field(title: L("onboarding.bizName"), holds: .businessName) {
                 TextField(L("auth.namePlaceholder"), text: $businessName)
                     .textContentType(.organizationName)
                     .autocorrectionDisabled()
+                    .submitLabel(.next)
                     .focused($focus, equals: .businessName)
+                    .onSubmit { focus = .email }
                     .accessibilityIdentifier("login.businessName")
                     .accessibilityLabel(L("onboarding.bizName"))
-            }
-
-            field(title: L("onboarding.ownerName"), holds: .ownerName) {
-                TextField(L("staff.namePlaceholder"), text: $ownerName)
-                    .textContentType(.name)
-                    .autocorrectionDisabled()
-                    .focused($focus, equals: .ownerName)
-                    .accessibilityIdentifier("login.ownerName")
-                    .accessibilityLabel(L("onboarding.ownerName"))
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -508,7 +510,9 @@ struct LoginView: View {
                         .autocorrectionDisabled()
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
+                        .submitLabel(.next)
                         .focused($focus, equals: .email)
+                        .onSubmit { focus = .password }
                         .accessibilityIdentifier("login.registerEmail")
                         .accessibilityLabel(L("auth.registerEmail"))
                 }
@@ -529,18 +533,6 @@ struct LoginView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.45))
             }
-
-            field(title: L("auth.phone"), holds: .phone) {
-                CountryPhoneField(
-                    country: $country,
-                    number: $phone,
-                    ink: .white,
-                    identifier: "login.phone"
-                )
-                .focused($focus, equals: .phone)
-            }
-
-            currencyChoice
         }
     }
 
@@ -738,62 +730,6 @@ struct LoginView: View {
     }
 
 
-    // ══════════════════════ валюта ══════════════════════
-
-    /**
-     * Валюта: пять кнопок в ряд, драм выбран заранее.
-     *
-     * Не выпадающий список: вариантов пять, и список ради пяти пунктов
-     * это лишнее нажатие и закрытая от глаз строка выбора. Ряд отвечает
-     * на вопрос «а что вообще есть» до того, как его задали.
-     *
-     * Подпись под рядом честно говорит, что потом не поменять. Сказать
-     * это здесь дешевле, чем объясняться через месяц: пересчитывать
-     * прошлые суммы не по чему, а оставить их как есть значит смешать в
-     * одном отчёте разные деньги.
-     */
-    private var currencyChoice: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(L("onboarding.currency"))
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(.white.opacity(0.55))
-
-            HStack(spacing: 6) {
-                ForEach(Money.currencies, id: \.self) { code in
-                    let on = code == currency
-                    Button {
-                        currency = code
-                    } label: {
-                        VStack(spacing: 1) {
-                            Text(Money.symbol(code))
-                                .font(.system(size: 15, weight: .bold))
-                            Text(code)
-                                .font(.system(size: 9, weight: .semibold))
-                                .opacity(0.7)
-                        }
-                        .foregroundStyle(on ? Brand.grapeDeep : .white.opacity(0.75))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(
-                            on ? Brand.lime : .white.opacity(0.08),
-                            in: .rect(cornerRadius: 12, style: .continuous)
-                        )
-                        .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(code)
-                    .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
-                }
-            }
-
-            Text(L("onboarding.currencyOnce"))
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.45))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     // ══════════════════════ действия ══════════════════════
 
     /**
@@ -854,10 +790,8 @@ struct LoginView: View {
                поле пустое: ругаться на четвёртом знаке пароля значит
                ругаться на человека, который ещё печатает. */
             return businessName.trimmed.count >= 2
-                && ownerName.trimmed.count >= 2
                 && !email.trimmed.isEmpty
                 && !password.isEmpty
-                && !phone.isEmpty
         case .sent:
             return true
         }
@@ -971,12 +905,8 @@ struct LoginView: View {
                    значило бы спрашивать, туда ли он попал. */
                 niche: "carwash",
                 businessName: businessName.trimmed,
-                ownerName: ownerName.trimmed,
                 email: address,
-                password: password,
-                phone: phone,
-                currency: currency,
-                country: country.code
+                password: password
             )
             password = ""
             go(.sent(accepted))
