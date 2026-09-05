@@ -140,14 +140,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
               {/* Кнопка на первом экране. До этого её тут не было вовсе:
                   единственный призыв стоял внизу страницы, в десяти
                   тысячах точек от заголовка, и большинство до него просто
-                  не доходило. Подпись под кнопкой, а не над: она
-                  оговаривает действие, а не предваряет его. */}
+                  не доходило. */}
               <Reveal delay={0.42} blur={10} y={14} className="mt-8 md:mt-10">
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                  <Cta label={t.landing.hero.cta} />
+                {/* Подпись над кнопкой, а не под ней и не сбоку. Она
+                    снимает страх «сейчас попросят карту», и снимать его
+                    нужно до нажатия, а не после. Так же она стоит у цены
+                    и в прилипшей полосе на телефоне. */}
+                <div className="flex flex-col items-start gap-3">
                   <span className="text-[14px] text-[#1a120e]/65 md:text-[15px] dark:text-white/60">
                     {t.landing.hero.note(TRIAL_DAYS)}
                   </span>
+                  <Cta label={t.landing.hero.cta} />
                 </div>
               </Reveal>
             </div>

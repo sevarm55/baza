@@ -68,10 +68,12 @@ export function Hail({ label, note }: { label: string; note: string }) {
         still ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30, mass: 0.7 }
       }
     >
+      {/* Подпись над кнопкой: страх про карту снимается до нажатия, а
+          не после. Так же она стоит на первом экране и у цены. */}
+      <p className="mb-2 text-center text-[12px] text-muted-foreground">{note}</p>
       <AuthTrigger mode="register" className={cn(ACTION, 'w-full')}>
         {label}
       </AuthTrigger>
-      <p className="mt-2 text-center text-[12px] text-muted-foreground">{note}</p>
     </motion.div>
   );
 }

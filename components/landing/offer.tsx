@@ -83,11 +83,13 @@ export function Offer({ t }: { t: Dict }) {
             {c.lead}
           </p>
 
-          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4 md:mt-11">
-            <Cta label={t.landing.hero.cta} />
+          {/* Подпись над кнопкой, как и на первом экране: страх про карту
+              снимается до нажатия. */}
+          <div className="mt-9 flex flex-col items-start gap-3 md:mt-11">
             <span className="text-[13px] text-muted-foreground md:text-sm">
               {c.note(TRIAL_DAYS)}
             </span>
+            <Cta label={t.landing.hero.cta} />
           </div>
 
           {/* Вторая дверь, и не для сомневающихся, а для тех, кто вообще
