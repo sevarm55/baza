@@ -49,19 +49,46 @@ export const accounts = pgTable(
   'accounts',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    /** телефон в E.164, уникален глобально */
+    /** телефон в E.164, уникален глобально; логин сотрудника */
     phone: text('phone').notNull(),
-    pinHash: text('pin_hash').notNull(),
+    /**
+     * Почта владельца. Его логин и единственный способ восстановить
+     * доступ.
+     *
+     * Null у сотрудника: мойщику рабочая почта не нужна, его заводит
+     * владелец по телефону и выдаёт пароль вслух. Заставлять его
+     * придумывать адрес значило бы упереться в это при каждом найме.
+     *
+     * Уникальна без учёта регистра — индексом по `lower(email)`, а не
+     * приведением при записи: адрес человек пишет так, как привык, и в
+     * письме он должен выглядеть его собственным.
+     */
+    email: text('email'),
+    /**
+     * Пароль. Тот же scrypt, что раньше держал PIN (`lib/pin.ts`), и тот
+     * же версионированный формат хеша.
+     *
+     * Null у того, кому пароль ещё не выдали: сотрудник заведён, а
+     * владелец пароль пока не назначил. Такой войти не может, и это
+     * честнее, чем пускать по пустому.
+     */
+    passwordHash: text('password_hash'),
+    /** когда по ссылке из письма доказали, что почта его */
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /**
+     * Прежний секрет: шесть цифр.
+     *
+     * Оставлен колонкой и обнулён у всех. Вход по нему выключен, читать
+     * его больше некому; колонка держится один выкат, чтобы откат кода
+     * не требовал отката базы, и уходит следующей миграцией.
+     */
+    pinHash: text('pin_hash'),
     /**
      * Когда доказали, что номер принадлежит человеку.
      *
-     * Null — не доказывали. Так стоят все, кто зарегистрировался до
-     * появления кода из SMS: выкинуть их нельзя, они работают каждый
-     * день. Разница между null и датой не в том, пускать ли внутрь, а в
-     * том, чем можно восстановить доступ и когда просить подтверждение
-     * повторно. Восстановление PIN по SMS доступно только тем, чей номер
-     * подтверждён: иначе оно само стало бы способом угнать чужой
-     * непроверенный аккаунт.
+     * Больше не участвует во входе: номер подтверждали кодом из SMS, а
+     * SMS из продукта ушли. Поле осталось как факт о прошлом и как
+     * признак «этому номеру можно звонить».
      */
     phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
     /**
@@ -98,7 +125,17 @@ export const accounts = pgTable(
     tempAccessBy: text('temp_access_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('accounts_phone_uniq').on(t.phone)],
+  (t) => [
+    uniqueIndex('accounts_phone_uniq').on(t.phone),
+    /* Почта уникальна без учёта регистра. Индекс по выражению, а не по
+       колонке: `Sevak@` и `sevak@` — один и тот же ящик, и второй
+       регистрацией он занят быть не должен. Частичный, потому что у
+       сотрудников почты нет вовсе, а NULL в уникальном индексе Postgres
+       не сравнивает — но частичность делает намерение явным. */
+    uniqueIndex('accounts_email_uniq')
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.email} is not null`),
+  ],
 );
 
 export const tenants = pgTable('tenants', {
@@ -203,7 +240,8 @@ export const users = pgTable(
      * источник правды в accounts.
      */
     phone: text('phone').notNull(),
-    pinHash: text('pin_hash').notNull(),
+    /** прежний секрет участия; вход по нему выключен, см. `accounts.pinHash` */
+    pinHash: text('pin_hash'),
     name: text('name').notNull(),
     role: text('role').notNull().default('staff'), // owner | staff
     /** процент исполнителя на СЕГОДНЯ; в заказ пишется снимок */
@@ -747,11 +785,26 @@ export const authChallenges = pgTable(
   'auth_challenges',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    /** entry | register | reset | step_up | phone_change | account_delete */
+    /** register | reset | email_change | account_delete */
     purpose: text('purpose').notNull(),
-    /** нормализованный E.164 — тот номер, на который ушла SMS */
-    phone: text('phone').notNull(),
-    /** HMAC-SHA256 от шести цифр; сам код не хранится нигде */
+    /**
+     * Кому ушло письмо.
+     *
+     * Раньше здесь стоял только телефон и колонка была обязательной: всё
+     * подтверждали кодом из SMS. Теперь подтверждает почта, и адрес
+     * лежит рядом. Телефон оставлен обнуляемым — по нему заявку ищет
+     * старый код, пока он ещё есть.
+     */
+    email: text('email'),
+    /** нормализованный E.164; прежний ключ заявки */
+    phone: text('phone'),
+    /**
+     * HMAC-SHA256 от секрета в ссылке.
+     *
+     * Секрет длинный и случайный, а не шесть цифр: по ссылке не
+     * перебирают руками, зато ссылка живёт в почте и может быть
+     * прочитана позже. Сам секрет не хранится нигде, как и прежде код.
+     */
     codeHash: text('code_hash').notNull(),
     /** заявка, ожидающая подтверждения; открытых секретов внутри нет */
     payload: jsonb('payload').$type<Record<string, unknown>>(),
@@ -769,6 +822,7 @@ export const authChallenges = pgTable(
   },
   (t) => [
     index('auth_challenges_phone_idx').on(t.phone, t.purpose, t.createdAt),
+    index('auth_challenges_email_idx').on(t.email, t.purpose, t.createdAt),
     index('auth_challenges_expires_idx').on(t.expiresAt),
   ],
 );
