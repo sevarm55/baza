@@ -194,10 +194,15 @@ struct LoginView: View {
                                    форма занимает прежнюю верхнюю позицию и
                                    не теряет место над клавиатурой. Сам вид
                                    остаётся тем же — фокус поля не роняется. */
+                                /* Марка уходит и при вводе, и на длинных
+                                   формах. На регистрации полей шесть, и
+                                   шестьдесят точек над ними — это ровно
+                                   то, из-за чего первое поле оказывается
+                                   за нижним краем. */
                                 Wordmark(size: 18)
-                                    .frame(height: focus == nil ? nil : 0, alignment: .top)
-                                    .opacity(focus == nil ? 1 : 0)
-                                    .padding(.bottom, focus == nil ? 22 : 0)
+                                    .frame(height: showsMark ? nil : 0, alignment: .top)
+                                    .opacity(showsMark ? 1 : 0)
+                                    .padding(.bottom, showsMark ? 22 : 0)
                                     .clipped()
 
                                 form
@@ -213,7 +218,11 @@ struct LoginView: View {
                                    При вводе он уходит: там рамка и так
                                    выравнивает форму по верху, и место над
                                    клавиатурой дороже воздуха под кнопкой. */
-                                .padding(.bottom, focus == nil ? 112 : 24)
+                                /* Воздух под кнопкой — только там, где
+                                   форма и так короткая и стоит по центру.
+                                   На регистрации он превращается в лишний
+                                   экран прокрутки. */
+                                .padding(.bottom, focus == nil && stage != .register ? 112 : 24)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(maxWidth: .infinity)
@@ -228,7 +237,14 @@ struct LoginView: View {
                        низ: главное действие остаётся доступно прямо над
                        ней. После закрытия рамка снова центрирует форму. */
                     .defaultScrollAnchor(.top)
-                    .defaultScrollAnchor(.bottom, for: .sizeChanges)
+                    /* За низ держимся ТОЛЬКО пока идёт ввод: там коробку
+                       ужимает клавиатура, и главное действие должно
+                       остаться прямо над ней. При смене шага фокуса нет,
+                       и держаться за низ значит выбросить человека на
+                       середину формы — заголовок и первое поле остаются
+                       выше края, и открывшийся экран выглядит так, будто
+                       его уже прокрутили. */
+                    .defaultScrollAnchor(focus == nil ? .top : .bottom, for: .sizeChanges)
                 }
             }
         }
@@ -344,6 +360,10 @@ struct LoginView: View {
     }
 
     // ══════════════════════ подписи ══════════════════════
+
+    /// Марка над формой. Уходит при вводе и на регистрации: там её место
+    /// нужнее полям.
+    private var showsMark: Bool { focus == nil && stage != .register }
 
     private var headline: String {
         switch stage {
