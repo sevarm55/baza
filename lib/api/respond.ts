@@ -47,6 +47,18 @@ export type ApiError =
   | 'PASS_UNAVAILABLE'
   | 'ORDER_NOT_FOUND'
   | 'PHONE_TAKEN'
+  /* Регистрация по почте. Коды раздельные, а не один «неверно»: приложению
+     нужно подсветить именно то поле, в котором беда, иначе человек правит
+     наугад. Тексты подбирает телефон — они на языке интерфейса, и сервер
+     о них не знает. */
+  | 'EMAIL_INVALID'
+  | 'EMAIL_TAKEN'
+  | 'PHONE_INVALID'
+  | 'PASSWORD_SHORT'
+  | 'PASSWORD_COMMON'
+  | 'NICHE_INVALID'
+  /** письмо не ушло: почтовый узел молчит или отказал */
+  | 'MAIL_FAILED'
   | 'INTERNAL';
 
 export function ok<T>(data: T, status = 200): NextResponse {
