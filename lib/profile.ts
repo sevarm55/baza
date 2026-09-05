@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { accounts, orders, tenants, users } from './db/schema';
+import { accounts, expenses, orders, passes, payouts, tenants, users } from './db/schema';
 import { hashPin, hasPin, NO_PIN, verifyPin } from './pin';
 import { isValidPhone, normalizePhone, pinProblem } from './phone';
 import { revokeAccountSessions } from './auth';
@@ -217,18 +217,30 @@ export async function saveProfile(input: {
     /* Запрет держит сервер, а не экран. Экран прячет выбор, когда записи
        уже есть, но между тем, как он это узнал, и нажатием могла пройти
        первая машина — а такую подмену никакой отчёт не переживёт. */
-    if (await hasOrders(input.tenantId)) throw new ProfileError('CURRENCY_LOCKED');
+    if (await hasMoney(input.tenantId)) throw new ProfileError('CURRENCY_LOCKED');
 
     await db.update(tenants).set({ currency }).where(eq(tenants.id, input.tenantId));
   }
 }
 
-/** Была ли в мойке хоть одна запись. */
-export async function hasOrders(tenantId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(eq(orders.tenantId, tenantId))
-    .limit(1);
-  return Boolean(row);
+/**
+ * Записаны ли в мойке хоть какие-то деньги.
+ *
+ * Четыре таблицы, а не одна. Считать только машины было ошибкой: расход,
+ * выплату и абонемент можно записать до первой машины, и смена валюты
+ * после них молча объявила бы вчерашние пятьдесят тысяч драм
+ * пятьюдесятью тысячами долларов.
+ *
+ * Цены услуг сюда НЕ входят намеренно. Это сегодняшняя настройка, а не
+ * записанная история: владелец их видит и правит. Испортить можно только
+ * то, что уже случилось и пересчёту не поддаётся.
+ */
+export async function hasMoney(tenantId: string): Promise<boolean> {
+  const checks = await Promise.all([
+    db.select({ id: orders.id }).from(orders).where(eq(orders.tenantId, tenantId)).limit(1),
+    db.select({ id: expenses.id }).from(expenses).where(eq(expenses.tenantId, tenantId)).limit(1),
+    db.select({ id: payouts.id }).from(payouts).where(eq(payouts.tenantId, tenantId)).limit(1),
+    db.select({ id: passes.id }).from(passes).where(eq(passes.tenantId, tenantId)).limit(1),
+  ]);
+  return checks.some((rows) => rows.length > 0);
 }
