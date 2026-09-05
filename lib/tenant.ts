@@ -3,7 +3,6 @@ import { db } from './db';
 import { accounts, tenants, users, services, type Account } from './db/schema';
 import { FIRST_RUN_START } from './first-run-stage';
 import { getNiche, type NicheKey } from './niches';
-import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
 import { claimAccount } from './accounts';
@@ -20,18 +19,19 @@ export type CreateBusinessInput = {
    * где спрашивать код второй раз незачем.
    */
   phone?: string;
-  pin?: string;
+  /** почта владельца: его логин */
+  email?: string;
   /**
-   * Уже посчитанный хеш кода.
+   * Уже посчитанный хеш пароля.
    *
-   * Так приходит регистрация с подтверждением номера: PIN хешируется на
-   * первом шаге, до отправки SMS, и в заявке между шагами лежит только
-   * хеш. Открытому PIN незачем ждать в базе десять минут, пока человек
-   * ищет телефон.
+   * Так приходит регистрация с подтверждением почты: пароль хешируется
+   * на первом шаге, до отправки письма, и в заявке между шагами лежит
+   * только хеш. Открытому паролю незачем ждать в базе час, пока человек
+   * дойдёт до почты.
    */
-  pinHash?: string;
-  /** Номер доказан кодом из SMS — тогда и только тогда. */
-  phoneVerified?: boolean;
+  passwordHash?: string;
+  /** Адрес доказан переходом по ссылке из письма — тогда и только тогда. */
+  emailVerified?: boolean;
   accountId?: string;
 };
 
@@ -58,8 +58,9 @@ export async function createBusiness(input: CreateBusinessInput) {
     ? await byId(input.accountId)
     : await claimAccount({
         phone: normalizePhone(input.phone ?? ''),
-        pinHash: input.pinHash ?? (await hashPin(input.pin ?? '')),
-        phoneVerified: input.phoneVerified,
+        email: input.email ?? null,
+        passwordHash: input.passwordHash ?? null,
+        emailVerified: input.emailVerified,
       });
 
   /* Пробный срок даётся ЧЕЛОВЕКУ один раз, а не каждой его мойке. Иначе
@@ -100,7 +101,6 @@ export async function createBusiness(input: CreateBusinessInput) {
         tenantId: tenant.id,
         accountId: account.id,
         phone: account.phone,
-        pinHash: account.pinHash,
         name: input.ownerName.trim(),
         role: 'owner',
         percent: 0,
