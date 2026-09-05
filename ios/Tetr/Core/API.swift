@@ -305,6 +305,12 @@ enum API {
         let points: [Point]?
     }
 
+    /// Ответ на заявку о регистрации: письмо ушло, мойки пока нет.
+    struct SignupStarted: Decodable {
+        /// адрес, приведённый сервером к одному виду
+        let email: String
+    }
+
     struct LoginResult: Decodable {
         let access: String
         let refresh: String

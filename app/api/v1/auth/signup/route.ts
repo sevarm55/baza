@@ -35,6 +35,8 @@ export async function POST(request: Request) {
       ownerName?: string;
       email?: string;
       password?: string;
+      /** валюта мойки: выбирается при заведении и потом не меняется */
+      currency?: string;
       /** телефон владельца: связь, а не вход */
       phone?: string;
       country?: string;
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
         ownerName: str(input.ownerName),
         email: str(input.email),
         password: str(input.password),
+        currency: str(input.currency) || undefined,
         phone: str(input.phone),
         countryCode: str(input.country) || undefined,
         locale: resolveLocale({

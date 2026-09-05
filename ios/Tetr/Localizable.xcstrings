@@ -370,22 +370,22 @@
     "auth.anotherAccount": {
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with another number"
-          }
-        },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտք գործել այլ համարով"
+            "value": "Մուտք այլ հաշվով"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Войти с другим номером"
+            "value": "Войти другим аккаунтом"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with another account"
           }
         }
       }
@@ -409,6 +409,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуться ко входу"
+          }
+        }
+      }
+    },
+    "auth.businessName": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բիզնեսի անվանումը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название бизнеса"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Business name"
           }
         }
       }
@@ -735,6 +758,75 @@
         }
       }
     },
+    "auth.emailInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգեք էլ. հասցեն"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте адрес почты"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the email address"
+          }
+        }
+      }
+    },
+    "auth.emailLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Էլ. փոստ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Почта"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        }
+      }
+    },
+    "auth.emailTaken": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այս հասցեն արդեն զբաղված է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта почта уже занята"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This email is already taken"
+          }
+        }
+      }
+    },
     "auth.entered": {
       "extractionState": "manual",
       "localizations": {
@@ -873,6 +965,29 @@
         }
       }
     },
+    "auth.forgotPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մոռացե՞լ եք գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забыли пароль?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forgot your password?"
+          }
+        }
+      }
+    },
     "auth.forgotPin": {
       "extractionState": "manual",
       "localizations": {
@@ -892,6 +1007,121 @@
           "stringUnit": {
             "state": "translated",
             "value": "Забыли ПИН?"
+          }
+        }
+      }
+    },
+    "auth.haveAccount": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Արդեն ունե՞ք հաշիվ։ Մուտք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже есть аккаунт? Войти"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already have an account? Sign in"
+          }
+        }
+      }
+    },
+    "auth.hidePassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թաքցնել գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide password"
+          }
+        }
+      }
+    },
+    "auth.loginHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սեփականատերը մտնում է փոստով, աշխատակիցը՝ հեռախոսով"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Владелец входит почтой, сотрудник — телефоном"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Owners sign in with email, staff with their phone"
+          }
+        }
+      }
+    },
+    "auth.loginLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Էլ. փոստ կամ հեռախոս"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Почта или телефон"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email or phone"
+          }
+        }
+      }
+    },
+    "auth.mailFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նամակը չհաջողվեց ուղարկել։ Փորձեք ավելի ուշ։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отправить письмо. Попробуйте позже."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not send the email. Try again later."
           }
         }
       }
@@ -1007,6 +1237,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Новый ПИН"
+          }
+        }
+      }
+    },
+    "auth.noAccount": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հաշիվ չունե՞ք։ Ստեղծել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет аккаунта? Создать"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account? Create one"
           }
         }
       }
@@ -1264,6 +1517,98 @@
         }
       }
     },
+    "auth.passwordCommon": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այսպիսի գաղտնաբառը գուշակում են առաջինը։ Ընտրեք ուրիշը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Такой пароль подбирают первым. Придумайте другой."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That password is guessed first. Pick another one."
+          }
+        }
+      }
+    },
+    "auth.passwordHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Առնվազն 8 նշան"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не короче 8 знаков"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At least 8 characters"
+          }
+        }
+      }
+    },
+    "auth.passwordLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գաղտնաբառ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        }
+      }
+    },
+    "auth.passwordShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գաղտնաբառը 8 նշանից կարճ է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль короче 8 знаков"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password is shorter than 8 characters"
+          }
+        }
+      }
+    },
     "auth.phone": {
       "extractionState": "manual",
       "localizations": {
@@ -1494,25 +1839,94 @@
         }
       }
     },
-    "auth.rememberedExpiredPin": {
+    "auth.registerEmail": {
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The saved sign-in has expired. Enter your PIN."
-          }
-        },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։"
+            "value": "Ձեր էլ. փոստը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Срок сохранённого входа истёк. Введите ПИН."
+            "value": "Ваша почта"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your email"
+          }
+        }
+      }
+    },
+    "auth.registerEmailNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Դրան կգա հաստատումը և գաղտնաբառի վերականգնումը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На неё придёт подтверждение и восстановление пароля"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmation and password recovery go here"
+          }
+        }
+      }
+    },
+    "auth.registerPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մտածեք գաղտնաբառ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Придумайте пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a password"
+          }
+        }
+      }
+    },
+    "auth.rememberedExpiredPin": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Պահված մուտքի ժամկետը լրացել է։ Մուտքագրեք գաղտնաբառը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок сохранённого входа истёк. Введите пароль."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved sign-in expired. Enter your password."
           }
         }
       }
@@ -1559,6 +1973,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все другие устройства вышли."
+          }
+        }
+      }
+    },
+    "auth.resetPasswordSend": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ուղարկել հղում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прислать ссылку"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send the link"
+          }
+        }
+      }
+    },
+    "auth.resetPasswordSub": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտքագրեք փոստը, կուղարկենք հղում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите почту, пришлём ссылку"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your email and we will send a link"
+          }
+        }
+      }
+    },
+    "auth.resetPasswordTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գաղտնաբառի վերականգնում"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление пароля"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password recovery"
           }
         }
       }
@@ -1701,6 +2184,52 @@
         }
       }
     },
+    "auth.sentNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հղումը գործում է 1 ժամ։ Նամակ չկա՞ — նայեք սպամում։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка действует час. Письма нет — посмотрите в спаме."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The link is valid for an hour. No email? Look in spam."
+          }
+        }
+      }
+    },
+    "auth.sentTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգեք փոստը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте почту"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check your email"
+          }
+        }
+      }
+    },
     "auth.setPin": {
       "extractionState": "manual",
       "localizations": {
@@ -1720,6 +2249,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Создать ПИН"
+          }
+        }
+      }
+    },
+    "auth.showPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ցույց տալ գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show password"
           }
         }
       }
@@ -1770,6 +2322,29 @@
         }
       }
     },
+    "auth.signInSub": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտքագրեք փոստը և գաղտնաբառը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите почту и пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your email and password"
+          }
+        }
+      }
+    },
     "auth.signInTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -1812,6 +2387,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выйти"
+          }
+        }
+      }
+    },
+    "auth.signUp": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստեղծել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        }
+      }
+    },
+    "auth.signUpSub": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստեղծեք սեփականատիրոջ հաշիվ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заведите аккаунт владельца"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create an owner account"
+          }
+        }
+      }
+    },
+    "auth.signUpTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Նոր լվացման կետ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая мойка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New car wash"
           }
         }
       }
@@ -2324,6 +2968,29 @@
         }
       }
     },
+    "auth.wrongLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սխալ մուտքանուն կամ գաղտնաբառ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный логин или пароль"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong login or password"
+          }
+        }
+      }
+    },
     "auth.wrongPin": {
       "extractionState": "manual",
       "localizations": {
@@ -2343,6 +3010,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Текущий ПИН неверный"
+          }
+        }
+      }
+    },
+    "auth.yourName": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ձեր անունը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше имя"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your name"
           }
         }
       }

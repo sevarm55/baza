@@ -223,24 +223,31 @@ final class Session: ObservableObject {
         }
     }
 
-    func signIn(phone: String, pin: String) async throws {
+    /**
+     * Вход логином и паролем.
+     *
+     * Логин у владельца — почта, у сотрудника — телефон. Какой перед
+     * нами, решает СЕРВЕР, а не приложение: угадывать по виду строки
+     * значит ошибиться на первом же владельце, который завёл ящик вида
+     * `77123456@`. Роль приходит в ответе вместе с сессией.
+     *
+     * Код страны нужен ровно для телефонного логина: сотрудник набирает
+     * национальную часть, а сверять сервер будет с E.164.
+     */
+    func signIn(login: String, password: String, country: String) async throws {
         let result: API.LoginResult = try await api.send(
             "auth/login",
             method: "POST",
             body: [
-                "phone": phone,
-                "pin": pin,
+                "login": login,
+                "password": password,
+                "country": country,
                 "device": UIDevice.current.name,
                 /* Отпечаток установки. По нему сервер узнаёт своё
-                   устройство и не спрашивает код из SMS на каждом входе:
-                   заголовок браузера у приложения один и тот же у всех,
-                   а этот идентификатор — только у этой установки. */
+                   устройство: заголовок браузера у приложения один и тот
+                   же у всех, а этот идентификатор — только у этой
+                   установки. */
                 "installId": Self.installId,
-                /* Язык, на котором придёт код из SMS. Берём тот, на
-                   котором человек видит приложение: получить армянское
-                   «никому не сообщайте» на русском интерфейсе — то же
-                   самое, что получить его на суахили. */
-                "locale": Self.locale,
             ],
             as: API.LoginResult.self
         )
@@ -248,29 +255,70 @@ final class Session: ObservableObject {
     }
 
     /**
-     * Досдать код из SMS при входе с незнакомого устройства.
+     * Регистрация мойки: заявка и письмо.
      *
-     * Сюда экран попадает после `STEP_UP_REQUIRED`: PIN подошёл, но
-     * устройство сервер видит впервые. Телефон и код повторно не
-     * спрашиваются — заявка на сервере уже привязана к тому человеку,
-     * чей код подошёл.
+     * Ничего не заводит. Сервер проверяет поля, кладёт заявку на час и
+     * шлёт ссылку на почту; мойка появляется, только когда человек по
+     * ссылке перейдёт. Поэтому здесь нет ни токенов, ни входа — экрану
+     * остаётся сказать «проверьте почту».
      *
-     * Успех означает и вход, и запоминание устройства: со второго раза
-     * кода на нём не спросят.
+     * Возвращается адрес, каким его принял сервер: показать надо именно
+     * его, а не то, что человек набрал, — регистр и пробелы там уже
+     * приведены к одному виду.
      */
-    func completeStepUp(challengeId: String, code: String) async throws {
-        let result: API.LoginResult = try await api.send(
-            "auth/step-up",
+    func signUp(
+        niche: String,
+        businessName: String,
+        ownerName: String,
+        email: String,
+        password: String,
+        phone: String,
+        currency: String,
+        country: String
+    ) async throws -> String {
+        let started: API.SignupStarted = try await api.send(
+            "auth/signup",
             method: "POST",
             body: [
-                "challengeId": challengeId,
-                "code": code,
-                "device": UIDevice.current.name,
+                "niche": niche,
+                "businessName": businessName,
+                "ownerName": ownerName,
+                "email": email,
+                "password": password,
+                "phone": phone,
+                /* Валюта выбирается здесь и больше нигде: потом её не
+                   меняют. Не послать её значит молча оставить мойку на
+                   драмах. */
+                "currency": currency,
+                "country": country,
+                /* Язык письма. Берём тот, на котором человек видит
+                   приложение: армянское письмо на русском интерфейсе —
+                   то же самое, что письмо на суахили. */
+                "locale": Self.locale,
             ],
-            as: API.LoginResult.self
+            as: API.SignupStarted.self
         )
-        try await accept(result)
+        return started.email
     }
+
+    /**
+     * «Забыл пароль»: попросить письмо со ссылкой.
+     *
+     * Ответ всегда один и тот же, есть такой адрес или нет. Иначе экран
+     * восстановления превращается в справочник заведённых ящиков, а он
+     * открыт без всякого входа. Новый пароль человек задаёт по ссылке, в
+     * браузере: письмо и так открывают почтой.
+     */
+    func requestPasswordReset(email: String) async throws {
+        _ = try await api.send(
+            "auth/password/reset",
+            method: "POST",
+            body: ["email": email, "locale": Self.locale],
+            as: APIClient.Empty.self
+        )
+    }
+
+
 
     /**
      * Выслать код повторно.
@@ -286,14 +334,6 @@ final class Session: ObservableObject {
      * оставалась включённой и отвечала отказом.
      */
     @discardableResult
-    func resendCode(challengeId: String) async throws -> API.Challenge {
-        try await api.send(
-            "auth/otp/resend",
-            method: "POST",
-            body: ["challengeId": challengeId],
-            as: API.Challenge.self
-        )
-    }
 
     private func accept(_ result: API.LoginResult) async throws {
         try await enter(access: result.access, refresh: result.refresh)
@@ -315,93 +355,8 @@ final class Session: ObservableObject {
 
     // ═══════════════════ вход по коду из SMS ═══════════════════
 
-    /**
-     * Главная дверь: телефон и код, без PIN.
-     *
-     * Одна дверь и для входа, и для тех, кого мы не знаем. Различать их
-     * до кода нельзя: как только ответ на знакомый номер отличается от
-     * ответа на незнакомый, форма превращается в справочник
-     * зарегистрированных. Поэтому и здесь, и на сервере ответ один и тот
-     * же всегда — даже на невозможный номер, только SMS тогда никуда не
-     * уходит.
-     *
-     * Страну не передаём: своего селектора у экрана нет, и номер с плюсом
-     * сервер разбирает сам. Номер без плюса он считает армянским — тем
-     * же правилом, что и веб с выбранной по умолчанию Арменией.
-     */
-    func beginEntry(phone: String) async throws -> API.Challenge {
-        try await api.send(
-            "auth/entry",
-            method: "POST",
-            body: ["phone": phone, "locale": Self.locale],
-            as: API.Challenge.self
-        )
-    }
 
-    /**
-     * Код сошёлся. Дальше либо внутрь, либо к названию мойки.
-     *
-     * Возвращает пропуск, когда номер свободен: аккаунта под него нет, и
-     * последнее, чего не хватает, — как называется мойка. Пусто —
-     * человек уже внутри.
-     */
-    func completeEntry(challengeId: String, code: String) async throws -> String? {
-        let result: API.EntryResult = try await api.send(
-            "auth/entry/verify",
-            method: "POST",
-            body: [
-                "challengeId": challengeId,
-                "code": code,
-                "device": UIDevice.current.name,
-                "installId": Self.installId,
-            ],
-            as: API.EntryResult.self
-        )
 
-        guard let access = result.access, let refresh = result.refresh else { return result.ticket }
-        try await enter(access: access, refresh: refresh)
-        return nil
-    }
-
-    /**
-     * Последний шаг новичка: название мойки и имя владельца.
-     *
-     * PIN не спрашивается вовсе — входить человек будет кодом. Пропуск
-     * подписан и обменивается один раз, иначе одна SMS заводила бы
-     * сколько угодно моек.
-     *
-     * ПРО ПРАВИЛА МАГАЗИНА. Заводить бизнес отсюда можно: 3.1.3(f)
-     * запрещает бесплатному приложению-компаньону продавать внутри и
-     * звать платить наружу, а не заводить аккаунт. Поэтому на этом
-     * экране нет ни цены, ни срока, ни слова «бесплатно», ни ссылки на
-     * оплату — и на стене «срок вышел» их тоже нет. Появится любое из
-     * них — правило нарушится, и не из-за регистрации, а из-за них.
-     *
-     * Ниша не спрашивается: продаётся автомойка, остальные конфиги —
-     * заготовка и не предмет разговора с клиентом (см. PRODUCT.md).
-     * Показать их списком значило бы предложить то, чего мы не продаём.
-     */
-    func completeSignUp(ticket: String, businessName: String, ownerName: String, currency: String) async throws {
-        let result: API.EntryResult = try await api.send(
-            "auth/entry/verify",
-            method: "POST",
-            body: [
-                "ticket": ticket,
-                "niche": Self.niche,
-                "businessName": businessName,
-                "ownerName": ownerName,
-                "currency": currency,
-                "device": UIDevice.current.name,
-                "installId": Self.installId,
-            ],
-            as: API.EntryResult.self
-        )
-
-        guard let access = result.access, let refresh = result.refresh else {
-            throw APIError(status: 500, code: nil, retryAfter: nil)
-        }
-        try await enter(access: access, refresh: refresh)
-    }
 
     /// Ниша нового бизнеса. Продаётся автомойка; сервер всё равно
     /// проверяет, что ниша включена, — выключенную прямым запросом не
@@ -410,51 +365,8 @@ final class Session: ObservableObject {
 
     // ═══════════════════ восстановление кода ═══════════════════
 
-    /**
-     * Три шага одним маршрутом, потому что это один сценарий: номер →
-     * код → новый PIN. Шаг сервер определяет по тому, что прислали.
-     *
-     * Ответ на первом шаге одинаковый для знакомого и незнакомого
-     * номера, включая ту же заявку и те же счётчики. Форма
-     * восстановления открыта без входа, и разница в ответах превратила
-     * бы её в справочник зарегистрированных.
-     */
-    func beginPinReset(phone: String) async throws -> API.Challenge {
-        try await api.send(
-            "auth/pin/reset",
-            method: "POST",
-            body: ["phone": phone, "locale": Self.locale],
-            as: API.Challenge.self
-        )
-    }
 
-    /// Проверить код и получить пропуск на смену кода.
-    func checkResetCode(challengeId: String, code: String) async throws -> String {
-        let result: API.ResetTicket = try await api.send(
-            "auth/pin/reset",
-            method: "POST",
-            body: ["challengeId": challengeId, "code": code],
-            as: API.ResetTicket.self
-        )
-        return result.ticket
-    }
 
-    /**
-     * Назначить новый код.
-     *
-     * Сессию сервер здесь не выдаёт намеренно, и мы её не ждём: человек
-     * только что назначил код — пусть войдёт им. Иначе восстановление
-     * становится вторым способом войти, со своими правилами, и защищать
-     * его придётся отдельно.
-     */
-    func completePinReset(ticket: String, pin: String) async throws {
-        _ = try await api.send(
-            "auth/pin/reset",
-            method: "POST",
-            body: ["ticket": ticket, "pin": pin],
-            as: APIClient.Empty.self
-        )
-    }
 
     /**
      * Идентификатор установки.

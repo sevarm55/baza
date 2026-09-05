@@ -3,59 +3,40 @@ import SwiftUI
 /**
  * Вход.
  *
- * ПЕРВЫЙ ВОПРОС ЭКРАНА — «КТО ВЫ», А НЕ «КАКИМ КОДОМ».
+ * ОДНО ПОЛЕ ЛОГИНА, А НЕ ВЫБОР РОЛИ.
  *
- * Кодов в продукте два, и до этой переделки оба назывались PIN. Владельцу
- * приходил код из SMS; себе он мог завести постоянный; сотруднику
- * постоянный выдавал хозяин мойки. Три разные вещи, одно слово — и
- * человек, которому пришло сообщение, искал в нём тот код, который ему
- * когда-то продиктовали.
+ * Раньше экран первым делом спрашивал, кто пришёл: у владельца и у
+ * мойщика были разные двери и разный состав полей. Теперь дверь одна.
+ * Логин у владельца — почта, у сотрудника — телефон, и какой перед нами,
+ * решает сервер, а не человек и не приложение. Спрашивать роль стало не
+ * за чем: от неё больше ничего не зависит.
  *
- * Теперь у кодов разные имена. «Код из SMS» приходит сообщением и живёт
- * минуты. «ПИН» постоянный: владелец заводит его себе сам, а
- * сотруднику выдаёт вместе с номером. Слова «PIN» на экранах больше нет
- * нигде; внутри системы поле по-прежнему называется `pin`, и менять его
- * имя в базе ради подписи было бы миграцией без причины.
+ * КОДОВ ИЗ SMS БОЛЬШЕ НЕТ. Не из моды: армянский оператор перестал
+ * пропускать буквенного отправителя молча — квитанция о доставке
+ * приходила, сообщение до трубки не доходило. Вход, который держится на
+ * чужом усмотрении, не вход. Вместе с SMS ушли шаги «введите код»,
+ * «повторить отправку» и «придумайте ПИН»: их место заняла ссылка в
+ * письме, а ссылка это не шаг разговора, а уход и возвращение.
  *
- * ДВЕРЕЙ ПО-ПРЕЖНЕМУ ДВЕ, И ОНИ НЕ РАВНЫ. Главная у владельца — телефон и
- * код из SMS: ею входят и ею же регистрируются. Вторая — телефон и код
- * доступа: ею входит сотрудник, которому аккаунт завёл владелец, и ею же
- * входит владелец, когда SMS не идёт. Единственной дверью код из SMS
- * делать нельзя: оператор ложится, роуминг отваливается, а мойка в этот
- * момент не должна закрываться.
+ * ПОЧЕМУ ССЫЛКУ ОТКРЫВАЕТ БРАУЗЕР. Подтверждение почты и новый пароль
+ * живут на вебе. Тащить их в приложение незачем: письмо и так открывают
+ * почтовым клиентом, то есть браузером, и человек уже там. Приложению
+ * остаётся сказать «проверьте почту» и ждать, когда он вернётся.
  *
- * ПОЧЕМУ ПЕРЕКЛЮЧАТЕЛЬ, А НЕ ССЫЛКА ВНИЗУ. Раньше сотрудник начинал путь
- * с экрана, который просил у него номер ради SMS, которую он не ждёт, а
- * его дверь пряталась строкой под кнопкой. Роль это не оформление: от неё
- * зависит СОСТАВ полей, и спросить её надо первой. Двух разных дизайнов
- * при этом нет — переключатель меняет содержимое одной и той же формы.
- *
- * СОТРУДНИКУ НЕ ПОКАЗЫВАЕМ НИ SMS, НИ ВОССТАНОВЛЕНИЯ, и это не упрощение
- * картинки, а правда о системе: номер сотруднику заводит владелец,
- * подтверждённым этот номер не становится (см. `claimAccount` на
- * сервере), а восстановление работает только по подтверждённому. Кнопка
- * «забыли код» ответила бы ему молчанием. Забытый ПИН сотруднику
- * выдаёт заново тот же владелец, из карточки сотрудника.
+ * ЧЕТЫРЕ СОСТОЯНИЯ, ОДНА ФОРМА. Вход, восстановление, регистрация и
+ * «письмо ушло» — это одна и та же колонка с разным набором частей, а не
+ * четыре экрана. Разными экранами каждая смена шага стоила бы полной
+ * пересборки, и клавиатура схлопывалась бы на каждом переходе.
  *
  * ── ПРО КЛАВИАТУРУ И ПЕРЕСБОРКУ ЭКРАНА ──
  *
  * Форма собрана ОДНИМ плоским столбцом, где каждая часть стоит под своим
  * `if`. Раньше здесь был `switch stage`, и каждая ветка рисовала СВОЁ
- * поле телефона: для SwiftUI это разные виды, и переход «войти по коду
- * доступа» уничтожал поле вместе с его первым ответчиком. Клавиатура
- * успевала открыться и тут же схлопывалась, номер стирался, а `Spacer`ы
- * по краям столбца перераспределяли высоту — экран прыгал.
- *
- * Теперь поле телефона объявлено ровно один раз и живёт всё время, пока
- * оно на экране нужно: при смене роли и способа оно не пересоздаётся, а
- * значит не теряет ни текста, ни фокуса, ни клавиатуры.
- *
- * Фокус САМИ не двигаем нигде, кроме одного места — ряда клеток кода из
- * SMS. Там экран состоит из одного поля, и без фокуса не работает
- * подстановка кода системой, ради которой всё и сделано одним полем.
- * Ставится он в `onAppear` самого ряда, то есть в том же цикле, в котором
- * ряд появляется: перенос ответчика внутри одного обновления клавиатуру
- * не роняет.
+ * поле: для SwiftUI это разные виды, и переход между шагами уничтожал
+ * поле вместе с его первым ответчиком. Клавиатура успевала открыться и
+ * тут же схлопывалась, набранное стиралось. Поле логина объявлено здесь
+ * ровно один раз и переживает любую смену состояния — с текстом, фокусом
+ * и открытой клавиатурой.
  *
  * В покое форма оптически центрируется в свободном месте под шапкой. Не
  * `Spacer`ами, которые пересобирали раскладку при каждом изменении высоты,
@@ -76,21 +57,25 @@ struct LoginView: View {
     @EnvironmentObject private var lock: BiometricLock
     @EnvironmentObject private var lang: LangStore
 
-    @State private var country = Countries.default
-    @State private var phone = LoginView.prefilled("TETR_PHONE")
-    @State private var pin = LoginView.prefilled("TETR_PIN")
-    @State private var code = ""
-    @State private var newPin = ""
-    @State private var repeatPin = ""
+    /// Почта владельца или телефон сотрудника — одной строкой.
+    @State private var login = LoginView.prefilled("TETR_LOGIN")
+    @State private var password = LoginView.prefilled("TETR_PASSWORD")
+    /// Показывать ли пароль. Мойщику диктуют пароль вслух, и набрать его
+    /// вслепую с чужого голоса — верный способ ошибиться трижды подряд.
+    @State private var shown = false
+
+    /// Регистрация и восстановление: адрес, на который уйдёт письмо.
+    @State private var email = ""
     @State private var businessName = ""
+    @State private var ownerName = ""
+    @State private var country = Countries.default
+    /// Телефон владельца при регистрации: связь, а не вход.
+    @State private var phone = ""
     /// Валюта новой мойки. Выбирается здесь и больше нигде: все суммы
     /// бизнеса лежат в ней, и сменить её потом значило бы объявить
     /// вчерашние двенадцать тысяч драм двенадцатью тысячами долларов.
     @State private var currency = "AMD"
-    @State private var ownerName = ""
 
-    @State private var who: Who = .owner
-    @State private var method: Method = .sms
     @State private var stage: Stage = .entry
     @State private var error: String?
     @State private var busy = false
@@ -100,41 +85,18 @@ struct LoginView: View {
 
     @FocusState private var focus: Field?
 
-    private enum Field { case phone, pin, code, newPin, repeatPin, businessName, ownerName }
-
-    /// Кто пришёл. Регистрация это всегда владелец: сотрудника заводит
-    /// хозяин мойки, сам себя он завести не может.
-    private enum Who { case owner, staff }
-
-    /// Чем входит владелец. У сотрудника способ один, и переключать ему
-    /// нечего.
-    private enum Method { case sms, code }
+    private enum Field { case login, password, email, businessName, ownerName, phone }
 
     /// Что сейчас на экране.
     private enum Stage: Equatable {
-        /// учётные данные: роль, номер и, если надо, ПИН
+        /// логин и пароль
         case entry
-        /// забыл ПИН: телефон, чтобы выслать SMS
+        /// забыл пароль: почта, чтобы выслать ссылку
         case reset
-        /// ждём шесть цифр из сообщения
-        case code(Waiting)
-        /// код восстановления сошёлся, осталось придумать новый
-        case newPin(ticket: String)
-        /// номер свободен: осталось назвать мойку
-        case name(ticket: String)
-        /// ПИН сменён, входить надо им
-        case done
-    }
-
-    /// Заявка на код: чем подтверждать и зачем её заводили.
-    private struct Waiting: Equatable {
-        enum Purpose { case entry, stepUp, reset }
-        let purpose: Purpose
-        let id: String
-        /// куда ушёл код — номер закрытый, как его прислал сервер
-        let phone: String
-        /// раньше этого момента повтор не сработает; правило держит сервер
-        var resendAt: Date
+        /// новая мойка: название, имя, почта, пароль, телефон, валюта
+        case register
+        /// письмо ушло на этот адрес; дальше человек идёт в почту
+        case sent(String)
     }
 
     /**
@@ -146,7 +108,7 @@ struct LoginView: View {
      *
      *     xcrun simctl launch <udid> com.sevarm.tetr \
      *       --setenv TETR_API http://localhost:3100/api/v1/ \
-     *       --setenv TETR_PHONE 77000001 --setenv TETR_PIN 111111
+     *       --setenv TETR_LOGIN sevak@tetrin.pro --setenv TETR_PASSWORD parol
      */
     private static func prefilled(_ key: String) -> String {
         #if DEBUG
@@ -155,6 +117,8 @@ struct LoginView: View {
         return ""
         #endif
     }
+
+    // ══════════════════════════ полотно ══════════════════════════
 
     // ══════════════════════════ полотно ══════════════════════════
 
@@ -316,11 +280,10 @@ struct LoginView: View {
     /**
      * Один плоский столбец на все состояния.
      *
-     * Не `switch` по шагу и не отдельный вид на каждую дверь: части
+     * Не `switch` по шагу и не отдельный вид на каждое состояние: части
      * появляются и уходят по своим условиям, а те, что остаются, остаются
-     * ТЕМИ ЖЕ. Поле телефона объявлено здесь ровно один раз и переживает
-     * и смену роли, и смену способа входа — с текстом, фокусом и
-     * открытой клавиатурой.
+     * ТЕМИ ЖЕ. Поле логина объявлено ровно один раз и переживает переход
+     * к восстановлению и обратно — с текстом, фокусом и клавиатурой.
      */
     @ViewBuilder
     private var form: some View {
@@ -328,23 +291,11 @@ struct LoginView: View {
             remembered(account)
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                /* Переключатель ВЫШЕ заголовка, а не под ним.
-                 *
-                 * Заголовок здесь — ответ на вопрос переключателя: «Вход
-                 * владельца», «Вход сотрудника». Стой он первым, экран
-                 * объявлял бы роль раньше, чем человек её выбрал, а сам
-                 * выбор оказывался бы вставленным между описанием и
-                 * полем, к которому он не относится. */
-                if showsRoles {
-                    roleSwitch
-                }
-
                 Text(headline)
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
                     .tracking(-0.35)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, showsRoles ? 22 : 0)
 
                 if let subhead {
                     Text(subhead)
@@ -354,24 +305,17 @@ struct LoginView: View {
                         .padding(.top, 8)
                 }
 
-                if needsPhone {
-                    phoneField.padding(.top, 24)
+                if stage == .entry {
+                    loginField.padding(.top, 24)
+                    passwordField.padding(.top, 16)
                 }
 
-                if needsAccessCode {
-                    accessCodeField.padding(.top, 16)
+                if stage == .reset {
+                    emailField.padding(.top, 24)
                 }
 
-                if case .code(let waiting) = stage {
-                    smsCodeField(waiting).padding(.top, 26)
-                }
-
-                if case .newPin = stage {
-                    newPinFields.padding(.top, 26)
-                }
-
-                if case .name = stage {
-                    nameFields.padding(.top, 26)
+                if stage == .register {
+                    registerFields.padding(.top, 24)
                 }
 
                 errorLine
@@ -395,275 +339,125 @@ struct LoginView: View {
                ОДНИМ движением, и высота столбца едет плавно вместо
                двух рывков подряд. */
             .animation(.snappy(duration: 0.28), value: stage)
-            .animation(.snappy(duration: 0.28), value: who)
-            .animation(.snappy(duration: 0.28), value: method)
             .animation(.easeOut(duration: Motion.fast), value: error)
         }
     }
 
-    // ══════════════════════ кто входит ══════════════════════
-
-    /**
-     * Владелец или сотрудник.
-     *
-     * Тот же жёлоб с переезжающей плашкой, что в кабинете, только здесь
-     * он собран на `matchedGeometryEffect`: плашка нарисована под
-     * выбранным пунктом, и когда выбранным становится сосед, движок сам
-     * ведёт её из старого места в новое. Гаснущая слева и загорающаяся
-     * справа плашка читалась бы двумя разными вспышками, а не одной
-     * вещью, сменившей место.
-     *
-     * Пружина без отскока: переключатель роли жмут в спешке у ворот
-     * мойки, и качающаяся плашка ничего к этому не добавляет.
-     */
-    private var roleSwitch: some View {
-        HStack(spacing: 2) {
-            roleTab(.owner, L("roles.owner"))
-            roleTab(.staff, L("roles.staff"))
-        }
-        .padding(3)
-        .background(.white.opacity(0.10), in: .rect(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 1))
-        .accessibilityElement(children: .contain)
-    }
-
-    @Namespace private var roleMark
-
-    private func roleTab(_ value: Who, _ title: String) -> some View {
-        Button {
-            guard who != value else { return }
-            /* Фокус НЕ трогаем. Поле телефона одно на оба состояния и
-               никуда не девается: если клавиатура была открыта, она
-               такой и остаётся, а номер остаётся набранным. */
-            withAnimation(.spring(response: 0.32, dampingFraction: 1)) {
-                who = value
-                /* Сотрудник входит ПИНом всегда. Возвращаясь к
-                   владельцу, отдаём ему главную дверь: код придёт сам. */
-                method = value == .staff ? .code : .sms
-            }
-            error = nil
-            pin = ""
-        } label: {
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                /* Плашка светлая, а не лаймовая, и это правило, а не
-                   вкус: лайм на этом экране означает главное действие, и
-                   второй лаймовой заливкой переключатель отбирал бы у
-                   кнопки «Получить код» её единственность. Выбранное
-                   здесь не ярче соседа, а ближе к смотрящему. */
-                .foregroundStyle(who == value ? .white : .white.opacity(0.6))
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background {
-                    if who == value {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.white.opacity(0.20))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(.white.opacity(0.22), lineWidth: 1)
-                            )
-                            .matchedGeometryEffect(id: "role", in: roleMark)
-                    }
-                }
-                /* Нажимается вся плашка, а не буквы на ней. Без этой
-                   строки SwiftUI считает целью только сам текст: пустое
-                   поле внутри рамки и заливка под ней целями не
-                   являются, и человек, попавший рядом с подписью,
-                   получает молчание вместо переключения. */
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .disabled(busy)
-        .accessibilityAddTraits(who == value ? [.isSelected, .isButton] : .isButton)
-    }
-
-    // ══════════════════════ что показываем ══════════════════════
-
-    /// Виден ли переключатель роли. Только пока спрашивают учётные
-    /// данные: на экране кода из SMS менять роль уже не о чем, заявка
-    /// заведена на конкретный номер.
-    private var showsRoles: Bool { stage == .entry }
-
-    private var needsPhone: Bool { stage == .entry || stage == .reset }
-
-    /// Ряд клеток ПИНа. У сотрудника всегда, у владельца по
-    /// выбору. Одно условие на оба случая — значит одно и то же поле, и
-    /// смена роли его не пересоздаёт.
-    private var needsAccessCode: Bool { stage == .entry && method == .code }
+    // ══════════════════════ подписи ══════════════════════
 
     private var headline: String {
         switch stage {
-        case .code(let waiting):
-            return waiting.purpose == .stepUp ? L("auth.stepUpTitle") : L("auth.otpTitle")
-        case .newPin: return L("auth.newPin")
-        case .name: return L("auth.nameTitle")
-        case .done: return L("auth.resetDone")
-        case .reset: return L("auth.resetTitle")
-        case .entry:
-            return who == .staff ? L("auth.staffTitle") : L("auth.ownerTitle")
+        case .entry: return L("auth.entryTitle")
+        case .reset: return L("auth.resetPasswordTitle")
+        case .register: return L("auth.signUpTitle")
+        case .sent: return L("auth.sentTitle")
         }
     }
 
-    /// Строка под заголовком. У кода из SMS её нет: там всё нужное
-    /// стоит ПОД клетками, рядом с повтором, — куда человек и смотрит,
-    /// набрав шесть цифр.
     private var subhead: String? {
         switch stage {
-        case .code(let waiting):
-            return waiting.purpose == .stepUp ? L("auth.stepUpSub", waiting.phone) : nil
-        case .newPin: return L("auth.pinMemo")
-        case .name: return L("auth.nameSub")
-        case .done: return L("auth.resetDoneNote")
-        case .reset: return L("auth.resetSub")
-        case .entry:
-            return who == .owner && method == .sms ? L("auth.entrySub") : nil
+        case .entry: return L("auth.signInSub")
+        case .reset: return L("auth.resetPasswordSub")
+        case .register: return L("auth.signUpSub")
+        case .sent(let address): return address
         }
     }
 
-    /// Тихая строка под всеми действиями: откуда взять код.
+    /// Строка под кнопкой. На входе объясняет, чем входит владелец и чем
+    /// сотрудник: без неё мойщик набирает почту, которой у него нет.
     private var helper: String? {
-        guard stage == .entry else { return nil }
-        return who == .staff ? L("auth.staffHelper") : (method == .code ? L("auth.ownerCodeHelper") : nil)
+        switch stage {
+        case .entry: return L("auth.loginHint")
+        case .sent: return L("auth.sentNote")
+        default: return nil
+        }
     }
 
     // ══════════════════════ поля ══════════════════════
 
-    /**
-     * Телефон — с выбором кода страны, как в кабинете.
-     *
-     * Объявлен ровно один раз на весь экран. Пока он нужен, он ЖИВЁТ:
-     * смена роли, смена способа входа и уход в восстановление его не
-     * пересоздают, а значит не стирают набранное и не роняют клавиатуру.
-     * Именно на этом ломался прежний экран.
-     *
-     * Номер, набранный по привычке целиком — с плюсом, с кодом страны или
-     * с ведущим нулём, — поле принимает: лишнее отрезается само
-     * (`Country.national`).
-     */
-    private var phoneField: some View {
-        field(title: L("auth.phone"), holds: .phone) {
-            CountryPhoneField(
-                country: $country,
-                number: $phone,
-                ink: .white,
-                identifier: "login.phone"
-            )
-            .focused($focus, equals: .phone)
-        }
-    }
-
-    /// Постоянный код. Подпись говорит и что это, и сколько цифр: у
-    /// человека в этот момент два разных кода на выбор, и «6 цифр» —
-    /// самая дешёвая подсказка, какой из них имеется в виду.
-    private var accessCodeField: some View {
-        field(title: L("auth.pinField"), framed: false) {
-            CodeCells(
-                text: $pin,
-                focus: $focus,
-                field: .pin,
-                length: API.pinLength,
-                label: L("auth.pin"),
-                identifier: "login.pin",
-                secure: true,
-                contentType: .password
-            )
+    private var loginField: some View {
+        field(title: L("auth.loginLabel"), holds: .login) {
+            TextField("", text: $login)
+                /* Ни заглавных, ни автоподстановки: почту телефон норовит
+                   исправить на знакомое слово, а телефон — на дату. */
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.emailAddress)
+                .textContentType(.username)
+                .submitLabel(.next)
+                .focused($focus, equals: .login)
+                .onSubmit { focus = .password }
+                .accessibilityIdentifier("login.login")
+                .accessibilityLabel(L("auth.loginLabel"))
         }
     }
 
     /**
-     * Шесть цифр из сообщения.
+     * Пароль с глазом.
      *
-     * Единственное место, где фокус ставится сам, и ставится он в
-     * `onAppear` самого ряда — то есть в том же обновлении, в котором ряд
-     * появляется. Перенос первого ответчика внутри одного цикла
-     * клавиатуру не роняет, а без фокуса не работает системная
-     * подстановка кода из только что пришедшей SMS, ради которой ряд и
-     * сделан ОДНИМ полем.
+     * Два разных поля под одним `if`, а не `SecureField` с переключением
+     * `isSecureTextEntry`: SwiftUI пересоздаёт вид при смене типа, и без
+     * общего `id` каретка прыгала в начало, а набранное иногда стиралось
+     * целиком. Общий идентификатор говорит движку, что это одна вещь.
      */
-    private func smsCodeField(_ waiting: Waiting) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            CodeCells(
-                text: $code,
-                focus: $focus,
-                field: .code,
-                length: API.codeLength,
-                label: L("auth.otpCode"),
-                identifier: "login.code",
-                /* Код из SMS не прячем: он только что пришёл человеку в
-                   открытом сообщении, и точки вместо цифр мешали бы
-                   сверить набранное с тем, что видно в шторке. */
-                secure: false,
-                contentType: .oneTimeCode,
-                // шесть цифр — отправляем сами, лишнее нажатие тут ни к чему
-                onComplete: { Task { await confirm(waiting) } }
-            )
+    private var passwordField: some View {
+        field(title: L("auth.passwordLabel"), holds: .password) {
+            HStack(spacing: 10) {
+                Group {
+                    if shown {
+                        TextField("", text: $password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } else {
+                        SecureField("", text: $password)
+                    }
+                }
+                .textContentType(.password)
+                .submitLabel(.go)
+                .focused($focus, equals: .password)
+                .onSubmit { Task { await runPrimary() } }
+                .accessibilityIdentifier("login.password")
+                .accessibilityLabel(L("auth.passwordLabel"))
+                .id("login.password.box")
 
-            /* Куда ушёл код и когда можно просить ещё — под клетками, а
-               не над ними: набрав шестую цифру, человек смотрит сюда, и
-               оба ответа на его вопросы стоят рядом. */
-            Text(L("auth.otpSent", waiting.phone))
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.62))
-                .padding(.top, 14)
-
-            resendButton(waiting)
-                .padding(.top, 4)
+                Button {
+                    shown.toggle()
+                } label: {
+                    Image(systemName: shown ? "eye.slash" : "eye")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L(shown ? "auth.hidePassword" : "auth.showPassword"))
+            }
         }
-        .onAppear { focus = .code }
     }
 
-    private var newPinFields: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            field(title: L("auth.pinField"), framed: false) {
-                CodeCells(
-                    text: $newPin,
-                    focus: $focus,
-                    field: .newPin,
-                    length: API.pinLength,
-                    label: L("auth.newPin"),
-                    secure: true,
-                    contentType: .newPassword
-                )
-            }
-
-            /* Повтор сервер не спрашивает и знать о нём не должен: он
-               проверяется здесь, до отправки. Причина в последствии —
-               опечатка в единственном поле означала бы код, которого
-               человек не знает, и вход только через ещё одну SMS. */
-            field(title: L("common.retry"), framed: false) {
-                CodeCells(
-                    text: $repeatPin,
-                    focus: $focus,
-                    field: .repeatPin,
-                    length: API.pinLength,
-                    label: L("common.retry"),
-                    secure: true,
-                    contentType: .newPassword
-                )
-            }
-
-            if mismatch {
-                Text(L("auth.pinMismatch"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Brand.lime)
-            }
+    private var emailField: some View {
+        field(title: L("auth.emailLabel"), holds: .email) {
+            TextField("", text: $email)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.emailAddress)
+                .textContentType(.emailAddress)
+                .submitLabel(.go)
+                .focused($focus, equals: .email)
+                .onSubmit { Task { await runPrimary() } }
+                .accessibilityIdentifier("login.email")
+                .accessibilityLabel(L("auth.emailLabel"))
         }
     }
 
     /**
-     * Последний шаг новичка: как называется мойка и как зовут владельца.
+     * Регистрация: шесть полей и ни одного лишнего.
      *
-     * ПИН здесь не спрашивается — входить он будет кодом из SMS,
-     * а постоянный заведёт себе сам, если захочет. Два поля, и это
-     * единственный экран, который человек видит один раз в жизни.
-     *
-     * Ни цены, ни срока, ни слова «бесплатно»: заводить аккаунт правила
-     * магазина не запрещают, запрещают продавать внутри и звать платить
-     * наружу.
+     * Порядок не случайный. Сначала о мойке, потом о человеке, потом то,
+     * чем он будет входить: пока не назвал дело, вопрос «придумайте
+     * пароль» звучит как анкета ради анкеты.
      */
-    private var nameFields: some View {
+    private var registerFields: some View {
         VStack(alignment: .leading, spacing: 14) {
             field(title: L("onboarding.bizName"), holds: .businessName) {
                 TextField(L("auth.namePlaceholder"), text: $businessName)
@@ -683,9 +477,244 @@ struct LoginView: View {
                     .accessibilityLabel(L("onboarding.ownerName"))
             }
 
+            VStack(alignment: .leading, spacing: 6) {
+                field(title: L("auth.registerEmail"), holds: .email) {
+                    TextField("", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.emailAddress)
+                        .textContentType(.emailAddress)
+                        .focused($focus, equals: .email)
+                        .accessibilityIdentifier("login.registerEmail")
+                        .accessibilityLabel(L("auth.registerEmail"))
+                }
+
+                /* Зачем адрес — прямо под полем. На него придёт и
+                   подтверждение, и восстановление: человек, который
+                   впишет сюда чужой ящик, потеряет доступ к своей мойке. */
+                Text(L("auth.registerEmailNote"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                passwordFieldNamed(L("auth.registerPassword"))
+
+                Text(L("auth.passwordHint"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+
+            field(title: L("auth.phone"), holds: .phone) {
+                CountryPhoneField(
+                    country: $country,
+                    number: $phone,
+                    ink: .white,
+                    identifier: "login.phone"
+                )
+                .focused($focus, equals: .phone)
+            }
+
             currencyChoice
         }
     }
+
+    /// То же поле пароля, но со своей подписью: на регистрации оно
+    /// называется «придумайте», а не «пароль».
+    private func passwordFieldNamed(_ title: String) -> some View {
+        field(title: title, holds: .password) {
+            HStack(spacing: 10) {
+                Group {
+                    if shown {
+                        TextField("", text: $password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } else {
+                        SecureField("", text: $password)
+                    }
+                }
+                .textContentType(.newPassword)
+                .focused($focus, equals: .password)
+                .accessibilityIdentifier("login.newPassword")
+                .accessibilityLabel(title)
+                .id("login.password.box")
+
+                Button {
+                    shown.toggle()
+                } label: {
+                    Image(systemName: shown ? "eye.slash" : "eye")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L(shown ? "auth.hidePassword" : "auth.showPassword"))
+            }
+        }
+    }
+
+    // ══════════════════════ сохранённый вход ══════════════════════
+
+    private func remembered(_ account: RememberedAccount) -> some View {
+        let tone = Brand.personTone(account.name)
+
+        return VStack(spacing: 15) {
+
+            Button {
+                Task { await quickSubmit(account) }
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(tone.base)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                        }
+                    Text(String(account.name.prefix(1)))
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 92, height: 92)
+                .shadow(color: tone.glow.opacity(0.28), radius: 24, y: 12)
+                .scaleEffect(busy ? 0.96 : 1)
+                .animation(.easeOut(duration: Motion.fast), value: busy)
+            }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .accessibilityLabel(L("auth.signInAs", account.name))
+
+            VStack(spacing: 3) {
+                Text(account.name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+                Text(account.tenant)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            if busy {
+                TetrLoader(size: 22, tint: Brand.lime)
+            } else {
+                Text(L("auth.tapAvatarPhone"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.lime)
+                    .multilineTextAlignment(.center)
+            }
+
+            quiet(L("auth.anotherAccount")) {
+                withAnimation(.snappy(duration: 0.28)) { manual = true }
+            }
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+
+    // ══════════════════════ мелочи ══════════════════════
+
+    @ViewBuilder
+    private var errorLine: some View {
+        if let error {
+            Text(error)
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.lime)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 16)
+        }
+    }
+
+    private func quiet(_ title: String, run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundStyle(.white.opacity(0.82))
+                .padding(.horizontal, 16)
+                .frame(height: 44)
+                .background(.white.opacity(0.08), in: .rect(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+                )
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+    }
+
+
+    @ViewBuilder
+    private func field<Content: View>(
+        title: String,
+        /* Какое поле лежит в коробке. Нужно только рамке: без этого
+           подсветка «сюда пишут» зажигалась на всех коробках разом,
+           потому что сравнивать было не с чем. */
+        holds: Field? = nil,
+        /* Рисовать ли коробку поля.
+         *
+         * У клеток кода она своя, у каждой, и общая рамка вокруг ряда
+         * оказывалась ВТОРЫМ полем на заднем плане: под шестью клетками
+         * лежал ещё один прямоугольник, и ряд читался как поле внутри
+         * поля. */
+        framed: Bool = true,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let lit = holds != nil && focus == holds
+
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.6))
+
+            if framed {
+                content()
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .tint(Brand.lime)
+                    .padding(.horizontal, 16)
+                    .frame(height: 54)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                lit ? Brand.lime.opacity(0.75) : .white.opacity(0.16),
+                                lineWidth: lit ? 2 : 1
+                            )
+                    )
+                    /* Коробка сама ловит касание.
+                     *
+                     * SwiftUI отдаёт `TextField` ровно ту площадь, которую
+                     * занимает набранный текст: у пустого поля это
+                     * несколько точек возле каретки. Человек бил в
+                     * коробку и не понимал, почему клавиатура не
+                     * появляется, — и это выглядело как продолжение того
+                     * же бага с исчезающей клавиатурой, хотя причина
+                     * другая. Цель теперь во всю строку, то есть больше
+                     * сорока четырёх точек, как и требует система.
+                     *
+                     * Меню кода страны внутри перехватывает своё касание
+                     * само: вложенный жест старше внешнего. */
+                    .contentShape(Rectangle())
+                    .onTapGesture { if let holds { focus = holds } }
+            } else {
+                content()
+            }
+        }
+    }
+
+
+    // ══════════════════════ валюта ══════════════════════
 
     /**
      * Валюта: пять кнопок в ряд, драм выбран заранее.
@@ -758,37 +787,23 @@ struct LoginView: View {
         .opacity(primaryReady ? 1 : 0.5)
     }
 
-    /**
-     * Что делает кнопка, пока запрос летит.
-     *
-     * Своё слово на каждый шаг, а не «Բեռնվում է…» на все. Между «код
-     * ушёл на телефон» и «проверяем набранное» разница есть, и человек,
-     * который ждёт SMS, должен видеть именно первое: иначе он ищет
-     * сообщение раньше, чем оно отправлено.
-     */
     private var primaryBusyTitle: String {
         switch stage {
-        case .entry: return method == .sms ? L("auth.sending") : L("auth.signingIn")
+        case .entry: return L("auth.signingIn")
         case .reset: return L("auth.sending")
-        case .code: return L("auth.checking")
-        case .newPin: return L("common.saving")
-        /* Имя владельца — последний шаг регистрации: после него
-           заводится бизнес, и это дольше остальных запросов. */
-        case .name: return L("common.saving")
+        case .register: return L("common.saving")
         /* Кнопка на этом шаге уводит обратно на вход и никуда не
            обращается: занятой она не бывает. */
-        case .done: return L("common.loadingShort")
+        case .sent: return L("common.loadingShort")
         }
     }
 
     private var primaryTitle: String {
         switch stage {
-        case .entry: return method == .sms ? L("auth.entrySend") : L("auth.signIn")
-        case .reset: return L("auth.resetSend")
-        case .code: return L("auth.otpVerify")
-        case .newPin: return L("auth.resetSave")
-        case .name: return L("auth.nameCreate")
-        case .done: return L("auth.backToSignIn")
+        case .entry: return L("auth.signIn")
+        case .reset: return L("auth.resetPasswordSend")
+        case .register: return L("auth.signUp")
+        case .sent: return L("auth.backToSignIn")
         }
     }
 
@@ -796,42 +811,41 @@ struct LoginView: View {
     /// кнопку на все шаги, проходит и там, где шаг не тот.
     private var primaryIdentifier: String {
         switch stage {
-        case .entry: return method == .sms ? "login.send" : "login.submit"
+        case .entry: return "login.submit"
         case .reset: return "login.reset"
-        case .code: return "login.confirm"
-        case .newPin: return "login.savePin"
-        case .name: return "login.create"
-        case .done: return "login.backToSignIn"
+        case .register: return "login.create"
+        case .sent: return "login.backToSignIn"
         }
     }
 
     private var primaryReady: Bool {
         switch stage {
         case .entry:
-            guard !phone.isEmpty else { return false }
-            /* Минимум четыре, а не шесть: столько цифр у всех, кто завёл
-               аккаунт до перехода на шестизначный код. Требовать шесть
-               значило бы запереть их снаружи. Длину НОВОГО кода проверяет
-               сервер; здесь код только вводят. */
-            return method == .sms || pin.count >= API.pinMinLength
-        case .reset: return !phone.isEmpty
-        case .code: return code.count == API.codeLength
-        case .newPin: return newPin.count == API.pinLength && newPin == repeatPin
-        case .name: return namesReady
-        case .done: return true
+            return !login.trimmed.isEmpty && !password.isEmpty
+        case .reset:
+            return !email.trimmed.isEmpty
+        case .register:
+            /* Длину пароля и вид почты проверяет сервер — он же и
+               отвечает за правило. Здесь гасим кнопку только там, где
+               поле пустое: ругаться на четвёртом знаке пароля значит
+               ругаться на человека, который ещё печатает. */
+            return businessName.trimmed.count >= 2
+                && ownerName.trimmed.count >= 2
+                && !email.trimmed.isEmpty
+                && !password.isEmpty
+                && !phone.isEmpty
+        case .sent:
+            return true
         }
     }
 
     private func runPrimary() async {
         switch stage {
-        case .entry: method == .sms ? await sendEntryCode() : await submitPin()
-        case .reset: await sendResetCode()
-        case .code(let waiting): await confirm(waiting)
-        case .newPin(let ticket): await saveNewPin(ticket)
-        case .name(let ticket): await createBusiness(ticket)
-        case .done:
-            pin = ""
-            method = .code
+        case .entry: await submit()
+        case .reset: await sendResetLink()
+        case .register: await createBusiness()
+        case .sent:
+            password = ""
             go(.entry)
         }
     }
@@ -843,451 +857,106 @@ struct LoginView: View {
      * спорить с ним второй лаймовой кнопкой нельзя. Но и голой надписью
      * они быть не могут — у надписи живой площади высота строки, а в
      * двадцати точках выше стоит кнопка высотой в палец, и палец,
-     * нацеленный в «войти по ПИНу», попадал в «получить код».
-     * Поэтому у каждой своя площадь в сорок четыре точки и слабая
-     * подложка, которая говорит «это тоже кнопка».
+     * нацеленный в «забыли пароль», попадал в «войти». Поэтому у каждой
+     * своя площадь в сорок четыре точки и слабая подложка, которая
+     * говорит «это тоже кнопка».
      */
     @ViewBuilder
     private var secondary: some View {
         switch stage {
-        case .entry where who == .owner && method == .sms:
-            quiet(L("auth.entryPinDoor")) { switchMethod(to: .code) }
-                .accessibilityIdentifier("login.pinDoor")
-                .frame(maxWidth: .infinity)
-                .padding(.top, 14)
-
-        case .entry where who == .owner && method == .code:
+        case .entry:
             HStack(spacing: 10) {
-                quiet(L("auth.entrySmsDoor")) { switchMethod(to: .sms) }
-                    .accessibilityIdentifier("login.smsDoor")
-                quiet(L("auth.forgotPin")) { go(.reset) }
-                    .accessibilityIdentifier("login.forgot")
+                quiet(L("auth.forgotPassword")) {
+                    error = nil
+                    /* Почта переносится из логина: если владелец её уже
+                       набрал, спрашивать второй раз незачем. Телефон
+                       сотрудника сюда не годится — восстановление идёт
+                       только почтой, — поэтому берём только с собакой. */
+                    if login.contains("@") { email = login }
+                    go(.reset)
+                }
+                quiet(L("auth.noAccount")) {
+                    error = nil
+                    go(.register)
+                }
             }
-            .frame(maxWidth: .infinity)
             .padding(.top, 14)
 
-        case .reset:
-            quiet(L("auth.backToSignIn")) {
-                method = .code
+        case .reset, .register:
+            quiet(L("auth.haveAccount")) {
+                error = nil
                 go(.entry)
             }
-            .frame(maxWidth: .infinity)
             .padding(.top, 14)
 
-        case .code(let waiting):
-            quiet(L("common.back")) { backFromCode(waiting) }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 14)
-
-        default:
+        case .sent:
             EmptyView()
-        }
-    }
-
-    /**
-     * Сменить способ входа владельца.
-     *
-     * Номер НЕ трогаем и фокус НЕ двигаем: поле телефона одно на оба
-     * способа и остаётся на месте вместе с набранным и с клавиатурой.
-     * Ради этого весь экран и собран одним столбцом.
-     */
-    private func switchMethod(to next: Method) {
-        withAnimation(.snappy(duration: 0.28)) { method = next }
-        error = nil
-        pin = ""
-    }
-
-    /**
-     * Повтор с обратным отсчётом.
-     *
-     * Отсчёт — подсказка человеку, а не правило: правило держит сервер
-     * (45 → 90 → 180 секунд, не больше трёх повторов). Но без подсказки
-     * кнопка выглядит рабочей и отвечает отказом, то есть продукт
-     * предлагает нажать и ругается за нажатие.
-     *
-     * `TimelineView`, а не таймер в состоянии: секунда обязана тикать
-     * сама, но будить весь экран ради подписи одной кнопки незачем.
-     */
-    private func resendButton(_ waiting: Waiting) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let left = max(0, Int(waiting.resendAt.timeIntervalSince(context.date).rounded(.up)))
-            Button {
-                Task { await resend(waiting) }
-            } label: {
-                Text(left > 0 ? L("auth.otpResendIn", mmss(left)) : L("auth.otpResend"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(left > 0 ? .white.opacity(0.4) : Brand.lime)
-                    .frame(height: 36, alignment: .leading)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .disabled(busy || left > 0)
-        }
-    }
-
-    // ══════════════════════ сохранённый профиль ══════════════════════
-
-    private func remembered(_ account: RememberedAccount) -> some View {
-        let tone = Brand.personTone(account.name)
-
-        return VStack(spacing: 15) {
-
-            Button {
-                Task { await quickSubmit(account) }
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(tone.base)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
-                        }
-                    Text(String(account.name.prefix(1)))
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 92, height: 92)
-                .shadow(color: tone.glow.opacity(0.28), radius: 24, y: 12)
-                .scaleEffect(busy ? 0.96 : 1)
-                .animation(.easeOut(duration: Motion.fast), value: busy)
-            }
-            .buttonStyle(.plain)
-            .disabled(busy)
-            .accessibilityLabel(L("auth.signInAs", account.name))
-
-            VStack(spacing: 3) {
-                Text(account.name)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(account.tenant)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-
-            if busy {
-                TetrLoader(size: 22, tint: Brand.lime)
-            } else {
-                Text(L("auth.tapAvatarPhone"))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-
-            if let error {
-                Text(error)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Brand.lime)
-                    .multilineTextAlignment(.center)
-            }
-
-            quiet(L("auth.anotherAccount")) {
-                withAnimation(.snappy(duration: 0.28)) { manual = true }
-            }
-            .padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // ══════════════════════ мелочи ══════════════════════
-
-    /// Расходятся ли уже набранные части. Пока повтор короче нового,
-    /// молчим: ругаться на второй цифре из шести значит ругаться на
-    /// человека, который ещё печатает.
-    private var mismatch: Bool {
-        !repeatPin.isEmpty && repeatPin.count >= newPin.count && newPin != repeatPin
-    }
-
-    /// Имя короче двух знаков сервер не примет — гасим кнопку здесь,
-    /// чтобы отказ не приходил после нажатия.
-    private var namesReady: Bool {
-        businessName.trimmingCharacters(in: .whitespaces).count >= 2
-            && ownerName.trimmingCharacters(in: .whitespaces).count >= 2
-    }
-
-    @ViewBuilder
-    private var errorLine: some View {
-        if let error, !mismatch {
-            Text(error)
-                .font(.system(size: 14))
-                .foregroundStyle(Brand.lime)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 16)
-        }
-    }
-
-    private func quiet(_ title: String, run: @escaping () -> Void) -> some View {
-        Button(action: run) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .foregroundStyle(.white.opacity(0.82))
-                .padding(.horizontal, 16)
-                .frame(height: 44)
-                .background(.white.opacity(0.08), in: .rect(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.white.opacity(0.14), lineWidth: 1)
-                )
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .disabled(busy)
-    }
-
-    @ViewBuilder
-    private func field<Content: View>(
-        title: String,
-        /* Какое поле лежит в коробке. Нужно только рамке: без этого
-           подсветка «сюда пишут» зажигалась на всех коробках разом,
-           потому что сравнивать было не с чем. */
-        holds: Field? = nil,
-        /* Рисовать ли коробку поля.
-         *
-         * У клеток кода она своя, у каждой, и общая рамка вокруг ряда
-         * оказывалась ВТОРЫМ полем на заднем плане: под шестью клетками
-         * лежал ещё один прямоугольник, и ряд читался как поле внутри
-         * поля. */
-        framed: Bool = true,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        let lit = holds != nil && focus == holds
-
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.6))
-
-            if framed {
-                content()
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
-                    .tint(Brand.lime)
-                    .padding(.horizontal, 16)
-                    .frame(height: 54)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(
-                                lit ? Brand.lime.opacity(0.75) : .white.opacity(0.16),
-                                lineWidth: lit ? 2 : 1
-                            )
-                    )
-                    /* Коробка сама ловит касание.
-                     *
-                     * SwiftUI отдаёт `TextField` ровно ту площадь, которую
-                     * занимает набранный текст: у пустого поля это
-                     * несколько точек возле каретки. Человек бил в
-                     * коробку и не понимал, почему клавиатура не
-                     * появляется, — и это выглядело как продолжение того
-                     * же бага с исчезающей клавиатурой, хотя причина
-                     * другая. Цель теперь во всю строку, то есть больше
-                     * сорока четырёх точек, как и требует система.
-                     *
-                     * Меню кода страны внутри перехватывает своё касание
-                     * само: вложенный жест старше внешнего. */
-                    .contentShape(Rectangle())
-                    .onTapGesture { if let holds { focus = holds } }
-            } else {
-                content()
-            }
-        }
-    }
-
-    private func mmss(_ total: Int) -> String {
-        String(format: "%02d:%02d", total / 60, total % 60)
-    }
-
-    /// Сменить шаг, погасив то, что от прежнего осталось.
-    private func go(_ next: Stage) {
-        withAnimation(.snappy(duration: 0.28)) {
-            stage = next
-        }
-        error = nil
-        code = ""
-        if next != .entry { pin = "" }
-        newPin = ""
-        repeatPin = ""
-        /* Названия держим, пока человек на своём шаге: отказ сервера по
-           одному из полей не должен стирать оба. */
-        if case .name = next {} else {
-            businessName = ""
-            ownerName = ""
-        }
-    }
-
-    private func backFromCode(_ waiting: Waiting) {
-        /* Досдача кода после ПИНа возвращает к нему же, всё
-           остальное — к началу своей двери. Возврат «куда-нибудь»
-           заставил бы человека проходить сценарий заново из-за одного
-           нажатия. */
-        switch waiting.purpose {
-        case .stepUp: method = .code; go(.entry)
-        case .entry: method = .sms; go(.entry)
-        case .reset: go(.reset)
         }
     }
 
     // ══════════════════════ запросы ══════════════════════
 
-    private func sendEntryCode() async {
+    private func go(_ next: Stage) {
+        focus = nil
+        withAnimation(.snappy(duration: 0.28)) { stage = next }
+    }
+
+    private func submit() async {
         await run {
-            let started = try await session.beginEntry(phone: country.e164(phone))
-            go(.code(Waiting(
-                purpose: .entry,
-                id: started.challengeId,
-                phone: started.phone ?? "",
-                resendAt: started.resendAt
-            )))
-        }
-    }
-
-    private func sendResetCode() async {
-        await run {
-            let started = try await session.beginPinReset(phone: country.e164(phone))
-            go(.code(Waiting(
-                purpose: .reset,
-                id: started.challengeId,
-                phone: started.phone ?? "",
-                resendAt: started.resendAt
-            )))
-        }
-    }
-
-    private func submitPin() async {
-        busy = true
-        error = nil
-        defer { busy = false }
-
-        do {
-            try await session.signIn(phone: country.e164(phone), pin: pin)
-        } catch let e as APIError {
-            /* Не отказ, а второй шаг: код подошёл, устройство сервер
-               видит впервые. Экран меняется, а не показывает ошибку —
-               человек всё сделал правильно. */
-            if e.code == "STEP_UP_REQUIRED", let id = e.challengeId {
-                go(.code(Waiting(
-                    purpose: .stepUp,
-                    id: id,
-                    phone: e.maskedPhone ?? "",
-                    /* Сервер прислал заявку, но не сказал, когда можно
-                       повторить: у входа поле не предусмотрено. Берём
-                       первую паузу — ту же, что стоит на сервере. */
-                    resendAt: Date().addingTimeInterval(45)
-                )))
-                return
-            }
-            pin = ""
-            error = message(for: e)
-        } catch {
-            self.error = L("payroll.failed")
-        }
-    }
-
-    private func confirm(_ waiting: Waiting) async {
-        guard !busy, code.count == API.codeLength else { return }
-        busy = true
-        error = nil
-        defer { busy = false }
-
-        do {
-            switch waiting.purpose {
-            case .stepUp:
-                try await session.completeStepUp(challengeId: waiting.id, code: code)
-            case .entry:
-                /* Пропуск означает, что номер свободен: аккаунта под него
-                   нет, и осталось спросить название мойки. Пусто —
-                   человек уже внутри. */
-                if let ticket = try await session.completeEntry(challengeId: waiting.id, code: code) {
-                    go(.name(ticket: ticket))
-                }
-            case .reset:
-                let ticket = try await session.checkResetCode(challengeId: waiting.id, code: code)
-                go(.newPin(ticket: ticket))
-            }
-        } catch let e as APIError {
-            code = ""
-            error = message(for: e)
-            /* Заявка сгорела — возвращаем к началу: другого честного
-               пути отсюда нет, код нужен новый. */
-            if e.code == "OTP_EXPIRED" || e.code == "OTP_TOO_MANY" {
-                let text = error
-                backFromCode(waiting)
-                error = text
-            }
-        } catch {
-            self.error = L("payroll.failed")
-        }
-    }
-
-    private func saveNewPin(_ ticket: String) async {
-        await run {
-            try await session.completePinReset(ticket: ticket, pin: newPin)
-            go(.done)
-        }
-    }
-
-    /// Завести мойку. Успех сам сменит экран: `session.state` станет
-    /// `.signedIn`, и корневой вид покажет продукт вместо входа.
-    private func createBusiness(_ ticket: String) async {
-        await run {
-            try await session.completeSignUp(
-                ticket: ticket,
-                businessName: businessName.trimmingCharacters(in: .whitespaces),
-                ownerName: ownerName.trimmingCharacters(in: .whitespaces),
-                currency: currency
+            try await session.signIn(
+                login: login.trimmed,
+                password: password,
+                country: country.code
             )
         }
     }
 
-    private func resend(_ waiting: Waiting) async {
-        busy = true
-        error = nil
-        defer { busy = false }
-
-        do {
-            let again = try await session.resendCode(challengeId: waiting.id)
-            /* Новая заявка приходит со своим идентификатором: у старой
-               код уже погашен, и подтверждать её нечем. Меняем шаг БЕЗ
-               анимации и без `go`: ряд клеток на экране тот же самый, и
-               пересобирать его ради нового идентификатора значило бы
-               уронить клавиатуру там, где человек ждёт сообщения. */
-            stage = .code(Waiting(
-                purpose: waiting.purpose,
-                id: again.challengeId,
-                phone: waiting.phone,
-                resendAt: again.resendAt
-            ))
-            code = ""
-        } catch let e as APIError {
-            error = message(for: e)
-        } catch {
-            self.error = L("payroll.failed")
+    private func sendResetLink() async {
+        let address = email.trimmed
+        await run {
+            try await session.requestPasswordReset(email: address)
+            go(.sent(address))
         }
     }
 
+    private func createBusiness() async {
+        let address = email.trimmed
+        await run {
+            let accepted = try await session.signUp(
+                /* Ниша у приложения одна: это Tetrin для моек, и
+                   спрашивать её у человека, который скачал именно его,
+                   значило бы спрашивать, туда ли он попал. */
+                niche: "carwash",
+                businessName: businessName.trimmed,
+                ownerName: ownerName.trimmed,
+                email: address,
+                password: password,
+                phone: phone,
+                currency: currency,
+                country: country.code
+            )
+            password = ""
+            go(.sent(accepted))
+        }
+    }
+
+    /**
+     * Сохранённый вход по лицу.
+     *
+     * Пароль здесь не участвует вовсе: в телефоне лежит сессия, а лицо
+     * подтверждает, что телефон в руках хозяина. Отказ проверки —
+     * не повод молчать: Face ID отказывает буднично (мокрое лицо, солнце
+     * в камеру, нажали «Отмена»), и мойщик оставался бы перед экраном,
+     * где единственная большая кнопка ничего не делает.
+     */
     private func quickSubmit(_ account: RememberedAccount) async {
         busy = true
         error = nil
         defer { busy = false }
 
-        /* Face ID не сработал — это не повод молчать.
-         *
-         * Здесь стоял просто `return`: касание по аватару не давало ни
-         * входа, ни строчки объяснения. Face ID отказывает буднично —
-         * мокрое лицо, солнце в камеру, человек нажал «Отмена», код-пароль
-         * не задан вовсе, — и мойщик оставался перед экраном, где
-         * единственная большая кнопка ничего не делает.
-         *
-         * Теперь отказ проверки открывает форму с ПИНом — тем же
-         * путём, что и просроченный сохранённый вход. Пароль от телефона
-         * мойщик может не знать, свой ПИН знает всегда.
-         */
         /* Проверка обязательна и не зависит от настройки: сохранённый
            вход предлагается ТОЛЬКО при включённом быстром входе, а
-           пускать по нажатию без лица значило бы отдать чужой кассе
+           пускать по нажатию без лица значило бы отдать чужую кассу
            первому, кто взял телефон. */
         if lock.available {
             guard await lock.authenticate(reason: L("auth.signInAs", account.name)) else {
@@ -1303,16 +972,15 @@ struct LoginView: View {
         }
     }
 
-    /// Сохранённый вход не сработал: открываем форму с уже подставленным
-    /// номером и с ПИНом. Человек, у которого сохранён вход, свой
-    /// код знает, и лишняя SMS ему ни к чему. Фокус не ставим: пусть
-    /// сначала прочитает, почему его сюда вернули.
+    /// Сохранённый вход не сработал: открываем форму. Логин подставляем
+    /// телефоном — им входит сотрудник, а он и есть главный пользователь
+    /// быстрого входа. Владелец сотрёт и наберёт почту. Фокус не ставим:
+    /// пусть сначала прочитает, почему его сюда вернули.
     private func fallBackToManual(_ account: RememberedAccount, why: String) {
-        phone = account.phone
-        pin = ""
+        login = account.phone
+        password = ""
         withAnimation(.snappy(duration: 0.28)) {
             manual = true
-            method = .code
             stage = .entry
         }
         error = why
@@ -1328,6 +996,8 @@ struct LoginView: View {
             try await work()
         } catch let e as APIError {
             error = message(for: e)
+        } catch is CancellationError {
+            // экран ушёл — жаловаться некому
         } catch {
             self.error = L("payroll.failed")
         }
@@ -1340,22 +1010,29 @@ struct LoginView: View {
             let minutes = max(1, (error.retryAfter ?? 60) / 60)
             return Ln("auth.tooManyTries", minutes)
         case "WRONG_CREDENTIALS":
-            return L("auth.wrongCredentials")
-        case "OTP_INVALID":
-            return L("auth.otpInvalid")
-        case "OTP_EXPIRED":
-            return L("auth.otpExpired")
-        case "OTP_TOO_MANY":
-            return L("auth.otpTooMany")
-        case "SMS_FAILED":
-            return L("auth.smsFailed")
-        case "PIN_WEAK":
-            /* Сервер различает «мало цифр» и «слишком очевидный», и
-               человеку это надо сказать: он в этот момент придумывает
-               код, и общий ответ заставляет его гадать. */
-            return error.reason == "TRIVIAL_PIN" ? L("auth.pinTrivial") : L("auth.pinMemo")
+            return L("auth.wrongLogin")
+        case "EMAIL_INVALID":
+            return L("auth.emailInvalid")
+        case "EMAIL_TAKEN":
+            return L("auth.emailTaken")
+        case "PHONE_INVALID":
+            return L("errors.badPhone")
+        case "PHONE_TAKEN":
+            return L("auth.phoneTaken")
+        case "PASSWORD_SHORT":
+            return L("auth.passwordShort")
+        case "PASSWORD_COMMON":
+            return L("auth.passwordCommon")
+        case "MAIL_FAILED":
+            return L("auth.mailFailed")
         default:
             return L("payroll.failed")
         }
     }
+}
+
+private extension String {
+    /// Пробелы по краям логина и почты — обычное дело после вставки из
+    /// сообщения, и сервер такой адрес не узнает.
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }

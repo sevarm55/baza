@@ -213,6 +213,14 @@ export type RegisterDraft = {
   password: string;
   /** телефон владельца: связь, а не вход */
   phone: string;
+  /**
+   * Валюта мойки. Выбирается здесь и больше нигде.
+   *
+   * Приложение спрашивает её на регистрации; в браузере поля нет, и там
+   * остаётся драм. Без этого поля выбор из приложения молча пропадал бы
+   * по дороге — ровно так, как пропал PIN.
+   */
+  currency?: string;
   countryCode?: string;
   locale?: Locale;
 };
@@ -289,6 +297,7 @@ export async function beginRegistration(
       ownerName,
       phone,
       locale,
+      currency: draft.currency,
       // в заявке между шагами лежит только хеш
       passwordHash: await hashPassword(password),
     },
@@ -341,6 +350,7 @@ export async function completeRegistration(input: {
     businessName: string;
     ownerName: string;
     phone: string;
+    currency?: string;
     passwordHash: string;
   }>({ token: input.token, purpose: 'register' });
 
@@ -354,7 +364,7 @@ export async function completeRegistration(input: {
   }
 
   const email = verified.email;
-  const { niche, businessName, ownerName, phone, passwordHash } = verified.payload;
+  const { niche, businessName, ownerName, phone, currency, passwordHash } = verified.payload;
 
   /* Пока человек ходил в почту, адрес могли занять. Редко, но возможно:
      две вкладки, две регистрации. */
@@ -367,6 +377,7 @@ export async function completeRegistration(input: {
       ownerName,
       phone,
       email,
+      currency,
       passwordHash,
       emailVerified: true,
     });
