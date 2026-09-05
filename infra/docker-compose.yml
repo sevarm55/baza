@@ -84,6 +84,14 @@ services:
       SMS_AUTH_SCHEME: ${SMS_AUTH_SCHEME:-}
       SMS_SENDER: ${SMS_SENDER:-}
       SMS_BODY: ${SMS_BODY:-}
+      # Почта: подтверждение адреса и восстановление пароля. Домен уже на
+      # Zoho, и SPF под него прописан, поэтому шлём оттуда же — письмо с
+      # адреса своего домена проходит проверки, а не притворяется им.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       # Именные провайдеры — если однажды переедем с D7.
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}

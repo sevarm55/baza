@@ -6,11 +6,45 @@
  * смотрящего, деньги форматирует клиент одним `formatMoney`.
  */
 
+import type { RangeKey } from '@/lib/report-range';
+
 export const TABS = ['overview', 'finance', 'operations', 'team'] as const;
 export type ReportTab = (typeof TABS)[number];
 
 export const SCOPES = ['current', 'all', 'compare'] as const;
 export type Scope = (typeof SCOPES)[number];
+
+/** Состояние отчёта: всё, что видно в адресе. */
+export type ReportQuery = {
+  r: RangeKey;
+  from: string | null;
+  to: string | null;
+  tab: ReportTab;
+  scope: Scope;
+  compare: boolean;
+};
+
+/**
+ * Адрес отчёта из состояния.
+ *
+ * Лежит здесь, а не в панели: адрес нужен и панели, и самой странице —
+ * показания полосы ведут на вкладку, которая их разбирает. Панель это
+ * клиентский модуль, и вызвать из серверной страницы что-либо оттуда
+ * нельзя.
+ */
+export function reportHref(pathname: string, q: ReportQuery): string {
+  const p = new URLSearchParams();
+  if (q.r !== 'month') p.set('r', q.r);
+  if (q.r === 'custom' && q.from && q.to) {
+    p.set('from', q.from);
+    p.set('to', q.to);
+  }
+  if (q.tab !== 'overview') p.set('tab', q.tab);
+  if (q.scope !== 'current') p.set('scope', q.scope);
+  if (!q.compare) p.set('cmp', '0');
+  const s = p.toString();
+  return s ? `${pathname}?${s}` : pathname;
+}
 
 /** Точка ряда: час или день. Поля `prev*` из сопоставимого отрезка. */
 export type Point = {

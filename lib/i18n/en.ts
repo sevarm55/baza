@@ -1,5 +1,5 @@
 import type { Dict } from './hy';
-import { BRAND } from '../brand';
+import { BRAND, SUPPORT_PHONE_HUMAN } from '../brand';
 
 /**
  * English interface of Tetrin.
@@ -92,9 +92,6 @@ export const en: Dict = {
   },
 
   meta: {
-    landingTitle: 'Tetrin | Your car wash, under control',
-    landingDescription:
-      'Cars, staff, payroll and what is actually left, all in one simple system.',
     privacyTitle: 'Privacy policy · Tetrin',
     privacyDescription: 'What Tetrin stores and why',
     supportTitle: 'Support · Tetrin',
@@ -122,38 +119,11 @@ export const en: Dict = {
   },
 
   landing: {
-    nav: {
-      skip: 'Skip to content',
-      navAria: 'Main navigation',
-      homeAria: 'Tetrin home',
-      footerAria: 'Legal and support',
-      how: 'How it works',
-      features: 'Features',
-      price: 'Pricing',
-      faq: 'FAQ',
-      start: 'Start',
-    },
-
     hero: {
-      eyebrow: 'Car wash management',
-      title: 'Run your car wash without spreadsheets, notebooks and chaos.',
-      lead: 'Washers record cars from their phone, the owner sees revenue, payroll and expenses right now. One location or several, from a phone or a computer.',
+      title: 'Your car wash, under control',
       cta: 'Try for free',
-      secondary: 'How it works',
       note: (days: number) => `${days} days free · no card`,
-      demo: 'demo',
     },
-
-    problem: {
-      title: 'What breaks without a system',
-      items: [
-        { title: 'Cars are written down by hand', body: 'A notebook or a chat: by the evening half of the records are lost and nobody remembers who washed the blue sedan.' },
-        { title: 'Nobody knows who earned what', body: 'Percentages are counted in the head at the end of the shift, and every month starts with a payroll argument.' },
-        { title: 'Expenses live separately', body: 'Chemicals, water, rent sit in receipts and in memory. Monthly profit stays a guess.' },
-        { title: 'The owner cannot see the wash without calling', body: 'To know what is going on you have to come or call. Neither scales.' },
-      ],
-    },
-
     how: {
       title: 'How Tetrin works',
       lead: 'One record travels the whole way by itself: from a plate number to a line in the report.',
@@ -165,39 +135,26 @@ export const en: Dict = {
         { title: 'Analytics', body: 'revenue, payroll, profit at once' },
       ],
     },
-
-    sections: {
-      title: 'What is inside',
-      shift: {
-        label: 'Shift',
-        title: 'A washer records a car in three taps',
-        body: 'Plate, service, payment. The record shows up for the owner the same second, and the washer sees their own earnings for the day and hands over cash at the end of the shift.',
-      },
-      today: {
-        label: 'Today',
-        title: 'The owner sees the wash without coming',
-        body: 'How much is earned, how many cars, who is on shift and what is happening right now. The live feed updates by itself.',
-      },
-      payroll: {
-        label: 'Payroll',
-        title: 'Payroll counts itself',
-        body: 'Every record carries a name and a percent. Nothing to argue about at the end of the month: the amount is already counted per day, and a payout closes it in one tap.',
-      },
-      expenses: {
-        label: 'Expenses',
-        title: 'Expenses do not get lost',
-        body: 'Rent, water, chemicals. A one-off goes into its day, a recurring one is spread over the month. Net profit recalculates immediately.',
-      },
-      reports: {
-        label: 'Reports',
-        title: 'Analytics, not a single chart',
-        body: 'Revenue, payroll, expenses and net profit for any period. Busy hours, average ticket, services, team and comparison with the previous period.',
-      },
-      branches: {
-        label: 'Locations',
-        title: 'Several washes, one workspace',
-        body: 'Switch between locations in one tap, compare them over the same period or look at all of them together.',
-      },
+    live: {
+      title: 'The owner sees it right now',
+      lead: 'Washers record cars from their phone, the owner sees revenue, payroll and expenses right now.',
+      demo: 'demo',
+      revenue: 'Revenue',
+      payroll: 'Payroll',
+      services: ['Full', 'Body', 'Interior'],
+    },
+    problem: {
+      title: 'What breaks without a system',
+      items: [
+        { title: 'Cars are written down by hand', body: 'A notebook or a chat: by the evening half of the records are lost and nobody remembers who washed the blue sedan.' },
+        { title: 'Nobody knows who earned what', body: 'Percentages are counted in the head at the end of the shift, and every month starts with a payroll argument.' },
+        { title: 'Expenses live separately', body: 'Chemicals, water, rent sit in receipts and in memory. Monthly profit stays a guess.' },
+        { title: 'The owner cannot see the wash without calling', body: 'To know what is going on you have to come or call. Neither scales.' },
+      ],
+    },
+    cabinet: {
+      title: 'The whole business on one screen',
+      lead: 'Profit, revenue, payroll and expenses for any period. Who is on shift and what was recorded a minute ago, in the same feed.',
     },
 
     app: {
@@ -217,10 +174,15 @@ export const en: Dict = {
         'Several locations in one workspace',
         'Updates at no extra cost',
       ],
-      trial: (days: number) => `${days} days free`,
       note: 'No card needed. The trial is given once, a second location is paid separately.',
     },
-
+    closing: {
+      title: 'Start with one car.',
+      lead: 'Record the first car today and see the day’s result in the evening.',
+      note: (days: number) => `${days} days free · no card`,
+      callNote: 'Easier to ask? Call us',
+      callHours: 'We answer every day, 10:00–20:00',
+    },
     faq: {
       title: 'Questions owners ask',
       items: [
@@ -231,49 +193,103 @@ export const en: Dict = {
         { q: 'What happens after the trial?', a: 'The workspace switches to read-only until payment. Data is kept, nothing is deleted.' },
       ],
     },
-
-    closing: {
-      title: 'Start with one car.',
-      lead: 'Record the first car today and see the day’s result in the evening.',
-      note: (days: number) => `${days} days free · no card`,
-    },
-
     footer: 'car wash management',
+    footerAria: 'Legal and support',
   },
+
   errors: {
     required: 'Fill in every field',
     badPhone: 'Invalid phone number',
-    badPin: 'The access code must be 6 digits',
+    badPin: 'The PIN must be 6 digits',
     badPercent: 'Percentage must be between 0 and 100',
     generic: 'Something went wrong',
   },
 
   auth: {
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+
+    businessName: 'Business name',
+    yourName: 'Your name',
+    signUp: 'Create',
+    haveAccount: 'Already have an account? Sign in',
+    noAccount: 'No account? Create one',
+
+    /* Email and password sign-in. The old keys stay while the app still
+       uses the SMS code. */
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    loginLabel: 'Email or phone',
+    loginHint: 'Owners sign in with email, staff with their phone',
+    passwordHint: 'At least 8 characters',
+    signInSub: 'Enter your email and password',
+    forgotPassword: 'Forgot your password?',
+    wrongLogin: 'Wrong login or password',
+
+    emailInvalid: 'Check the email address',
+    emailTaken: 'This email is already taken',
+    passwordShort: 'Password is shorter than 8 characters',
+    passwordCommon: 'That password is guessed first. Pick another one.',
+    passwordMismatch: 'Passwords do not match',
+    mailFailed: 'Could not send the email. Try again later.',
+
+    sentTitle: 'Check your email',
+    sentSub: (email: string) => `We sent a message to ${email}. Follow the link in it.`,
+    sentNote: 'The link is valid for an hour. No email? Look in spam.',
+
+    resetPasswordTitle: 'Password recovery',
+    resetPasswordSub: 'Enter your email and we will send a link',
+    resetPasswordSend: 'Send the link',
+    newPassword: 'New password',
+    confirmPassword: 'Repeat the password',
+    savePassword: 'Save password',
+    passwordSaved: 'Password changed',
+    passwordSavedNote: 'All other devices signed out. Sign in again.',
+
+    linkExpired: 'The link has expired. Request a new one.',
+    linkInvalid: 'The link does not work. It may have been used already.',
+
+    registerEmail: 'Your email',
+    registerEmailNote: 'Confirmation and password recovery go here',
+    registerPassword: 'Choose a password',
+
+    changePassword: 'Change password',
+    currentPassword: 'Current password',
+    wrongPassword: 'Current password is wrong',
+    passwordChangedNote: 'All devices will sign out, including this one.',
+
+    staffPassword: 'Sign-in password',
+    staffPasswordNote: 'Staff sign in with their own phone and this password',
+    staffPasswordGenerate: 'Pick one for me',
+    staffPasswordIssued: 'Password issued',
+    staffPasswordOnce: 'Write it down or read it out now: it will not be shown again.',
+
     signInTitle: 'Sign in',
     note: 'No card. Three minutes.',
     phone: 'Phone number',
-    /* Two codes, two names. The access code is permanent, the SMS code
-       is one-time. The word PIN is gone from the interface. */
-    pin: 'Access code',
+    /* Two secrets, two words. The PIN is permanent; the code is
+       one-time and arrives by SMS. The word «code» is reserved for
+       SMS and nothing else. The reasoning is in ru.ts, same spot. */
+    pin: 'PIN',
     signIn: 'Sign in',
     signOut: 'Sign out',
     welcomeBack: 'Welcome back',
     tapAvatar: 'Tap your avatar to sign in',
     anotherAccount: 'Sign in with another number',
-    rememberedExpired: 'The saved sign-in has expired. Enter your number and access code.',
-    wrongCredentials: 'Wrong number or access code',
+    rememberedExpired: 'The saved sign-in has expired. Enter your number and PIN.',
+    wrongCredentials: 'Wrong number or PIN',
     phoneTaken: 'This number is already registered',
 
     pinHint: '6 digits',
     tooManyTries: (minutes: number) =>
       `Too many attempts. Try again in ${minutes} ${pl(minutes, 'minute', 'minutes')}.`,
 
-    changePin: 'Change the access code',
-    currentPin: 'Current access code',
-    newPin: 'New access code',
-    confirmPin: 'Repeat the new code',
-    pinMismatch: 'The codes do not match',
-    wrongPin: 'The current access code is wrong',
+    changePin: 'Change the PIN',
+    currentPin: 'Current PIN',
+    newPin: 'New PIN',
+    confirmPin: 'Repeat the new PIN',
+    pinMismatch: 'The PIN does not match',
+    wrongPin: 'The current PIN is wrong',
     pinChangedNote: 'After the change every device signs out, including this one.',
     welcome: 'Welcome back',
     welcomeSub: 'Sign in to continue',
@@ -283,11 +299,11 @@ export const en: Dict = {
     signingOut: 'Signing out…',
     sending: 'Sending…',
     checking: 'Checking…',
-    forgotPin: 'Forgot your access code?',
-    tempAccessTitle: 'Your code is temporary',
-    tempAccessNote: (deadline: string) => `It stops working on ${deadline}. Set your own code.`,
-    tempAccessAction: 'Set your own code',
-    createPin: 'Create an access code',
+    forgotPin: 'Forgot your PIN?',
+    tempAccessTitle: 'Your PIN is temporary',
+    tempAccessNote: (deadline: string) => `It stops working on ${deadline}. Set your own PIN.`,
+    tempAccessAction: 'Set your own PIN',
+    createPin: 'Create a PIN',
     pinMemo: 'Use 6 digits you will remember',
 
     otpTitle: 'Enter the code from SMS',
@@ -301,18 +317,18 @@ export const en: Dict = {
     stepUpTitle: 'Extra check',
     stepUpSub: (phone: string) => `Sign-in from an unfamiliar device. The code was sent to ${phone}`,
 
-    resetTitle: 'Reset your access code',
+    resetTitle: 'Reset your PIN',
     resetSub: 'Enter your number and we will send a code by SMS',
     resetSend: 'Get the code',
-    resetSave: 'Save the access code',
-    resetDone: 'Access code changed',
+    resetSave: 'Save the PIN',
+    resetDone: 'PIN changed',
     resetDoneNote: 'All other devices have been signed out.',
     backToSignIn: 'Back to sign in',
 
-    pinGroup: (n: number) => `Access code, ${n} digits`,
+    pinGroup: (n: number) => `PIN, ${n} digits`,
     otpGroup: (n: number) => `Confirmation code, ${n} digits`,
-    showCode: 'Show code',
-    hideCode: 'Hide code',
+    showCode: 'Show PIN',
+    hideCode: 'Hide PIN',
     entered: (n: number, total: number) => `${n} of ${total} entered`,
     country: 'Country code',
 
@@ -321,7 +337,7 @@ export const en: Dict = {
     otpTooMany: 'Too many attempts. Ask for a new code.',
     otpResendTooSoon: 'Wait a moment before asking for a new code',
     smsFailed: 'Could not send the SMS. Try again shortly.',
-    pinTrivial: 'Pick a less obvious code',
+    pinTrivial: 'Pick a less obvious PIN',
 
     changePhone: 'Change number',
     changePhoneNote: 'Your number is your sign-in. We will check it is you, then send a code to the new number.',
@@ -331,35 +347,35 @@ export const en: Dict = {
     changePhoneDoneNote: 'All sessions are closed. Sign in with the new number.',
     samePhone: 'This is your current number',
     verifyPhone: 'Confirm your number',
-    verifyPhoneNote: 'Without a confirmed number your access code cannot be recovered. Takes half a minute.',
+    verifyPhoneNote: 'Without a confirmed number your PIN cannot be recovered. Takes half a minute.',
     verifyNow: 'Confirm',
     verified: 'Number confirmed',
     entryTitle: 'Sign in',
     entrySub: 'Enter your number and we will send a code by SMS',
     entrySend: 'Get the code',
-    entryPinDoor: 'Sign in with your access code',
+    entryPinDoor: 'Sign in with your PIN',
     entrySmsDoor: 'Sign in with an SMS code',
     nameTitle: 'What is your car wash called?',
     nameSub: 'Last step, then straight to work',
     nameCreate: 'Create and start',
-    setPin: 'Create an access code',
+    setPin: 'Create a PIN',
     setPinNote: 'Lets you sign in without SMS. Optional.',
-    setPinDone: 'Access code created',
+    setPinDone: 'PIN created',
 
     /* ───────── who is signing in ───────── */
     ownerTitle: 'Owner sign-in',
     staffTitle: 'Staff sign-in',
-    staffHelper: 'The business owner gives you your phone number and access code.',
-    ownerCodeHelper: 'You can create an access code in your Tetrin profile.',
-    accessCodeField: (n: number) => `Access code · ${n} digits`,
+    staffHelper: 'The business owner gives you your phone number and PIN.',
+    ownerCodeHelper: 'You can create a PIN in your Tetrin profile.',
+    accessCodeField: (n: number) => `PIN · ${n} digits`,
 
-    /* ───────── the access code in the profile ───────── */
-    deleteAccessCode: 'Delete the access code',
+    /* ───────── the PIN in the profile ───────── */
+    deleteAccessCode: 'Delete the PIN',
     deleteAccessCodeNote: 'Only the SMS code will remain. Every device signs out, including this one.',
-    deleteAccessCodeAsk: 'Delete the access code?',
-    deleteAccessCodeDone: 'Access code deleted',
-    staffAccessCode: 'Staff access code',
-    staffAccessCodeNote: 'The staff member signs in with their own phone number and this code.',
+    deleteAccessCodeAsk: 'Delete the PIN?',
+    deleteAccessCodeDone: 'PIN deleted',
+    staffAccessCode: 'Staff PIN',
+    staffAccessCodeNote: 'The staff member signs in with their own phone number and this PIN.',
   },
 
   onboarding: {
@@ -417,7 +433,7 @@ export const en: Dict = {
     s2Done: 'Expense added',
 
     s3Title: 'Add your first worker',
-    s3Note: 'A worker signs in with their phone number and code, opens a shift and records the cars they wash.',
+    s3Note: 'A worker signs in with their phone number and PIN, opens a shift and records the cars they wash.',
     s3PercentNote: 'of every car',
     s3Done: 'Worker added',
 
@@ -449,7 +465,7 @@ export const en: Dict = {
     interface: 'Interface',
     account: 'Account',
     phone: 'Phone',
-    pinNote: 'Lets you sign in without SMS. This code is also used for quick access to your account.',
+    pinNote: 'Lets you sign in without SMS. This PIN is also used for quick access to your account.',
     access: 'Subscription',
     session: 'This device',
     devices: 'Devices',
@@ -482,7 +498,7 @@ export const en: Dict = {
     wallTitle: 'The term has ended',
     wallLead: 'Your data is where it was: records, revenue, the client base. Nothing is lost.',
     wallContinue: 'To continue, call',
-    wallPhone: '+374 99 855 546',
+    wallPhone: SUPPORT_PHONE_HUMAN,
     wallDownload: 'Download the data',
     wallDelete: 'Delete the business',
     wallDeleteNote: 'Once deleted it cannot be restored.',
@@ -906,7 +922,6 @@ export const en: Dict = {
     vsLastWeek: 'A week ago at this hour',
     vsPrevPeriod: 'Last month',
     inTheRed: "You're in the red",
-    noBase: 'Nothing to compare with',
     emptyToday: 'No records today yet',
 
     colService: 'Service',
@@ -1102,7 +1117,7 @@ export const en: Dict = {
     lostAction: 'Look and call',
     payrollTitle: "It's time to pay wages",
     payrollNote: (days: number) =>
-      `${days} ${pl(days, 'day has', 'days have')} passed since the last payout.`,
+      `Money for the work has been waiting ${days} ${pl(days, 'day', 'days')}.`,
     payrollAction: 'Open payroll',
   },
 
@@ -1175,7 +1190,7 @@ export const en: Dict = {
     role: 'Role',
     pinHidden: 'Not shown',
     staffNote:
-      'Staff sign in with their own phone and an access code. Read them the code, no password to remember.',
+      'Staff sign in with their own phone and a PIN. Read them the PIN, no password to remember.',
     removeStaffNote:
       'The employee will be deactivated and lose access. Records and payroll history stay.',
     removeServiceNote: 'The service leaves the price list. Existing records stay unchanged.',
@@ -1209,24 +1224,24 @@ export const en: Dict = {
     tierPrices: 'Prices by class',
     tierPriceHint: 'Empty means the base price',
 
-    pinReset: 'Issue a new access code',
+    pinReset: 'Issue a new PIN',
 
-    pinResetNote: 'The staff member forgot the access code. Set a new one, sign-ins with the old code will close.',
+    pinResetNote: 'The staff member forgot the PIN. Set a new one, sign-ins with the old PIN will close.',
 
-    pinResetDone: 'The access code is changed. Pass it to the staff member.',
+    pinResetDone: 'The PIN is changed. Pass it to the staff member.',
 
-    pinWorksElsewhere: 'This person works elsewhere too. They change the access code themselves, from their own page.',
+    pinWorksElsewhere: 'This person works elsewhere too. They change the PIN themselves, from their own page.',
 
 
     deleteTitle: 'Delete the business',
     deleteWhat:
       'Everything goes: records, clients, services and all staff. Staff access closes immediately.',
     deleteNoWayBack: 'It cannot be restored.',
-    deletePin: 'Confirm with your access code',
+    deletePin: 'Confirm with your PIN',
     deleteKeep: 'Download the data and delete',
     deleteWipe: 'Delete without downloading',
     deleteHint: 'The file downloads for Excel, then the business is deleted.',
-    deleteWrongPin: 'The access code is wrong.',
+    deleteWrongPin: 'The PIN is wrong.',
     deleteThrottled: 'Too many attempts. Wait and try again.',
     deleteFailed: "Couldn't do it. Try again.",
     deleteSendCode: 'Send a confirmation code',

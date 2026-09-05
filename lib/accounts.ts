@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, tenants, users, type Account } from './db/schema';
 import { currentAccess, type Access } from './subscription';
@@ -23,6 +23,23 @@ export async function accountByPhone(phone: string): Promise<Account | undefined
 }
 
 /**
+ * Кого мы знаем под этим адресом почты.
+ *
+ * Без учёта регистра, тем же выражением, каким уникальность держит
+ * индекс `accounts_email_uniq`. Совпадать они обязаны буквально: если
+ * поиск станет строгим, а индекс останется нестрогим, человек с адресом
+ * `Sevak@` не найдёт себя и пойдёт регистрироваться заново — и упрётся
+ * в «адрес занят», не понимая кем.
+ */
+export async function accountByEmail(email: string): Promise<Account | undefined> {
+  const [row] = await db
+    .select()
+    .from(accounts)
+    .where(sql`lower(${accounts.email}) = lower(${email})`);
+  return row;
+}
+
+/**
  * Человек, которому принадлежит это участие.
  *
  * Обычно достаточно `account_id`. Но колонка появилась миграцией раньше
@@ -37,7 +54,8 @@ export async function accountOf(user: {
   id: string;
   accountId: string | null;
   phone: string;
-  pinHash: string;
+  /** прежний секрет участия; у заведённых после перехода на пароль его нет */
+  pinHash: string | null;
   tokenVersion: number;
   createdAt: Date;
 }): Promise<Account> {
@@ -210,23 +228,27 @@ export class PhoneTakenError extends Error {
  */
 export async function claimAccount(input: {
   phone: string;
-  pinHash: string;
+  /** хеш пароля; `null` у сотрудника, которому владелец пароль ещё не выдал */
+  passwordHash: string | null;
+  /** почта владельца; у сотрудника её нет */
+  email?: string | null;
   /**
-   * Доказан ли номер.
+   * Доказан ли адрес почты.
    *
-   * Ставится ровно там, где регистрация прошла через код из SMS. Никакой
+   * Ставится ровно там, где человек прошёл по ссылке из письма. Никакой
    * вызывающий не имеет права передать сюда true «за компанию»: значение
-   * этого поля решает, можно ли потом восстановить доступ по SMS, то
-   * есть отдать аккаунт предъявителю номера.
+   * этого поля решает, можно ли потом восстановить доступ письмом, то
+   * есть отдать аккаунт предъявителю ящика.
    */
-  phoneVerified?: boolean;
+  emailVerified?: boolean;
 }): Promise<Account> {
   const [created] = await db
     .insert(accounts)
     .values({
       phone: input.phone,
-      pinHash: input.pinHash,
-      phoneVerifiedAt: input.phoneVerified ? new Date() : null,
+      email: input.email ?? null,
+      passwordHash: input.passwordHash,
+      emailVerifiedAt: input.emailVerified ? new Date() : null,
     })
     .onConflictDoNothing({ target: accounts.phone })
     .returning();

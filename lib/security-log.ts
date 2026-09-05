@@ -28,7 +28,20 @@ export type SecurityEvent =
   | 'auth.login.throttled'
   | 'auth.login.step_up_required'
   | 'auth.login.new_device'
-  /* код из SMS */
+  /* письма: подтверждение почты и восстановление пароля */
+  | 'auth.mail.sent'
+  | 'auth.mail.send_failed'
+  | 'auth.mail.throttled'
+  | 'auth.link.used'
+  | 'auth.link.invalid'
+  | 'auth.links.swept'
+  /** владелец выдал сотруднику пароль */
+  | 'auth.password.issued'
+  | 'auth.password.changed'
+  | 'auth.password.reset.started'
+  | 'auth.password.reset'
+  | 'auth.email.changed'
+  /* код из SMS: канал выключён, имена оставлены ради истории в журнале */
   | 'auth.otp.sent'
   | 'auth.otp.send_failed'
   | 'auth.otp.throttled'
@@ -40,7 +53,7 @@ export type SecurityEvent =
   | 'auth.register.completed'
   | 'auth.pin.reset.started'
   | 'auth.pin.reset'
-  /** админ выдал временный код доступа */
+  /** админ выдал временный ПИН */
   | 'auth.pin.temp_issued'
   | 'auth.pin.changed'
   | 'auth.pin.rehashed'
@@ -133,6 +146,10 @@ const LEVEL_BY_DEFAULT: Partial<Record<SecurityEvent, Level>> = {
   'auth.pin.reset': 'warn',
   'auth.pin.temp_issued': 'warn',
   'auth.phone.changed': 'warn',
+  'auth.email.changed': 'warn',
+  'auth.mail.send_failed': 'warn',
+  'auth.password.reset': 'warn',
+  'auth.password.issued': 'warn',
   'auth.session.revoked_all': 'warn',
   'business.deleted': 'alert',
   'role.changed': 'warn',

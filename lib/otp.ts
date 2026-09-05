@@ -9,6 +9,16 @@ import { CODE_LENGTH } from './otp-shared';
 import { env } from './env';
 import { DEFAULT_LOCALE, isLocale, type Locale } from './i18n';
 
+/* Телефон в заявке стал обнуляемым: заявку теперь адресуют почтой
+   (`lib/email-link.ts`), и у писем номера нет вовсе. Здесь, в коде
+   кодов из SMS, пустой номер невозможен по построению — заявку заводит
+   `startChallenge`, который без номера не зовут, — но тип этого не
+   знает. Пустая строка вместо номера означает «такой заявки нет»: хеш
+   по ней не сойдётся ни с чем, а `sendSms` отвергнет пустой адрес.
+
+   Этот модуль доживает до переезда приложения на пароли и уходит
+   вместе с ним. */
+
 /**
  * Одноразовые коды.
  *
@@ -418,7 +428,7 @@ export async function resendChallenge(input: {
   await db
     .update(authChallenges)
     .set({
-      codeHash: hashCode(code, row.phone, purpose),
+      codeHash: hashCode(code, row.phone ?? '', purpose),
       attempts: 0,
       resends,
       nextResendAt: new Date(now + cooldown * 1000),
@@ -435,7 +445,7 @@ export async function resendChallenge(input: {
 
   const sent = silent
     ? ({ ok: true, provider: 'silent' } as const)
-    : await sendSms({ to: row.phone, text: smsText(code, locale) });
+    : await sendSms({ to: row.phone ?? '', text: smsText(code, locale) });
   if (!sent.ok) {
     await logSecurity({
       event: 'auth.otp.send_failed',
@@ -529,7 +539,7 @@ export async function verifyChallenge<T = Record<string, unknown>>(input: {
     return { ok: false, reason: 'TOO_MANY_TRIES' };
   }
 
-  if (code.length !== CODE_LENGTH || !sameHash(row.codeHash, hashCode(code, row.phone, row.purpose as Purpose))) {
+  if (code.length !== CODE_LENGTH || !sameHash(row.codeHash, hashCode(code, row.phone ?? '', row.purpose as Purpose))) {
     const [after] = await db
       .update(authChallenges)
       .set({ attempts: sql`${authChallenges.attempts} + 1` })
@@ -581,7 +591,7 @@ export async function challengeState(id: string): Promise<{
   if (!row || row.consumedAt || row.expiresAt.getTime() < Date.now()) return null;
 
   return {
-    phone: row.phone,
+    phone: row.phone ?? '',
     purpose: row.purpose as Purpose,
     resendAt: row.nextResendAt,
     expiresAt: row.expiresAt,

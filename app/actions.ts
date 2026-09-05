@@ -260,7 +260,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   try {
-    await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent, actorId: session.uid });
+    await catalog.addStaff({ tenantId: session.tid, name, phone, password: pin, percent, actorId: session.uid });
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
       return { error: t.auth.phoneTaken };
@@ -505,7 +505,7 @@ export async function resetStaffPinAction(
       tenantId: session.tid,
       id: String(formData.get('id') ?? ''),
       actorId: session.uid,
-      pin: String(formData.get('pin') ?? ''),
+      password: String(formData.get('pin') ?? ''),
     });
   } catch (e) {
     if (e instanceof catalog.ValidationError) {
@@ -726,10 +726,10 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
 }
 
 /**
- * Убрать код доступа совсем.
+ * Убрать ПИН совсем.
  *
  * Третье действие рядом с «создать» и «изменить», и оно не декоративное:
- * код доступа необязателен, а до сих пор заведённый однажды нельзя было
+ * ПИН необязателен, а до сих пор заведённый однажды нельзя было
  * убрать никак. Человек, назначивший себе постоянный код и передумавший,
  * оставался с ним навсегда.
  *

@@ -30,7 +30,7 @@ import { PanelGrid } from '@/components/patterns/panel';
 import { Delta, Metric, MetricStrip } from '@/components/patterns/metric';
 import { EmptyState } from '@/components/patterns/states';
 import { ErrorState } from '@/components/patterns/error-state';
-import { ReportToolbar, type ReportQuery } from './report/toolbar';
+import { ReportToolbar } from './report/toolbar';
 import { TrendChart } from './report/trend-chart';
 import { CarsChart } from './report/cars-chart';
 import { AvgCheckChart } from './report/avg-check-chart';
@@ -40,6 +40,7 @@ import { CostsTable, ServicesTable } from './report/breakdown-table';
 import { TeamTable } from './report/team-table';
 import { BranchCompare } from './report/branch-compare';
 import {
+  reportHref,
   SCOPES,
   TABS,
   type BranchRow,
@@ -48,6 +49,7 @@ import {
   type HeatRow,
   type PaymentRow,
   type Point,
+  type ReportQuery,
   type ReportTab,
   type Scope,
   type ServiceRow,
@@ -339,6 +341,14 @@ export default async function ReportsPage({
       />
     ) : undefined;
 
+  /* Показание ведёт на вкладку, которая его разбирает: выручка и
+     прибыль в финансы, машины и средний чек в работу, зарплата в
+     команду, расходы в сам список трат. На своей вкладке показание
+     ссылкой не становится: нажатие, которое никуда не ведёт, хуже
+     отсутствия нажатия. */
+  const toTab = (target: ReportTab) =>
+    tab === target ? undefined : reportHref('/owner/reports', { ...query, tab: target });
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader className="mb-0" title={t.reports.title} description={t.reports.lead} meta={
@@ -356,6 +366,7 @@ export default async function ReportsPage({
         <MetricStrip columns={6}>
           <Metric
             size="md"
+            href={toTab('finance')}
             label={t.reports.kpi.revenue}
             value={money(summary.revenue)}
             delta={compare ? delta(summary.revenue, prev?.revenue) : undefined}
@@ -363,6 +374,7 @@ export default async function ReportsPage({
           />
           <Metric
             size="md"
+            href={toTab('finance')}
             label={t.reports.kpi.net}
             value={money(summary.profit)}
             tone={summary.profit < 0 ? 'destructive' : 'default'}
@@ -371,6 +383,7 @@ export default async function ReportsPage({
           />
           <Metric
             size="md"
+            href={toTab('operations')}
             label={units.many}
             value={String(summary.count)}
             delta={compare ? delta(summary.count, prev?.count) : undefined}
@@ -378,12 +391,14 @@ export default async function ReportsPage({
           />
           <Metric
             size="md"
+            href={toTab('operations')}
             label={t.reports.kpi.avgCheck}
             value={money(summary.avgCheck)}
             delta={compare ? delta(summary.avgCheck, prev?.avgCheck) : undefined}
           />
           <Metric
             size="md"
+            href={toTab('team')}
             label={t.reports.kpi.payroll}
             value={money(summary.payroll)}
             delta={compare ? delta(summary.payroll, prev?.payroll, 'down') : undefined}
@@ -391,6 +406,7 @@ export default async function ReportsPage({
           />
           <Metric
             size="md"
+            href={range.key === 'prevmonth' ? '/owner/expenses?m=prev' : '/owner/expenses'}
             label={t.reports.kpi.costs}
             value={money(summary.costs)}
             delta={compare ? delta(summary.costs, prev?.costs, 'down') : undefined}

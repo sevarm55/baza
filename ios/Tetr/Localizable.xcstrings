@@ -3,20 +3,7 @@
   "strings": {
     "": {},
     " ": {},
-    "·": {},
-    "· +%@": {},
-    "· −%@": {},
     "%": {},
-    "%@ · %@": {
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ · %2$@"
-          }
-        }
-      }
-    },
     "%@ %@": {
       "localizations": {
         "hy": {
@@ -47,12 +34,32 @@
         }
       }
     },
+    "%@ · %@": {
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ × %lld%%": {
       "localizations": {
         "hy": {
           "stringUnit": {
             "state": "new",
             "value": "%1$@ × %2$lld%%"
+          }
+        }
+      }
+    },
+    "%@%@": {
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@%2$@"
           }
         }
       }
@@ -87,16 +94,6 @@
         }
       }
     },
-    "%@%@": {
-      "localizations": {
-        "hy": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@%2$@"
-          }
-        }
-      }
-    },
     "%lld": {},
     "%lld %@": {
       "localizations": {
@@ -109,14 +106,14 @@
       }
     },
     "%lld%%": {},
-    "••••••": {},
     "+ %@": {},
     "+%@": {},
     "+%lld": {},
     "+374 77 123 456": {},
     "0": {},
-    "40": {},
     "365": {},
+    "40": {},
+    "TETRIN": {},
     "alerts.empty": {
       "extractionState": "manual",
       "localizations": {
@@ -209,140 +206,25 @@
         }
       }
     },
-    "auth.anotherAccount": {
+    "appearance.iconFailed": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign in with another number"
+            "value": "Could not change the icon."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտք գործել այլ համարով"
+            "value": "Չհաջողվեց փոխել պատկերակը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Войти с другим номером"
-          }
-        }
-      }
-    },
-    "auth.backToSignIn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back to sign in"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վերադառնալ մուտքին"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вернуться ко входу"
-          }
-        }
-      }
-    },
-    "appearance.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Appearance"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Տեսք"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Оформление"
-          }
-        }
-      }
-    },
-    "appearance.iconNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pick the icon for your home screen. Dark and tinted versions follow your phone settings."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ընտրեք պատկերակը հիմնական էկրանի համար։ Մուգ և գունավորված տարբերակները հետևում են հեռախոսի կարգավորումներին։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выберите значок для домашнего экрана. Тёмный и подкрашенный виды система подставит сама."
-          }
-        }
-      }
-    },
-    "appearance.iconMain": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Նշան"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Знак"
-          }
-        }
-      }
-    },
-    "appearance.iconMainNote": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The letter T with the lime corner."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "T տառը՝ լայմ անկյունով։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Буква T с лаймовым уголком."
+            "value": "Не удалось сменить значок."
           }
         }
       }
@@ -393,25 +275,140 @@
         }
       }
     },
-    "appearance.iconFailed": {
+    "appearance.iconMain": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not change the icon."
+            "value": "Sign"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Չհաջողվեց փոխել պատկերակը։"
+            "value": "Նշան"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось сменить значок."
+            "value": "Знак"
+          }
+        }
+      }
+    },
+    "appearance.iconMainNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The letter T with the lime corner."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "T տառը՝ լայմ անկյունով։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Буква T с лаймовым уголком."
+          }
+        }
+      }
+    },
+    "appearance.iconNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the icon for your home screen. Dark and tinted versions follow your phone settings."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ընտրեք պատկերակը հիմնական էկրանի համար։ Մուգ և գունավորված տարբերակները հետևում են հեռախոսի կարգավորումներին։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите значок для домашнего экрана. Тёмный и подкрашенный виды система подставит сама."
+          }
+        }
+      }
+    },
+    "appearance.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Տեսք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оформление"
+          }
+        }
+      }
+    },
+    "auth.anotherAccount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with another number"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտք գործել այլ համարով"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти с другим номером"
+          }
+        }
+      }
+    },
+    "auth.backToSignIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to sign in"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վերադառնալ մուտքին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться ко входу"
           }
         }
       }
@@ -560,19 +557,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Change the access code"
+            "value": "Change the PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Փոխել մուտքի կոդը"
+            "value": "Փոխել PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Изменить код доступа"
+            "value": "Изменить ПИН"
           }
         }
       }
@@ -629,19 +626,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Current access code"
+            "value": "Current PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ընթացիկ մուտքի կոդը"
+            "value": "Ընթացիկ PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Текущий код доступа"
+            "value": "Текущий ПИН"
           }
         }
       }
@@ -652,19 +649,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete the access code"
+            "value": "Delete the PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ջնջել մուտքի կոդը"
+            "value": "Ջնջել PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить код доступа"
+            "value": "Удалить ПИН"
           }
         }
       }
@@ -675,19 +672,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete the access code?"
+            "value": "Delete the PIN?"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ջնջե՞լ մուտքի կոդը"
+            "value": "Ջնջե՞լ PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить код доступа?"
+            "value": "Удалить ПИН?"
           }
         }
       }
@@ -698,19 +695,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Access code deleted"
+            "value": "PIN deleted"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդը ջնջված է"
+            "value": "PIN-ը ջնջված է"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа удалён"
+            "value": "ПИН удалён"
           }
         }
       }
@@ -767,19 +764,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign in with your access code"
+            "value": "Sign in with your PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտք մուտքի կոդով"
+            "value": "Մուտք PIN-ով"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Войти по коду доступа"
+            "value": "Войти по ПИНу"
           }
         }
       }
@@ -882,19 +879,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forgot your access code?"
+            "value": "Forgot your PIN?"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մոռացե՞լ եք մուտքի կոդը"
+            "value": "Մոռացե՞լ եք PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Забыли код доступа?"
+            "value": "Забыли ПИН?"
           }
         }
       }
@@ -997,19 +994,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New access code"
+            "value": "New PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Նոր մուտքի կոդ"
+            "value": "Նոր PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новый код доступа"
+            "value": "Новый ПИН"
           }
         }
       }
@@ -1227,19 +1224,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can create an access code in your Tetrin profile."
+            "value": "You can create a PIN in your Tetrin profile."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդը կարող եք ստեղծել Tetrin-ի պրոֆիլում։"
+            "value": "PIN-ը կարող եք ստեղծել Tetrin-ի պրոֆիլում։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа можно создать в профиле Tetrin."
+            "value": "ПИН можно создать в профиле Tetrin."
           }
         }
       }
@@ -1319,19 +1316,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Access code"
+            "value": "PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդ"
+            "value": "PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа"
+            "value": "ПИН"
           }
         }
       }
@@ -1342,19 +1339,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Access code · 6 digits"
+            "value": "PIN · 6 digits"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդ · 6 նիշ"
+            "value": "PIN · 6 նիշ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа · 6 цифр"
+            "value": "ПИН · 6 цифр"
           }
         }
       }
@@ -1388,19 +1385,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The codes do not match"
+            "value": "The PIN does not match"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Կոդերը չեն համընկնում"
+            "value": "PIN-ը չի համընկնում"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Коды не совпадают"
+            "value": "ПИН не совпадает"
           }
         }
       }
@@ -1411,19 +1408,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You sign in with an SMS code. An access code is a second door for when SMS does not arrive."
+            "value": "You sign in with an SMS code. A PIN is a second door for when SMS does not arrive."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Դուք մտնում եք SMS կոդով։ Մուտքի կոդը երկրորդ դուռն է՝ երբ SMS-ը չի հասնում։"
+            "value": "Դուք մտնում եք SMS կոդով։ PIN-ը երկրորդ դուռն է՝ երբ SMS-ը չի հասնում։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вы входите по коду из SMS. Код доступа это вторая дверь, когда SMS не идёт."
+            "value": "Вы входите по коду из SMS. ПИН это вторая дверь, когда SMS не идёт."
           }
         }
       }
@@ -1434,19 +1431,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Access code · 4 digits"
+            "value": "PIN · 4 digits"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդ · 4 նիշ"
+            "value": "PIN · 4 նիշ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа · 4 цифры"
+            "value": "ПИН · 4 цифры"
           }
         }
       }
@@ -1457,19 +1454,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick a less obvious code"
+            "value": "Pick a less obvious PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ընտրեք ավելի դժվար կոդ"
+            "value": "Ընտրեք ավելի դժվար PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите менее очевидный код"
+            "value": "Выберите менее очевидный ПИН"
           }
         }
       }
@@ -1480,19 +1477,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The access code is wrong"
+            "value": "The PIN is wrong"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդը սխալ է"
+            "value": "PIN-ը սխալ է"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа неверный"
+            "value": "ПИН неверный"
           }
         }
       }
@@ -1503,19 +1500,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The saved sign-in has expired. Enter your access code."
+            "value": "The saved sign-in has expired. Enter your PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք մուտքի կոդը։"
+            "value": "Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Срок сохранённого входа истёк. Введите код доступа."
+            "value": "Срок сохранённого входа истёк. Введите ПИН."
           }
         }
       }
@@ -1526,19 +1523,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Access code changed"
+            "value": "PIN changed"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդը փոխված է"
+            "value": "PIN-ը փոխված է"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа изменён"
+            "value": "ПИН изменён"
           }
         }
       }
@@ -1572,19 +1569,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save the access code"
+            "value": "Save the PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Պահպանել մուտքի կոդը"
+            "value": "Պահպանել PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сохранить код доступа"
+            "value": "Сохранить ПИН"
           }
         }
       }
@@ -1641,19 +1638,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset your access code"
+            "value": "Reset your PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդի վերականգնում"
+            "value": "PIN-ի վերականգնում"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Восстановление кода доступа"
+            "value": "Восстановление ПИНа"
           }
         }
       }
@@ -1710,19 +1707,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create an access code"
+            "value": "Create a PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ստեղծել մուտքի կոդ"
+            "value": "Ստեղծել PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Создать код доступа"
+            "value": "Создать ПИН"
           }
         }
       }
@@ -1773,52 +1770,6 @@
         }
       }
     },
-    "auth.signingIn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signing in…"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Входим…"
-          }
-        }
-      }
-    },
-    "auth.signingOut": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signing out…"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ելք…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выходим…"
-          }
-        }
-      }
-    },
     "auth.signInTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -1865,6 +1816,52 @@
         }
       }
     },
+    "auth.signingIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in…"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտք…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входим…"
+          }
+        }
+      }
+    },
+    "auth.signingOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out…"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ելք…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выходим…"
+          }
+        }
+      }
+    },
     "auth.smsFailed": {
       "extractionState": "manual",
       "localizations": {
@@ -1894,19 +1891,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Staff access code"
+            "value": "Staff PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Աշխատակցի մուտքի կոդը"
+            "value": "Աշխատակցի PIN-ը"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа сотрудника"
+            "value": "ПИН сотрудника"
           }
         }
       }
@@ -1917,19 +1914,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The staff member signs in with their own phone number and this code."
+            "value": "The staff member signs in with their own phone number and this PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Աշխատակիցը կմտնի իր հեռախոսահամարով և այս կոդով։"
+            "value": "Աշխատակիցը կմտնի իր հեռախոսահամարով և այս PIN-ով։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сотрудник будет входить по своему номеру телефона и этому коду."
+            "value": "Сотрудник будет входить по своему номеру телефона и этому ПИНу."
           }
         }
       }
@@ -1940,19 +1937,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The business owner gives you your phone number and access code."
+            "value": "The business owner gives you your phone number and PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։"
+            "value": "Հեռախոսահամարը և PIN-ը տալիս է բիզնեսի սեփականատերը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Номер телефона и код доступа выдаёт владелец бизнеса."
+            "value": "Номер телефона и ПИН выдаёт владелец бизнеса."
           }
         }
       }
@@ -1963,19 +1960,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The business owner gives you your phone number and access code."
+            "value": "The business owner gives you your phone number and PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։"
+            "value": "Հեռախոսահամարը և PIN-ը տալիս է բիզնեսի սեփականատերը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Номер телефона и код доступа выдаёт владелец бизнеса."
+            "value": "Номер телефона и ПИН выдаёт владелец бизнеса."
           }
         }
       }
@@ -2072,48 +2069,48 @@
         }
       }
     },
-    "auth.tempAccessTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your code is temporary"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ձեր կոդը ժամանակավոր է"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ваш код временный"
-          }
-        }
-      }
-    },
     "auth.tempAccessNote": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It stops working on %1$@. Set your own code."
+            "value": "It stops working on %1$@. Set your own PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այն կդադարի աշխատել %1$@․ դրեք ձեր կոդը։"
+            "value": "Այն կդադարի աշխատել %1$@․ դրեք ձեր PIN-ը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Он перестанет работать %1$@. Задайте свой код."
+            "value": "Он перестанет работать %1$@. Задайте свой ПИН."
+          }
+        }
+      }
+    },
+    "auth.tempAccessTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your PIN is temporary"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ձեր PIN-ը ժամանակավոր է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш ПИН временный"
           }
         }
       }
@@ -2264,19 +2261,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Without a confirmed number your access code cannot be recovered. Takes half a minute."
+            "value": "Without a confirmed number your PIN cannot be recovered. Takes half a minute."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Առանց հաստատված համարի մուտքի կոդը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։"
+            "value": "Առանց հաստատված համարի PIN-ը վերականգնել հնարավոր չէ։ Կտևի կես րոպե։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Без подтверждённого номера восстановить код доступа нельзя. Займёт полминуты."
+            "value": "Без подтверждённого номера восстановить ПИН нельзя. Займёт полминуты."
           }
         }
       }
@@ -2310,19 +2307,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wrong number or access code"
+            "value": "Wrong number or PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Սխալ համար կամ մուտքի կոդ"
+            "value": "Սխալ համար կամ PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Неверный номер или код доступа"
+            "value": "Неверный номер или ПИН"
           }
         }
       }
@@ -2333,19 +2330,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The current access code is wrong"
+            "value": "The current PIN is wrong"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ընթացիկ մուտքի կոդը սխալ է"
+            "value": "Ընթացիկ PIN-ը սխալ է"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Текущий код доступа неверный"
+            "value": "Текущий ПИН неверный"
           }
         }
       }
@@ -2622,6 +2619,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d дней назад"
+          }
+        }
+      }
+    },
+    "clients.daysShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "d"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "օր"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дн"
           }
         }
       }
@@ -4267,19 +4287,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deletion is confirmed with an SMS code: you have no access code set."
+            "value": "Deletion is confirmed with an SMS code: you have no PIN set."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ջնջումը հաստատվում է SMS կոդով. մուտքի կոդ դուք չունեք։"
+            "value": "Ջնջումը հաստատվում է SMS կոդով. PIN դուք չունեք։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удаление подтверждается кодом из SMS: код доступа у вас не задан."
+            "value": "Удаление подтверждается кодом из SMS: ПИН у вас не задан."
           }
         }
       }
@@ -4303,29 +4323,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Мы отправили код на %@"
-          }
-        }
-      }
-    },
-    "delete.downloaded": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The data is downloaded."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Տվյալները ներբեռնված են։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Данные скачаны."
           }
         }
       }
@@ -4372,6 +4369,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось скачать данные."
+          }
+        }
+      }
+    },
+    "delete.downloaded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The data is downloaded."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Տվյալները ներբեռնված են։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные скачаны."
           }
         }
       }
@@ -4744,6 +4764,29 @@
         }
       }
     },
+    "expenses.closedMonth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The month is closed, view only."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամիսը փակ է․ միայն դիտում։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месяц закрыт, только просмотр."
+          }
+        }
+      }
+    },
     "expenses.date": {
       "extractionState": "manual",
       "localizations": {
@@ -5066,29 +5109,6 @@
         }
       }
     },
-    "expenses.closedMonth": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The month is closed, view only."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ամիսը փակ է․ միայն դիտում։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Месяц закрыт, только просмотр."
-          }
-        }
-      }
-    },
     "expenses.newTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -5181,29 +5201,6 @@
         }
       }
     },
-    "expenses.oneOffs": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "One-off expenses"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Միանգամյա ծախսեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Разовые расходы"
-          }
-        }
-      }
-    },
     "expenses.oneOffSpent": {
       "extractionState": "manual",
       "localizations": {
@@ -5223,6 +5220,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Разовые %@"
+          }
+        }
+      }
+    },
+    "expenses.oneOffs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-off expenses"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Միանգամյա ծախսեր"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разовые расходы"
           }
         }
       }
@@ -5716,19 +5736,42 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ did not confirm. Enter your access code."
+            "value": "%@ did not confirm. Enter your PIN."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@-ը չհաստատվեց։ Մուտքագրեք մուտքի կոդը։"
+            "value": "%@-ը չհաստատվեց։ Մուտքագրեք PIN-ը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ не подтвердил. Введите код доступа."
+            "value": "%@ не подтвердил. Введите ПИН."
+          }
+        }
+      }
+    },
+    "lock.quickSignIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with %@"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մուտք %@-ով"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входить через %@"
           }
         }
       }
@@ -6122,6 +6165,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Название бизнеса"
+          }
+        }
+      }
+    },
+    "onboarding.currency": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CURRENCY"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ԱՐԺՈՒՅԹ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ВАЛЮТА"
+          }
+        }
+      }
+    },
+    "onboarding.currencyOnce": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chosen once: all sums live in it and it cannot be changed later."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ընտրվում է մեկ անգամ․ բոլոր գումարներն այս արժույթով են և հետո չեն փոխվում։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбирается один раз: в ней лежат все суммы, и потом её не поменять."
           }
         }
       }
@@ -6908,6 +6997,29 @@
         }
       }
     },
+    "owner.clientWrite": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Написать"
+          }
+        }
+      }
+    },
     "owner.clientsFresh": {
       "extractionState": "manual",
       "localizations": {
@@ -7042,29 +7154,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "В базе"
-          }
-        }
-      }
-    },
-    "owner.clientWrite": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Message"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Գրել"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Написать"
           }
         }
       }
@@ -7989,29 +8078,6 @@
         }
       }
     },
-    "payroll.nothingUnpaid": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing is unpaid right now."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հիմա չվճարված հաշվարկներ չկան։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Невыплаченных расчётов сейчас нет."
-          }
-        }
-      }
-    },
     "payroll.notOnServer": {
       "extractionState": "manual",
       "localizations": {
@@ -8031,6 +8097,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Списка зарплат на сервере ещё нет."
+          }
+        }
+      }
+    },
+    "payroll.nothingUnpaid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is unpaid right now."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հիմա չվճարված հաշվարկներ չկան։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Невыплаченных расчётов сейчас нет."
           }
         }
       }
@@ -8081,29 +8170,6 @@
         }
       }
     },
-    "payroll.paying": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recording payout…"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վճարվում է…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отмечаем выплату…"
-          }
-        }
-      }
-    },
     "payroll.paySum": {
       "extractionState": "manual",
       "localizations": {
@@ -8123,6 +8189,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выплатить %@"
+          }
+        }
+      }
+    },
+    "payroll.paying": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording payout…"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վճարվում է…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмечаем выплату…"
           }
         }
       }
@@ -8779,6 +8868,29 @@
         }
       }
     },
+    "profile.currency": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currency"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Արժույթ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Валюта"
+          }
+        }
+      }
+    },
     "profile.deleteNote": {
       "extractionState": "manual",
       "localizations": {
@@ -8871,6 +8983,52 @@
         }
       }
     },
+    "profile.deviceThis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այս սարքը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это устройство"
+          }
+        }
+      }
+    },
+    "profile.deviceWeb": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browser"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բրաուզեր"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Браузер"
+          }
+        }
+      }
+    },
     "profile.devices": {
       "extractionState": "manual",
       "localizations": {
@@ -8940,52 +9098,6 @@
         }
       }
     },
-    "profile.deviceThis": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This device"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Այս սարքը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это устройство"
-          }
-        }
-      }
-    },
-    "profile.deviceWeb": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browser"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Բրաուզեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Браузер"
-          }
-        }
-      }
-    },
     "profile.lockNote": {
       "extractionState": "manual",
       "localizations": {
@@ -9038,19 +9150,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lets you sign in without SMS. This code is also used for quick access to your account."
+            "value": "Lets you sign in without SMS. This PIN is also used for quick access to your account."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Թույլ է տալիս մտնել առանց SMS-ի։ Այս կոդն օգտագործվում է նաև հաշիվ արագ մտնելու համար։"
+            "value": "Թույլ է տալիս մտնել առանց SMS-ի։ Այս PIN-ն օգտագործվում է նաև հաշիվ արագ մտնելու համար։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Позволяет входить без SMS. Этот код также используется для быстрого входа в аккаунт."
+            "value": "Позволяет входить без SMS. Этот ПИН также используется для быстрого входа в аккаунт."
           }
         }
       }
@@ -9143,6 +9255,121 @@
           "stringUnit": {
             "state": "translated",
             "value": "После выхода вернётесь по аватару и подтверждению устройства"
+          }
+        }
+      }
+    },
+    "report.branchesTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Branches"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Մասնաճյուղեր"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Филиалы"
+          }
+        }
+      }
+    },
+    "report.heatHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap a square"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սեղմեք վանդակը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на клетку"
+          }
+        }
+      }
+    },
+    "report.heatTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When they come"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Երբ են գալիս"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда приезжают"
+          }
+        }
+      }
+    },
+    "report.trendHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap a bar"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սեղմեք սյունը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на столбик"
+          }
+        }
+      }
+    },
+    "report.trendTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day by day"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Օրերով"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дням"
           }
         }
       }
@@ -9304,259 +9531,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Куда ушло"
-          }
-        }
-      }
-    },
-    "report.heatTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When they come"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Երբ են գալիս"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Когда приезжают"
-          }
-        }
-      }
-    },
-    "report.heatHint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap a square"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սեղմեք վանդակը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нажмите на клетку"
-          }
-        }
-      }
-    },
-    "report.trendTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Day by day"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Օրերով"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "По дням"
-          }
-        }
-      }
-    },
-    "report.trendHint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap a bar"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Սեղմեք սյունը"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нажмите на столбик"
-          }
-        }
-      }
-    },
-    "report.branchesTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Branches"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մասնաճյուղեր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Филиалы"
-          }
-        }
-      }
-    },
-    "onboarding.currency": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CURRENCY"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ԱՐԺՈՒՅԹ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ВАЛЮТА"
-          }
-        }
-      }
-    },
-    "onboarding.currencyOnce": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chosen once: all sums live in it and it cannot be changed later."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ընտրվում է մեկ անգամ․ բոլոր գումարներն այս արժույթով են և հետո չեն փոխվում։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выбирается один раз: в ней лежат все суммы, и потом её не поменять."
-          }
-        }
-      }
-    },
-    "profile.currency": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Currency"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Արժույթ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Валюта"
-          }
-        }
-      }
-    },
-    "clients.daysShort": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "d"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "օր"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "дн"
-          }
-        }
-      }
-    },
-    "staff.rulesSection": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pay rules"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Վճարման կանոններ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Правила оплаты"
-          }
-        }
-      }
-    },
-    "staff.offShift": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off shift"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Հերթափոխից դուրս"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не на смене"
           }
         }
       }
@@ -10278,6 +10252,29 @@
         }
       }
     },
+    "services.tiersNeedTwo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add one more class: a single class is not a choice. Or remove it and keep one price."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ավելացրեք ևս մեկ դաս․ մեկ դասը ընտրություն չէ։ Կամ հեռացրեք այն և թողեք մեկ գին։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте второй класс: один класс — это не выбор. Или уберите его и оставьте одну цену."
+          }
+        }
+      }
+    },
     "services.tiersNote": {
       "extractionState": "manual",
       "localizations": {
@@ -10376,19 +10373,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm with your access code"
+            "value": "Confirm with your PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Հաստատեք մուտքի կոդով"
+            "value": "Հաստատեք PIN-ով"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подтвердите кодом доступа"
+            "value": "Подтвердите ПИНом"
           }
         }
       }
@@ -10445,19 +10442,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Issue a new access code"
+            "value": "Issue a new PIN"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Տալ նոր մուտքի կոդ"
+            "value": "Տալ նոր PIN"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выдать новый код доступа"
+            "value": "Выдать новый ПИН"
           }
         }
       }
@@ -10468,19 +10465,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The access code is changed. Pass it to the staff member."
+            "value": "The PIN is changed. Pass it to the staff member."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մուտքի կոդը փոխված է։ Հաղորդեք աշխատակցին։"
+            "value": "PIN-ը փոխված է։ Հաղորդեք աշխատակցին։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код доступа изменён. Передайте его сотруднику."
+            "value": "ПИН изменён. Передайте его сотруднику."
           }
         }
       }
@@ -10491,19 +10488,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The staff member forgot the access code. Set a new one, sign-ins with the old code will close."
+            "value": "The staff member forgot the PIN. Set a new one, sign-ins with the old PIN will close."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Աշխատակիցը մոռացել է մուտքի կոդը։ Տվեք նորը, հին կոդով մուտքերը կփակվեն։"
+            "value": "Աշխատակիցը մոռացել է PIN-ը։ Տվեք նորը, հին PIN-ով մուտքերը կփակվեն։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сотрудник забыл код доступа. Назначьте новый, входы старым кодом закроются."
+            "value": "Сотрудник забыл ПИН. Назначьте новый, входы старым закроются."
           }
         }
       }
@@ -10514,19 +10511,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This person works elsewhere too. They change the access code themselves, from their own page."
+            "value": "This person works elsewhere too. They change the PIN themselves, from their own page."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այս մարդն աշխատում է նաև այլ տեղ։ Մուտքի կոդը նա փոխում է ինքը՝ իր էջից։"
+            "value": "Այս մարդն աշխատում է նաև այլ տեղ։ PIN-ը նա փոխում է ինքը՝ իր էջից։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Этот человек работает не только здесь. Код доступа он меняет сам, из своего профиля."
+            "value": "Этот человек работает не только здесь. ПИН он меняет сам, из своего профиля."
           }
         }
       }
@@ -11796,29 +11793,6 @@
         }
       }
     },
-    "shift.offline": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No connection. Records will queue up and send themselves."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Կապ չկա․ գրառումները կկուտակվեն և կուղարկվեն իրենք։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Связи нет. Записи будут копиться и уйдут сами."
-          }
-        }
-      }
-    },
     "shift.greetingDay": {
       "extractionState": "manual",
       "localizations": {
@@ -11999,6 +11973,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вне смены"
+          }
+        }
+      }
+    },
+    "shift.offline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection. Records will queue up and send themselves."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Կապ չկա․ գրառումները կկուտակվեն և կուղարկվեն իրենք։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связи нет. Записи будут копиться и уйдут сами."
           }
         }
       }
@@ -12396,6 +12393,29 @@
         }
       }
     },
+    "staff.offShift": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off shift"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հերթափոխից դուրս"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не на смене"
+          }
+        }
+      }
+    },
     "staff.onShift": {
       "extractionState": "manual",
       "localizations": {
@@ -12415,6 +12435,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "на смене"
+          }
+        }
+      }
+    },
+    "staff.perRecord": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "per record"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "գրանցումից"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "с записи"
           }
         }
       }
@@ -12465,25 +12508,25 @@
         }
       }
     },
-    "staff.perRecord": {
+    "staff.rulesSection": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "per record"
+            "value": "Pay rules"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "գրանցումից"
+            "value": "Վճարման կանոններ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "с записи"
+            "value": "Правила оплаты"
           }
         }
       }
@@ -13201,7 +13244,6 @@
         }
       }
     },
-    "TETRIN": {},
     "today.all": {
       "extractionState": "manual",
       "localizations": {
@@ -13685,29 +13727,6 @@
         }
       }
     },
-    "work.endingShift": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ending…"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ավարտվում է…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Завершаем…"
-          }
-        }
-      }
-    },
     "work.endStay": {
       "extractionState": "manual",
       "localizations": {
@@ -13750,6 +13769,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Завершить смену?"
+          }
+        }
+      }
+    },
+    "work.endingShift": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ending…"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ավարտվում է…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершаем…"
           }
         }
       }
@@ -14099,52 +14141,10 @@
         }
       }
     },
-    "lock.quickSignIn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with %@"
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Մուտք %@-ով"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Входить через %@"
-          }
-        }
-      }
-    },
-    "services.tiersNeedTwo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add one more class: a single class is not a choice. Or remove it and keep one price."
-          }
-        },
-        "hy": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ավելացրեք ևս մեկ դաս․ մեկ դասը ընտրություն չէ։ Կամ հեռացրեք այն և թողեք մեկ գին։"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавьте второй класс: один класс — это не выбор. Или уберите его и оставьте одну цену."
-          }
-        }
-      }
-    }
+    "·": {},
+    "· +%@": {},
+    "· −%@": {},
+    "••••••": {}
   },
   "version": "1.0"
 }

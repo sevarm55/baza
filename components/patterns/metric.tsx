@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -23,6 +25,17 @@ const VALUE_TONE: Record<Tone, string> = {
  * страницы, `md` для полосы KPI, `sm` для показаний внутри панелей.
  * Цвет числа по умолчанию чёрный; тон ставится только там, где знак
  * несёт смысл (убыток, долг, срок).
+ *
+ * С `href` показание становится ссылкой туда, где видно, из чего оно
+ * сложилось: зарплата ведёт к начислениям, расходы к списку трат.
+ * Число, на которое нельзя нажать, обрывает разговор на «сколько» и не
+ * даёт спросить «из чего» — а спрашивают об этом каждый раз.
+ *
+ * Поле показания сюда не заводится: отступы ставит полоса
+ * (`MetricStrip`), и подсветка обязана заливать всю ячейку, а не
+ * прямоугольник вокруг текста. Стрелка у подписи видна всегда,
+ * приглушённой: появляющаяся только под курсором никого не научит, что
+ * сюда можно нажать, а на телефоне курсора нет вовсе.
  */
 export function Metric({
   label,
@@ -33,6 +46,7 @@ export function Metric({
   size = 'md',
   className,
   selected = false,
+  href,
 }: {
   label: ReactNode;
   value: ReactNode;
@@ -45,22 +59,22 @@ export function Metric({
   className?: string;
   /** выбранный показатель: лаймовая метка слева */
   selected?: boolean;
+  /** куда ведёт число: разбор, из чего оно сложилось */
+  href?: string;
 }) {
-  return (
-    <div
-      data-slot="metric"
-      data-selected={selected || undefined}
-      className={cn(
-        'flex min-w-0 flex-col gap-1',
-        selected && 'border-l-2 border-lime pl-3 max-md:rounded-m-tile! max-md:border-0 max-md:bg-m-lime! max-md:pl-4',
-        className,
-      )}
-    >
+  const body = (
+    <>
       {/* На телефоне подпись набрана обычным регистром: капсом с
           разрядкой набирают ярлыки таблиц, а здесь это подпись
           показания — та же, что в приложении. */}
-      <div className="truncate text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:text-[length:var(--m-t-note)] max-md:font-medium max-md:tracking-normal max-md:text-m-muted max-md:normal-case">
-        {label}
+      <div className="flex min-w-0 items-center gap-1 text-2xs font-medium tracking-wider text-muted-foreground uppercase max-md:text-[length:var(--m-t-note)] max-md:font-medium max-md:tracking-normal max-md:text-m-muted max-md:normal-case">
+        <span className="truncate">{label}</span>
+        {href && (
+          <ArrowUpRight
+            aria-hidden
+            className="size-3 shrink-0 opacity-45 transition-opacity group-hover/metric:opacity-100 group-focus-visible/metric:opacity-100"
+          />
+        )}
       </div>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <div
@@ -85,12 +99,45 @@ export function Metric({
           {hint}
         </div>
       )}
-    </div>
+    </>
+  );
+
+  const shape = cn(
+    'flex min-w-0 flex-col gap-1',
+    selected && 'border-l-2 border-lime pl-3 max-md:rounded-m-tile! max-md:border-0 max-md:bg-m-lime! max-md:pl-4',
+    className,
+  );
+
+  if (!href) {
+    return (
+      <div data-slot="metric" data-selected={selected || undefined} className={shape}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      data-slot="metric"
+      data-selected={selected || undefined}
+      className={cn(
+        shape,
+        'group/metric outline-none transition-colors',
+        /* Подсветка только на широком экране: на телефоне полоса
+           рассыпается в плитки со своей заливкой, и серый десктопный
+           наведённый фон гасил бы их под пальцем. */
+        'md:hover:bg-muted/60 md:focus-visible:bg-muted/60',
+        'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+      )}
+    >
+      {body}
+    </Link>
   );
 }
 
 /** Показание на своей панели. */
-export function MetricCard(props: Parameters<typeof Metric>[0] & { href?: string }) {
+export function MetricCard(props: Parameters<typeof Metric>[0]) {
   const { className, ...rest } = props;
   return (
     <div className={cn('rounded-lg border border-border bg-card px-4 py-3.5', className)}>
@@ -153,33 +200,30 @@ export function MetricStrip({
  * Сравнение с прошлым отрезком: «+12 400 ֏» или «+12,4 %».
  *
  * Знак считается здесь, цвет тоже. `good` говорит, в какую сторону
- * рост хорош: у выручки вверх, у расходов вниз. Без базы сравнения
- * выводится тихая подпись вместо числа.
+ * рост хорош: у выручки вверх, у расходов вниз.
+ *
+ * Без базы не выводится ничего. Здесь была подпись «сравнивать не с
+ * чем»: она занимала место значения, из-за чего одно показание полосы
+ * оказывалось устроено не так, как соседние, и полоса переставала
+ * читаться полосой. Отсутствие сравнения и так видно.
  */
 export function Delta({
   value,
   formatted,
   good = 'up',
-  noBase,
   suffix,
   className,
 }: {
-  /** разница; по её знаку выбирается цвет */
+  /** разница; по её знаку выбирается цвет; `null` — сравнивать не с чем */
   value: number | null;
   /** уже отформатированный модуль: «12 400 ֏» или «12,4 %» */
   formatted?: string;
   good?: 'up' | 'down';
-  /** подпись, когда базы нет: «нет данных для сравнения» */
-  noBase?: string;
   /** «к прошлой неделе» */
   suffix?: string;
   className?: string;
 }) {
-  if (value === null) {
-    return noBase ? (
-      <span className={cn('text-xs text-muted-foreground', className)}>{noBase}</span>
-    ) : null;
-  }
+  if (value === null) return null;
   const positive = value > 0;
   const zero = value === 0;
   const isGood = zero ? null : good === 'up' ? positive : !positive;

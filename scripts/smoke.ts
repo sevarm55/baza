@@ -49,7 +49,7 @@ async function main() {
     businessName: 'Ավտոլվացում Կոմիտասի վրա',
     ownerName: 'Արամ',
     phone: '077 111 222',
-    pin: '511234',
+    password: 'Tetrin-511234',
   });
 
   console.log('бизнес:', tenant.name);
@@ -150,7 +150,7 @@ async function main() {
     businessName: 'Ատամնաբուժարան',
     ownerName: 'Անի',
     phone: '077 999 888',
-    pin: '604321',
+    password: 'Tetrin-604321',
   });
   const otherStats = await q.getPeriodStats(second.tenant.id, today);
   check('второй бизнес не видит чужих денег', otherStats.revenue === 0, otherStats.revenue);
@@ -177,7 +177,7 @@ async function main() {
   try {
     await createBusiness({
       niche: 'barber', businessName: 'X', ownerName: 'Y',
-      phone: '+374 77 111 222', pin: '130000',
+      phone: '+374 77 111 222', password: 'Tetrin-130000',
     });
   } catch {
     phoneBlocked = true;
@@ -638,7 +638,7 @@ async function main() {
 
   // а вот занятый чужим человеком номер усыновлять нельзя
   const strayPhone = '+37477000777';
-  const stray = await claimAccount({ phone: strayPhone, pinHash: await hp('298888') });
+  const stray = await claimAccount({ phone: strayPhone, passwordHash: await hp('298888') });
   const [orphaned] = await db
     .insert(users)
     .values({
@@ -667,7 +667,7 @@ async function main() {
      между чтением и вставкой помещается вторая такая же регистрация, и
      первая версия кода в этом окне переписывала чужой код своим. */
   let raced = false;
-  await claimAccount({ phone: ownerRow.phone, pinHash: await hp('130000') }).catch(() => {
+  await claimAccount({ phone: ownerRow.phone, passwordHash: await hp('130000') }).catch(() => {
     raced = true;
   });
   check('занятый номер человеком не перехватывается', raced);
@@ -808,12 +808,12 @@ async function main() {
     });
 
   // владелец бизнеса №1 заводился с PIN 1234
-  const bad = await login(post('/login', { phone: '077 111 222', pin: '069999' }));
+  const bad = await login(post('/login', { phone: '077 111 222', password: 'Tetrin-069999' }));
   check('неверный PIN — 401', bad.status === 401, bad.status);
   check('и код, а не текст', (await bad.json()).error === 'WRONG_CREDENTIALS');
 
   const good = await login(
-    post('/login', { phone: '077 111 222', pin: '511234', device: 'iPhone 13' }),
+    post('/login', { phone: '077 111 222', password: 'Tetrin-511234', device: 'iPhone 13' }),
   );
   check('верный PIN — 200', good.status === 200, good.status);
   const tokens = await good.json();
@@ -897,7 +897,7 @@ async function main() {
   check('и сессия умирает', afterBye.status === 401, afterBye.status);
 
   // входим заново: дальше по файлу нужна живая пара
-  const backIn = await login(post('/login', { phone: '077 111 222', pin: '511234' }));
+  const backIn = await login(post('/login', { phone: '077 111 222', password: 'Tetrin-511234' }));
   check('после выхода можно войти снова', backIn.status === 200, backIn.status);
   rotated = await backIn.json();
 
@@ -977,7 +977,7 @@ async function main() {
   check('будущее не рисуется', hours[hours.length - 1] === '20', hours[hours.length - 1]);
 
   // уволенного не пускают: выше по скрипту мойщику сняли active
-  const fired = await login(post('/login', { phone: '077 333 444', pin: '595678' }));
+  const fired = await login(post('/login', { phone: '077 333 444', password: 'Tetrin-595678' }));
   check('уволенный сотрудник не входит', fired.status === 401, fired.status);
 
   // сотрудник в кабинет владельца не ходит
@@ -990,7 +990,7 @@ async function main() {
     percent: 35,
   });
 
-  const staffLogin = await login(post('/login', { phone: '077 555 666', pin: '892468' }));
+  const staffLogin = await login(post('/login', { phone: '077 555 666', password: 'Tetrin-892468' }));
   check('действующий сотрудник входит', staffLogin.status === 200, staffLogin.status);
   const staffTokens = await staffLogin.json();
 
@@ -1068,7 +1068,7 @@ async function main() {
       businessName: 'Նոր բիզնես',
       ownerName: 'Կարեն',
       phone: '077 654 321',
-      pin: '459876',
+      password: 'Tetrin-459876',
       device: 'iPhone',
   });
   check('бизнес регистрируется из приложения', born.status === 201, born.status);
@@ -1088,7 +1088,7 @@ async function main() {
       businessName: 'Другой',
       ownerName: 'Другой',
       phone: '077 654 321',
-      pin: '901111',
+      password: 'Tetrin-901111',
     }),
   );
   check('тот же телефон второй раз — отказ', sameAgain.status === 409, sameAgain.status);
@@ -1099,7 +1099,7 @@ async function main() {
       businessName: 'Кто-то',
       ownerName: 'Кто-то',
       phone: '077 654 999',
-      pin: '672222',
+      password: 'Tetrin-672222',
     }),
   );
   // ниша выключена флагом; эндпоинт открыт наружу, и прямым запросом
@@ -1132,13 +1132,13 @@ async function main() {
   check('сотруднику прайс править нельзя', byStaff.status === 403, byStaff.status);
 
   const hired = await staffRoute.POST(
-    post('/staff', { name: 'Վարդան', phone: '077 777 000', pin: '121357', percent: 45 }, rotated.access),
+    post('/staff', { name: 'Վարդան', phone: '077 777 000', password: 'Tetrin-121357', percent: 45 }, rotated.access),
   );
   check('сотрудник заводится', hired.status === 201, hired.status);
   const hiredId = (await hired.json()).staff.id;
 
   const dup = await staffRoute.POST(
-    post('/staff', { name: 'Другой', phone: '077 777 000', pin: '892468', percent: 10 }, rotated.access),
+    post('/staff', { name: 'Другой', phone: '077 777 000', password: 'Tetrin-892468', percent: 10 }, rotated.access),
   );
   check('тот же телефон второй раз — отказ', dup.status === 409, dup.status);
 
@@ -1191,7 +1191,7 @@ async function main() {
 
   /* Уволенный теряет доступ СРАЗУ, а не через месяц. Раньше у него
      оставался живой токен на весь его срок — это и проверяем. */
-  const hiredLogin = await login(post('/login', { phone: '077 777 000', pin: '121357' }));
+  const hiredLogin = await login(post('/login', { phone: '077 777 000', password: 'Tetrin-121357' }));
   const hiredTokens = await hiredLogin.json();
   check('новый сотрудник входит', hiredLogin.status === 200, hiredLogin.status);
 
@@ -1310,10 +1310,10 @@ async function main() {
     tenantId: tenant.id,
     name: 'Նորեկ',
     phone: '+37455000192',
-    pin: '983355',
+    password: 'Tetrin-983355',
     percent: 30,
   });
-  const rookieLogin = await login(post('/login', { phone: '+37455000192', pin: '983355' }));
+  const rookieLogin = await login(post('/login', { phone: '+37455000192', password: 'Tetrin-983355' }));
   const rookieTokens = await rookieLogin.json();
 
   const offShift = await ordersRoute.POST(
@@ -1742,9 +1742,9 @@ async function main() {
   const newToken = await bootstrap(get('/bootstrap', fresh.access));
   check('а новый работает', newToken.status === 200, newToken.status);
 
-  const oldPinLogin = await login(post('/login', { phone: '077 111 222', pin: '511234' }));
+  const oldPinLogin = await login(post('/login', { phone: '077 111 222', password: 'Tetrin-511234' }));
   check('по старому PIN больше не войти', oldPinLogin.status === 401, oldPinLogin.status);
-  const newPinLogin = await login(post('/login', { phone: '077 111 222', pin: '985555' }));
+  const newPinLogin = await login(post('/login', { phone: '077 111 222', password: 'Tetrin-985555' }));
   check('по новому — входит', newPinLogin.status === 200, newPinLogin.status);
 
   // дальше по файлу владелец ходит этим токеном
@@ -2109,18 +2109,18 @@ async function main() {
   await staffRoute.POST(
     post(
       '/staff',
-      { name: 'Հասմիկ', phone: '077 654 322', pin: '604321', percent: 30 },
+      { name: 'Հասմիկ', phone: '077 654 322', password: 'Tetrin-604321', percent: 30 },
       bornBody.access,
     ),
   );
-  const helperRes = await login(post('/login', { phone: '077 654 322', pin: '604321' }));
+  const helperRes = await login(post('/login', { phone: '077 654 322', password: 'Tetrin-604321' }));
   const helper = await helperRes.json();
   check('сотрудник удаляемого бизнеса входит', helperRes.status === 200, helperRes.status);
 
-  const wipeByStaff = await accountRoute(del('/account', { pin: '604321' }, helper.access));
+  const wipeByStaff = await accountRoute(del('/account', { password: 'Tetrin-604321' }, helper.access));
   check('сотрудник удалить бизнес не может', wipeByStaff.status === 403, wipeByStaff.status);
 
-  const wrongPin = await accountRoute(del('/account', { pin: '130000' }, bornBody.access));
+  const wrongPin = await accountRoute(del('/account', { password: 'Tetrin-130000' }, bornBody.access));
   check('с неверным PIN — отказ', wrongPin.status === 401, wrongPin.status);
   check('и это WRONG_CREDENTIALS', (await wrongPin.json()).error === 'WRONG_CREDENTIALS');
   const survived = await bootstrap(get('/bootstrap', bornBody.access));
@@ -2128,7 +2128,7 @@ async function main() {
 
   const neighbourBefore = await db.select().from(orders).where(eq(orders.tenantId, tenant.id));
 
-  const wiped = await accountRoute(del('/account', { pin: '459876' }, bornBody.access));
+  const wiped = await accountRoute(del('/account', { password: 'Tetrin-459876' }, bornBody.access));
   check('владелец удаляет бизнес', wiped.status === 204, wiped.status);
   check('204 приходит без тела', (await wiped.text()) === '');
 
@@ -2167,7 +2167,7 @@ async function main() {
       businessName: 'Կրկին',
       ownerName: 'Կարեն',
       phone: '077 654 321',
-      pin: '985555',
+      password: 'Tetrin-985555',
       device: 'iPhone',
   });
   check('номер освободился — можно завестись заново', reborn.status === 201, reborn.status);
@@ -2183,11 +2183,11 @@ async function main() {
   await staffRoute.POST(
     post(
       '/staff',
-      { name: 'Սամվել', phone: '077 654 323', pin: '144343', percent: 35 },
+      { name: 'Սամվել', phone: '077 654 323', password: 'Tetrin-144343', percent: 35 },
       rebornBody.access,
     ),
   );
-  const workerRes = await login(post('/login', { phone: '077 654 323', pin: '144343' }));
+  const workerRes = await login(post('/login', { phone: '077 654 323', password: 'Tetrin-144343' }));
   const worker = await workerRes.json();
   check('мойщик входит, пока счёт открыт', workerRes.status === 200, workerRes.status);
 
@@ -2230,7 +2230,7 @@ async function main() {
   /* Вход остаётся открытым намеренно — иначе мойщик упёрся бы в «неверный
      номер или код» и решил, что его уволили. Пускаем внутрь и там
      объясняем; работать всё равно нечем. */
-  const workerLogin = await login(post('/login', { phone: '077 654 323', pin: '144343' }));
+  const workerLogin = await login(post('/login', { phone: '077 654 323', password: 'Tetrin-144343' }));
   check('войти заново он может', workerLogin.status === 200, workerLogin.status);
   const freshShift = await shiftApi.GET(get('/shift', (await workerLogin.json()).access));
   check('но свежий токен так же пуст', freshShift.status === 403, freshShift.status);
@@ -2239,12 +2239,12 @@ async function main() {
      удаление открыты владельцу, а не всякому, кто остался в бизнесе. */
   const workerExport = await exportRoute.GET(get('/export?days=all', worker.access));
   check('выгрузка мойщику закрыта', workerExport.status === 403, workerExport.status);
-  const workerWipe = await accountRoute(del('/account', { pin: '144343' }, worker.access));
+  const workerWipe = await accountRoute(del('/account', { password: 'Tetrin-144343' }, worker.access));
   check('и удалить бизнес он не может', workerWipe.status === 403, workerWipe.status);
 
   const blockedExport = await exportRoute.GET(get('/export?days=all', rebornBody.access));
   check('но выгрузку он получает', blockedExport.status === 200, blockedExport.status);
-  const blockedWipe = await accountRoute(del('/account', { pin: '985555' }, rebornBody.access));
+  const blockedWipe = await accountRoute(del('/account', { password: 'Tetrin-985555' }, rebornBody.access));
   check('и удалить себя может', blockedWipe.status === 204, blockedWipe.status);
 
   /* ---------- наши деньги ----------
@@ -2311,7 +2311,7 @@ async function main() {
       businessName: 'Վարձի ստուգում',
       ownerName: 'Տ',
       phone: '077 555 111',
-      pin: '511234',
+      password: 'Tetrin-511234',
     })
   ).tenant;
 
@@ -2374,7 +2374,7 @@ async function main() {
     businessName: 'Դասերով լվացում',
     ownerName: 'Տիգրան',
     phone: '077 515 141',
-    pin: '671122',
+    password: 'Tetrin-671122',
   });
 
   const [tierWasher] = await db
@@ -2501,7 +2501,7 @@ async function main() {
     businessName: 'Ցանց 1',
     ownerName: 'Սուրեն',
     phone: '077 313 001',
-    pin: '907711',
+    password: 'Tetrin-907711',
   });
   check('первая точка получает пробный срок', net1.trialGranted);
   check('и она открыта', currentAccess(net1.tenant).canRead, currentAccess(net1.tenant).state);
@@ -2535,7 +2535,7 @@ async function main() {
      физический порядок в куче, а его двигает любая правка. Владелец с
      неоплаченной второй точкой попадал бы на стену при работающей
      первой, и в приложении, где переключателя нет, застревал бы там. */
-  const netLogin = await login(post('/login', { phone: '077 313 001', pin: '907711' }));
+  const netLogin = await login(post('/login', { phone: '077 313 001', password: 'Tetrin-907711' }));
   check('вход по номеру с двумя точками проходит', netLogin.status === 200, netLogin.status);
   const netBody = await netLogin.json();
   const [landed] = await db.select().from(users).where(eq(users.id, netBody.user.id));
@@ -2559,7 +2559,7 @@ async function main() {
     .from(users)
     .where(and(eq(users.tenantId, net2.tenant.id), eq(users.accountId, human!.id)));
   await markUsed(onSecond.id);
-  const backAgain = await login(post('/login', { phone: '077 313 001', pin: '907711' }));
+  const backAgain = await login(post('/login', { phone: '077 313 001', password: 'Tetrin-907711' }));
   const backBody = await backAgain.json();
   const [landedAgain] = await db.select().from(users).where(eq(users.id, backBody.user.id));
   check(
@@ -2576,7 +2576,7 @@ async function main() {
     tenantId: net2.tenant.id,
     name: 'Կարեն',
     phone: '077 313 002',
-    pin: '132200',
+    password: 'Tetrin-132200',
     percent: 30,
   });
   check('новый человек нанимается', hired2.percent === 30);
@@ -2588,7 +2588,7 @@ async function main() {
       tenantId: net1.tenant.id,
       name: 'Կարեն',
       phone: '077 313 002',
-      pin: '069999',
+      password: 'Tetrin-069999',
       percent: 40,
     })
     .catch((e) => {
@@ -2600,7 +2600,7 @@ async function main() {
 
   /* Переход на другую точку из приложения. */
   const switchRoute = (await import('../app/api/v1/auth/switch/route')).POST;
-  const netTokens = await (await login(post('/login', { phone: '077 313 001', pin: '907711' }))).json();
+  const netTokens = await (await login(post('/login', { phone: '077 313 001', password: 'Tetrin-907711' }))).json();
   check('вход отдаёт список точек', netTokens.points.length === 2, netTokens.points?.length);
   check('и говорит, куда попал', netTokens.tenantId === net2.tenant.id, netTokens.tenantId);
 
@@ -2791,7 +2791,7 @@ async function main() {
     businessName: 'Триллион',
     ownerName: 'Богач',
     phone: '077 808 080',
-    pin: '441133',
+    password: 'Tetrin-441133',
   });
 
   const { addExpense: tryExpense, BadExpenseError } = await import('../lib/expenses');
@@ -2851,7 +2851,7 @@ async function main() {
     businessName: 'Кириллица',
     ownerName: 'Хозяин',
     phone: '077 707 070',
-    pin: '211144',
+    password: 'Tetrin-211144',
   });
   const cyrService = (await q.listServices(cyrBiz.tenant.id))[0];
 
@@ -2888,7 +2888,7 @@ async function main() {
     businessName: 'Округление',
     ownerName: 'Проверяющий',
     phone: '077 909 090',
-    pin: '671122',
+    password: 'Tetrin-671122',
   });
 
   const [oddWasher] = await db

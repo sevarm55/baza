@@ -4,9 +4,9 @@ import { accounts, tenants, users, services, type Account } from './db/schema';
 import { FIRST_RUN_START } from './first-run-stage';
 import { isCurrency } from './money';
 import { getNiche, type NicheKey } from './niches';
-import { hashPin } from './pin';
 import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
+import { hashPassword } from './password';
 import { claimAccount } from './accounts';
 
 import { TRIAL_DAYS } from './plan';
@@ -28,18 +28,27 @@ export type CreateBusinessInput = {
    * где спрашивать код второй раз незачем.
    */
   phone?: string;
-  pin?: string;
+  /** почта владельца: его логин */
+  email?: string;
   /**
-   * Уже посчитанный хеш кода.
+   * Пароль открытым текстом.
    *
-   * Так приходит регистрация с подтверждением номера: PIN хешируется на
-   * первом шаге, до отправки SMS, и в заявке между шагами лежит только
-   * хеш. Открытому PIN незачем ждать в базе десять минут, пока человек
-   * ищет телефон.
+   * Только для сидинга и проверок: настоящая регистрация приносит уже
+   * посчитанный хеш, потому что открытому паролю незачем ждать в базе
+   * час, пока человек дойдёт до почты.
    */
-  pinHash?: string;
-  /** Номер доказан кодом из SMS — тогда и только тогда. */
-  phoneVerified?: boolean;
+  password?: string;
+  /**
+   * Уже посчитанный хеш пароля.
+   *
+   * Так приходит регистрация с подтверждением почты: пароль хешируется
+   * на первом шаге, до отправки письма, и в заявке между шагами лежит
+   * только хеш. Открытому паролю незачем ждать в базе час, пока человек
+   * дойдёт до почты.
+   */
+  passwordHash?: string;
+  /** Адрес доказан переходом по ссылке из письма — тогда и только тогда. */
+  emailVerified?: boolean;
   accountId?: string;
 };
 
@@ -66,8 +75,10 @@ export async function createBusiness(input: CreateBusinessInput) {
     ? await byId(input.accountId)
     : await claimAccount({
         phone: normalizePhone(input.phone ?? ''),
-        pinHash: input.pinHash ?? (await hashPin(input.pin ?? '')),
-        phoneVerified: input.phoneVerified,
+        email: input.email ?? null,
+        passwordHash:
+          input.passwordHash ?? (input.password ? await hashPassword(input.password) : null),
+        emailVerified: input.emailVerified,
       });
 
   /* Пробный срок даётся ЧЕЛОВЕКУ один раз, а не каждой его мойке. Иначе
@@ -111,7 +122,6 @@ export async function createBusiness(input: CreateBusinessInput) {
         tenantId: tenant.id,
         accountId: account.id,
         phone: account.phone,
-        pinHash: account.pinHash,
         name: input.ownerName.trim(),
         role: 'owner',
         percent: 0,

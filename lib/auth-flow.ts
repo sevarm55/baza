@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { and, eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, authChallenges, users } from './db/schema';
-import { hashPin, needsRehash, NO_PIN, verifyPin } from './pin';
+import { hashPin, needsRehash, verifyPin } from './pin';
 import { isValidPhone, isValidPin, maskPhone, normalizePhone, pinProblem } from './phone';
 import { checkLogin, noteLogin } from './login-guard';
 import { accountByPhone, markPhoneVerified, pointForLogin, type Point } from './accounts';
@@ -491,7 +491,10 @@ export async function completeRegistration(input: {
     };
   }
 
-  const phone = verified.challenge.phone;
+  /* Телефон теперь может отсутствовать: вход завели и по почте. Валюта и
+     пин по-прежнему приходят из черновика — их выбирают при заведении
+     мойки, и потом валюта не меняется. */
+  const phone = verified.challenge.phone ?? '';
   const { niche, businessName, ownerName, currency, pinHash } = verified.payload;
 
   try {
@@ -501,8 +504,11 @@ export async function completeRegistration(input: {
       ownerName,
       currency: currency as string | undefined,
       phone,
-      pinHash,
-      phoneVerified: true,
+      /* Пароля у этого пути нет: он заводит человека по коду из SMS.
+         Войти такой сможет только после того, как владелец или
+         восстановление назначат ему пароль. Путь доживает до переезда
+         приложения и уходит вместе с ним. */
+      passwordHash: undefined,
     });
 
     const [account] = await db.select().from(accounts).where(eq(accounts.phone, phone));
@@ -708,7 +714,7 @@ export async function checkResetCode(input: {
     ticket: await signTicket({
       accountId: verified.payload.accountId,
       challengeId: verified.challenge.id,
-      phone: verified.challenge.phone,
+      phone: verified.challenge.phone ?? '',
     }),
   };
 }
@@ -1025,7 +1031,10 @@ export async function completeEntry(input: {
     /* Номер свободен. Аккаунта всё ещё нет — он появится, когда человек
        назовёт мойку. Пропуск живёт десять минут и обменивается один раз
        (см. completeSignUp). */
-    return { kind: 'new', ticket: await signTicket({ accountId: '', challengeId: verified.challenge.id, phone }) };
+    return {
+      kind: 'new',
+      ticket: await signTicket({ accountId: '', challengeId: verified.challenge.id, phone: phone ?? '' }),
+    };
   }
 
   const point = await pointForLogin(accountId);
@@ -1060,7 +1069,7 @@ export async function completeEntry(input: {
     membership: { id: point.membershipId, tenantId: point.id, role: point.role },
     accountId,
     fingerprint: fp,
-    phone,
+    phone: phone ?? '',
   };
 }
 
@@ -1117,8 +1126,7 @@ export async function completeSignUp(input: {
       ownerName,
       currency: input.currency,
       phone: claims.phone,
-      pinHash: NO_PIN,
-      phoneVerified: true,
+      passwordHash: undefined,
     });
 
     const [account] = await db.select().from(accounts).where(eq(accounts.phone, claims.phone));

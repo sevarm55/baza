@@ -1,8 +1,9 @@
-import { and, desc, eq, gt, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { alertSnoozes, clients, payouts } from '@/lib/db/schema';
+import { alertSnoozes, clients } from '@/lib/db/schema';
 import { getPayrollBoard } from '@/lib/payroll-board';
 import { DEFAULT_LOCALE, dict } from '@/lib/i18n';
+import { daysSince, noonOf } from '@/lib/time';
 
 /** Через сколько дней молчания клиент считается потерянным. */
 export const LOST_AFTER_DAYS = 21;
@@ -16,6 +17,37 @@ export const LOST_AFTER_DAYS = 21;
  * есть, на странице тихо.
  */
 export const PAYROLL_AFTER_DAYS = 7;
+
+/**
+ * Сколько дней деньги за работу висят неотданными.
+ *
+ * Считается от САМОГО СТАРОГО неоплаченного дня, а не от последней
+ * выплаты. Причины две, и обе — про враньё.
+ *
+ * Первая, ради которой правка. Раньше при отсутствии выплат
+ * подставлялся сам порог (`since ? … : PAYROLL_AFTER_DAYS`), и сравнение
+ * «семь ≥ семи» проходило всегда: мойка, заведённая минуту назад, первым
+ * же экраном получала «пора выплатить зарплату, прошло 7 дней». Никаких
+ * семи дней у неё, разумеется, не было.
+ *
+ * Вторая: от последней выплаты срок врал и живым мойкам. Хозяин
+ * рассчитался в понедельник, во вторник записали машину — повод молчал
+ * бы неделю, хотя долгу день. И наоборот: выплата месячной давности при
+ * пустом с тех пор долге поднимала повод на ровном месте.
+ *
+ * Живёт рядом с порогом и используется обоими экранами: колокольчиком и
+ * страницей зарплат. Два разных правила на одно состояние означали бы,
+ * что продукт спорит сам с собой, — а он уже спорил: страница при
+ * отсутствии выплат молчала, колокольчик кричал.
+ *
+ * Дни листа идут от свежего к старому, поэтому самый старый долг —
+ * последний подходящий. Полдень вместо полуночи: он переживает перевод
+ * часов, а граница суток — нет.
+ */
+export function daysOwed(days: { day: string; outstanding: number }[], timezone: string): number {
+  const oldest = [...days].reverse().find((d) => d.outstanding > 0);
+  return oldest ? daysSince(noonOf(timezone, oldest.day)) : 0;
+}
 
 /** На сколько прячется отложенный повод. */
 export const SNOOZE_DAYS = 7;
@@ -72,7 +104,7 @@ export async function getAlerts(
   const t = dict(locale);
   const now = new Date();
 
-  const [snoozed, lost, payroll, lastPayout] = await Promise.all([
+  const [snoozed, lost, payroll] = await Promise.all([
     db
       .select({ key: alertSnoozes.key })
       .from(alertSnoozes)
@@ -100,13 +132,6 @@ export async function getAlerts(
        которого никто не отдавал. Повод молчал бы ровно тогда, когда
        деньги не отданы. */
     getPayrollBoard(tenantId, timezone, locale),
-
-    db
-      .select({ paidAt: payouts.paidAt })
-      .from(payouts)
-      .where(eq(payouts.tenantId, tenantId))
-      .orderBy(desc(payouts.paidAt))
-      .limit(1),
   ]);
 
   const quiet = new Set(snoozed.map((s) => s.key));
@@ -128,16 +153,14 @@ export async function getAlerts(
      сорок тысяч за неделю — обычное дело, у другой это месяц работы.
      Срок одинаков для всех, сумма — нет. */
   const due = payroll.totals.outstanding;
-  const since = lastPayout[0]?.paidAt ?? null;
-  const daysSincePayout = since
-    ? Math.floor((now.getTime() - since.getTime()) / 86_400_000)
-    : PAYROLL_AFTER_DAYS;
 
-  if (due > 0 && daysSincePayout >= PAYROLL_AFTER_DAYS && !quiet.has('payroll-due')) {
+  const owed = daysOwed(payroll.days, timezone);
+
+  if (due > 0 && owed >= PAYROLL_AFTER_DAYS && !quiet.has('payroll-due')) {
     out.push({
       key: 'payroll-due',
       title: t.alerts.payrollTitle,
-      note: t.alerts.payrollNote(daysSincePayout),
+      note: t.alerts.payrollNote(owed),
       href: '/owner/payroll',
       action: t.alerts.payrollAction,
       tone: 'plain',

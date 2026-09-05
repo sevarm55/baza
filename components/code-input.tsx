@@ -46,6 +46,8 @@ export function CodeInput({
   revealLabel,
   hideLabel,
   enteredLabel,
+  tone = 'product',
+  look = 'cells',
 }: {
   name: string;
   length?: number;
@@ -56,7 +58,36 @@ export function CodeInput({
    * сервер.
    */
   minLength?: number;
-  /** подпись для читалки экрана: «Код доступа, 6 цифр» */
+  /**
+   * Где стоит поле.
+   *
+   * `product` — кабинет: плотные клетки в рамках на карточке.
+   * `landing` — дверь витрины (`components/auth-dialog.tsx`): клетки
+   * крупнее, без заливки, прямо на листе страницы, и фокус тёплый, а не
+   * грейповый. Разница не ради красоты: в кабинете вокруг поля стоят
+   * другие органы того же веса, а в двери оно одно на весь экран.
+   *
+   * Поведение у обоих одно и то же, меняются только классы клеток.
+   */
+  tone?: 'product' | 'landing';
+  /**
+   * Как выглядит ряд.
+   *
+   * `cells` — шесть клеток. Так показывается КОД ИЗ SMS: его
+   * переписывают глазами с другого экрана, и клетка нужна, чтобы не
+   * потерять место в чужой строке цифр.
+   *
+   * `dots` — точки на одной линии, без коробок. Так показывается ПИН:
+   * его набирают на память и никогда не читают, коробки ему не нужны, а
+   * шесть отдельных мишеней под палец — лишняя работа.
+   *
+   * Разные они не для красоты. Пока оба ряда выглядели одинаково,
+   * человек, увидев шесть клеток, не мог с ходу понять, что у него
+   * спрашивают — то, что пришло в сообщении, или то, что он помнит.
+   * Одно имя — одна вещь, и один вид — одна вещь.
+   */
+  look?: 'cells' | 'dots';
+  /** подпись для читалки экрана: «ПИН, 6 цифр» */
   label: string;
   /** видимая подпись над клетками; рядом с ней встаёт глазок */
   title?: string;
@@ -133,7 +164,15 @@ export function CodeInput({
     <div className="flex flex-col gap-2">
       {(title || revealable) && (
         <div className="flex min-h-7 items-center justify-between gap-3">
-          <span className="text-sm leading-none font-medium">{title}</span>
+            <span
+            className={
+              tone === 'landing'
+                ? 'text-[11px] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase'
+                : 'text-sm leading-none font-medium'
+            }
+          >
+            {title}
+          </span>
           {revealable && (
             <Button
               type="button"
@@ -156,11 +195,30 @@ export function CodeInput({
       )}
 
       <div
-        className="group/code relative w-fit max-w-full"
+        className={cn(
+          'group/code relative max-w-full',
+          look === 'dots' ? 'w-full border-b border-border pb-3' : 'w-fit',
+        )}
         data-focus={focused ? '' : undefined}
         data-invalid={invalid ? '' : undefined}
       >
-        <div className={cn('flex gap-2', invalid && s.shake)} aria-hidden>
+        {/* Тёплая линия поверх волосяной. Выезжает в фокусе, ширины ряда
+            не меняет — так же, как у остальных полей двери. */}
+        {look === 'dots' ? (
+          <span
+            aria-hidden
+            className={cn(
+              'absolute inset-x-0 bottom-0 h-[2px] origin-left scale-x-0 bg-[#c0390f] dark:bg-[#ff6a2a]',
+              'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+              'group-data-focus/code:scale-x-100',
+            )}
+          />
+        ) : null}
+
+        <div
+          className={cn('flex', look === 'dots' ? 'gap-1' : 'gap-2', invalid && s.shake)}
+          aria-hidden
+        >
           {cells.map((digit, i) => (
             <div
               key={i}
@@ -172,14 +230,36 @@ export function CodeInput({
                    рукой, и попадать надо не в клетку, а в поле целиком —
                    но видеть, куда встанет следующая цифра, всё равно
                    нужно. */
-                'num relative flex h-11 w-10 items-center justify-center rounded-md border border-input bg-card text-lg font-semibold text-foreground transition-colors',
-                'max-md:h-[60px] max-md:w-[48px] max-md:rounded-m-row max-md:border-m-hair max-md:bg-m-bg max-md:text-[24px] max-md:font-bold',
+                'num relative flex items-center justify-center font-semibold text-foreground transition-colors',
                 'data-gap:ml-2',
-                'data-filled:border-foreground/30 max-md:data-filled:border-m-grape/45',
-                /* Кольцо на одной клетке, куда попадёт следующая цифра. */
-                'group-data-focus/code:data-active:border-ring group-data-focus/code:data-active:ring-3 group-data-focus/code:data-active:ring-ring/50',
-                /* Ошибка сильнее фокуса: ряд остаётся красным, пока не исправлен. */
-                'group-data-invalid/code:border-destructive group-data-invalid/code:data-active:border-destructive group-data-invalid/code:data-active:ring-destructive/20',
+                look === 'dots'
+                  ? /* Точки: ни рамки, ни заливки — место ввода показывает
+                       общая линия под рядом и мигающая каретка. */
+                    'h-12 w-9 text-[22px]'
+                  : 'border',
+                look === 'dots'
+                  ? null
+                  : tone === 'landing'
+                  ? [
+                      /* Дверь витрины: клетка крупнее и без заливки, лист
+                         виден насквозь. Тёплый цвет вместо грейпа — на
+                         витрине сигнальный цвет один. */
+                      'h-[58px] w-[46px] rounded-xl border-border bg-transparent text-[22px] max-md:w-[44px]',
+                      'data-filled:border-foreground/35',
+                      'group-data-focus/code:data-active:border-[#c0390f] group-data-focus/code:data-active:ring-3 group-data-focus/code:data-active:ring-[#c0390f]/25',
+                      'dark:group-data-focus/code:data-active:border-[#ff6a2a] dark:group-data-focus/code:data-active:ring-[#ff6a2a]/25',
+                      'group-data-invalid/code:border-[#c0390f] dark:group-data-invalid/code:border-[#ff6a2a]',
+                    ]
+                  : [
+                      'h-11 w-10 rounded-md border-input bg-card text-lg',
+                      'max-md:h-[60px] max-md:w-[48px] max-md:rounded-m-row max-md:border-m-hair max-md:bg-m-bg max-md:text-[24px] max-md:font-bold',
+                      'data-filled:border-foreground/30 max-md:data-filled:border-m-grape/45',
+                      /* Кольцо на одной клетке, куда попадёт следующая цифра. */
+                      'group-data-focus/code:data-active:border-ring group-data-focus/code:data-active:ring-3 group-data-focus/code:data-active:ring-ring/50',
+                      /* Ошибка сильнее фокуса: ряд остаётся красным, пока не исправлен. */
+                      'group-data-invalid/code:border-destructive group-data-invalid/code:data-active:border-destructive group-data-invalid/code:data-active:ring-destructive/20',
+                    ],
+                look === 'dots' && invalid && 'text-[#c0390f] dark:text-[#ff6a2a]',
                 disabled && 'opacity-50',
               )}
             >
@@ -205,6 +285,15 @@ export function CodeInput({
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
+
+                {/* Незанятое место в точечном ряду отмечено тусклой точкой.
+                    Без неё поле выглядит пустой полосой: у клеток место
+                    показывает сама клетка, а тут показывать нечем, и
+                    человек видит подпись «6 цифр» над пустотой. Под
+                    кареткой точка гаснет — иначе они наложились бы. */}
+                {look === 'dots' && !digit && !(focused && i === active && !disabled) && (
+                  <span className="col-start-1 row-start-1 size-2 rounded-full bg-current opacity-[0.22]" />
+                )}
 
                 {/* Рисованная каретка: настоящая одна на весь ряд и стояла бы
                     не в той клетке. Видна только в фокусе и в пустой клетке. */}

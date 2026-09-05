@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+
 import { ensureDb } from '@/lib/db/ready';
 import { startSession } from '@/lib/auth';
 import { clientIp } from '@/lib/login-guard';
@@ -10,83 +11,53 @@ import { signalsFromHeaders } from '@/lib/risk';
 import { deviceLabel } from '@/lib/security-log';
 import {
   attemptLogin,
-  beginEntry,
-  beginPinReset,
-  completeEntry,
-  completeSignUp,
+  beginPasswordReset,
   beginRegistration,
-  checkResetCode,
-  completePinReset,
-  completeRegistration,
-  completeStepUp,
   noteLoginSucceeded,
-  otpState,
-  resend,
   type LoginOutcome,
-} from '@/lib/auth-flow';
+  type RegisterProblem,
+} from '@/lib/auth-password';
 import { dict, LOCALE_COOKIE, resolveLocale, type Dict, type Locale } from '@/lib/i18n';
 
 /**
- * Авторизация одним серверным действием.
+ * Дверь витрины одним серверным действием.
  *
- * Не восемь действий, а одно с полем `intent`, и причина не в
+ * Не четыре действия, а одно с полем `intent`, и причина не в
  * аккуратности. Каждая экспортированная функция в файле с `use server` —
  * это отдельный открытый POST-эндпоинт, который придётся защищать
  * отдельно и о котором легко забыть. Здесь дверь одна, и всё, что через
  * неё проходит, проверяется в одном месте.
  *
- * Вторая причина — состояние. Вход, подтверждение номера и
- * восстановление кода это не три формы, а один разговор с ветвлениями:
- * ввёл телефон и код → попросили код из SMS → ошибся → попросили ещё
- * раз. Один `useActionState` на весь разговор описывает его прямо;
- * восемь — описывают его склейкой.
+ * Разговор стал короче прежнего. Кода из SMS больше нет, а с ним ушли
+ * шаги «введите код», «повторить отправку», «придумайте ПИН»: их место
+ * заняла ссылка в письме, а ссылка — это не шаг разговора, а уход и
+ * возвращение. Осталось две формы и одно уведомление.
  *
- * Наружу не уходит ничего, чего человек не знал до запроса. «Такого
- * номера нет», «номер есть, но PIN другой», «этот аккаунт отключён» —
- * три подсказки тому, кто перебирает номера, и одно и то же сообщение
- * тому, кто ошибся.
+ * Наружу не уходит ничего, чего человек не знал до запроса. «Такой почты
+ * нет», «почта есть, но пароль другой», «этот аккаунт отключён» — три
+ * подсказки тому, кто перебирает адреса, и одно и то же сообщение тому,
+ * кто ошибся.
  */
 
 export type AuthState =
   | null
-  /** обычная форма, с ошибкой или без */
-  | { step: 'credentials'; error?: string }
-  /** ждём код из SMS */
-  | {
-      step: 'otp';
-      purpose: 'entry' | 'register' | 'step_up' | 'reset';
-      challengeId: string;
-      phoneMasked: string;
-      /** мс эпохи: Date через границу сервер-клиент проходит, но числом надёжнее */
-      resendAt: number;
-      expiresAt: number;
-      resendsLeft: number;
-      error?: string;
-    }
+  /** форма входа или регистрации, с ошибкой или без */
+  | { step: 'form'; error?: string }
   /**
-   * Код сошёлся, осталось придумать новый PIN.
+   * Письмо ушло, ждём перехода по ссылке.
    *
-   * Здесь подписанный пропуск, а не сам код: код уже сгорел, и возить
-   * действующий секрет между экранами незачем. Пропуск живёт десять
-   * минут и обменивается ровно один раз.
+   * Адрес показывается человеку обратно намеренно: опечатка в нём —
+   * самая частая причина, по которой письмо «не приходит», и увидеть её
+   * можно только так.
    */
-  | { step: 'new-pin'; ticket: string; error?: string }
-  /**
-   * Код сошёлся, номер свободен — осталось назвать мойку.
-   *
-   * PIN здесь не спрашивается: входить человек будет кодом. Пропуск
-   * подписан и обменивается один раз, иначе одна SMS заводила бы
-   * сколько угодно моек.
-   */
-  | { step: 'name'; ticket: string; error?: string }
-  | { step: 'done'; message: string };
+  | { step: 'sent'; email: string };
 
 type Ctx = {
   ip: string | null;
   agent: string | null;
   signals: ReturnType<typeof signalsFromHeaders>;
   t: Dict;
-  /** язык, выбранный в окне; на нём же придёт код из SMS */
+  /** язык, выбранный в окне; на нём же придёт письмо */
   locale: Locale;
 };
 
@@ -113,6 +84,12 @@ function field(data: FormData, key: string): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+/** Пароль не подрезаем: пробел по краям человек мог поставить осознанно. */
+function secret(data: FormData, key: string): string {
+  const v = data.get(key);
+  return typeof v === 'string' ? v : '';
+}
+
 /* ------------------------------ дверь ------------------------------ */
 
 export async function authAction(prev: AuthState, data: FormData): Promise<AuthState> {
@@ -120,184 +97,54 @@ export async function authAction(prev: AuthState, data: FormData): Promise<AuthS
   const ctx = await context();
 
   switch (field(data, 'intent')) {
-    case 'entry':
-      return entryBegin(data, ctx);
-    case 'entryVerify':
-      return entryVerify(data, ctx, prev);
-    case 'signUp':
-      return signUp(data, ctx);
     case 'signIn':
       return signIn(data, ctx);
-    case 'stepUp':
-      return stepUp(data, ctx, prev);
     case 'register':
-      return registerBegin(data, ctx);
-    case 'registerVerify':
-      return registerVerify(data, ctx, prev);
-    case 'resetBegin':
-      return resetBegin(data, ctx);
-    case 'resetCheck':
-      return resetCheck(data, ctx, prev);
-    case 'resetSave':
-      return resetSave(data, ctx);
-    case 'resend':
-      return resendCode(data, ctx, prev);
+      return register(data, ctx);
+    case 'reset':
+      return reset(data, ctx);
     default:
-      return { step: 'credentials', error: ctx.t.errors.generic };
+      return { step: 'form', error: ctx.t.errors.generic };
   }
 }
 
-/* ---------------------- вход по коду из SMS ---------------------- */
-
-async function entryBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
-  const started = await beginEntry({
-    phone: field(data, 'phone'),
-    countryCode: field(data, 'country') || undefined,
-    ip: ctx.ip,
-    agent: ctx.agent,
-    locale: ctx.locale,
-  });
-
-  if (!started.ok) {
-    return {
-      step: 'credentials',
-      error:
-        started.problem === 'THROTTLED'
-          ? ctx.t.auth.tooManyTries(Math.ceil((started.retryAfter ?? 3600) / 60))
-          : ctx.t.auth.smsFailed,
-    };
-  }
-
-  return {
-    step: 'otp',
-    purpose: 'entry',
-    challengeId: started.challengeId,
-    phoneMasked: started.phoneMasked,
-    resendAt: started.resendAt.getTime(),
-    expiresAt: started.expiresAt.getTime(),
-    resendsLeft: 3,
-  };
-}
-
-async function entryVerify(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
-  const done = await completeEntry({
-    challengeId: field(data, 'challengeId'),
-    code: field(data, 'code'),
-    ip: ctx.ip,
-    signals: ctx.signals,
-  });
-
-  if (done.kind === 'otp') return otpError(prev, done.reason, ctx.t);
-  if (done.kind === 'denied') return { step: 'credentials', error: ctx.t.auth.wrongCredentials };
-  if (done.kind === 'new') return { step: 'name', ticket: done.ticket };
-
-  await enter(
-    { kind: 'ok', membership: done.membership, accountId: done.accountId, fingerprint: '' },
-    ctx,
-    { phone: done.phone, alreadyLogged: true },
-  );
-  redirect(done.membership.role === 'owner' ? '/owner' : '/work');
-}
-
-async function signUp(data: FormData, ctx: Ctx): Promise<AuthState> {
-  const ticket = field(data, 'ticket');
-
-  const made = await completeSignUp({
-    ticket,
-    niche: field(data, 'niche'),
-    businessName: field(data, 'businessName'),
-    ownerName: field(data, 'ownerName'),
-    ip: ctx.ip,
-    signals: ctx.signals,
-  });
-
-  if (!made.ok) {
-    if (made.problem === 'NAME') return { step: 'name', ticket, error: ctx.t.errors.required };
-    if (made.problem === 'PHONE_TAKEN') {
-      return { step: 'credentials', error: ctx.t.auth.phoneTaken };
-    }
-    // пропуск просрочен или уже обменян — честного пути отсюда нет
-    return { step: 'credentials', error: ctx.t.auth.otpExpired };
-  }
-
-  await startSession(
-    { uid: made.ownerId, tid: made.tenantId, role: 'owner' },
-    { kind: 'web', device: deviceLabel(ctx.agent) },
-  );
-  await markPointUsed(made.ownerId);
-
-  /* Новый бизнес начинается со сценария первого запуска, а не с пустой
-     сводки. Обычные входы ведут в /owner как раньше: недошедших до
-     конца сценария вернёт туда раскладка кабинета. */
-  redirect('/onboarding');
-}
-
-/* ------------------------ вход по PIN ------------------------ */
+/* ------------------------------ вход ------------------------------ */
 
 async function signIn(data: FormData, ctx: Ctx): Promise<AuthState> {
-  const phone = field(data, 'phone');
-
+  const login = field(data, 'login');
   const outcome = await attemptLogin({
-    phone,
-    pin: field(data, 'pin'),
+    login,
+    password: secret(data, 'password'),
     ip: ctx.ip,
     signals: ctx.signals,
     countryCode: field(data, 'country') || undefined,
-    locale: ctx.locale,
   });
 
   if (outcome.kind === 'throttled') {
     return {
-      step: 'credentials',
+      step: 'form',
       error: ctx.t.auth.tooManyTries(Math.ceil(outcome.retryAfter / 60)),
     };
   }
+  if (outcome.kind === 'denied') return { step: 'form', error: ctx.t.auth.wrongLogin };
 
-  if (outcome.kind === 'denied') {
-    return { step: 'credentials', error: ctx.t.auth.wrongCredentials };
-  }
-
-  if (outcome.kind === 'step_up') {
-    return {
-      step: 'otp',
-      purpose: 'step_up',
-      challengeId: outcome.challengeId,
-      phoneMasked: outcome.phoneMasked,
-      resendAt: outcome.resendAt.getTime(),
-      expiresAt: outcome.expiresAt.getTime(),
-      resendsLeft: 3,
-    };
-  }
-
-  await enter(outcome, ctx, { phone });
+  await enter(outcome, ctx, login);
   redirect(outcome.membership.role === 'owner' ? '/owner' : '/work');
 }
 
-async function stepUp(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
-  const result = await completeStepUp({
-    challengeId: field(data, 'challengeId'),
-    code: field(data, 'code'),
-    ip: ctx.ip,
-    agent: ctx.agent,
-  });
+/* --------------------------- регистрация --------------------------- */
 
-  if (result.kind === 'otp') return otpError(prev, result.reason, ctx.t);
-  if (result.kind !== 'ok') return { step: 'credentials', error: ctx.t.auth.wrongCredentials };
+async function register(data: FormData, ctx: Ctx): Promise<AuthState> {
+  const email = field(data, 'email');
 
-  await enter(result, ctx, { phone: '', alreadyLogged: true });
-  redirect(result.membership.role === 'owner' ? '/owner' : '/work');
-}
-
-/* -------------------------- регистрация -------------------------- */
-
-async function registerBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
   const started = await beginRegistration(
     {
       niche: field(data, 'niche'),
       businessName: field(data, 'businessName'),
       ownerName: field(data, 'ownerName'),
+      email,
+      password: secret(data, 'password'),
       phone: field(data, 'phone'),
-      pin: field(data, 'pin'),
       countryCode: field(data, 'country') || undefined,
       locale: ctx.locale,
     },
@@ -305,61 +152,55 @@ async function registerBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
   );
 
   if (!started.ok) {
-    const say: Record<string, string> = {
-      NICHE: ctx.t.errors.generic,
-      NAME: ctx.t.errors.required,
-      PHONE: ctx.t.errors.badPhone,
-      PIN_LENGTH: ctx.t.errors.badPin,
-      PIN_TRIVIAL: ctx.t.auth.pinTrivial,
-      PHONE_TAKEN: ctx.t.auth.phoneTaken,
-      THROTTLED: ctx.t.auth.tooManyTries(Math.ceil((started.retryAfter ?? 3600) / 60)),
-      SMS_FAILED: ctx.t.auth.smsFailed,
+    return {
+      step: 'form',
+      error:
+        started.problem === 'THROTTLED'
+          ? ctx.t.auth.tooManyTries(Math.ceil((started.retryAfter ?? 3600) / 60))
+          : registerError(started.problem, ctx.t),
     };
-    return { step: 'credentials', error: say[started.problem] ?? ctx.t.errors.generic };
   }
 
-  return {
-    step: 'otp',
-    purpose: 'register',
-    challengeId: started.challengeId,
-    phoneMasked: started.phoneMasked,
-    resendAt: started.resendAt.getTime(),
-    expiresAt: started.expiresAt.getTime(),
-    resendsLeft: 3,
-  };
+  return { step: 'sent', email: started.email };
 }
 
-async function registerVerify(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
-  const done = await completeRegistration({
-    challengeId: field(data, 'challengeId'),
-    code: field(data, 'code'),
-    ip: ctx.ip,
-    signals: ctx.signals,
-  });
-
-  if (!done.ok) {
-    if (done.problem === 'PHONE_TAKEN') {
-      return { step: 'credentials', error: ctx.t.auth.phoneTaken };
-    }
-    return otpError(prev, done.problem, ctx.t);
+function registerError(problem: RegisterProblem, t: Dict): string {
+  switch (problem) {
+    case 'EMAIL':
+      return t.auth.emailInvalid;
+    case 'EMAIL_TAKEN':
+      return t.auth.emailTaken;
+    case 'PHONE':
+      return t.errors.badPhone;
+    case 'PHONE_TAKEN':
+      return t.auth.phoneTaken;
+    case 'PASSWORD_SHORT':
+      return t.auth.passwordShort;
+    case 'PASSWORD_COMMON':
+      return t.auth.passwordCommon;
+    case 'NAME':
+      return t.errors.required;
+    case 'MAIL_FAILED':
+      return t.auth.mailFailed;
+    default:
+      return t.errors.generic;
   }
-
-  await startSession(
-    { uid: done.ownerId, tid: done.tenantId, role: 'owner' },
-    { kind: 'web', device: deviceLabel(ctx.agent) },
-  );
-  await markPointUsed(done.ownerId);
-
-  // новый бизнес — в сценарий первого запуска, см. заметку в signUp
-  redirect('/onboarding');
 }
 
-/* ----------------------- восстановление PIN ----------------------- */
+/* ------------------------ восстановление ------------------------ */
 
-async function resetBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
-  const started = await beginPinReset({
-    phone: field(data, 'phone'),
-    countryCode: field(data, 'country') || undefined,
+/**
+ * Ответ здесь всегда один и тот же — «письмо ушло».
+ *
+ * Есть такой адрес или нет, подтверждён он или нет — экран не меняется.
+ * Иначе форма восстановления превращается в справочник
+ * зарегистрированных ящиков, а она открыта без всякого входа.
+ */
+async function reset(data: FormData, ctx: Ctx): Promise<AuthState> {
+  const email = field(data, 'email');
+
+  const started = await beginPasswordReset({
+    email,
     ip: ctx.ip,
     agent: ctx.agent,
     locale: ctx.locale,
@@ -367,94 +208,12 @@ async function resetBegin(data: FormData, ctx: Ctx): Promise<AuthState> {
 
   if (!started.ok) {
     return {
-      step: 'credentials',
-      error:
-        started.problem === 'THROTTLED'
-          ? ctx.t.auth.tooManyTries(Math.ceil((started.retryAfter ?? 3600) / 60))
-          : ctx.t.auth.smsFailed,
+      step: 'form',
+      error: ctx.t.auth.tooManyTries(Math.ceil(started.retryAfter / 60)),
     };
   }
 
-  return {
-    step: 'otp',
-    purpose: 'reset',
-    challengeId: started.challengeId,
-    phoneMasked: started.phoneMasked,
-    resendAt: started.resendAt.getTime(),
-    expiresAt: started.expiresAt.getTime(),
-    resendsLeft: 3,
-  };
-}
-
-async function resetCheck(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
-  const checked = await checkResetCode({
-    challengeId: field(data, 'challengeId'),
-    code: field(data, 'code'),
-    ip: ctx.ip,
-  });
-
-  if (!checked.ok) return otpError(prev, checked.problem, ctx.t);
-  return { step: 'new-pin', ticket: checked.ticket };
-}
-
-async function resetSave(data: FormData, ctx: Ctx): Promise<AuthState> {
-  const ticket = field(data, 'ticket');
-  const done = await completePinReset({ ticket, pin: field(data, 'pin'), ip: ctx.ip, agent: ctx.agent });
-
-  if (!done.ok) {
-    if (done.problem === 'PIN_LENGTH') return { step: 'new-pin', ticket, error: ctx.t.errors.badPin };
-    if (done.problem === 'PIN_TRIVIAL') return { step: 'new-pin', ticket, error: ctx.t.auth.pinTrivial };
-    // пропуск просрочен или уже обменян — честного пути отсюда нет, только сначала
-    return { step: 'credentials', error: ctx.t.auth.otpExpired };
-  }
-
-  /* Сессию здесь НЕ выдаём, и это не забывчивость. Человек назначил
-     новый код — пусть войдёт им. Иначе восстановление становится вторым
-     способом войти, со своими правилами, и защищать его придётся
-     отдельно. */
-  return { step: 'done', message: ctx.t.auth.resetDone };
-}
-
-/* ------------------------ повторная отправка ------------------------ */
-
-async function resendCode(data: FormData, ctx: Ctx, prev: AuthState): Promise<AuthState> {
-  const challengeId = field(data, 'challengeId');
-  const again = await resend({ challengeId, ip: ctx.ip });
-
-  const base: Extract<AuthState, { step: 'otp' }> =
-    prev?.step === 'otp'
-      ? prev
-      : {
-          step: 'otp',
-          purpose: 'register',
-          challengeId,
-          phoneMasked: '',
-          resendAt: 0,
-          expiresAt: 0,
-          resendsLeft: 0,
-        };
-
-  if (!again.ok) {
-    const live = await otpState(challengeId);
-    return {
-      ...base,
-      resendAt: live?.resendAt.getTime() ?? base.resendAt,
-      resendsLeft: live?.resendsLeft ?? 0,
-      error:
-        again.reason === 'SEND_FAILED'
-          ? ctx.t.auth.smsFailed
-          : ctx.t.auth.otpResendTooSoon,
-    };
-  }
-
-  return {
-    ...base,
-    challengeId: again.challengeId,
-    resendAt: again.resendAt.getTime(),
-    expiresAt: again.expiresAt.getTime(),
-    resendsLeft: again.resendsLeft,
-    error: undefined,
-  };
+  return { step: 'sent', email };
 }
 
 /* ------------------------------ общее ------------------------------ */
@@ -462,7 +221,7 @@ async function resendCode(data: FormData, ctx: Ctx, prev: AuthState): Promise<Au
 async function enter(
   outcome: Extract<LoginOutcome, { kind: 'ok' }>,
   ctx: Ctx,
-  meta: { phone: string; alreadyLogged?: boolean },
+  login: string,
 ): Promise<void> {
   await startSession(
     {
@@ -473,31 +232,5 @@ async function enter(
     { kind: 'web', device: deviceLabel(ctx.agent) },
   );
   await markPointUsed(outcome.membership.id);
-
-  await noteLoginSucceeded({
-    outcome,
-    phone: meta.phone,
-    ip: ctx.ip,
-    agent: ctx.agent,
-    alreadyLogged: meta.alreadyLogged,
-  });
-}
-
-function otpError(
-  prev: AuthState,
-  problem: 'OTP_INVALID' | 'OTP_EXPIRED' | 'OTP_TOO_MANY' | 'INVALID' | 'EXPIRED' | 'TOO_MANY_TRIES',
-  t: Dict,
-): AuthState {
-  const text =
-    problem === 'OTP_EXPIRED' || problem === 'EXPIRED'
-      ? t.auth.otpExpired
-      : problem === 'OTP_TOO_MANY' || problem === 'TOO_MANY_TRIES'
-        ? t.auth.otpTooMany
-        : t.auth.otpInvalid;
-
-  /* Возвращаем ТОТ ЖЕ шаг с ошибкой, а не сбрасываем разговор: человек
-     ошибся одной цифрой, и выкидывать его обратно к телефону значит
-     заставить пройти всё заново из-за опечатки. */
-  if (prev?.step === 'otp') return { ...prev, error: text };
-  return { step: 'credentials', error: text };
+  await noteLoginSucceeded({ outcome, login, ip: ctx.ip, agent: ctx.agent });
 }

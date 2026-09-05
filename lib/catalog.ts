@@ -3,8 +3,8 @@ import { db } from './db';
 import { recordActivitySafely } from './activity';
 import { accounts, services, shifts, tenants, users } from './db/schema';
 import { listServices } from './queries';
-import { hashPin } from './pin';
-import { isValidPhone, isValidPin, normalizePhone } from './phone';
+import { checkPassword, hashPassword } from './password';
+import { isValidPhone, normalizePhone } from './phone';
 import { revokeAccountSessions, revokeMembershipSessions } from './auth';
 import { accountOf, claimAccount, PhoneTakenError } from './accounts';
 import { logSecurity } from './security-log';
@@ -136,7 +136,14 @@ export async function addStaff(params: {
   tenantId: string;
   name: string;
   phone: string;
-  pin: string;
+  /**
+   * Пароль, если владелец задал его сразу.
+   *
+   * Необязателен: сотрудника можно завести и без него, а пароль выдать
+   * потом отдельным действием. Без пароля человек в базе есть, но войти
+   * не может — это честнее, чем впустить по пустому.
+   */
+  password?: string;
   percent: number;
   actorId?: string | null;
 }) {
@@ -149,7 +156,10 @@ export async function addStaff(params: {
     throw new ValidationError('BAD_PERCENT');
   }
 
-  if (!isValidPin(params.pin)) throw new ValidationError('BAD_PIN');
+  if (params.password) {
+    const bad = checkPassword(params.password);
+    if (bad) throw new ValidationError(bad === 'common' ? 'PASSWORD_COMMON' : 'PASSWORD_SHORT');
+  }
 
   /* Человека, который уже пользуется Tetrin, нанять нельзя, и это
      осознанный отказ, а не недоделка.
@@ -163,8 +173,13 @@ export async function addStaff(params: {
      Чтобы это открыть, нужен не наём, а согласие: человек должен сам
      сменить код или подтвердить приглашение. До тех пор владелец второй
      мойки заводит ему отдельный номер — ровно как заводил до сих пор. */
-  const pinHash = await hashPin(params.pin);
-  const account = await claimAccount({ phone, pinHash }).catch((e) => {
+  /* Наёмный человек заводится БЕЗ пароля: его назначает владелец
+     отдельным действием и говорит вслух. Пустой пароль означает «войти
+     нельзя», и это честнее, чем впустить по пустому. */
+  const account = await claimAccount({
+    phone,
+    passwordHash: params.password ? await hashPassword(params.password) : null,
+  }).catch((e) => {
     if (e instanceof PhoneTakenError) throw new ValidationError('PHONE_TAKEN');
     throw e;
   });
@@ -175,7 +190,6 @@ export async function addStaff(params: {
       tenantId: params.tenantId,
       accountId: account.id,
       phone,
-      pinHash,
       name,
       role: 'staff',
       percent: params.percent,
@@ -350,10 +364,12 @@ export async function resetStaffPin(params: {
   tenantId: string;
   id: string;
   actorId: string;
-  pin: string;
+  /** новый пароль сотрудника: владелец пишет сам или берёт сгенерированный */
+  password: string;
 }) {
   if (params.id === params.actorId) throw new ValidationError('CANNOT_RESET_SELF');
-  if (!isValidPin(params.pin)) throw new ValidationError('BAD_PIN');
+  const bad = checkPassword(params.password);
+  if (bad) throw new ValidationError(bad === 'common' ? 'PASSWORD_COMMON' : 'PASSWORD_SHORT');
 
   const [staff] = await db
     .select()
@@ -379,16 +395,9 @@ export async function resetStaffPin(params: {
     .where(and(eq(users.accountId, account.id), eq(users.active, true)));
   if (memberships.length > 1) throw new ValidationError('WORKS_ELSEWHERE');
 
-  const pinHash = await hashPin(params.pin);
+  const passwordHash = await hashPassword(params.password);
 
-  /* Одной транзакцией: оборвись она между двумя записями, у человека
-     остался бы новый код на входе и старый в подтверждении удаления
-     бизнеса. */
-  await db.transaction(async (tx) => {
-    await tx.update(accounts).set({ pinHash }).where(eq(accounts.id, account.id));
-    // копия в users, пока схема обязана оставаться совместимой
-    await tx.update(users).set({ pinHash }).where(eq(users.accountId, account.id));
-  });
+  await db.update(accounts).set({ passwordHash }).where(eq(accounts.id, account.id));
 
   /* Гасим его входы. Смысл выдачи нового кода ровно в этом: тот, у кого
      остался старый — или чужой телефон с живым токеном, — перестаёт

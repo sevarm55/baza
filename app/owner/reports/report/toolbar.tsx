@@ -12,31 +12,9 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch';
 import { useT } from '@/lib/i18n/client';
 import type { RangeKey } from '@/lib/report-range';
-import { SCOPES, TABS, type ReportTab, type Scope } from '../model';
+import { reportHref, SCOPES, TABS, type ReportQuery, type Scope } from '../model';
 
-export type ReportQuery = {
-  r: RangeKey;
-  from: string | null;
-  to: string | null;
-  tab: ReportTab;
-  scope: Scope;
-  compare: boolean;
-};
-
-/** Адрес отчёта из состояния: всё живёт в строке запроса. */
-export function reportHref(pathname: string, q: ReportQuery): string {
-  const p = new URLSearchParams();
-  if (q.r !== 'month') p.set('r', q.r);
-  if (q.r === 'custom' && q.from && q.to) {
-    p.set('from', q.from);
-    p.set('to', q.to);
-  }
-  if (q.tab !== 'overview') p.set('tab', q.tab);
-  if (q.scope !== 'current') p.set('scope', q.scope);
-  if (!q.compare) p.set('cmp', '0');
-  const s = p.toString();
-  return s ? `${pathname}?${s}` : pathname;
-}
+export type { ReportQuery };
 
 /**
  * Панель отчёта: период, свой отрезок, сравнение, филиал, вкладки.

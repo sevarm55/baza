@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SUPPORT_PHONE } from '@/lib/brand';
 import type { Metadata } from 'next';
 import { ChevronLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -44,7 +45,7 @@ export default async function SupportPage() {
 
       <p className={`${p} text-muted-foreground`}>
         Ցանկացած հարցի դեպքում զանգահարեք{' '}
-        <a className={link} href="tel:+37499855546">
+        <a className={link} href={`tel:${SUPPORT_PHONE}`}>
           {t.billing.wallPhone}
         </a>
         ։ Պատասխանում ենք ամեն օր՝ 10:00–20:00։
@@ -100,7 +101,7 @@ export default async function SupportPage() {
         <h2 className={h2}>Support (English)</h2>
         <p className={p}>
           Tetrin is a bookkeeping tool for service businesses in Armenia. For any question, call{' '}
-          <a className={link} href="tel:+37499855546">
+          <a className={link} href={`tel:${SUPPORT_PHONE}`}>
             {t.billing.wallPhone}
           </a>{' '}
           (10:00–20:00, daily).

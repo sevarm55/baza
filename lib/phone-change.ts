@@ -256,10 +256,10 @@ export async function finishPhoneChange(input: {
     await db.transaction(async (tx) => {
       await tx
         .update(accounts)
-        .set({ phone: next, phoneVerifiedAt: new Date() })
+        .set({ phone: next ?? '', phoneVerifiedAt: new Date() })
         .where(eq(accounts.id, input.account.id));
       // копия в users, пока схема обязана оставаться совместимой
-      await tx.update(users).set({ phone: next }).where(eq(users.accountId, input.account.id));
+      await tx.update(users).set({ phone: next ?? '' }).where(eq(users.accountId, input.account.id));
     });
   } catch {
     /* Номер заняли между отправкой кода и его вводом — уникальный
@@ -279,5 +279,5 @@ export async function finishPhoneChange(input: {
     ip: input.ip,
   });
 
-  return { ok: true, phone: next };
+  return { ok: true, phone: next ?? '' };
 }

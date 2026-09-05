@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       tenantId: ctx.tenant.id,
       name: str(input.name),
       phone: str(input.phone),
-      pin: str(input.pin),
+      password: str(input.pin),
       percent: Number(input.percent),
       actorId: ctx.user.id,
     });
