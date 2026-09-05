@@ -214,6 +214,15 @@ export type RegisterDraft = {
   /** телефон владельца: связь, а не вход */
   phone: string;
   /**
+   * Заявку завело приложение, а не браузер.
+   *
+   * Нужно ровно в одном месте: после подтверждения человека надо вернуть
+   * туда, откуда он ушёл. Пришедшего с сайта заводим в кабинет, как и
+   * раньше; пришедшего из приложения — обратно в приложение, иначе он
+   * остаётся в браузере с открытым кабинетом, которого не просил.
+   */
+  fromApp?: boolean;
+  /**
    * Валюта мойки. Выбирается здесь и больше нигде.
    *
    * Приложение спрашивает её на регистрации; в браузере поля нет, и там
@@ -298,6 +307,7 @@ export async function beginRegistration(
       phone,
       locale,
       currency: draft.currency,
+      fromApp: draft.fromApp === true,
       // в заявке между шагами лежит только хеш
       passwordHash: await hashPassword(password),
     },
@@ -331,7 +341,16 @@ export async function beginRegistration(
 }
 
 export type CompleteRegistration =
-  | { ok: true; tenantId: string; ownerId: string; accountId: string; ownerName: string }
+  | {
+      ok: true;
+      tenantId: string;
+      ownerId: string;
+      accountId: string;
+      ownerName: string;
+      email: string;
+      /** заявку завело приложение — туда и возвращать */
+      fromApp: boolean;
+    }
   | { ok: false; problem: 'LINK_INVALID' | 'LINK_EXPIRED' | 'EMAIL_TAKEN' | 'PHONE_TAKEN' };
 
 /**
@@ -351,6 +370,7 @@ export async function completeRegistration(input: {
     ownerName: string;
     phone: string;
     currency?: string;
+    fromApp?: boolean;
     passwordHash: string;
   }>({ token: input.token, purpose: 'register' });
 
@@ -364,7 +384,7 @@ export async function completeRegistration(input: {
   }
 
   const email = verified.email;
-  const { niche, businessName, ownerName, phone, currency, passwordHash } = verified.payload;
+  const { niche, businessName, ownerName, phone, currency, fromApp, passwordHash } = verified.payload;
 
   /* Пока человек ходил в почту, адрес могли занять. Редко, но возможно:
      две вкладки, две регистрации. */
@@ -408,6 +428,8 @@ export async function completeRegistration(input: {
       ownerId: owner.id,
       accountId: account?.id ?? '',
       ownerName: owner.name,
+      email,
+      fromApp: fromApp === true,
     };
   } catch (e) {
     if (e instanceof PhoneTakenError) return { ok: false, problem: 'PHONE_TAKEN' };
@@ -431,6 +453,8 @@ export async function beginPasswordReset(input: {
   ip: string | null;
   agent?: string | null;
   locale?: Locale;
+  /** просьбу завело приложение — туда и возвращать после нового пароля */
+  fromApp?: boolean;
 }): Promise<BeginReset> {
   const email = String(input.email ?? '').trim();
   const locale: Locale = input.locale ?? 'hy';
@@ -447,7 +471,7 @@ export async function beginPasswordReset(input: {
     purpose: 'reset',
     email,
     ip: input.ip,
-    payload: { accountId: account.id },
+    payload: { accountId: account.id, fromApp: input.fromApp === true },
   });
 
   if (!started.ok) return { ok: false, problem: 'THROTTLED', retryAfter: started.retryAfter };
@@ -477,7 +501,7 @@ export async function beginPasswordReset(input: {
 }
 
 export type CompleteReset =
-  | { ok: true; accountId: string }
+  | { ok: true; accountId: string; email: string; fromApp: boolean }
   | { ok: false; problem: 'LINK_INVALID' | 'LINK_EXPIRED' | 'PASSWORD_SHORT' | 'PASSWORD_COMMON' };
 
 /**
@@ -497,7 +521,7 @@ export async function completePasswordReset(input: {
   if (bad === 'short' || bad === 'long') return { ok: false, problem: 'PASSWORD_SHORT' };
   if (bad === 'common') return { ok: false, problem: 'PASSWORD_COMMON' };
 
-  const verified = await verifyLink<{ accountId: string }>({
+  const verified = await verifyLink<{ accountId: string; fromApp?: boolean }>({
     token: input.token,
     purpose: 'reset',
   });
@@ -521,7 +545,12 @@ export async function completePasswordReset(input: {
 
   await logSecurity({ event: 'auth.password.reset', accountId, ip: input.ip });
 
-  return { ok: true, accountId };
+  return {
+    ok: true,
+    accountId,
+    email: verified.email,
+    fromApp: verified.payload.fromApp === true,
+  };
 }
 
 /* ------------------- пароль сотрудника от владельца ------------------- */

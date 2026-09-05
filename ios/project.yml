@@ -97,6 +97,16 @@ targets:
         # что — туда приложение ходит по HTTPS.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Своя схема ссылок: по ней возвращаются из браузера после
+        # подтверждения почты и после нового пароля. Ссылку из письма
+        # открывает браузер, и по-другому не бывает — письмо читают
+        # почтой. Настоящие Universal Links сюда не годятся: Gmail на iOS
+        # открывает ссылки во встроенном браузере, а оттуда система их,
+        # как правило, не подхватывает. Переход же с НАШЕЙ страницы по
+        # своей схеме работает и оттуда.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.sevarm.tetr
+            CFBundleURLSchemes: [tetrin]
         # Экран записи живёт вертикально: мойщик держит телефон одной рукой
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # Шифрование только стандартное — HTTPS и Keychain. Без этого

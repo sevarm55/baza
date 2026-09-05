@@ -232,6 +232,9 @@ export const en: Dict = {
     passwordCommon: 'That password is guessed first. Pick another one.',
     passwordMismatch: 'Passwords do not match',
     mailFailed: 'Could not send the email. Try again later.',
+    readyTitle: 'All set',
+    openApp: 'Open the app',
+    backToAppNote: 'Go back to the app and sign in with your password.',
 
     sentTitle: 'Check your email',
     sentSub: (email: string) => `We sent a message to ${email}. Follow the link in it.`,

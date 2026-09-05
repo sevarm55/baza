@@ -52,6 +52,9 @@ export async function POST(request: Request) {
         email: str(input.email),
         password: str(input.password),
         currency: str(input.currency) || undefined,
+        /* Заявку завело приложение. После подтверждения человека вернут
+           в него, а не оставят в браузере с открытым кабинетом. */
+        fromApp: true,
         phone: str(input.phone),
         countryCode: str(input.country) || undefined,
         locale: resolveLocale({

@@ -30,6 +30,8 @@ export async function POST(request: Request) {
 
     const started = await beginPasswordReset({
       email: str(input.email),
+      /* Просьбу завело приложение: после нового пароля туда и вернём. */
+      fromApp: true,
       ip: clientIp(request.headers),
       agent: request.headers.get('user-agent'),
       locale: resolveLocale({

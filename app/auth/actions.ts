@@ -24,7 +24,14 @@ import { getDict } from '@/lib/i18n/server';
  * получатель. Гасит нажатие кнопки.
  */
 
-export type LinkState = { error: string } | null;
+/**
+ * Что показать после нажатия.
+ *
+ * Третье состояние — «вернитесь в приложение». Оно появляется только у
+ * тех, кто начал в приложении: признак едет в самой заявке, а не
+ * угадывается по устройству.
+ */
+export type LinkState = { error?: string; app?: string } | null;
 
 /** Подтвердить почту и завести бизнес. */
 export async function confirmAction(_prev: LinkState, data: FormData): Promise<LinkState> {
@@ -51,6 +58,11 @@ export async function confirmAction(_prev: LinkState, data: FormData): Promise<L
               : t.auth.linkInvalid,
     };
   }
+
+  /* Пришедшего из приложения в кабинет не заводим. Веб-сессия ему не
+     нужна, а редирект на /owner оставил бы его в браузере — там, куда он
+     не собирался. */
+  if (done.fromApp) return { app: done.email };
 
   await startSession(
     { uid: done.ownerId, tid: done.tenantId, role: 'owner' },
@@ -93,5 +105,7 @@ export async function resetAction(_prev: LinkState, data: FormData): Promise<Lin
   /* Внутрь не пускаем: пароль только что сменили, и войти им — это и
      есть проверка, что человек его запомнил, а не закрыл вкладку с
      мыслью «потом посмотрю». */
+  if (done.fromApp) return { app: done.email };
+
   redirect('/?auth=signIn&reset=1');
 }

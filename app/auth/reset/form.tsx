@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 
 import { AuthButton, AuthError, AuthField, AuthHead } from '@/components/landing/auth-ui';
 import { useT } from '@/lib/i18n/client';
+import { BackToApp } from '../back-to-app';
 import { resetAction, type LinkState } from '../actions';
 
 /**
@@ -16,6 +17,10 @@ import { resetAction, type LinkState } from '../actions';
 export function ResetForm({ token, email }: { token: string; email: string }) {
   const t = useT();
   const [state, action, pending] = useActionState<LinkState, FormData>(resetAction, null);
+
+  /* Пароль сохранён, а человек пришёл из приложения: показываем дорогу
+     назад вместо формы, которую уже некуда отправлять. */
+  if (state?.app) return <BackToApp email={state.app} />;
 
   return (
     <form action={action} className="flex flex-col gap-8">

@@ -93,6 +93,29 @@ struct TetrApp: App {
                 .environmentObject(lock)
                 .environmentObject(net)
                 .tint(Brand.grape)
+                /* Возвращение из браузера.
+                 *
+                 * `tetrin://signin?login=…` — единственная ссылка, которую
+                 * приложение принимает. Её открывает страница подтверждения
+                 * почты или страница нового пароля: обе живут в браузере,
+                 * потому что письмо читают почтой, и оттуда дорога одна.
+                 *
+                 * Заставку и знакомство при этом снимаем: человек пришёл
+                 * по делу, и показывать ему листалку про продукт, который
+                 * он уже завёл, значит держать его на пороге.
+                 */
+                .onOpenURL { url in
+                    guard url.scheme == "tetrin", url.host == "signin" else { return }
+
+                    let login = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                        .queryItems?
+                        .first { $0.name == "login" }?
+                        .value
+
+                    session.pendingLogin = login ?? ""
+                    Onboarding.seen = true
+                    splash = false
+                }
                 .task {
                     BackgroundSync.use(session: session, queue: queue)
                     Push.shared.use(session: session)
@@ -190,8 +213,21 @@ struct RootView: View {
         #endif
     }
 
-    @ViewBuilder
+    /* Пришли по ссылке из браузера — знакомство убираем с дороги.
+     *
+     * Человек уже завёл мойку и идёт входить; листалка про продукт,
+     * который у него уже есть, держала бы его на пороге. Живёт здесь, а
+     * не в корне приложения: `firstRun` принадлежит этому виду.
+     */
     private var content: some View {
+        shell
+            .onChange(of: session.pendingLogin) { _, arrived in
+                if arrived != nil { firstRun = false }
+            }
+    }
+
+    @ViewBuilder
+    private var shell: some View {
         switch session.state {
         case .checking:
             /* Единственный экран продукта, который отбирает всё сразу, и

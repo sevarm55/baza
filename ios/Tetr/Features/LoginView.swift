@@ -250,7 +250,11 @@ struct LoginView: View {
         }
         .onAppear {
             if session.rememberedAccount == nil { manual = true }
+            adoptPendingLogin()
         }
+        /* Ссылка могла прийти, когда экран уже открыт: человек ушёл в
+           почту из этого же приложения и вернулся сюда же. */
+        .onChange(of: session.pendingLogin) { _, _ in adoptPendingLogin() }
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
@@ -915,6 +919,25 @@ struct LoginView: View {
     }
 
     // ══════════════════════ запросы ══════════════════════
+
+    /**
+     * Подставить логин, вернувшийся из браузера.
+     *
+     * Пароль намеренно не трогаем и фокус ставим на него: адрес человек
+     * только что подтвердил, а пароль он придумал и помнит. Сохранённый
+     * профиль убираем с дороги — он про другого человека, а этот пришёл
+     * по своей ссылке.
+     */
+    private func adoptPendingLogin() {
+        guard let arrived = session.pendingLogin else { return }
+        session.pendingLogin = nil
+
+        if !arrived.isEmpty { login = arrived }
+        password = ""
+        manual = true
+        stage = .entry
+        focus = .password
+    }
 
     private func go(_ next: Stage) {
         focus = nil
