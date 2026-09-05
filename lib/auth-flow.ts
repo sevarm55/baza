@@ -491,11 +491,18 @@ export async function completeRegistration(input: {
     };
   }
 
-  /* Телефон теперь может отсутствовать: вход завели и по почте. Валюта и
-     пин по-прежнему приходят из черновика — их выбирают при заведении
-     мойки, и потом валюта не меняется. */
+  /* Телефон теперь может отсутствовать: вход завели и по почте.
+   *
+   * ПРОБЕЛ, не забыть. Заявка по-прежнему несёт `pinHash` — приложение
+   * спрашивает PIN на регистрации и честно его присылает, — но
+   * `createBusiness` пин больше не принимает, и выбранный код никуда не
+   * записывается. Тем же движением ушёл `phoneVerified: true`. На живой
+   * базе видно: у моек, заведённых сегодня, `pin_hash` пуст и
+   * `phone_verified_at` пуст, а у заведённых до правки пин на месте.
+   * Пока приложение не переехало на пароль, войти по PIN такой владелец
+   * не сможет. */
   const phone = verified.challenge.phone ?? '';
-  const { niche, businessName, ownerName, currency, pinHash } = verified.payload;
+  const { niche, businessName, ownerName, currency } = verified.payload;
 
   try {
     const { tenant, owner } = await createBusiness({
