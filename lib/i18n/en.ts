@@ -206,6 +206,55 @@ export const en: Dict = {
   },
 
   auth: {
+    /* Email and password sign-in. The old keys stay while the app still
+       uses the SMS code. */
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    loginLabel: 'Email or phone',
+    loginHint: 'Owners sign in with email, staff with their phone',
+    passwordHint: 'At least 8 characters',
+    signInSub: 'Enter your email and password',
+    forgotPassword: 'Forgot your password?',
+    wrongLogin: 'Wrong login or password',
+
+    emailInvalid: 'Check the email address',
+    emailTaken: 'This email is already taken',
+    passwordShort: 'Password is shorter than 8 characters',
+    passwordCommon: 'That password is guessed first. Pick another one.',
+    passwordMismatch: 'Passwords do not match',
+    mailFailed: 'Could not send the email. Try again later.',
+
+    sentTitle: 'Check your email',
+    sentSub: (email: string) => `We sent a message to ${email}. Follow the link in it.`,
+    sentNote: 'The link is valid for an hour. No email? Look in spam.',
+
+    resetPasswordTitle: 'Password recovery',
+    resetPasswordSub: 'Enter your email and we will send a link',
+    resetPasswordSend: 'Send the link',
+    newPassword: 'New password',
+    confirmPassword: 'Repeat the password',
+    savePassword: 'Save password',
+    passwordSaved: 'Password changed',
+    passwordSavedNote: 'All other devices signed out. Sign in again.',
+
+    linkExpired: 'The link has expired. Request a new one.',
+    linkInvalid: 'The link does not work. It may have been used already.',
+
+    registerEmail: 'Your email',
+    registerEmailNote: 'Confirmation and password recovery go here',
+    registerPassword: 'Choose a password',
+
+    changePassword: 'Change password',
+    currentPassword: 'Current password',
+    wrongPassword: 'Current password is wrong',
+    passwordChangedNote: 'All devices will sign out, including this one.',
+
+    staffPassword: 'Sign-in password',
+    staffPasswordNote: 'Staff sign in with their own phone and this password',
+    staffPasswordGenerate: 'Pick one for me',
+    staffPasswordIssued: 'Password issued',
+    staffPasswordOnce: 'Write it down or read it out now: it will not be shown again.',
+
     signInTitle: 'Sign in',
     note: 'No card. Three minutes.',
     phone: 'Phone number',

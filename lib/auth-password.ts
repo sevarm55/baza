@@ -178,6 +178,31 @@ export async function attemptLogin(input: {
   return { kind: 'ok', membership, accountId: account!.id, fingerprint: fp };
 }
 
+/**
+ * Отметить удачный вход в журнале безопасности.
+ *
+ * Отдельно от `attemptLogin`, потому что запись означает не «пароль
+ * сошёлся», а «сессия выдана». Между этими двумя событиями стоит
+ * вызывающий: веб ставит cookie, приложение выдаёт токен, и любой из них
+ * может отказать. Запись до выдачи означала бы вход, которого не было.
+ */
+export async function noteLoginSucceeded(input: {
+  outcome: Extract<LoginOutcome, { kind: 'ok' }>;
+  login: string;
+  ip: string | null;
+  agent?: string | null;
+}): Promise<void> {
+  await logSecurity({
+    event: 'auth.login.success',
+    phone: input.login,
+    ip: input.ip,
+    agent: input.agent ?? null,
+    accountId: input.outcome.accountId,
+    tenantId: input.outcome.membership.tenantId,
+    userId: input.outcome.membership.id,
+  });
+}
+
 /* -------------------------- регистрация -------------------------- */
 
 export type RegisterDraft = {
