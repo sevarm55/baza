@@ -17,16 +17,13 @@ struct DeleteBusinessView: View {
     @EnvironmentObject private var session: Session
     @Environment(\.dismiss) private var dismiss
 
-    @State private var pin = ""
-    @State private var code = ""
+    @State private var password = ""
     @State private var error: String?
     @State private var busy = false
 
     /// Заявка на код подтверждения — у тех, у кого PIN нет вовсе.
     /// Пусто — код ещё не высылали.
-    @State private var challengeId: String?
     /// Куда ушёл код: закрытый номер, как его прислал сервер.
-    @State private var sentTo = ""
 
     /// Готовый архив ждёт, пока человек его сохранит. Пока ждёт —
     /// не удаляем ничего.
@@ -39,7 +36,7 @@ struct DeleteBusinessView: View {
     /// Открыт последний вопрос перед необратимым удалением.
     @State private var confirmingWipe = false
 
-    private enum Focus { case code }
+    private enum Focus { case password }
     @FocusState private var focus: Focus?
 
     /**
@@ -53,18 +50,12 @@ struct DeleteBusinessView: View {
      * Решает не экран, а сервер: присланный нами признак «у меня нет PIN»
      * был бы способом обойти PIN. Здесь он только показывается.
      */
-    private var byCode: Bool { !session.hasPin }
-
-    /// Код выслан — значит спрашиваем шесть цифр, а не PIN.
-    private var asksCode: Bool { byCode && challengeId != nil }
-
     private var ready: Bool {
         guard !busy else { return false }
-        if byCode { return asksCode && code.count == API.codeLength }
-        /* Минимум четыре: у заведённых до перехода на шестизначный код их
-           столько. Стояло «ровно четыре», и удаление перестало работать у
-           всех, чей код длиннее, — форма просто не давала его набрать. */
-        return pin.count >= API.pinMinLength
+        /* Длину пароля не проверяем: правило про восемь знаков живёт на
+           сервере, а у заведённых раньше пароль может быть любым. Здесь
+           гасим кнопку только на пустом поле. */
+        return !password.isEmpty
     }
 
     var body: some View {
@@ -109,32 +100,16 @@ struct DeleteBusinessView: View {
                                 .strokeBorder(Brand.badOnBoard.opacity(0.13))
                         }
 
-                if asksCode {
-                            credentialSurface(title: L("delete.codeAsk"), note: L("delete.codeSent", sentTo)) {
-                        /* Те же клетки, что на входе: одно поле кода на
-                           весь продукт. Автоподстановка из SMS работает
-                           у них из коробки. */
-                        CodeCells(
-                            text: $code,
-                            focus: $focus,
-                            field: Focus.code,
-                            length: API.codeLength,
-                            label: L("delete.codeAsk"),
-                            contentType: .oneTimeCode,
-                            skin: .board
-                        )
-                    }
-                } else if !byCode {
-                            credentialSurface(title: L("settings.deletePin"), note: nil) {
-                        SecureField("••••••", text: $pin)
-                            .keyboardType(.numberPad)
-                            .font(.system(size: 20, weight: .semibold))
-                            .monospaced()
-                            .onChange(of: pin) { _, v in
-                                let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
-                                if clean != v { pin = clean }
-                            }
-                    }
+                credentialSurface(title: L("auth.passwordLabel"), note: nil) {
+                    /* Пароль, а не код и не PIN. Кодов из SMS у продукта
+                       больше нет, а PIN перестал быть входом. Между
+                       «зашёл посмотреть выручку» и «стёр всё» должно
+                       стоять то, чего случайный человек рядом не знает, —
+                       и это ровно то, чем владелец входит. */
+                    SecureField("", text: $password)
+                        .textContentType(.password)
+                        .font(.system(size: 18, weight: .semibold))
+                        .focused($focus, equals: .password)
                 }
 
                 if let error {
@@ -146,7 +121,7 @@ struct DeleteBusinessView: View {
                                 .background(Brand.badOnBoard.opacity(0.09), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
 
-                        if !(byCode && challengeId == nil) {
+                        Group {
                             Text(saved ? L("delete.downloaded") : L("delete.fileNote"))
                                 .font(.system(size: 13))
                                 .foregroundStyle(Brand.boardMuted)
@@ -161,12 +136,7 @@ struct DeleteBusinessView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 9) {
-                    if byCode && challengeId == nil {
-                        /* Первый шаг ничего не удаляет: он только высылает код. */
-                        Button(L("delete.sendCode")) { Task { await sendCode() } }
-                            .buttonStyle(LimeButton(loading: busy, busyTitle: L("auth.checking")))
-                            .disabled(busy)
-                    } else {
+                    Group {
                         Button(saved ? L("billing.wallDelete") : L("settings.deleteKeep")) {
                             /* Путь с выгрузкой подтверждает себя сам:
                                человек жмёт «сохранить и удалить», сохраняет
@@ -285,53 +255,19 @@ struct DeleteBusinessView: View {
         archive = url
     }
 
-    /// Выслать код подтверждения. Ничего не удаляет.
-    private func sendCode() async {
-        busy = true
-        defer { busy = false }
-        error = nil
-
-        do {
-            let started = try await session.startDeleteCode()
-            challengeId = started.challengeId
-            sentTo = started.phone ?? ""
-            focus = .code
-        } catch let e as APIError {
-            switch e.code {
-            case "TOO_MANY_TRIES": error = L("auth.throttled")
-            case "SMS_FAILED": error = L("auth.smsFailed")
-            default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
-            }
-        } catch {
-            self.error = L("payroll.failed")
-        }
-    }
-
     private func wipe() async {
         busy = true
         defer { busy = false }
         error = nil
 
         do {
-            try await session.deleteBusiness(
-                pin: byCode ? "" : pin,
-                challengeId: challengeId ?? "",
-                code: code
-            )
+            try await session.deleteBusiness(password: password)
             // экран закроется сам: RootView увидит выход и покажет вход
         } catch let e as APIError {
-            pin = ""
-            code = ""
+            password = ""
             switch e.code {
-            case "WRONG_CREDENTIALS": error = L("auth.pinWrong")
+            case "WRONG_CREDENTIALS": error = L("auth.wrongPassword")
             case "TOO_MANY_TRIES": error = L("auth.throttled")
-            case "OTP_INVALID": error = L("auth.otpInvalid")
-            case "OTP_EXPIRED", "OTP_TOO_MANY":
-                /* Заявка сгорела: возвращаем к «выслать код». Оставить
-                   поле с мёртвым идентификатором значит предложить
-                   вводить то, что уже не примут. */
-                error = L("auth.otpExpired")
-                challengeId = nil
             default: error = e.isOffline ? L("errors.offline") : L("payroll.failed")
             }
         } catch {

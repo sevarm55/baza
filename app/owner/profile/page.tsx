@@ -10,25 +10,22 @@ import { getDict } from '@/lib/i18n/server';
 import { localizeTenant } from '@/lib/i18n/terms';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
-import { formatPhone, maskPhone } from '@/lib/phone';
 import { accountOf } from '@/lib/accounts';
 import { hasPin } from '@/lib/pin';
 import { LanguagePicker } from '@/components/language-picker';
 import { SignOutButton } from '@/components/sign-out-button';
-import { DetailList, DetailRow } from '@/components/patterns/detail-list';
 import { SettingList, SettingRow } from '@/components/patterns/form';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Panel } from '@/components/patterns/panel';
 import { PersonAvatar } from '@/components/patterns/person';
-import { ChangePhonePanel } from './change-phone-panel';
 import { DeviceList, type DeviceRow } from './devices';
 import { NameForm } from './name-form';
+import { PhoneForm } from './phone-form';
 import { PinCard } from './pin-card';
 import { NotifyOrdersToggle, RememberLoginToggle } from './session-toggles';
 import { SubNav, SubNavLayout } from './sub-nav';
 import { SubscriptionSummary } from './subscription-summary';
 import { ThemeSwitch } from './theme-switch';
-import { VerifyPhonePanel } from './verify-phone-panel';
 
 /**
  * Мой аккаунт: личное внутри рабочего.
@@ -106,31 +103,21 @@ export default async function ProfilePage() {
             <NameForm name={me.name} />
           </div>
 
-          <DetailList className="mt-4 border-t border-border pt-1">
-            <DetailRow label={t.profile.phone} value={formatPhone(me.phone)} mono />
-          </DetailList>
+          {/* Телефон здесь же, среди личных данных, а не в безопасности:
+              владелец входит почтой, и номер у него связь, а не ключ.
+              Подтверждать его больше нечем — кодов из SMS у продукта
+              нет, — и подтверждение ему не нужно. */}
+          <div className="mt-4 border-t border-border pt-4">
+            <PhoneForm phone={me.phone} />
+          </div>
         </Panel>
 
         <Panel id="security" title={t.profile.security} className="scroll-mt-16">
           <div className="flex flex-col divide-y divide-border *:py-4 *:first:pt-0 *:last:pb-0">
-            {/* Номер без подтверждения: дыра именно в безопасности, без
-                него PIN не восстановить. Поэтому предложение стоит здесь,
-                над самим кодом. */}
-            {!account.phoneVerifiedAt && (
-              <div>
-                <VerifyPhonePanel phone={maskPhone(account.phone)} />
-              </div>
-            )}
-
             <div>
               <PinCard hasPin={pinSet} />
             </div>
 
-            {/* Номер здесь же, под кодом: это второй ключ от входа, а не
-                строка личных данных. */}
-            <div>
-              <ChangePhonePanel hasPin={pinSet} />
-            </div>
           </div>
         </Panel>
 

@@ -44,9 +44,6 @@ enum API {
     /// всех, кто завёл аккаунт до перехода на шестизначный код.
     static let pinMinLength = 4
 
-    /// Длина кода из SMS. То же, что `CODE_LENGTH` в `lib/otp-shared.ts`.
-    static let codeLength = 6
-
     struct Tenant: Decodable {
         let id: String
         let name: String
@@ -324,27 +321,6 @@ enum API {
         let points: [Point]?
     }
 
-    /**
-     * Заявка на код из SMS.
-     *
-     * Один и тот же ответ у всех поводов: вход по коду, восстановление
-     * кода, подтверждение удаления бизнеса. Заявка сама знает, зачем её
-     * заводили, поэтому повод в ней и не назван.
-     *
-     * `phone` приходит закрытым (`+374 •• ••• •• 56`): экран обязан
-     * сказать, куда ушёл код, но показывать номер целиком человеку,
-     * который его ещё не доказал, незачем.
-     */
-    struct Challenge: Decodable {
-        let challengeId: String
-        /// Закрытый номер. Необязательный: повтор отправки его не шлёт.
-        let phone: String?
-        /// Раньше этого момента повторная отправка не сработает.
-        let resendAt: Date
-        let expiresAt: Date
-        /// Сколько повторов осталось. Приходит только в ответе на повтор.
-        let resendsLeft: Int?
-    }
 
     /**
      * Ответ второго шага главного входа.
@@ -369,23 +345,6 @@ enum API {
         let ticket: String
     }
 
-    /**
-     * Заявка нулевого шага смены номера: код на СВОЙ номер.
-     *
-     * Отдельный тип, а не `Challenge`, потому что и поле названо иначе —
-     * `proofId`. Разница не косметическая: этот идентификатор
-     * доказывает хозяина и уезжает обратно вместе с новым номером, тогда
-     * как `challengeId` последнего шага доказывает новый номер. Одно имя
-     * на оба означало бы, что их можно перепутать местами, а перепутать
-     * их нельзя.
-     */
-    struct PhoneProof: Decodable {
-        let proofId: String
-        /// Закрытый текущий номер: куда ушёл код.
-        let phone: String?
-        let resendAt: Date
-        let expiresAt: Date
-    }
 
     /**
      * Устройство, с которого сейчас открыт вход.
@@ -1198,14 +1157,6 @@ struct APIError: Error {
     let code: String?
     let retryAfter: Int?
 
-    /// Заявка на код из SMS — приходит вместе с `STEP_UP_REQUIRED`.
-    ///
-    /// Отказ здесь не окончательный: PIN подошёл, но вход идёт с
-    /// незнакомого устройства, и сервер ждёт код. Без этих двух полей
-    /// экрану не с чем открыть ввод кода, и «дополнительная проверка»
-    /// выглядела бы просто отказом.
-    var challengeId: String? = nil
-    var maskedPhone: String? = nil
 
     /**
      * Уточнение к коду ответа.
@@ -1415,8 +1366,6 @@ actor APIClient {
                 status: status,
                 code: json?["error"] as? String,
                 retryAfter: json?["retryAfter"] as? Int,
-                challengeId: json?["challengeId"] as? String,
-                maskedPhone: json?["phone"] as? String,
                 reason: json?["reason"] as? String
             )
         }

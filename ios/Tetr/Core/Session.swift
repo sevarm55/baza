@@ -517,11 +517,19 @@ final class Session: ObservableObject {
     }
 
     /// Имя человека и название бизнеса.
-    func saveProfile(name: String?, businessName: String?, currency: String? = nil) async throws {
+    func saveProfile(
+        name: String?,
+        businessName: String?,
+        currency: String? = nil,
+        phone: String? = nil
+    ) async throws {
         var payload: [String: Any] = [:]
         if let name { payload["name"] = name }
         if let businessName { payload["businessName"] = businessName }
         if let currency { payload["currency"] = currency }
+        /* Пустая строка тоже значение: «убрать номер». Поэтому проверяем
+           на nil, а не на пустоту. */
+        if let phone { payload["phone"] = phone }
         guard !payload.isEmpty else { return }
 
         _ = try await authed { token in
@@ -548,138 +556,6 @@ final class Session: ObservableObject {
         forget(preserveRemembered: rememberLogin)
     }
 
-    // ═══════════════════ подтверждение номера ═══════════════════
-
-    /// Доказан ли номер кодом из SMS.
-    var phoneVerified: Bool { me?.phoneProven ?? true }
-
-    /**
-     * Выслать код на свой номер.
-     *
-     * Нужно тем, кому аккаунт завёл владелец: их номер не подтверждён, а
-     * восстановление доступа по SMS работает только по подтверждённому —
-     * иначе оно само стало бы способом забрать чужой непроверенный
-     * аккаунт. Пока номер не доказан, забытый код для человека тупик.
-     *
-     * Силой не требуем и не показываем стеной: остановить мойщику работу
-     * посреди дня из-за нашего переезда — не тот размен. Строка в профиле,
-     * отказ ничего не ломает, вернуться можно когда угодно.
-     */
-    func startPhoneProof() async throws -> API.Challenge {
-        try await authed { token in
-            try await self.api.send(
-                "auth/verify-phone",
-                method: "POST",
-                body: ["locale": Self.locale],
-                token: token,
-                as: API.Challenge.self
-            )
-        }
-    }
-
-    /// Подтвердить номер кодом. Успех перечитывает bootstrap: строка
-    /// предложения обязана уйти сразу, а не на следующем запуске.
-    func confirmPhone(challengeId: String, code: String) async throws {
-        _ = try await authed { token in
-            try await self.api.raw(
-                "auth/verify-phone",
-                method: "POST",
-                body: ["challengeId": challengeId, "code": code],
-                token: token
-            )
-        }
-        try? await loadBootstrap()
-    }
-
-    // ═══════════════════════ смена номера ═══════════════════════
-
-    /**
-     * Смена номера телефона — три шага, и первый не у всех.
-     *
-     * Номер это логин, поэтому доказательств два и оба обязательные: кто
-     * ты (PIN, а у кого его нет — код на текущий номер) и что новый номер
-     * твой (код на него). Правила считает сервер тем же кодом, которым
-     * живёт кабинет: приложение только спрашивает и показывает.
-     *
-     * Чем доказывать, приложение не решает и решать не должно —
-     * присланный им признак «у меня нет PIN» был бы способом обойти PIN.
-     * Оно смотрит на `me.hasPin` только затем, чтобы знать, какой экран
-     * рисовать первым.
-     */
-    func startPhoneChangeProof() async throws -> API.PhoneProof {
-        try await authed { token in
-            try await self.api.send(
-                "auth/phone",
-                method: "POST",
-                body: [:],
-                token: token,
-                as: API.PhoneProof.self
-            )
-        }
-    }
-
-    /// Шаг первый: доказать себя и назвать новый номер. В ответ — заявка
-    /// на код, который придёт уже на новый.
-    func startPhoneChange(
-        phone: String,
-        pin: String = "",
-        proofId: String = "",
-        proofCode: String = ""
-    ) async throws -> API.Challenge {
-        var payload: [String: Any] = ["phone": phone]
-        if !pin.isEmpty { payload["pin"] = pin }
-        if !proofId.isEmpty {
-            payload["proofId"] = proofId
-            payload["proofCode"] = proofCode
-        }
-
-        return try await authed { token in
-            try await self.api.send(
-                "auth/phone",
-                method: "POST",
-                body: payload,
-                token: token,
-                as: API.Challenge.self
-            )
-        }
-    }
-
-    /**
-     * Шаг последний: код с нового номера. Здесь номер и меняется.
-     *
-     * Сессию здесь НЕ гасим, хотя на сервере она уже мертва. Причина в
-     * экране: выход мгновенно подменяет всё дерево видов входом, и лист
-     * со словами «номер изменён, войдите заново» исчезает вместе с
-     * профилем, который его показывал. Человек видел бы, что его
-     * выкинуло, и не знал бы, почему, — а причина ровно та, что он
-     * только что сделал сам.
-     *
-     * Поэтому выход отдельным шагом, по кнопке: `leaveAfterPhoneChange`.
-     * Мёртвый токен в памяти до этого момента ничего не открывает —
-     * сервер отвечает на него отказом.
-     */
-    func finishPhoneChange(challengeId: String, code: String) async throws {
-        _ = try await authed { token in
-            try await self.api.raw(
-                "auth/phone",
-                method: "POST",
-                body: ["challengeId": challengeId, "code": code],
-                token: token
-            )
-        }
-    }
-
-    /// Уйти на экран входа после смены номера.
-    ///
-    /// `forget`, а не `signOut`: гасить на сервере уже нечего, и запрос с
-    /// мёртвым токеном ушёл бы в пустоту. Запомненный аккаунт стираем —
-    /// он помнит СТАРЫЙ номер, и вход одним нажатием привёл бы туда,
-    /// откуда человек только что ушёл.
-    func leaveAfterPhoneChange() {
-        clearRememberedAccount()
-        forget(preserveRemembered: false)
-    }
-
     // ═══════════════════════ устройства ═══════════════════════
 
     /**
@@ -704,48 +580,25 @@ final class Session: ObservableObject {
         }
     }
 
-    /// Выслать код подтверждения удаления — тем, у кого нет PIN.
-    ///
-    /// Чем подтверждать, решает сервер по состоянию аккаунта, а не
-    /// приложение: присланный им признак «у меня нет PIN» был бы
-    /// способом обойти PIN.
-    func startDeleteCode() async throws -> API.Challenge {
-        try await authed { token in
-            try await self.api.send(
+
+    /**
+     * Удалить мойку.
+     *
+     * Подтверждается паролем — тем же, чем человек входит. Кодов из SMS у
+     * продукта больше нет, а PIN перестал быть входом. Запрос идёт с
+     * живым токеном, и подтверждение всё равно спрашивается заново:
+     * телефон лежит на мойке разблокированным, и между «зашёл посмотреть
+     * выручку» и «стёр всё» должно стоять то, чего случайный человек
+     * рядом не знает.
+     */
+    func deleteBusiness(password: String) async throws {
+        _ = try await authed { token in
+            try await self.api.raw(
                 "account",
                 method: "DELETE",
-                body: [:],
-                token: token,
-                as: API.Challenge.self
+                body: ["password": password],
+                token: token
             )
-        }
-    }
-
-    /// Удалить бизнес насовсем.
-    ///
-    /// Подтверждение приходит одним из двух видов: PIN у тех, у кого он
-    /// есть, и код из SMS у заведённых по коду. Второй появился потому,
-    /// что первый для них неотвечаем: `verifyPin` на метке «кода нет»
-    /// отказывает всегда, и удалить свой бизнес такой владелец не мог
-    /// вовсе — ни отсюда, ни с сайта.
-    ///
-    /// Выходим через `forget`, а не через `signOut`: гасить сессию на
-    /// сервере уже некому и незачем — вместе с бизнесом удалились и она,
-    /// и сам пользователь. Запрос в `/auth/logout` ушёл бы в пустоту с
-    /// мёртвым токеном.
-    ///
-    /// Сотрудники отдельного действия не требуют: они удаляются там же,
-    /// на сервере, и теряют доступ в тот же момент.
-    func deleteBusiness(pin: String = "", challengeId: String = "", code: String = "") async throws {
-        var payload: [String: Any] = [:]
-        if !pin.isEmpty { payload["pin"] = pin }
-        if !challengeId.isEmpty {
-            payload["challengeId"] = challengeId
-            payload["code"] = code
-        }
-
-        _ = try await authed { token in
-            try await self.api.raw("account", method: "DELETE", body: payload, token: token)
         }
         clearRememberedAccount()
         forget(preserveRemembered: false)

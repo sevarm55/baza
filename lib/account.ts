@@ -1,10 +1,8 @@
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, loginAttempts, tenants, users, type Account } from './db/schema';
-import { hasPin, verifyPin } from './pin';
 import { checkLogin, noteLogin } from './login-guard';
-import { startChallenge, verifyChallenge } from './otp';
-import { logSecurity } from './security-log';
+import { verifyPassword } from './password';
 
 /**
  * Удаление бизнеса.
@@ -48,119 +46,46 @@ import { logSecurity } from './security-log';
  * «у меня нет PIN» здесь был бы способом обойти PIN, поэтому решает
  * только `hasPin` по базе.
  */
-export function deleteNeedsCode(account: Pick<Account, 'pinHash'>): boolean {
-  return !hasPin(account.pinHash);
-}
-
-export type DeleteChallenge =
-  | { ok: true; challengeId: string; resendAt: Date; expiresAt: Date }
-  | { ok: false; problem: 'THROTTLED' | 'SMS_FAILED'; retryAfter?: number };
-
-/** Выслать код подтверждения на номер аккаунта. */
-export async function startDeleteCode(input: {
-  account: Pick<Account, 'id' | 'phone'>;
-  ip: string | null;
-  locale?: string;
-}): Promise<DeleteChallenge> {
-  const started = await startChallenge({
-    purpose: 'account_delete',
-    phone: input.account.phone,
-    accountId: input.account.id,
-    ip: input.ip,
-    payload: { accountId: input.account.id },
-    locale: input.locale,
-  });
-
-  if (!started.ok) {
-    return started.reason === 'THROTTLED'
-      ? { ok: false, problem: 'THROTTLED', retryAfter: started.retryAfter }
-      : { ok: false, problem: 'SMS_FAILED' };
-  }
-
-  return {
-    ok: true,
-    challengeId: started.challengeId,
-    resendAt: started.resendAt,
-    expiresAt: started.expiresAt,
-  };
-}
-
-export type DeleteProof =
-  | { ok: true }
-  | {
-      ok: false;
-      problem:
-        /** кода нет и PIN нет: сначала выслать SMS */
-        | 'NEED_CODE'
-        | 'WRONG_PIN'
-        | 'THROTTLED'
-        | 'CODE_INVALID'
-        | 'CODE_EXPIRED'
-        | 'CODE_TOO_MANY';
-      retryAfter?: number;
-    };
-
 /**
- * Проверить подтверждение.
+ * Проверить подтверждение удаления.
+ *
+ * Подтверждается ПАРОЛЕМ — тем же, чем человек входит. Раньше здесь были
+ * два пути: PIN, если он заведён, и код из SMS, если нет. Кодов из SMS у
+ * продукта больше нет вовсе (оператор перестал пропускать буквенного
+ * отправителя, см. `lib/auth-password.ts`), а PIN перестал быть входом.
+ * Осталось одно, и это к лучшему: два способа подтвердить необратимое
+ * действие — два места, где можно ошибиться.
  *
  * Счётчик попыток тот же, что на входе, и это не перестраховка: без него
- * форма удаления становится тихим способом подобрать PIN владельца
+ * форма удаления становится тихим способом подобрать пароль владельца
  * изнутри уже открытой сессии — без блокировки и без следа в истории
  * входов.
- *
- * Заявка обязана принадлежать тому, кто пришёл. Без сверки `accountId`
- * чужой идентификатор заявки подтверждал бы удаление чужого бизнеса.
  */
+export type DeleteProof =
+  | { ok: true }
+  | { ok: false; problem: 'WRONG_PASSWORD' }
+  | { ok: false; problem: 'THROTTLED'; retryAfter: number };
+
 export async function checkDeleteProof(input: {
-  account: Pick<Account, 'id' | 'phone' | 'pinHash'>;
+  account: Pick<Account, 'id' | 'phone' | 'email' | 'passwordHash'>;
   ip: string | null;
-  pin?: string;
-  challengeId?: string;
-  code?: string;
+  password?: string;
 }): Promise<DeleteProof> {
-  const guard = await checkLogin(input.account.phone, input.ip);
+  /* Ключ счётчика — то, чем человек входит. У владельца это почта; на
+     телефон опираемся только у тех, кто заведён до перехода. */
+  const key = input.account.email ?? input.account.phone;
+
+  const guard = await checkLogin(key, input.ip);
   if (!guard.allowed) return { ok: false, problem: 'THROTTLED', retryAfter: guard.retryAfter };
 
-  if (deleteNeedsCode(input.account)) {
-    if (!input.challengeId) return { ok: false, problem: 'NEED_CODE' };
+  const password = String(input.password ?? '');
+  const good =
+    password && input.account.passwordHash
+      ? await verifyPassword(password, input.account.passwordHash)
+      : false;
 
-    const verified = await verifyChallenge<{ accountId?: string }>({
-      challengeId: input.challengeId,
-      code: String(input.code ?? ''),
-      purpose: 'account_delete',
-      ip: input.ip,
-    });
-
-    if (!verified.ok) {
-      return {
-        ok: false,
-        problem:
-          verified.reason === 'EXPIRED'
-            ? 'CODE_EXPIRED'
-            : verified.reason === 'TOO_MANY_TRIES'
-              ? 'CODE_TOO_MANY'
-              : 'CODE_INVALID',
-      };
-    }
-
-    if (verified.payload.accountId !== input.account.id) {
-      await logSecurity({
-        event: 'auth.suspicious_activity',
-        phone: input.account.phone,
-        ip: input.ip,
-        accountId: input.account.id,
-        data: { reason: 'DELETE_CHALLENGE_MISMATCH' },
-      });
-      return { ok: false, problem: 'CODE_INVALID' };
-    }
-
-    return { ok: true };
-  }
-
-  const pin = String(input.pin ?? '');
-  const good = pin ? await verifyPin(pin, input.account.pinHash) : false;
-  await noteLogin(input.account.phone, input.ip, good);
-  return good ? { ok: true } : { ok: false, problem: 'WRONG_PIN' };
+  await noteLogin(key, input.ip, good);
+  return good ? { ok: true } : { ok: false, problem: 'WRONG_PASSWORD' };
 }
 
 export async function deleteBusiness(tenantId: string): Promise<{ people: number }> {

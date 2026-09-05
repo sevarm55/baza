@@ -32,8 +32,6 @@ struct ProfileView: View {
     @State private var saveFailed = false
 
     @State private var changingPin = false
-    @State private var verifyingPhone = false
-    @State private var changingPhone = false
     @State private var notifyOrders = true
     @State private var deleting = false
 
@@ -117,8 +115,6 @@ struct ProfileView: View {
             .padding(.leading, 10)
         }
         .sheet(isPresented: $changingPin) { PinChangeView() }
-        .sheet(isPresented: $verifyingPhone) { VerifyPhoneView() }
-        .sheet(isPresented: $changingPhone) { ChangePhoneView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
         .sheet(item: $exported) { url in ShareSheet(url: url) }
         .task {
@@ -563,24 +559,10 @@ struct ProfileView: View {
             /* Код, номер, устройства и выгрузка — один список учётной записи.
                Общая поверхность делает экран короче и яснее, не пряча ни одного действия. */
             VStack(spacing: 0) {
-                if !session.phoneVerified {
-                    action(L("auth.verifyPhone"), L("auth.verifyPhoneWhy"),
-                           icon: "checkmark.shield", danger: false) {
-                        verifyingPhone = true
-                    }
-                    profileDivider
-                }
-
                 action(session.hasPin ? L("auth.changePin") : L("auth.setPin"),
                        session.hasPin ? L("profile.pinNote") : L("auth.pinNoneNote"),
                        icon: "lock.rotation", danger: false) {
                     changingPin = true
-                }
-
-                profileDivider
-                action(L("auth.changePhone"), L("auth.changePhoneNote"),
-                       icon: "phone.arrow.up.right", danger: false) {
-                    changingPhone = true
                 }
 
                 profileDivider

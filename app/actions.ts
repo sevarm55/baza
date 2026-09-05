@@ -647,6 +647,34 @@ export async function archiveStaff(formData: FormData): Promise<void> {
  * править его вправе любой вошедший. Название бизнеса меняет отдельное
  * действие, и оно спрашивает владельца.
  */
+/**
+ * Свой телефон.
+ *
+ * Без подтверждения, и это не упущение. Владелец входит почтой; телефон
+ * у него связь, а не ключ, и подтверждать его стало нечем — кодов из SMS
+ * у продукта больше нет. Пустое поле означает «убрать»: не всякий
+ * владелец хочет оставлять номер.
+ */
+export async function saveOwnPhone(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getDict();
+  const session = await requireSession();
+  await ensureDb();
+
+  const phone = String(formData.get('phone') ?? '').trim();
+
+  try {
+    await saveProfile({ userId: session.uid, tenantId: session.tid, phone });
+  } catch (e) {
+    if (e instanceof ProfileError) {
+      return { error: e.message === 'PHONE_TAKEN' ? t.auth.phoneTaken : t.errors.badPhone };
+    }
+    return { error: t.errors.generic };
+  }
+
+  revalidatePath('/owner', 'layout');
+  return { ok: true };
+}
+
 export async function saveOwnName(_prev: FormState, formData: FormData): Promise<FormState> {
   const t = await getDict();
   const session = await requireSession();

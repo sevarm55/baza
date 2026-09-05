@@ -5,12 +5,7 @@ import { users } from '@/lib/db/schema';
 import { getTenant } from '@/lib/queries';
 import { endSession, getLiveSession } from '@/lib/auth';
 import { accountOf } from '@/lib/accounts';
-import {
-  checkDeleteProof,
-  deleteBusiness,
-  deleteNeedsCode,
-  startDeleteCode,
-} from '@/lib/account';
+import { checkDeleteProof, deleteBusiness } from '@/lib/account';
 import { clientIp } from '@/lib/login-guard';
 import { buildOrdersCsv } from '@/lib/export-csv';
 import { getLocale } from '@/lib/i18n/server';
@@ -23,13 +18,11 @@ import { getLocale } from '@/lib/i18n/server';
  *
  * Подтверждение спрашивается заново, хотя в кабинет уже вошли: между
  * «смотрю выручку» и «стёр всё» должно стоять что-то, чего человек за
- * соседним компьютером не знает. Чем подтверждать, решает состояние
- * аккаунта, а не форма (см. `deleteNeedsCode` в lib/account.ts): у кого
- * есть PIN — PIN, у заведённых по SMS — код на их номер. Проверяет то и
- * другое общий код, тот же, которым живёт приложение.
+ * соседним компьютером не знает. Подтверждают ПАРОЛЕМ — тем же, чем
+ * входят. Проверяет его общий код, тот же, которым живёт приложение.
  *
  * Счётчик попыток тот же, что на входе, — иначе форма превращается в
- * тихий способ подобрать PIN владельца.
+ * тихий способ подобрать пароль владельца.
  *
  * Отличие от приложения — в порядке. На телефоне лист обмена сообщает,
  * сохранил человек файл или передумал, и удаление ждёт этого ответа.
@@ -66,40 +59,15 @@ export async function POST(request: Request) {
   const ip = clientIp(request.headers);
   const locale = await getLocale();
 
-  /* Шаг первый для тех, у кого кода нет: выслать SMS и вернуться к форме
-     с полем кода. Идентификатор заявки едет в адресе — сам по себе он
-     ничего не открывает, код приходит на телефон. */
-  if (deleteNeedsCode(account) && !String(form.get('challengeId') ?? '')) {
-    const started = await startDeleteCode({ account, ip, locale });
-    if (!started.ok) {
-      return back({ delete: started.problem === 'THROTTLED' ? 'throttled' : 'sms' });
-    }
-    return back({ delete: 'sent', cid: started.challengeId });
-  }
-
   const proof = await checkDeleteProof({
     account,
     ip,
-    pin: String(form.get('pin') ?? '').trim(),
-    challengeId: String(form.get('challengeId') ?? '').trim(),
-    code: String(form.get('code') ?? '').trim(),
+    password: String(form.get('password') ?? ''),
   });
 
   if (!proof.ok) {
     if (proof.problem === 'THROTTLED') return back({ delete: 'throttled' });
-    if (proof.problem === 'WRONG_PIN') return back({ delete: 'pin' });
-    /* Заявка сгорела или кончились попытки — возвращаем к самому началу:
-       честного пути из этого состояния нет, код нужен новый. */
-    if (proof.problem === 'CODE_EXPIRED' || proof.problem === 'CODE_TOO_MANY') {
-      return back({ delete: 'codeExpired' });
-    }
-    if (proof.problem === 'CODE_INVALID') {
-      return back({
-        delete: 'code',
-        cid: String(form.get('challengeId') ?? '').trim(),
-      });
-    }
-    return back({ delete: 'failed' });
+    return back({ delete: 'password' });
   }
 
   const tenant = await getTenant(session.tid);

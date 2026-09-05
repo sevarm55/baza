@@ -15,7 +15,12 @@ export async function PATCH(request: Request) {
     const ctx = await authorize(request, { anyPlan: true });
     if (denied(ctx)) return ctx;
 
-    const input = await body<{ name?: string; businessName?: string; currency?: string }>(request);
+    const input = await body<{
+      name?: string;
+      businessName?: string;
+      currency?: string;
+      phone?: string;
+    }>(request);
     if (!input) return fail('BAD_REQUEST', 400);
 
     // название бизнеса и валюта общие, а не личные: меняет только владелец
@@ -32,6 +37,7 @@ export async function PATCH(request: Request) {
       name: input.name,
       businessName: input.businessName,
       currency: input.currency,
+      phone: input.phone,
     });
 
     return noContent();

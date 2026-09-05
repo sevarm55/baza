@@ -1,6 +1,9 @@
 {
   "sourceLanguage": "hy",
   "strings": {
+    "0": {},
+    "40": {},
+    "365": {},
     "": {},
     " ": {},
     "%": {},
@@ -110,9 +113,6 @@
     "+%@": {},
     "+%lld": {},
     "+374 77 123 456": {},
-    "0": {},
-    "365": {},
-    "40": {},
     "TETRIN": {},
     "alerts.empty": {
       "extractionState": "manual",
@@ -2987,6 +2987,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wrong login or password"
+          }
+        }
+      }
+    },
+    "auth.wrongPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ընթացիկ գաղտնաբառը սխալ է"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий пароль неверный"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current password is wrong"
           }
         }
       }

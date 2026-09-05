@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { accounts, orders, tenants, users } from './db/schema';
 import { hashPin, hasPin, NO_PIN, verifyPin } from './pin';
-import { pinProblem } from './phone';
+import { isValidPhone, normalizePhone, pinProblem } from './phone';
 import { revokeAccountSessions } from './auth';
 import { accountOf } from './accounts';
 import { isCurrency } from './money';
@@ -28,6 +28,8 @@ export class ProfileError extends Error {
       | 'WRONG_PIN'
       | 'BAD_NAME'
       | 'BAD_CURRENCY'
+      | 'BAD_PHONE'
+      | 'PHONE_TAKEN'
       /** в мойке уже есть записи — валюту не трогаем */
       | 'CURRENCY_LOCKED',
   ) {
@@ -165,6 +167,15 @@ export async function saveProfile(input: {
    * с заявкой у всех, кто до почты не дошёл.
    */
   currency?: string;
+  /**
+   * Телефон владельца.
+   *
+   * Меняется просто, без подтверждения, и это не упущение. Владелец
+   * входит почтой; телефон у него связь, а не ключ, и подтверждать его
+   * стало нечем — кодов из SMS у продукта больше нет. Пустая строка
+   * означает «убрать»: не всякий владелец хочет оставлять номер.
+   */
+  phone?: string;
 }) {
   if (input.name !== undefined) {
     const name = input.name.trim();
@@ -176,6 +187,27 @@ export async function saveProfile(input: {
     const businessName = input.businessName.trim();
     if (businessName.length < 2) throw new ProfileError('BAD_NAME');
     await db.update(tenants).set({ name: businessName }).where(eq(tenants.id, input.tenantId));
+  }
+
+  if (input.phone !== undefined) {
+    const given = input.phone.trim();
+    const phone = given ? normalizePhone(given) : '';
+    if (given && !isValidPhone(phone)) throw new ProfileError('BAD_PHONE');
+
+    const account = await accountOf({ id: input.userId } as never).catch(() => null);
+
+    try {
+      await db.transaction(async (tx) => {
+        if (account) {
+          await tx.update(accounts).set({ phone }).where(eq(accounts.id, account.id));
+        }
+        await tx.update(users).set({ phone }).where(eq(users.id, input.userId));
+      });
+    } catch {
+      /* Номер занят. Уникальный индекс — единственное, что здесь
+         надёжно: между проверкой и записью его мог занять кто угодно. */
+      throw new ProfileError('PHONE_TAKEN');
+    }
   }
 
   if (input.currency !== undefined) {
