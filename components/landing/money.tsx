@@ -23,7 +23,10 @@ export function Money({
 }) {
   const still = useReducedMotion();
   const ref = useRef<HTMLSpanElement>(null);
-  const spring = useSpring(0, { stiffness: 90, damping: 22 });
+  /* Пружина живее прежней (было 90/22): суммы обязаны догонять ленту, а
+     она теперь идёт в полтора раза быстрее. Отставший счётчик читается
+     не спокойствием, а задумчивостью. */
+  const spring = useSpring(0, { stiffness: 150, damping: 24 });
 
   useEffect(() => {
     if (still) return;

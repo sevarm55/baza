@@ -17,6 +17,8 @@ import { motion, useReducedMotion } from 'motion/react';
  *
  * `data-reveal` нужен для случая без скрипта: правило в `<noscript>`
  * возвращает словам непрозрачность, иначе заголовка не будет вовсе.
+ *
+ * Узел пересобирается при смене текста — почему, написано у ключа.
  */
 export function Words({
   text,
@@ -46,11 +48,20 @@ export function Words({
 
   return (
     <M
+      /* Ключ по самому тексту, и это не украшение.
+       *
+       * При смене языка меняются ДЕТИ заголовка, а сам узел остаётся тем
+       * же. `whileInView` с `once` к тому моменту уже отработал и второй
+       * раз не срабатывает, а новые слова монтируются с родительским
+       * `initial`, то есть скрытыми, — и такими остаются до перезагрузки
+       * страницы. Смена ключа пересобирает узел целиком и заново заводит
+       * наблюдателя: если заголовок в кадре, он тут же и проявится. */
+      key={text}
       id={id}
       className={className}
       initial="hidden"
       whileInView="shown"
-      viewport={{ once: true, margin: '-12% 0px -12% 0px' }}
+      viewport={{ once: true, margin: '0px 0px -8% 0px' }}
       transition={{ staggerChildren: 0.07 }}
     >
       {words.map((word, i) => (

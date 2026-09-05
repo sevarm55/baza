@@ -35,7 +35,7 @@ export function Screen({ children }: { children: React.ReactNode }) {
         }}
         initial={still ? false : { opacity: 0, scale: 0.86 }}
         whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, margin: '-15% 0px -15% 0px' }}
+        viewport={{ once: true, margin: '0px 0px -10% 0px' }}
         transition={{ duration: 1.1, delay: 0.18, ease: EASE }}
       />
 
@@ -43,7 +43,7 @@ export function Screen({ children }: { children: React.ReactNode }) {
         className="relative"
         initial={still ? false : { opacity: 0, y: 38, scale: 0.985, filter: 'blur(14px)' }}
         whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-        viewport={{ once: true, margin: '-12% 0px -12% 0px' }}
+        viewport={{ once: true, margin: '0px 0px -10% 0px' }}
         transition={{ duration: 0.95, ease: EASE }}
       >
         {children}
