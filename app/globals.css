@@ -173,7 +173,16 @@
 
 @theme inline {
   --font-sans: var(--font-sans), system-ui, sans-serif;
-  --font-wordmark: var(--font-wordmark), var(--font-sans), sans-serif;
+  /* Три файла на три письменности, подбор идёт по букве, а не по языку
+     страницы: латиница из Unbounded, кириллица из него же (отдельный
+     файл), армянский из Montserrat Armenian. Mardoto в конце — на случай знака,
+     которого нет ни в одном из трёх.
+
+     Порядок обязателен и метрические дублёры у первых трёх отключены
+     (`adjustFontFallback: false` в layout): дублёр покрывает все
+     символы сразу и перехватил бы чужую письменность раньше её
+     собственного файла. */
+  --font-wordmark: var(--font-wordmark), var(--font-wordmark-cyr), var(--font-wordmark-hy), var(--font-sans), sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -260,6 +269,19 @@
   --topbar-height: 3rem;
   /* Предел ширины рабочей области: строка в два метра не читается. */
   --page-max: 1520px;
+
+  /* Лист витрины.
+
+     Отдельно от `--background` нарочно: у кабинета свой лист, и менять
+     его заодно с витриной незачем. Витрина живёт на двух грунтах —
+     тёплой слоновой кости и почти чёрном с тёплым уклоном. Оба не
+     нейтральные и оба не чистые: чистый белый и чистый чёрный на
+     большом поле выглядят дёшево. */
+  --landing-bg: #ffffe3;
+}
+
+:root[data-theme='dark'] {
+  --landing-bg: #10100e;
 }
 
 @layer base {

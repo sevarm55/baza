@@ -119,7 +119,7 @@ resend, pin/reset, refresh, logout, switch, devices, verify-phone, phone),
 | `4642940` | Отчёт: месяцы графиком, доля кольцом, разрезы залиты в строку, оплаты метрами при приходе | `ReportScreen.kt` |
 | `dc9a59c` | Совместная мойка: одна машина, несколько исполнителей | `core/money/Crew.kt`, `Dto.kt`, `Session.kt`, `OrderQueue.kt`, `OrderFlowSheet.kt`, `StaffScreen.kt` |
 | `ef33896` | Словарь пересобран из свежего каталога iOS | `res/values*/strings.xml`, `tools/strings.py` |
-| `c3d1e6d` | Код из SMS и код доступа разведены; вход спрашивает роль, а не способ; удаление кода доступа | `LoginViewModel.kt`, `LoginScreen.kt`, `ProfileScreen.kt`, `Session.kt` |
+| `c3d1e6d` | Код из SMS и ПИН разведены; вход спрашивает роль, а не способ; удаление ПИНа | `LoginViewModel.kt`, `LoginScreen.kt`, `ProfileScreen.kt`, `Session.kt` |
 | `3162154` | Знак денежного числа считает одно место | `Brand.sign()` |
 | `69a2f2f` | В профиле лицо вместо буквы, раскрывается нажатием | `ProfileScreen.kt`, `res/drawable-nodpi/avatar.jpg` |
 | `ee03965` | Заводские услуги на языке смотрящего | `core/i18n/Terms.kt` |

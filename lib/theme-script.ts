@@ -30,12 +30,20 @@ import { createHash } from 'node:crypto';
 /* Светлая — вид продукта по умолчанию; тёмная ставится только если её
    выбрали руками и выбор сохранился.
 
+   Исключение одно: корень адреса. Витрина открывается тёмной, потому
+   что её первый экран — кадр съёмки, а не поверхность продукта, и
+   светлым он существует только как ответ на осознанное переключение.
+   Проверка идёт по адресу, а не по классу на разметке, и это не лень:
+   тема обязана встать ДО первого кадра, когда разметки ещё нет вовсе.
+   Выбор при этом не записывается: человек, ничего не нажавший, войдёт
+   в кабинет со светлой темой, как и любой другой новичок.
+
    Заодно скрипт красит строку состояния телефона: `theme-color` в
    разметке один и светлый, а под тёмной темой он должен стать цветом
    тёмного листа. Иначе в Safari сверху и снизу остаются светлые полосы
    вокруг тёмного экрана. */
 export const THEME_SCRIPT =
-  `(()=>{try{var d=localStorage.getItem('bazis.theme')==='dark';document.documentElement.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=d?'#0b0614':'#ffffff'}catch(e){}})();`;
+  `(()=>{try{var s=localStorage.getItem('bazis.theme');var d=s?s==='dark':location.pathname==='/';document.documentElement.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=d?'#0b0614':'#ffffff'}catch(e){}})();`;
 
 /** `sha256-…` для `script-src`. Считается один раз при загрузке модуля. */
 export const THEME_SCRIPT_HASH = `'sha256-${createHash('sha256')

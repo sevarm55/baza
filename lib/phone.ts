@@ -60,6 +60,47 @@ function byDial(digits: string): Country | undefined {
  * плюсом сильнее любой подсказки, иначе вставленный из переписки
  * российский номер молча стал бы армянским.
  */
+/**
+ * Разбить набранное по группам страны: 77123456 → 77 123 456.
+ *
+ * Живёт здесь, а не в поле ввода, потому что полей два: продуктовое
+ * (`components/phone-field.tsx`) и витринное
+ * (`components/landing/auth-ui.tsx`). Вид у них разный, разбивка обязана
+ * быть одна.
+ */
+export function groupNsn(digits: string, countryCode: string): string {
+  const c = country(countryCode);
+  const parts: string[] = [];
+  let at = 0;
+  for (const size of c.groups) {
+    if (at >= digits.length) break;
+    parts.push(digits.slice(at, at + size));
+    at += size;
+  }
+  if (at < digits.length) parts.push(digits.slice(at));
+  return parts.join(' ');
+}
+
+/**
+ * Оставить от набранного только национальную часть.
+ *
+ * Вставленный номер приходит с кодом страны, с плюсом, с восьмёркой.
+ * Лишнее отрезается здесь, иначе код уедет в национальную часть и номер
+ * не сойдётся ни с одной проверкой.
+ */
+export function nationalDigits(next: string, countryCode: string): string {
+  const c = country(countryCode);
+  const max = Math.max(...c.nsn);
+  let digits = next.replace(/\D/g, '');
+
+  if (digits.length > max) {
+    if (digits.startsWith(c.dial)) digits = digits.slice(c.dial.length);
+    else if (digits.startsWith('0')) digits = digits.slice(1);
+  }
+
+  return digits.slice(0, max);
+}
+
 export function normalizePhone(raw: string, countryCode: string = DEFAULT_COUNTRY): string {
   const trimmed = String(raw ?? '').trim();
   const digits = trimmed.replace(/\D/g, '');

@@ -1,0 +1,47 @@
+/**
+ * Одна смена одной мойки. Демо для витрины.
+ *
+ * Числа выдуманы, но сходятся между собой, и это главное правило файла:
+ * выручка это ровно сумма машин, зарплата это ровно проценты мойщиков от
+ * их собственных машин, «вы» это разница. Посетитель, который сложит
+ * колонку в уме, обязан получить то же, что показано.
+ *
+ * Случайности здесь нет: витрина показывает одно и то же всем и в любом
+ * заходе. Имена и номера взяты из прежней демо-мойки, чтобы витрина и
+ * показы на встречах говорили об одном заведении.
+ */
+export type LiveRecord = {
+  /** Номер машины. */
+  plate: string;
+  /** Индекс услуги в словаре: услуги переводятся, номера нет. */
+  service: 0 | 1 | 2;
+  /** Мойщик. Имя не переводится ни на одном языке. */
+  washer: string;
+  /** Цена услуги. */
+  price: number;
+  /** Доля мойщика в процентах, как настроено у него в карточке. */
+  percent: number;
+};
+
+export const LIVE: LiveRecord[] = [
+  { plate: '35 AA 777', service: 0, washer: 'Արման', price: 6_500, percent: 40 },
+  { plate: '77 GG 477', service: 1, washer: 'Գոռ', price: 4_000, percent: 35 },
+  { plate: '19 QW 412', service: 2, washer: 'Հայկ', price: 3_500, percent: 35 },
+  { plate: '48 GH 505', service: 0, washer: 'Արման', price: 6_500, percent: 40 },
+  { plate: '01 LL 318', service: 1, washer: 'Գոռ', price: 4_000, percent: 35 },
+  { plate: '22 SO 149', service: 0, washer: 'Հայկ', price: 6_500, percent: 35 },
+];
+
+/** Сколько записей видно в ленте разом. Больше не помещается в кадр. */
+export const LIVE_WINDOW = 4;
+
+/** Пауза между машинами. Медленнее ленты кабинета: тут её читают, а не работают. */
+export const LIVE_INTERVAL = 2400;
+
+/** Итоги после n-й машины. Складываются ровно те записи, что уже показаны. */
+export function totals(count: number) {
+  const done = LIVE.slice(0, count);
+  const revenue = done.reduce((s, r) => s + r.price, 0);
+  const payroll = done.reduce((s, r) => s + Math.round((r.price * r.percent) / 100), 0);
+  return { revenue, payroll, you: revenue - payroll };
+}

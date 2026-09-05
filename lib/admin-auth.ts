@@ -242,7 +242,7 @@ export type AdminAction =
   | 'account.unblock'
   | 'account.logout_all'
   | 'account.reset_access'
-  /** выдан временный код доступа: форс-мажор, когда войти нечем */
+  /** выдан временный ПИН: форс-мажор, когда войти нечем */
   | 'account.temp_access'
   | 'account.view'
   | 'admin.session_revoke';

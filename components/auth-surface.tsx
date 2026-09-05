@@ -1,20 +1,21 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { Check, ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 
 import { authAction, type AuthState } from '@/app/auth-actions';
 import { resumeSavedAccount, type FormState } from '@/app/actions';
 import { CodeInput } from '@/components/code-input';
-import { PhoneField } from '@/components/phone-field';
-import { FormMessage } from '@/components/patterns/form';
 import { PersonAvatar } from '@/components/patterns/person';
-import { Segmented } from '@/components/patterns/segmented';
-import { Button } from '@/components/ui/button';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
-import { LoadingButton } from '@/components/loading';
+import {
+  AuthButton,
+  AuthError,
+  AuthField,
+  AuthHead,
+  AuthLink,
+  AuthPhone,
+  AuthRoles,
+} from '@/components/landing/auth-ui';
 import { PIN_LENGTH } from '@/lib/phone';
 import { CODE_LENGTH } from '@/lib/otp-shared';
 import { useT } from '@/lib/i18n/client';
@@ -24,13 +25,20 @@ import type { RememberedWebAccount } from '@/lib/auth';
 /**
  * Форма входа и регистрации целиком.
  *
- * Одна на все места, где человек авторизуется: окно поверх витрины,
- * `/login`, `/start/:niche`. Разница между ними визуальная и остаётся
- * снаружи, здесь только сам разговор.
+ * Живёт ровно в одном месте: в листе, который приходит от правого края
+ * поверх витрины (`components/auth-dialog.tsx`). Отдельных страниц входа
+ * больше нет, `/login` и `/start/:niche` уводят на тот же корень с
+ * открытым листом. Оболочка снаружи, здесь только сам разговор.
+ *
+ * Органы у формы свои (`components/landing/auth-ui.tsx`), не общие с
+ * кабинетом. Причина не в цвете, а в плотности: в кабинете человек
+ * работает, и поля там в рамках, а витрина это разворот, где набор
+ * крупный и линии волосяные. Продуктовые органы внутри неё читались
+ * вставкой из другой системы.
  *
  * ГЛАВНОЕ РЕШЕНИЕ ЭТОГО ЭКРАНА: спрашиваем не «каким кодом», а «кто вы».
  * Владельцу по умолчанию шлём код из SMS, потому что помнить ему нечего;
- * сотруднику сразу показываем оба поля, потому что код доступа ему уже
+ * сотруднику сразу показываем оба поля, потому что ПИН ему уже
  * выдал владелец. Сотруднику не показываем ни вход по SMS, ни
  * восстановление: его номер подтверждённым не становится, и
  * восстановление ответило бы ему молчанием.
@@ -88,7 +96,7 @@ export function AuthSurface({
         onBack={() => setForgot(false)}
         onWho={(next) => {
           setWho(next);
-          /* Сотрудник входит кодом доступа всегда. Возвращаясь к
+          /* Сотрудник входит ПИНом всегда. Возвращаясь к
              владельцу, отдаём ему главную дверь: код приходит сам. */
           setMethod(next === 'staff' ? 'code' : 'sms');
           setForgot(false);
@@ -106,7 +114,10 @@ type Who = 'owner' | 'staff';
 type Method = 'sms' | 'code';
 
 /** Шаг разговора: появляется снизу, чуть поднимаясь. */
-const STEP = 'flex flex-col gap-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200';
+/* Шаг разговора. Приходит снизу из размытия той же кривой, что и текст
+   витрины: лист вырезан из её страницы и двигаться обязан так же. */
+const STEP =
+  'flex flex-col gap-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]';
 
 function Conversation({
   who,
@@ -152,17 +163,25 @@ function Conversation({
 
   if (state?.step === 'done') {
     return (
-      <div className={`${STEP} items-center py-4 text-center`}>
-        <span className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-soft-foreground">
-          <Check className="size-5" aria-hidden />
+      <div className={STEP}>
+        {/* Отметка лаймом: тот же знак, которым витрина отвечает
+            «записано» во второй секции. */}
+        <span className="flex size-11 items-center justify-center rounded-2xl bg-[var(--lime)] text-[var(--lime-foreground)]">
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4.5 10.5l3.6 3.6L15.5 6.5" />
+          </svg>
         </span>
-        <div className="flex flex-col gap-1">
-          <p className="text-base font-semibold">{state.message}</p>
-          <p className="text-sm text-muted-foreground">{t.auth.resetDoneNote}</p>
-        </div>
-        <Button type="button" variant="link" onClick={onBack}>
-          {t.auth.backToSignIn}
-        </Button>
+        <AuthHead title={state.message} subtitle={t.auth.resetDoneNote} />
+        <AuthLink onClick={onBack}>{t.auth.backToSignIn}</AuthLink>
       </div>
     );
   }
@@ -175,7 +194,7 @@ function Conversation({
   const error = state?.step === 'credentials' ? state.error : undefined;
 
   const phoneField = (
-    <PhoneField
+    <AuthPhone
       label={t.auth.phone}
       countryLabel={t.auth.country}
       defaultValue={phone}
@@ -186,33 +205,25 @@ function Conversation({
     />
   );
 
-  /* Восстановление кода доступа: отдельная ветка, а не третья роль.
+  /* Восстановление ПИНа: отдельная ветка, а не третья роль.
      Сюда попадают только владельцы. */
   if (forgot) {
     return (
       <form action={action} className={STEP}>
         <input type="hidden" name="intent" value="resetBegin" />
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="-my-1 -ml-2 self-start text-muted-foreground"
-          onClick={onBack}
-        >
-          <ChevronLeft data-icon="inline-start" aria-hidden />
+        <AuthLink className="flex items-center gap-1 self-start no-underline" onClick={onBack}>
+          <ChevronLeft aria-hidden className="size-4" />
           {t.auth.backToSignIn}
-        </Button>
+        </AuthLink>
 
-        <Head title={t.auth.resetTitle} subtitle={t.auth.resetSub} />
+        <AuthHead title={t.auth.resetTitle} subtitle={t.auth.resetSub} />
 
         {phoneField}
 
-        <FormMessage tone="error">{error}</FormMessage>
+        <AuthError>{error}</AuthError>
 
-        <div className="flex flex-col gap-2">
-          <Submit pending={pending} idle={t.auth.resetSend} busy={t.auth.sending} />
-        </div>
+        <Submit pending={pending} idle={t.auth.resetSend} busy={t.auth.sending} />
       </form>
     );
   }
@@ -227,22 +238,20 @@ function Conversation({
         <input type="hidden" name="intent" value="entry" />
 
         {roles}
-        <Head
+        <AuthHead
           title={register ? t.auth.createTitle : t.auth.ownerTitle}
           subtitle={register ? t.auth.createSub : t.auth.entrySub}
         />
 
         {phoneField}
 
-        <FormMessage tone="error">{error}</FormMessage>
+        <AuthError>{error}</AuthError>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-center gap-5">
           <Submit pending={pending} idle={t.auth.entrySend} busy={t.auth.sending} />
           {/* Вторая дверь строкой, а не второй кнопкой: главное действие
               на экране одно. */}
-          <Button type="button" variant="link" className="self-center" onClick={() => onMethod('code')}>
-            {t.auth.entryPinDoor}
-          </Button>
+          <AuthLink onClick={() => onMethod('code')}>{t.auth.entryPinDoor}</AuthLink>
         </div>
       </form>
     );
@@ -257,7 +266,7 @@ function Conversation({
       <input type="hidden" name="intent" value="signIn" />
 
       {roles}
-      <Head
+      <AuthHead
         title={staff ? t.auth.staffTitle : t.auth.ownerTitle}
         subtitle={staff ? t.auth.staffHelper : t.auth.ownerCodeHelper}
       />
@@ -265,6 +274,10 @@ function Conversation({
       {phoneField}
 
       <CodeInput
+        tone="landing"
+        /* Точки, а не клетки: ПИН набирают на память. Клетки остаются
+           коду из SMS, который переписывают глазами. */
+        look="dots"
         name="pin"
         length={PIN_LENGTH}
         /* Четыре не опечатка: столько цифр у всех, кто завёл аккаунт до
@@ -284,21 +297,17 @@ function Conversation({
         invalid={Boolean(error)}
       />
 
-      <FormMessage tone="error">{error}</FormMessage>
+      <AuthError>{error}</AuthError>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col items-center gap-5">
         <Submit pending={pending} idle={t.auth.signIn} busy={t.auth.signingIn} />
 
-        {/* Сотруднику ни SMS, ни восстановления: забытый код доступа ему
+        {/* Сотруднику ни SMS, ни восстановления: забытый ПИН ему
             выдаёт заново владелец. */}
         {!staff && (
-          <div className="flex flex-wrap items-center justify-center gap-x-4">
-            <Button type="button" variant="link" onClick={() => onMethod('sms')}>
-              {t.auth.entrySmsDoor}
-            </Button>
-            <Button type="button" variant="link" onClick={onForgot}>
-              {t.auth.forgotPin}
-            </Button>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            <AuthLink onClick={() => onMethod('sms')}>{t.auth.entrySmsDoor}</AuthLink>
+            <AuthLink onClick={onForgot}>{t.auth.forgotPin}</AuthLink>
           </div>
         )}
       </div>
@@ -308,11 +317,18 @@ function Conversation({
 
 /* ------------------------- кто входит ------------------------- */
 
-/** Владелец или сотрудник: тот же переключатель, что во всём продукте. */
+/**
+ * Владелец или сотрудник.
+ *
+ * Два слова и подчёркивание, которое между ними переезжает
+ * (`components/landing/auth-ui.tsx`). Дорожка с плашкой осталась в
+ * кабинете: там переключают период отчёта по десять раз на дню, и орган
+ * обязан быть кнопкой. Здесь выбор делают один раз и навсегда, и он
+ * читается словом.
+ */
 function WhoSwitch({ who, onWho, t }: { who: Who; onWho: (next: Who) => void; t: Dict }) {
   return (
-    <Segmented
-      full
+    <AuthRoles
       label={t.settings.role}
       current={who}
       onSelect={(key) => onWho(key as Who)}
@@ -356,13 +372,14 @@ function OtpStep({
 
   return (
     <div className={STEP}>
-      <Head title={title} subtitle={description} />
+      <AuthHead title={title} subtitle={description} />
 
-      <form action={action} className="flex flex-col gap-5">
+      <form action={action} className="flex flex-col gap-7">
         <input type="hidden" name="intent" value={intent} />
         <input type="hidden" name="challengeId" value={state.challengeId} />
 
         <CodeInput
+          tone="landing"
           /* Новая заявка: пустые клетки. Ключ обнуляет поле ровно тогда,
              когда меняется заявка, и ни на кадр раньше. */
           key={state.challengeId}
@@ -381,7 +398,7 @@ function OtpStep({
           invalid={Boolean(state.error)}
         />
 
-        <FormMessage tone="error">{state.error}</FormMessage>
+        <AuthError>{state.error}</AuthError>
 
         <Submit pending={pending} idle={t.auth.otpVerify} busy={t.auth.checking} />
       </form>
@@ -391,15 +408,13 @@ function OtpStep({
       <form action={action} className="flex flex-col items-center gap-1">
         <input type="hidden" name="intent" value="resend" />
         <input type="hidden" name="challengeId" value={state.challengeId} />
-        <Button
+        <AuthLink
           type="submit"
-          variant="ghost"
-          size="sm"
-          className="num text-muted-foreground"
+          className="num disabled:pointer-events-none disabled:opacity-45"
           disabled={left > 0 || state.resendsLeft <= 0}
         >
           {left > 0 ? t.auth.otpResendIn(mmss(left)) : t.auth.otpResend}
-        </Button>
+        </AuthLink>
         {left === 0 && state.resendsLeft > 0 && state.resendsLeft <= 2 && (
           <p className="text-center text-xs text-muted-foreground">
             {t.auth.otpResendsLeft(state.resendsLeft)}
@@ -413,7 +428,7 @@ function OtpStep({
 /* ------------------------- название мойки ------------------------- */
 
 /**
- * Последний шаг новичка. Код доступа здесь не спрашивается: входить он
+ * Последний шаг новичка. ПИН здесь не спрашивается: входить он
  * будет кодом из SMS. Это единственный экран, который человек видит
  * один раз в жизни, поэтому на нём и стоит обещание про бесплатные дни.
  */
@@ -438,46 +453,38 @@ function NameStep({
       <input type="hidden" name="ticket" value={state.ticket} />
       <input type="hidden" name="niche" value={niche} />
 
-      <Head title={t.auth.nameTitle} subtitle={t.auth.nameSub} />
+      <AuthHead title={t.auth.nameTitle} subtitle={t.auth.nameSub} />
 
-      <div className="flex flex-col gap-4">
-        <Field>
-          <FieldLabel htmlFor="auth-business-name">{t.onboarding.bizName}</FieldLabel>
-          <Input
-            id="auth-business-name"
-            className="h-10"
-            name="businessName"
-            required
-            maxLength={80}
-            autoFocus
-            autoComplete="organization"
-          />
-        </Field>
+      <div className="flex flex-col gap-7">
+        <AuthField
+          label={t.onboarding.bizName}
+          name="businessName"
+          required
+          maxLength={80}
+          autoFocus
+          autoComplete="organization"
+        />
 
-        <Field>
-          <FieldLabel htmlFor="auth-owner-name">{t.onboarding.ownerName}</FieldLabel>
-          <Input
-            id="auth-owner-name"
-            className="h-10"
-            name="ownerName"
-            required
-            maxLength={80}
-            autoComplete="name"
-          />
-        </Field>
+        <AuthField
+          label={t.onboarding.ownerName}
+          name="ownerName"
+          required
+          maxLength={80}
+          autoComplete="name"
+        />
       </div>
 
-      <FormMessage tone="error">{state.error}</FormMessage>
+      <AuthError>{state.error}</AuthError>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col items-center gap-4">
         <Submit pending={pending} idle={t.auth.nameCreate} busy={t.auth.sending} />
-        <p className="text-center text-xs text-muted-foreground">{t.onboarding.freeDays(trialDays)}</p>
+        <p className="text-[13px] text-muted-foreground">{t.onboarding.freeDays(trialDays)}</p>
       </div>
     </form>
   );
 }
 
-/* ------------------------ новый код доступа ------------------------ */
+/* ------------------------ новый ПИН ------------------------ */
 
 function NewPinStep({
   state,
@@ -495,9 +502,10 @@ function NewPinStep({
       <input type="hidden" name="intent" value="resetSave" />
       <input type="hidden" name="ticket" value={state.ticket} />
 
-      <Head title={t.auth.newPin} subtitle={t.auth.pinMemo} />
+      <AuthHead title={t.auth.newPin} subtitle={t.auth.pinMemo} />
 
       <CodeInput
+        tone="landing"
         name="pin"
         length={PIN_LENGTH}
         label={t.auth.pinGroup(PIN_LENGTH)}
@@ -511,7 +519,7 @@ function NewPinStep({
         invalid={Boolean(state.error)}
       />
 
-      <FormMessage tone="error">{state.error}</FormMessage>
+      <AuthError>{state.error}</AuthError>
 
       <Submit pending={pending} idle={t.auth.resetSave} busy={t.auth.checking} />
     </form>
@@ -544,7 +552,7 @@ function RememberedAccount({
             гасит обработчик, форма гасит Enter. */}
         <button
           type="submit"
-          className="rounded-full outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 aria-busy:cursor-progress aria-busy:active:scale-100"
+          className="rounded-2xl outline-none transition-transform focus-visible:ring-3 focus-visible:ring-[#c0390f]/40 active:scale-95 aria-busy:cursor-progress aria-busy:active:scale-100 dark:focus-visible:ring-[#ff6a2a]/40"
           aria-label={`${t.auth.signIn} · ${who.name}`}
           aria-busy={pending || undefined}
           aria-disabled={pending || undefined}
@@ -556,42 +564,42 @@ function RememberedAccount({
         </button>
       </form>
 
-      <div className="flex flex-col gap-0.5">
-        <div className="text-base font-semibold">{who.name}</div>
+      <div className="flex flex-col gap-1.5">
+        <div className="font-wordmark text-[20px] leading-none tracking-[-0.01em] uppercase">
+          {who.name}
+        </div>
         <div className="text-sm text-muted-foreground">{who.tenant}</div>
       </div>
 
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
-        {pending && <Spinner className="size-3.5" />}
+      <p className="flex items-center gap-2 text-[13px] text-muted-foreground" aria-live="polite">
+        {pending ? (
+          <span
+            aria-hidden
+            className="size-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current"
+          />
+        ) : null}
         {pending ? t.auth.signingIn : t.auth.tapAvatar}
       </p>
 
-      <FormMessage tone="error">{state?.error}</FormMessage>
+      <AuthError>{state?.error}</AuthError>
 
-      <Button type="button" variant="link" onClick={onOther}>
-        {t.auth.anotherAccount}
-      </Button>
+      <AuthLink onClick={onOther}>{t.auth.anotherAccount}</AuthLink>
     </div>
   );
 }
 
 /* ------------------------------ мелочи ------------------------------ */
 
-function Head({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.01em]">{title}</h2>
-      <p className="text-sm text-muted-foreground">{subtitle}</p>
-    </div>
-  );
-}
-
 /**
  * Кнопка отправки. Занятость не украшение: без неё двойное нажатие шлёт
  * две регистрации, и вторая упирается в занятый номер.
  */
 function Submit({ pending, idle, busy }: { pending: boolean; idle: string; busy: string }) {
-  return <LoadingButton size="lg" className="w-full" busy={pending} label={idle} busyLabel={busy} />;
+  return (
+    <AuthButton type="submit" busy={pending} disabled={pending}>
+      {pending ? busy : idle}
+    </AuthButton>
+  );
 }
 
 /**

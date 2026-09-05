@@ -45,14 +45,65 @@ const sans = localFont({
  * Mardoto), а интерфейс у нас армянский. Отсюда правило: этой
  * переменной набирается ровно одно слово на весь продукт — само имя.
  *
- * Латиница и всё: имя марки не переводится ни на одном языке, кириллица
- * и армянский ему не нужны, а лишний файл — это лишние килобайты на
- * первой загрузке экрана мойщика.
+ * Файлов два, и это не дубль. Латиницей набрана марка, кириллицей —
+ * заголовок первого экрана витрины, который с недавних пор тоже идёт
+ * этим начертанием. Разными файлами, а не одним, потому что браузер
+ * тянет шрифт только под те буквы, которые реально нарисовал: армянин
+ * и англичанин кириллический файл не увидят вовсе.
+ *
+ * Армянского в Unbounded нет и не будет — таких глифов в гарнитуре
+ * попросту не нарисовано. Его набирает Montserrat Armenian Black
+ * (`fonter.am`, лицензия рядом). Выбран сравнением на живом заголовке
+ * первого экрана: из бесплатных армянских чёрных начертаний это
+ * единственное геометрическое и круглое, то есть той же породы, что
+ * Unbounded. Остальные кандидаты квадратные и «технические» (Reactive,
+ * Oldtimer) либо недостаточно жирные для кегля в шестьдесят пунктов
+ * (Atyan Dsegh).
+ *
+ * Файл подрезан до армянского блока, цифр и знака драма: 101 глиф,
+ * 5,7 КБ. Строчные в него входят, хотя заголовки набираются
+ * прописными, — иначе любое имя, показанное этой стопкой без
+ * `uppercase`, молча уехало бы в Mardoto.
+ *
+ * Montserrat шире и тяжелее прежнего армянского, поэтому кегль
+ * заголовка первого экрана считается отдельно от русского и
+ * английского: одна и та же строка занимает в нём больше места.
+ *
+ * Собирается всё в одну стопку в `globals.css`, и браузер выбирает
+ * файл по букве, а не по языку страницы.
  */
+/* `adjustFontFallback: false` здесь обязателен, и это не оптимизация.
+
+   По умолчанию Next подкладывает к шрифту метрический дублёр из
+   системных («wordmark Fallback»), чтобы при загрузке не прыгала
+   раскладка. Дублёр покрывает ВСЕ символы, включая кириллицу, и в
+   стопке стоит сразу за своим шрифтом — то есть перехватывает русский
+   текст раньше, чем очередь дойдёт до кириллического Unbounded.
+   Заголовок при этом выглядит почти правильно (дублёр растянут по
+   метрикам Unbounded и такой же широкий), но набран системным
+   шрифтом обычной насыщенности вместо чёрного начертания. Ошибка
+   молчаливая: в консоли чисто, а на экране не тот шрифт.
+
+   Без дублёра стопка честная: латиница → кириллица → Mardoto. */
 const wordmark = localFont({
   src: './fonts/Unbounded-Latin-Black.woff2',
   variable: '--font-wordmark',
   display: 'swap',
+  adjustFontFallback: false,
+});
+
+const wordmarkCyrillic = localFont({
+  src: './fonts/Unbounded-Cyrillic-Black.woff2',
+  variable: '--font-wordmark-cyr',
+  display: 'swap',
+  adjustFontFallback: false,
+});
+
+const wordmarkArmenian = localFont({
+  src: './fonts/Montserrat-Armenian-Black.woff2',
+  variable: '--font-wordmark-hy',
+  display: 'swap',
+  adjustFontFallback: false,
 });
 
 /**
@@ -146,7 +197,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${sans.variable} ${wordmark.variable} h-full antialiased`}
+      className={`${sans.variable} ${wordmark.variable} ${wordmarkCyrillic.variable} ${wordmarkArmenian.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -163,6 +214,12 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+      <noscript>
+          {/* Появление на первом экране начинается с нулевой прозрачности.
+              Без скриптов анимация не отработает, и заголовок пропал бы;
+              это правило возвращает его на место. */}
+          <style>{`[data-reveal],[data-reveal] *{opacity:1!important;filter:none!important;transform:none!important}`}</style>
+        </noscript>
         <I18nProvider locale={locale}>
           <TooltipProvider>
             {children}

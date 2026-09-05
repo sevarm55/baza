@@ -40,7 +40,7 @@ export type SecurityEvent =
   | 'auth.register.completed'
   | 'auth.pin.reset.started'
   | 'auth.pin.reset'
-  /** админ выдал временный код доступа */
+  /** админ выдал временный ПИН */
   | 'auth.pin.temp_issued'
   | 'auth.pin.changed'
   | 'auth.pin.rehashed'

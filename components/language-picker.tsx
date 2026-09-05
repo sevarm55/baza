@@ -17,8 +17,18 @@ import { useLocale, useSetLocale, useT } from '@/lib/i18n/client';
  * Выбор языка интерфейса. Каждый язык подписан своим словом; флагов
  * нет: флаг это страна, а не язык. `compact` даёт один значок для
  * шапки, обычный вид показывает текущий язык словом.
+ *
+ * Цвет наследует и потому принимает `className`: в шапке витрины значок
+ * стоит на тёмном кадре при любой теме и красится не `--foreground`, а
+ * тем, что ему передали. В кабинете `className` не нужен вовсе.
  */
-export function LanguagePicker({ compact = false }: { compact?: boolean }) {
+export function LanguagePicker({
+  compact = false,
+  className,
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
   const t = useT();
   const locale = useLocale();
   const { setLocale, switching } = useSetLocale();
@@ -33,6 +43,7 @@ export function LanguagePicker({ compact = false }: { compact?: boolean }) {
               type="button"
               variant="ghost"
               size="icon-sm"
+              className={className}
               aria-busy={switching || undefined}
               aria-disabled={switching || undefined}
               title={title}
@@ -43,6 +54,7 @@ export function LanguagePicker({ compact = false }: { compact?: boolean }) {
               type="button"
               variant="outline"
               size="sm"
+              className={className}
               aria-busy={switching || undefined}
               aria-disabled={switching || undefined}
             />

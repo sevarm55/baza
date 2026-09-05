@@ -288,11 +288,16 @@ ssh contabo "docker logs -f bazis-test-web | grep 'sms:dev'"
 
 | Где | Шрифт | Откуда |
 |---|---|---|
-| Интерфейс | Noto Sans Armenian | Google Fonts |
-| Заголовки лендинга | Mardoto | `app/fonts/`, Apache 2.0 |
+| Интерфейс | Mardoto | `app/fonts/`, Apache 2.0 |
+| Марка и заголовок витрины, латиница и кириллица | Unbounded Black | `app/fonts/` |
+| То же, армянский | Montserrat Armenian Black | `app/fonts/`, fonter.am |
 
 [Mardoto](https://github.com/vahanhovh/mardoto) лежит в проекте, потому что его нет
 в Google Fonts. Текст лицензии — `app/fonts/MARDOTO-LICENSE.txt`.
+
+Крупный набор идёт тремя файлами, потому что ни одна гарнитура не покрывает
+все три письменности: в Unbounded нет армянских глифов вовсе. Условия
+Montserrat Armenian — `app/fonts/MONTSERRAT-ARMENIAN-LICENSE.txt`.
 
 ## Прототип
 

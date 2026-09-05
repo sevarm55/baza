@@ -40,9 +40,9 @@ export const IOS_ONLY: Record<string, Row> = {
   'lock.unlockWith': { hy: 'Բացել %@-ով', ru: 'Разблокировать через %@', en: 'Unlock with %@' },
   'lock.usePhone': { hy: 'Մուտք գործել հեռախոսով', ru: 'Войти кодом телефона', en: 'Use phone passcode' },
   'lock.failed': {
-    hy: '%@-ը չհաստատվեց։ Մուտքագրեք մուտքի կոդը։',
-    ru: '%@ не подтвердил. Введите код доступа.',
-    en: '%@ did not confirm. Enter your access code.',
+    hy: '%@-ը չհաստատվեց։ Մուտքագրեք PIN-ը։',
+    ru: '%@ не подтвердил. Введите ПИН.',
+    en: '%@ did not confirm. Enter your PIN.',
   },
 
   /* --- общее --- */
@@ -169,27 +169,27 @@ export const IOS_ONLY: Record<string, Row> = {
   /* --- вход --- */
   'auth.signInAs': { hy: 'Մուտք գործել որպես %@', ru: 'Войти как %@', en: 'Sign in as %@' },
   'auth.tapAvatarPhone': { hy: 'Հպեք ավատարին՝ մուտք գործելու համար', ru: 'Коснитесь аватара, чтобы войти', en: 'Tap your avatar to sign in' },
-  /* Шесть, а не четыре. Код доступа в продукте шестизначный (см.
+  /* Шесть, а не четыре. ПИН в продукте шестизначный (см.
      lib/pin.ts), и каталог приложения это уже говорил — а здесь осталось
      старое число с тех пор, когда код был короче. Пока никто не запускал
      генератор, расхождение не было видно; первый же запуск подписал бы
      поле «4 цифры» под шестизначным вводом. */
-  'auth.pinField': { hy: 'Մուտքի կոդ · 6 նիշ', ru: 'Код доступа · 6 цифр', en: 'Access code · 6 digits' },
+  'auth.pinField': { hy: 'PIN · 6 նիշ', ru: 'ПИН · 6 цифр', en: 'PIN · 6 digits' },
   /* Подсказка сотруднику. Называет ОБА поля разом: он смотрит на «код
      доступа» и вспоминает SMS, а код ему выдали вместе с номером. */
   'auth.staffNote': {
-    hy: 'Հեռախոսահամարը և մուտքի կոդը տալիս է բիզնեսի սեփականատերը։',
-    ru: 'Номер телефона и код доступа выдаёт владелец бизнеса.',
-    en: 'The business owner gives you your phone number and access code.',
+    hy: 'Հեռախոսահամարը և PIN-ը տալիս է բիզնեսի սեփականատերը։',
+    ru: 'Номер телефона и ПИН выдаёт владелец бизнеса.',
+    en: 'The business owner gives you your phone number and PIN.',
   },
   'auth.rememberedExpiredPin': {
-    hy: 'Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք մուտքի կոդը։',
-    ru: 'Срок сохранённого входа истёк. Введите код доступа.',
-    en: 'The saved sign-in has expired. Enter your access code.',
+    hy: 'Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։',
+    ru: 'Срок сохранённого входа истёк. Введите ПИН.',
+    en: 'The saved sign-in has expired. Enter your PIN.',
   },
-  'auth.pinShort': { hy: 'Մուտքի կոդ · 4 նիշ', ru: 'Код доступа · 4 цифры', en: 'Access code · 4 digits' },
+  'auth.pinShort': { hy: 'PIN · 4 նիշ', ru: 'ПИН · 4 цифры', en: 'PIN · 4 digits' },
   'auth.pinMismatch': { hy: 'Կոդերը չեն համընկնում', ru: 'Коды не совпадают', en: 'The codes do not match' },
-  'auth.pinWrong': { hy: 'Մուտքի կոդը սխալ է', ru: 'Код доступа неверный', en: 'The access code is wrong' },
+  'auth.pinWrong': { hy: 'PIN-ը սխալ է', ru: 'ПИН неверный', en: 'The PIN is wrong' },
   'auth.throttled': { hy: 'Չափազանց շատ փորձեր։ Սպասեք։', ru: 'Слишком много попыток. Подождите.', en: 'Too many attempts. Wait.' },
 
   /* --- проверка входа с незнакомого устройства ---
