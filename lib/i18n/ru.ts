@@ -235,7 +235,7 @@ export const ru: Dict = {
     emailLabel: 'Почта',
     passwordLabel: 'Пароль',
     loginLabel: 'Почта или телефон',
-    loginHint: 'Владелец входит почтой, сотрудник — телефоном',
+    loginHint: 'Владелец входит почтой, сотрудник телефоном',
     passwordHint: 'Не короче 8 знаков',
     signInSub: 'Введите почту и пароль',
     forgotPassword: 'Забыли пароль?',
@@ -253,7 +253,7 @@ export const ru: Dict = {
 
     sentTitle: 'Проверьте почту',
     sentSub: (email: string) => `Отправили письмо на ${email}. Перейдите по ссылке из него.`,
-    sentNote: 'Ссылка действует час. Письма нет — посмотрите в спаме.',
+    sentNote: 'Ссылка действует час. Письма нет? Посмотрите в спаме.',
 
     resetPasswordTitle: 'Восстановление пароля',
     resetPasswordSub: 'Введите почту, пришлём ссылку',

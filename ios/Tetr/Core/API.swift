@@ -1225,10 +1225,13 @@ actor APIClient {
      *     TETR_API=<пусто>                           localhost, как обычно
      *
      * Ставится в схеме Xcode (она описана в `ios/project.yml`, галочка
-     * рядом со значением) или при запуске:
+     * рядом со значением) или при запуске из терминала. У `simctl launch`
+     * нет флага для переменных окружения: всё после идентификатора
+     * приложения уходит ему аргументами, а не средой. Переменные
+     * передаются с приставкой `SIMCTL_CHILD_`:
      *
-     *     xcrun simctl launch --console <udid> com.sevarm.tetr \
-     *       --setenv TETR_API http://localhost:3100/api/v1/
+     *     SIMCTL_CHILD_TETR_API=prod \
+     *       xcrun simctl launch --console <udid> com.sevarm.tetr
      */
     #if DEBUG
     /**
