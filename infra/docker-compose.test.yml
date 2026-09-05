@@ -109,6 +109,13 @@ services:
       SMS_AUTH_SCHEME: ''
       SMS_SENDER: ''
       SMS_BODY: ''
+      # На стенде почтовик пуст намеренно: письма туда слать некому, и
+      # ссылка печатается в лог целиком — ровно как раньше печатался код.
+      MAIL_HOST: ''
+      MAIL_PORT: ''
+      MAIL_USER: ''
+      MAIL_PASSWORD: ''
+      MAIL_FROM: ''
       # Телефоны для уведомлений платформы — на стенде некому.
       PLATFORM_ADMIN_PHONES: ''
       OTP_SECRET: ${OTP_SECRET:-}
