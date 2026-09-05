@@ -191,7 +191,7 @@ export async function addStaffStep(input: {
 
   let made: { id: string; name: string; phone: string };
   try {
-    const row = await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent });
+    const row = await catalog.addStaff({ tenantId: session.tid, name, phone, password: pin, percent });
     made = { id: row.id, name: row.name, phone: row.phone };
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {

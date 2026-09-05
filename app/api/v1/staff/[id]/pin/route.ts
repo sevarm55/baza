@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       tenantId: ctx.tenant.id,
       id,
       actorId: ctx.user.id,
-      pin,
+      password: pin,
     });
 
     return noContent();

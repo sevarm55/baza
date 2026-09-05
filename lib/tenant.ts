@@ -5,6 +5,7 @@ import { FIRST_RUN_START } from './first-run-stage';
 import { getNiche, type NicheKey } from './niches';
 import { notifyPlatformInBackground } from './push';
 import { normalizePhone } from './phone';
+import { hashPassword } from './password';
 import { claimAccount } from './accounts';
 
 import { TRIAL_DAYS } from './plan';
@@ -21,6 +22,14 @@ export type CreateBusinessInput = {
   phone?: string;
   /** почта владельца: его логин */
   email?: string;
+  /**
+   * Пароль открытым текстом.
+   *
+   * Только для сидинга и проверок: настоящая регистрация приносит уже
+   * посчитанный хеш, потому что открытому паролю незачем ждать в базе
+   * час, пока человек дойдёт до почты.
+   */
+  password?: string;
   /**
    * Уже посчитанный хеш пароля.
    *
@@ -59,7 +68,8 @@ export async function createBusiness(input: CreateBusinessInput) {
     : await claimAccount({
         phone: normalizePhone(input.phone ?? ''),
         email: input.email ?? null,
-        passwordHash: input.passwordHash ?? null,
+        passwordHash:
+          input.passwordHash ?? (input.password ? await hashPassword(input.password) : null),
         emailVerified: input.emailVerified,
       });
 

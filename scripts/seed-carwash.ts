@@ -30,9 +30,9 @@ const PRICES = [
 ] as const;
 
 const CREW = [
-  { name: 'Աշոտ', phone: '077 501 001', pin: '901111', percent: 30 },
-  { name: 'Դավիթ', phone: '077 501 002', pin: '672222', percent: 40 },
-  { name: 'Կարեն', phone: '077 501 003', pin: '443333', percent: 50 },
+  { name: 'Աշոտ', phone: '077 501 001', password: 'Tetrin-901111', percent: 30 },
+  { name: 'Դավիթ', phone: '077 501 002', password: 'Tetrin-672222', percent: 40 },
+  { name: 'Կարեն', phone: '077 501 003', password: 'Tetrin-443333', percent: 50 },
 ] as const;
 
 /** По две машины на каждого: у одного седан, у другого кроссовер. */
@@ -63,14 +63,14 @@ async function main() {
   await ensureDb();
 
   const OWNER_PHONE = '077 500 000';
-  const OWNER_PIN = '439090';
+  const OWNER_PASSWORD = 'Tetrin-439090';
 
   const { tenant, owner } = await createBusiness({
     niche: 'carwash',
     businessName: 'Ավտոլվացում Արշակունյաց',
     ownerName: 'Գագիկ',
     phone: OWNER_PHONE,
-    pin: OWNER_PIN,
+    password: OWNER_PASSWORD,
   });
 
   /* Классы машин. Ниша заводит бизнес без них, а цена по классу — это
@@ -147,9 +147,9 @@ async function main() {
   console.log('');
   console.log('  ' + tenant.name);
   console.log('  ' + '─'.repeat(46));
-  console.log(`  владелец   ${OWNER_PHONE}   PIN ${OWNER_PIN}`);
+  console.log(`  владелец   ${OWNER_PHONE}   пароль ${OWNER_PASSWORD}`);
   for (const [i, person] of crew.entries()) {
-    console.log(`  ${CREW[i].name.padEnd(9)}  ${CREW[i].phone}   PIN ${CREW[i].pin}   ${person.percent}%`);
+    console.log(`  ${CREW[i].name.padEnd(9)}  ${CREW[i].phone}   пароль ${CREW[i].password}   ${person.percent}%`);
   }
   console.log('  ' + '─'.repeat(46));
   console.log(`  классы     ${TIERS.join(' · ')}`);

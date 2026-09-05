@@ -54,7 +54,8 @@ export async function accountOf(user: {
   id: string;
   accountId: string | null;
   phone: string;
-  pinHash: string;
+  /** прежний секрет участия; у заведённых после перехода на пароль его нет */
+  pinHash: string | null;
   tokenVersion: number;
   createdAt: Date;
 }): Promise<Account> {

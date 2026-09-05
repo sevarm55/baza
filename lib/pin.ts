@@ -73,9 +73,16 @@ const MAXMEM = 128 * 1024 * 1024;
  */
 export const NO_PIN = 'none';
 
-/** Есть ли у человека код. */
-export function hasPin(stored: string): boolean {
-  return stored !== NO_PIN && stored.length > 0;
+/**
+ * Есть ли у человека код.
+ *
+ * Пустой хеш допускается с тех пор, как продукт перешёл на пароли: у
+ * заведённого после перехода в `pin_hash` лежит `null`, и это не
+ * поломка, а нормальное состояние. Отвечает «нет», и всё, что дальше,
+ * останавливается само.
+ */
+export function hasPin(stored: string | null | undefined): stored is string {
+  return typeof stored === 'string' && stored !== NO_PIN && stored.length > 0;
 }
 
 export async function hashPin(pin: string): Promise<string> {
@@ -115,7 +122,7 @@ function parse(stored: string): Parsed | null {
   };
 }
 
-export async function verifyPin(pin: string, stored: string): Promise<boolean> {
+export async function verifyPin(pin: string, stored: string | null | undefined): Promise<boolean> {
   // кода нет — значит не подходит ничего
   if (!hasPin(stored)) return false;
 

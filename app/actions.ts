@@ -260,7 +260,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   try {
-    await catalog.addStaff({ tenantId: session.tid, name, phone, pin, percent, actorId: session.uid });
+    await catalog.addStaff({ tenantId: session.tid, name, phone, password: pin, percent, actorId: session.uid });
   } catch (e) {
     if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
       return { error: t.auth.phoneTaken };
@@ -505,7 +505,7 @@ export async function resetStaffPinAction(
       tenantId: session.tid,
       id: String(formData.get('id') ?? ''),
       actorId: session.uid,
-      pin: String(formData.get('pin') ?? ''),
+      password: String(formData.get('pin') ?? ''),
     });
   } catch (e) {
     if (e instanceof catalog.ValidationError) {

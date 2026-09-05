@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { hasPin } from './pin';
 
 import { db } from './db';
 import {
@@ -237,7 +238,7 @@ export async function listAccounts(opts: { q?: string; filter?: AccountFilter } 
       blockedAt: a.blockedAt,
       createdAt: a.createdAt,
       lastSeenAt: seenBy.get(a.id) ?? null,
-      hasPin: a.pinHash !== 'none' && a.pinHash.length > 0,
+      hasPin: hasPin(a.pinHash),
       names: [...new Set(ms.map((m) => m.name))],
       memberships: ms,
     };

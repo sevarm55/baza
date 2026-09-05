@@ -78,7 +78,7 @@ async function main() {
     businessName: edge ? EDGE_NAMES[1] : `Нагрузка ${stamp}`,
     ownerName: edge ? EDGE_NAMES[2] : 'Владелец',
     phone: `077 ${stamp.slice(0, 3)} ${stamp.slice(3)}`,
-    pin: '901111',
+    password: 'Tetrin-901111',
   });
 
   /* Люди: активные, уволенный, без единой смены, с длинным именем и с
