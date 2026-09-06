@@ -136,16 +136,18 @@ export default async function BlockedPage() {
                 <p className="text-xs text-muted-foreground">{t.billing.wallDeleteNote}</p>
 
                 <form method="post" action="/owner/settings/delete" className="flex flex-col gap-3">
+                  {/* Пароль, а не код: поле слало `pin`, а маршрут
+                      удаления давно читает `password` — удалить мойку
+                      отсюда было нельзя вовсе. */}
                   <Field>
-                    <FieldLabel htmlFor="wall-delete-pin">{t.settings.deletePin}</FieldLabel>
+                    <FieldLabel htmlFor="wall-delete-password">{t.auth.passwordLabel}</FieldLabel>
                     <Input
-                      id="wall-delete-pin"
-                      name="pin"
+                      id="wall-delete-password"
+                      name="password"
                       type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]{4,6}"
-                      maxLength={6}
-                      autoComplete="off"
+                      autoComplete="current-password"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       required
                     />
                   </Field>

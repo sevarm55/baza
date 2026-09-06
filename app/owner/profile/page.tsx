@@ -10,8 +10,6 @@ import { getDict } from '@/lib/i18n/server';
 import { localizeTenant } from '@/lib/i18n/terms';
 import { getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
-import { accountOf } from '@/lib/accounts';
-import { hasPin } from '@/lib/pin';
 import { LanguagePicker } from '@/components/language-picker';
 import { SignOutButton } from '@/components/sign-out-button';
 import { SettingList, SettingRow } from '@/components/patterns/form';
@@ -21,7 +19,7 @@ import { PersonAvatar } from '@/components/patterns/person';
 import { DeviceList, type DeviceRow } from './devices';
 import { NameForm } from './name-form';
 import { PhoneForm } from './phone-form';
-import { PinCard } from './pin-card';
+import { PasswordCard } from './password-card';
 import { NotifyOrdersToggle, RememberLoginToggle } from './session-toggles';
 import { SubNav, SubNavLayout } from './sub-nav';
 import { SubscriptionSummary } from './subscription-summary';
@@ -53,10 +51,6 @@ export default async function ProfilePage() {
   /* Слова бизнеса на языке того, кто смотрит; своё название владельца
      проходит насквозь (см. terms.ts). */
   const tenant = localizeTenant(raw, t.locale);
-
-  /* Подтверждён ли номер: свойство человека, а не его работы на точке. */
-  const account = await accountOf(me);
-  const pinSet = hasPin(account.pinHash);
 
   const access = currentAccess(tenant);
   const owner = session.role === 'owner';
@@ -115,9 +109,8 @@ export default async function ProfilePage() {
         <Panel id="security" title={t.profile.security} className="scroll-mt-16">
           <div className="flex flex-col divide-y divide-border *:py-4 *:first:pt-0 *:last:pb-0">
             <div>
-              <PinCard hasPin={pinSet} />
+              <PasswordCard />
             </div>
-
           </div>
         </Panel>
 

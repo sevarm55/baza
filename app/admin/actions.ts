@@ -3,12 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { randomBytes } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
-import { accounts, tenants, users } from '@/lib/db/schema';
+import { accounts, tenants } from '@/lib/db/schema';
 import {
   adminLogin,
   adminSignOut,
@@ -20,7 +19,7 @@ import {
 import { recordPayment } from '@/lib/admin-billing';
 import { revokeAccountSessions } from '@/lib/auth';
 import { clientIp } from '@/lib/login-guard';
-import { hashPin, NO_PIN } from '@/lib/pin';
+import { generatePassword, hashPassword } from '@/lib/password';
 import { logSecurity } from '@/lib/security-log';
 
 /**
@@ -231,9 +230,16 @@ export async function logoutAccountAction(input: { accountId: string; reason: st
 }
 
 /**
- * Сбросить доступ: убрать PIN и погасить сессии. Человек войдёт по коду
- * из SMS и задаст новый PIN сам. Ставить PIN за него админ не может и
- * не должен: код, известный двоим, уже не код.
+ * Сбросить доступ: стереть пароль и погасить сессии.
+ *
+ * Владелец возвращается сам — ссылкой на почту («забыли пароль»).
+ * Сотруднику пароль выдаёт его владелец: почты у мойщика нет, и
+ * восстанавливать ему нечем. До этого он в базе есть, но войти не может
+ * — это честнее, чем оставить работать украденный вход.
+ *
+ * Ставить пароль за человека админ здесь не может и не должен: пароль,
+ * известный двоим, уже не пароль. Для форс-мажора есть отдельное
+ * действие ниже, со сроком и следом в двух журналах.
  */
 export async function resetAccessAction(input: { accountId: string; reason: string }): Promise<ActionResult> {
   const by = await requireAdmin('support');
@@ -241,11 +247,10 @@ export async function resetAccessAction(input: { accountId: string; reason: stri
   const reason = reasonOf(input.reason);
   if (!reason) return { ok: false, error: 'reason' };
 
-  await db.transaction(async (tx) => {
-    await tx.update(accounts).set({ pinHash: NO_PIN }).where(eq(accounts.id, input.accountId));
-    /* Копия на участиях, пока она есть: старый код читает её. */
-    await tx.update(users).set({ pinHash: NO_PIN }).where(eq(users.accountId, input.accountId));
-  });
+  await db
+    .update(accounts)
+    .set({ passwordHash: null })
+    .where(eq(accounts.id, input.accountId));
   await revokeAccountSessions(input.accountId);
 
   const phone = await accountPhone(input.accountId);
@@ -256,30 +261,33 @@ export async function resetAccessAction(input: { accountId: string; reason: stri
 }
 
 /**
- * Временный ПИН: форс-мажор, когда войти нечем.
+ * Временный пароль: форс-мажор, когда войти нечем.
  *
- * Обычный путь восстановления — сброс доступа и вход по SMS. Он не
- * работает ровно тогда, когда нужнее всего: человек сменил номер, уехал
- * из страны, а у нас кончился баланс у оператора. Тогда админ выдаёт
- * временный код и диктует его по телефону.
+ * Обычный путь восстановления — ссылка на почту. Он не работает ровно
+ * тогда, когда нужнее всего: у мойщика почты нет вовсе, а у владельца
+ * она бывает на домене, к которому он потерял доступ. Тогда админ
+ * выдаёт временный пароль и диктует его по телефону.
  *
  * Что здесь важно и почему:
  *
- * 1. Код случайный, шесть цифр, и показывается ОДИН раз — тому, кто его
- *    выдал. В базе лежит только хеш, как у обычного: админ не должен
- *    иметь возможности подсмотреть чужой код завтра.
- * 2. У кода есть срок. Продиктованный по телефону код без срока
+ * 1. Пароль случайный и показывается ОДИН раз — тому, кто его выдал. В
+ *    базе лежит только хеш: админ не должен иметь возможности
+ *    подсмотреть чужой пароль завтра.
+ * 2. Алфавит без похожих знаков (`generatePassword`): пароль диктуют
+ *    голосом, и «ноль или буква О» — самая частая причина не войти с
+ *    первого раза.
+ * 3. У пароля есть срок. Продиктованный по телефону пароль без срока
  *    остаётся вторым ключом от мойки навсегда — и у того, кто стоял
  *    рядом, тоже.
- * 3. Все сессии человека гасятся. Если доступ восстанавливают, старые
+ * 4. Все сессии человека гасятся. Если доступ восстанавливают, старые
  *    входы либо не его, либо всё равно недоступны.
- * 4. Действие требует причину и пишется в оба журнала — админский и
+ * 5. Действие требует причину и пишется в оба журнала — админский и
  *    безопасности. Выдача чужого ключа обязана оставлять след.
  */
 export async function issueTempAccessAction(input: {
   accountId: string;
   reason: string;
-  /** сколько часов жить коду; по умолчанию сутки */
+  /** сколько часов жить паролю; по умолчанию сутки */
   hours?: number;
 }): Promise<TempAccessResult> {
   const by = await requireAdmin('support');
@@ -290,20 +298,16 @@ export async function issueTempAccessAction(input: {
   const hours = Math.min(72, Math.max(1, Math.round(input.hours ?? 24)));
   const until = new Date(Date.now() + hours * 3600_000);
 
-  /* Шесть цифр из криптографического источника, без ведущего нуля в
-     первом разряде: код диктуют голосом, и «ноль-три-…» на слух теряется
-     чаще остального. */
-  const bytes = randomBytes(4).readUInt32BE(0);
-  const code = String(100000 + (bytes % 900000));
+  const code = generatePassword();
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(accounts)
-      .set({ pinHash: await hashPin(code), tempAccessUntil: until, tempAccessBy: by.name })
-      .where(eq(accounts.id, input.accountId));
-    /* Копия на участиях, пока она есть: старый код читает её. */
-    await tx.update(users).set({ pinHash: await hashPin(code) }).where(eq(users.accountId, input.accountId));
-  });
+  await db
+    .update(accounts)
+    .set({
+      passwordHash: await hashPassword(code),
+      tempAccessUntil: until,
+      tempAccessBy: by.name,
+    })
+    .where(eq(accounts.id, input.accountId));
   await revokeAccountSessions(input.accountId);
 
   const phone = await accountPhone(input.accountId);

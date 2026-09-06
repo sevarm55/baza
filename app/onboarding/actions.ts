@@ -15,7 +15,7 @@ import { currentAccess } from '@/lib/subscription';
 import { addExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
 import { firstRunWorker, setFirstRunStage } from '@/lib/first-run';
-import { isValidPhone, normalizePhone, pinProblem } from '@/lib/phone';
+import { isValidPhone, normalizePhone } from '@/lib/phone';
 import { toMinor } from '@/lib/money';
 import { logSecurityInBackground } from '@/lib/security-log';
 import { getDict } from '@/lib/i18n/server';
@@ -165,7 +165,7 @@ export type StaffStepResult = StepResult & {
 export async function addStaffStep(input: {
   name: string;
   phone: string;
-  pin: string;
+  password: string;
   percent: number;
 }): Promise<StaffStepResult> {
   const t = await getDict();
@@ -176,26 +176,25 @@ export async function addStaffStep(input: {
 
   const name = String(input.name ?? '').trim();
   const phone = normalizePhone(String(input.phone ?? ''));
-  const pin = String(input.pin ?? '');
+  const password = String(input.password ?? '');
   const percent = Number(input.percent);
 
   if (name.length < 2) return { error: t.errors.required };
   if (!isValidPhone(phone)) return { error: t.errors.badPhone };
-  /* Две разные беды кода — двумя разными словами, как в addStaff. */
-  const badPin = pinProblem(pin);
-  if (badPin === 'length') return { error: t.errors.badPin };
-  if (badPin === 'trivial') return { error: t.auth.pinTrivial };
   if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
     return { error: t.errors.badPercent };
   }
 
   let made: { id: string; name: string; phone: string };
   try {
-    const row = await catalog.addStaff({ tenantId: session.tid, name, phone, password: pin, percent });
+    const row = await catalog.addStaff({ tenantId: session.tid, name, phone, password, percent });
     made = { id: row.id, name: row.name, phone: row.phone };
   } catch (e) {
-    if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
-      return { error: t.auth.phoneTaken };
+    if (e instanceof catalog.ValidationError) {
+      if (e.message === 'PHONE_TAKEN') return { error: t.auth.phoneTaken };
+      /* Две разные беды пароля — двумя разными словами, как в addStaff. */
+      if (e.message === 'PASSWORD_SHORT') return { error: t.auth.passwordShort };
+      if (e.message === 'PASSWORD_COMMON') return { error: t.auth.passwordCommon };
     }
     return { error: t.errors.required };
   }

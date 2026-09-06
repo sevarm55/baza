@@ -76,11 +76,11 @@ export const IOS_ONLY: Record<string, Row> = {
   /* --- сводка владельца: подписи периода. Период стоит в самой фразе,
      потому что на телефоне переключатель периода уезжает за край при
      прокрутке, а число остаётся. --- */
-  'summary.keptMonth': { hy: 'Այս ամիս ձեզ մնում է', ru: 'В этом месяце вам остаётся', en: 'You keep this month' },
+  'summary.keptMonth': { hy: 'Այս ամսվա մաքուր եկամուտը', ru: 'Чистая прибыль за этот месяц', en: 'Net profit this month' },
   'summary.redMonth': { hy: 'Այս ամիս մինուսի մեջ եք', ru: 'В этом месяце вы в минусе', en: "You're in the red this month" },
-  'summary.keptPrevMonth': { hy: 'Անցյալ ամիս ձեզ մնացել է', ru: 'В прошлом месяце вам осталось', en: 'You kept last month' },
+  'summary.keptPrevMonth': { hy: 'Անցյալ ամսվա մաքուր եկամուտը', ru: 'Чистая прибыль за прошлый месяц', en: 'Net profit last month' },
   'summary.redPrevMonth': { hy: 'Անցյալ ամիս մինուսում էիք', ru: 'В прошлом месяце вы были в минусе', en: 'You were in the red last month' },
-  'summary.keptToday': { hy: 'Այսօր ձեզ մնում է', ru: 'Сегодня вам остаётся', en: 'You keep today' },
+  'summary.keptToday': { hy: 'Այսօրվա մաքուր եկամուտը', ru: 'Чистая прибыль за сегодня', en: 'Net profit today' },
   'summary.redToday': { hy: 'Այսօր մինուսի մեջ եք', ru: 'Сегодня вы в минусе', en: "You're in the red today" },
   'summary.paidMonth': { hy: 'Այս ամիս վճարել են', ru: 'В этом месяце заплатили', en: 'Paid this month' },
   'summary.paidPrevMonth': { hy: 'Անցյալ ամիս վճարել են', ru: 'В прошлом месяце заплатили', en: 'Paid last month' },
@@ -116,7 +116,7 @@ export const IOS_ONLY: Record<string, Row> = {
   'calendar.monthInTheRed': { hy: 'Ամիսը մինուսում', ru: 'Месяц в минусе', en: 'The month is in the red' },
   'calendar.weekShape': { hy: 'Շաբաթվա պատկերը', ru: 'Картина недели', en: 'The shape of the week' },
   'day.empty': { hy: 'Այս օրը գրանցումներ չկան', ru: 'В этот день записей нет', en: 'No records on this day' },
-  'day.kept': { hy: 'Այդ օրը ձեզ մնաց', ru: 'В тот день вам осталось', en: 'That day you kept' },
+  'day.kept': { hy: 'Այդ օրվա մաքուր եկամուտը', ru: 'Чистая прибыль за тот день', en: 'Net profit that day' },
   'day.red': { hy: 'Այդ օրը մինուսում էիք', ru: 'В тот день вы были в минусе', en: 'That day you were in the red' },
   'day.records': { hy: 'Գրանցումներ', ru: 'Записи', en: 'Records' },
   'day.loadFailed': { hy: 'Չհաջողվեց բացել օրը', ru: 'Не удалось открыть день', en: "Couldn't open the day" },
@@ -182,10 +182,10 @@ export const IOS_ONLY: Record<string, Row> = {
     ru: 'Номер телефона и ПИН выдаёт владелец бизнеса.',
     en: 'The business owner gives you your phone number and PIN.',
   },
-  'auth.rememberedExpiredPin': {
-    hy: 'Պահված մուտքի ժամկետն ավարտվել է։ Մուտքագրեք PIN-ը։',
-    ru: 'Срок сохранённого входа истёк. Введите ПИН.',
-    en: 'The saved sign-in has expired. Enter your PIN.',
+  'auth.rememberedExpired': {
+    hy: 'Պահված մուտքի ժամկետը լրացել է։ Մուտքագրեք գաղտնաբառը։',
+    ru: 'Срок сохранённого входа истёк. Введите пароль.',
+    en: 'The saved sign-in expired. Enter your password.',
   },
   'auth.pinShort': { hy: 'PIN · 4 նիշ', ru: 'ПИН · 4 цифры', en: 'PIN · 4 digits' },
   'auth.pinMismatch': { hy: 'Կոդերը չեն համընկնում', ru: 'Коды не совпадают', en: 'The codes do not match' },
@@ -397,14 +397,9 @@ export const IOS_ONLY: Record<string, Row> = {
     en: 'After signing out you return via your avatar and device confirmation',
   },
   'profile.lockNote': {
-    hy: 'Հավելվածը կփակվի ամեն անգամ, երբ դուրս գաք դրանից',
-    ru: 'Приложение будет закрываться каждый раз, когда вы из него выходите',
-    en: 'The app locks every time you leave it',
-  },
-  'profile.pinNote': {
-    hy: 'Թույլ է տալիս մտնել առանց SMS-ի։ Այս կոդն օգտագործվում է նաև հաշիվ արագ մտնելու համար։',
-    ru: 'Позволяет входить без SMS. Этот код также используется для быстрого входа в аккаунт.',
-    en: 'Lets you sign in without SMS. This code is also used for quick access to your account.',
+    hy: 'Մուտքի էկրանին կառաջարկվի մտնել որպես ինքներդ՝ առանց գաղտնաբառը նորից հավաքելու։',
+    ru: 'На экране входа предложим войти под собой, не набирая пароль заново.',
+    en: 'On the sign-in screen we will offer to sign you in as yourself, without typing the password again.',
   },
   'profile.deleteNote': {
     hy: 'Բոլոր տվյալները և աշխատակիցները ջնջվում են ընդմիշտ',
@@ -652,14 +647,26 @@ export const SHARED_KEYS: string[] = [
   'owner.clientHistoryFailed',
   'auth.signInTitle', 'auth.phone', 'auth.pin', 'auth.signIn',
   'auth.signOut', 'auth.welcomeBack', 'auth.anotherAccount', 'auth.wrongCredentials',
-  'auth.phoneTaken', 'auth.changePin', 'auth.currentPin', 'auth.newPin',
-  'auth.wrongPin',
+  'auth.phoneTaken',
+  /* Пароль. Те же слова, что в двери витрины: экран входа у продукта
+     один, и «Текущий пароль» на сайте и в приложении обязан звучать
+     одинаково. Раньше они жили правкой прямо в каталоге, и прогон
+     генератора их сносил. */
+  'auth.passwordLabel', 'auth.passwordHint', 'auth.changePassword',
+  'auth.currentPassword', 'auth.newPassword', 'auth.confirmPassword',
+  'auth.savePassword', 'auth.wrongPassword', 'auth.passwordChangedNote',
+  'auth.passwordShort', 'auth.passwordCommon', 'auth.passwordMismatch',
+  'auth.forgotPassword', 'auth.registerPassword', 'auth.showPassword',
+  'auth.hidePassword', 'auth.resetPasswordTitle', 'auth.resetPasswordSub',
+  'auth.resetPasswordSend',
+  'auth.staffPassword', 'auth.staffPasswordNote', 'auth.staffPasswordGenerate',
+  'auth.staffPasswordIssued', 'auth.staffPasswordOnce',
+  'settings.passwordIssue', 'settings.passwordIssueNote',
+  'settings.passwordWorksElsewhere', 'profile.passwordNote',
   /* Вход ролями. Слова «владелец» и «сотрудник» берём из общих `roles.*`:
      они уже стоят в карточке человека, и второй пары синонимов на том же
      экране быть не должно. */
   'auth.ownerTitle', 'auth.staffTitle', 'auth.staffHelper', 'auth.ownerCodeHelper',
-  'auth.deleteAccessCode', 'auth.deleteAccessCodeNote', 'auth.deleteAccessCodeAsk',
-  'auth.deleteAccessCodeDone', 'auth.staffAccessCode', 'auth.staffAccessCodeNote',
   'profile.rememberLogin', 'billing.expiredTitle', 'billing.blockedTitle',
   'billing.wallDownload', 'billing.wallDelete', 'roles.owner', 'roles.staff',
   'points.title', 'points.here', 'points.freshTitle', 'work.earnedToday',
@@ -694,7 +701,7 @@ export const SHARED_KEYS: string[] = [
   'owner.periodLabel', 'owner.vsPrevPeriod', 'owner.colService', 'owner.lastVisit',
   'alerts.title', 'alerts.empty', 'alerts.emptyNote', 'alerts.later',
   'settings.services', 'settings.tabServices', 'settings.staff', 'settings.business',
-  'settings.saved', 'settings.newService', 'settings.deleteNoWayBack', 'settings.deletePin',
+  'settings.saved', 'settings.newService', 'settings.deleteNoWayBack',
   'settings.deleteKeep', 'settings.deleteWipe',
 ];
 
@@ -758,9 +765,18 @@ function pluralUnit(p: Plural) {
   return { variations: { plural: cases } };
 }
 
-/** Строковый каталог в формате Xcode 15+ (`.xcstrings`, версия 1.0). */
-function toXcstrings(rows: Record<string, Entry>): string {
-  const strings: Record<string, unknown> = {};
+/**
+ * Строковый каталог в формате Xcode 15+ (`.xcstrings`, версия 1.0).
+ *
+ * `keep` — то, что в каталоге уже лежало, а генератору не принадлежит:
+ * литералы, которые Xcode вытащил из Swift сам (`%@`, `0`, `••••••`,
+ * `TETRIN`), и переводы, дописанные когда-то прямо в файл. Они
+ * переносятся как есть. Раньше запись их стирала, и ради этого стоял
+ * запрет на прогон целиком — то есть словарь нельзя было пересобрать
+ * вообще, пока в каталоге лежит хоть одна чужая строка.
+ */
+function toXcstrings(rows: Record<string, Entry>, keep: Record<string, unknown> = {}): string {
+  const strings: Record<string, unknown> = { ...keep };
   for (const key of Object.keys(rows).sort()) {
     const e = rows[key];
     strings[key] = {
@@ -779,7 +795,9 @@ function toXcstrings(rows: Record<string, Entry>): string {
             },
     };
   }
-  return JSON.stringify({ sourceLanguage: 'hy', strings, version: '1.0' }, null, 2) + '\n';
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(strings).sort()) sorted[key] = strings[key];
+  return JSON.stringify({ sourceLanguage: 'hy', strings: sorted, version: '1.0' }, null, 2) + '\n';
 }
 
 if (process.argv[1] && process.argv[1].endsWith('ios-strings.ts')) {
@@ -790,37 +808,38 @@ if (process.argv[1] && process.argv[1].endsWith('ios-strings.ts')) {
   }
   const out = path.join('ios', 'Tetr', 'Localizable.xcstrings');
 
-  /* Замок на потерю переводов.
+  /* Чужие строки переносятся, а не стираются.
    *
    * Каталог собирается из `SHARED_KEYS` и `IOS_ONLY`, но живёт своей
-   * жизнью: часть строк в своё время дописали прямо в `.xcstrings` и в
-   * эти списки не внесли. Для генератора такие ключи чужие, и прогон
-   * «просто чтобы пересобрать» однажды вынес из каталога сто двадцать
-   * один готовый перевод разом. Диффом это не ловится: Xcode
-   * переформатирует файл целиком, и потеря тонет в пятнадцати тысячах
-   * строк.
+   * жизнью: Xcode сам вытаскивает в него каждый литерал из Swift
+   * (`%@`, `0`, `••••••`, `TETRIN`), а часть переводов в своё время
+   * дописали прямо в файл и в списки не внесли. Прогон «просто чтобы
+   * пересобрать» однажды вынес сто двадцать один готовый перевод разом,
+   * и диффом это не ловится: Xcode переформатирует файл целиком, и
+   * потеря тонет в пятнадцати тысячах строк.
    *
-   * Поэтому запись останавливается, если в каталоге есть ключ, которого
-   * нет в сборке. Чинится это не флагом, а списками: ключ надо внести в
-   * `SHARED_KEYS` (если слово общее с вебом) или в `IOS_ONLY`.
+   * Раньше от этого стоял запрет: любая чужая строка останавливала
+   * запись. Замок сработал ровно один раз по делу и всё остальное время
+   * держал генератор запертым — двести восемнадцать литералов Xcode
+   * внести в списки нельзя, они не слова, а куски вёрстки.
+   *
+   * Теперь чужое просто переносится. Потерять перевод этим нельзя, а
+   * пересобрать словарь можно всегда.
    */
+  const keep: Record<string, unknown> = {};
   if (fs.existsSync(out)) {
     const current = JSON.parse(fs.readFileSync(out, 'utf8')) as {
       strings?: Record<string, unknown>;
     };
-    const lost = Object.keys(current.strings ?? {}).filter(
-      (key) => key.trim() !== '' && !(key in rows),
-    );
-    if (lost.length) {
-      console.error(
-        `В каталоге есть ${lost.length} ключей, которых нет в сборке. ` +
-          'Перезапись их удалит; внесите их в SHARED_KEYS или IOS_ONLY:\n  ' +
-          lost.join('\n  '),
-      );
-      process.exit(1);
+    for (const [key, value] of Object.entries(current.strings ?? {})) {
+      if (key.trim() !== '' && !(key in rows)) keep[key] = value;
     }
   }
 
-  fs.writeFileSync(out, toXcstrings(rows));
-  console.log(`${out}: ${Object.keys(rows).length} ключей × 3 языка`);
+  fs.writeFileSync(out, toXcstrings(rows, keep));
+  const kept = Object.keys(keep).length;
+  console.log(
+    `${out}: ${Object.keys(rows).length} ключей × 3 языка` +
+      (kept ? `, перенесено чужих: ${kept}` : ''),
+  );
 }

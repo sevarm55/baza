@@ -70,7 +70,7 @@ export function StepMeet({
               <dd className="num">{worker.phone}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-xs text-muted-foreground">{t.auth.staffAccessCode}</dt>
+              <dt className="text-xs text-muted-foreground">{t.auth.staffPassword}</dt>
               <dd className="num tracking-widest" aria-hidden>
                 ••••••
               </dd>

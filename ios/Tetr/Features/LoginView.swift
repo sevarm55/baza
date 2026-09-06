@@ -941,7 +941,7 @@ struct LoginView: View {
         do {
             try await session.resumeRemembered()
         } catch {
-            fallBackToManual(account, why: L("auth.rememberedExpiredPin"))
+            fallBackToManual(account, why: L("auth.rememberedExpired"))
         }
     }
 

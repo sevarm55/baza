@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/input-group';
 import { LoadingButton } from '@/components/loading';
 import { FormMessage } from '@/components/patterns/form';
+import { PasswordField } from '@/components/patterns/password-field';
 import { useT } from '@/lib/i18n/client';
 import { addStaffStep } from './actions';
 import type { FlowWorker } from './flow';
@@ -20,8 +21,9 @@ import type { FlowWorker } from './flow';
  * Шаг 3: первый работник.
  *
  * Ровно те поля, без которых работника не бывает: как зовут, по какому
- * номеру и коду он входит, какой у него процент. Никаких дополнительных
- * настроек — они живут в разделе работников, когда понадобятся.
+ * номеру и паролю он входит, какой у него процент. Никаких
+ * дополнительных настроек — они живут в разделе работников, когда
+ * понадобятся.
  */
 export function StepStaff({
   defaultPercent,
@@ -33,7 +35,7 @@ export function StepStaff({
   const t = useT();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [percent, setPercent] = useState(String(defaultPercent));
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -45,7 +47,7 @@ export function StepStaff({
       const res = await addStaffStep({
         name,
         phone,
-        pin,
+        password,
         percent: Number(percent),
       });
       if (res.error || !res.worker) setError(res.error ?? t.errors.generic);
@@ -86,21 +88,15 @@ export function StepStaff({
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field>
-          <FieldLabel htmlFor="fr-staff-pin">
-            {t.auth.staffAccessCode} · {t.auth.pinHint}
-          </FieldLabel>
-          <Input
-            id="fr-staff-pin"
-            inputMode="numeric"
-            pattern="[0-9]{6}"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            autoComplete="off"
-            className="num"
-          />
-        </Field>
+        <PasswordField
+          name="password"
+          label={t.auth.staffPassword}
+          hint={t.auth.passwordHint}
+          autoComplete="off"
+          openByDefault
+          value={password}
+          onChange={setPassword}
+        />
 
         <Field>
           <FieldLabel htmlFor="fr-staff-percent">
@@ -124,9 +120,9 @@ export function StepStaff({
         </Field>
       </div>
 
-      {/* Подпись про код одна на сетку: под своей ячейкой она рвала бы
-          ряд из двух полей на разную высоту. */}
-      <FieldDescription className="-mt-2 text-xs">{t.auth.staffAccessCodeNote}</FieldDescription>
+      {/* Подпись про пароль одна на сетку: под своей ячейкой она рвала
+          бы ряд из двух полей на разную высоту. */}
+      <FieldDescription className="-mt-2 text-xs">{t.auth.staffPasswordNote}</FieldDescription>
 
       {error && <FormMessage tone="error">{error}</FormMessage>}
 

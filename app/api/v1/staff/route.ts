@@ -82,6 +82,8 @@ export async function POST(request: Request) {
     const input = await body<{
       name?: string;
       phone?: string;
+      password?: string;
+      /** прежнее имя поля: сборки до перехода на пароль шлют его */
       pin?: string;
       percent?: number;
     }>(request);
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
       tenantId: ctx.tenant.id,
       name: str(input.name),
       phone: str(input.phone),
-      password: str(input.pin),
+      password: str(input.password) || str(input.pin),
       percent: Number(input.percent),
       actorId: ctx.user.id,
     });

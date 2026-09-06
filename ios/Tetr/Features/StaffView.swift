@@ -458,7 +458,7 @@ struct StaffEditor: View {
 
     @State private var name = ""
     @State private var phone = ""
-    @State private var pin = ""
+    @State private var password = ""
     @State private var percent = 40
     @State private var custom = false
     @State private var customText = ""
@@ -466,11 +466,11 @@ struct StaffEditor: View {
     @State private var busy = false
     @State private var firing = false
     /// Развёрнута ли выдача нового кода и что в ней набрано.
-    @State private var resettingPin = false
-    @State private var newPin = ""
+    @State private var issuingPassword = false
+    @State private var newPassword = ""
     /// Код выдан. Отдельно от `error`: та строка красная, и подтверждение
     /// в ней читалось бы отказом.
-    @State private var pinDone = false
+    @State private var passwordDone = false
 
     /// Ставки, которые встречаются на мойке. Остальное — вручную.
     private let common = [30, 35, 40, 45, 50]
@@ -486,7 +486,7 @@ struct StaffEditor: View {
                номер с нулём впереди включал. Сколько цифр в номере какой
                страны, знает сервер (`isValidPhone`), и последнее слово
                остаётся за ним; здесь только отсекается заведомо пустое. */
-            return phoneDigits >= 8 && pin.count == API.pinLength
+            return phoneDigits >= 8 && password.count >= API.passwordMinLength
         }
         return true
     }
@@ -503,31 +503,28 @@ struct StaffEditor: View {
                         divider
                         field(L("auth.phone"), text: $phone, placeholder: "+374 …", keyboard: .phonePad)
                         divider
-                        /* Шесть цифр, а не четыре.
+                        /* Пароль, а не шесть цифр.
                          *
-                         * Стояло четыре, и найм не работал НИКОГДА:
-                         * сервер требует ровно `PIN_LENGTH` (шесть) и
-                         * отвечал отказом на каждую попытку. Со стороны
-                         * это выглядело как «сервер сломался», потому что
-                         * форма отправляла заведомо негодный код и сама
-                         * об этом не знала. Длина берётся из одного места
-                         * на всё приложение — см. `API.pinLength`. */
-                        field(L("auth.staffAccessCode"), text: $pin, placeholder: "••••••", keyboard: .numberPad)
-                            .onChange(of: pin) { _, v in
-                                let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
-                                if clean != v { pin = clean }
-                            }
+                         * Поле принимало ровно шесть цифр, а сервер к
+                         * тому времени уже требовал пароль от восьми
+                         * знаков: найм не работал вовсе и отвечал общей
+                         * ошибкой. Длина берётся из одного места на всё
+                         * приложение — см. `API.passwordMinLength`.
+                         *
+                         * Открытым текстом намеренно: владелец
+                         * придумывает пароль вслух, стоя рядом с
+                         * работником, и должен видеть, что набрал. */
+                        field(L("auth.staffPassword"), text: $password, placeholder: L("auth.passwordHint"))
                     }
                 }
                 .boardCard()
 
-                /* Чем именно этот код является. Владелец в эту минуту
-                   придумывает его вслух, стоя рядом с работником, и
-                   должен понимать, что диктует не одноразовый код из
-                   сообщения, а постоянный, с которым тот будет входить
-                   каждое утро. */
+                /* Чем именно этот пароль является. Владелец в эту
+                   минуту придумывает его вслух, стоя рядом с
+                   работником, и должен понимать, что диктует постоянный
+                   пароль, с которым тот будет входить каждое утро. */
                 if isNew {
-                    Text(L("auth.staffAccessCodeNote"))
+                    Text(L("auth.staffPasswordNote"))
                         .font(.system(size: 12))
                         .foregroundStyle(Brand.boardMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -545,19 +542,19 @@ struct StaffEditor: View {
                         .padding(.horizontal, 4)
                 }
 
-                if pinDone {
-                    Text(L("settings.pinResetDone"))
+                if passwordDone {
+                    Text(L("auth.staffPasswordIssued"))
                         .font(.system(size: 13))
                         .foregroundStyle(Brand.goodOnBoard)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
                 }
 
-                /* Новый код сотруднику.
+                /* Новый пароль сотруднику.
 
-                   Забытый мойщиком код был тупиком: восстановить по SMS он
-                   не может — номер ему заводил владелец, и подтверждённым
-                   тот не стал, — а сменить его было нечем. Оставалось
+                   Забытый мойщиком пароль это тупик: почты у него нет,
+                   восстановить самому нечем, и сменить его было нечем.
+                   Оставалось
                    отключить человека и завести заново на другой номер,
                    потеряв связь с его историей записей и выплат.
 
@@ -565,7 +562,7 @@ struct StaffEditor: View {
                    работает не только здесь: назначенный тут код открыл бы
                    его второй бизнес. */
                 if let person, !person.isMe, person.role != "owner" {
-                    resetPinRow(person)
+                    issuePasswordRow(person)
                     fireRow(person)
                 }
             }
@@ -699,50 +696,46 @@ struct StaffEditor: View {
     }
 
     /**
-     * Выдать новый код.
+     * Выдать новый пароль.
      *
-     * Свёрнуто по умолчанию: пустой ряд клеток в карточке ничего не
-     * показывает и ничего не спрашивает, а читается сломанным элементом.
-     * Клетки приходят по нажатию — тогда, когда владелец решил код менять.
+     * Свёрнуто по умолчанию: пустое поле в карточке ничего не показывает
+     * и ничего не спрашивает, а читается сломанным элементом. Поле
+     * приходит по нажатию — тогда, когда владелец решил пароль менять.
      *
-     * Код виден открытым, и это осознанно: владелец придумывает его вслух,
-     * стоя рядом с работником, и должен видеть, что набрал. Прятать
-     * звёздочками то, что он сам сейчас продиктует, значит мешать без
-     * причины.
+     * Пароль виден открытым, и это осознанно: владелец придумывает его
+     * вслух, стоя рядом с работником, и должен видеть, что набрал.
+     * Прятать звёздочками то, что он сам сейчас продиктует, значит
+     * мешать без причины.
      */
     @ViewBuilder
-    private func resetPinRow(_ person: API.StaffMember) -> some View {
-        if resettingPin {
+    private func issuePasswordRow(_ person: API.StaffMember) -> some View {
+        if issuingPassword {
             VStack(alignment: .leading, spacing: 10) {
-                Text(L("settings.pinReset"))
+                Text(L("settings.passwordIssue"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Brand.boardMuted)
 
-                TextField("••••••", text: $newPin)
-                    .keyboardType(.numberPad)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
+                TextField(L("auth.passwordHint"), text: $newPassword)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Brand.onBoard)
                     .padding(.horizontal, 14)
                     .frame(height: 52)
                     .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 18, style: .continuous))
-                    .onChange(of: newPin) { _, v in
-                        let clean = String(v.filter(\.isNumber).prefix(API.pinLength))
-                        if clean != v { newPin = clean }
-                    }
 
-                Text(L("settings.pinResetNote"))
+                Text(L("settings.passwordIssueNote"))
                     .font(.system(size: 12))
                     .foregroundStyle(Brand.boardMuted)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 10) {
-                    Button(L("common.save")) { Task { await resetPin(person) } }
+                    Button(L("common.save")) { Task { await issuePassword(person) } }
                         .buttonStyle(.glass)
-                        .disabled(busy || newPin.count != API.pinLength)
+                        .disabled(busy || newPassword.count < API.passwordMinLength)
                     Button(L("common.cancel")) {
-                        resettingPin = false
-                        newPin = ""
+                        issuingPassword = false
+                        newPassword = ""
                     }
                     .buttonStyle(.glass)
                     .tint(Brand.muted)
@@ -754,7 +747,7 @@ struct StaffEditor: View {
             .padding(.top, 14)
         } else {
             Button {
-                resettingPin = true
+                issuingPassword = true
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "lock.rotation")
@@ -762,10 +755,10 @@ struct StaffEditor: View {
                         .foregroundStyle(Brand.grape)
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(L("settings.pinReset"))
+                        Text(L("settings.passwordIssue"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.onBoard)
-                        Text(L("settings.pinResetNote"))
+                        Text(L("settings.passwordIssueNote"))
                             .font(.system(size: 12))
                             .foregroundStyle(Brand.boardMuted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -848,7 +841,7 @@ struct StaffEditor: View {
                     body: [
                         "name": name,
                         "phone": phone,
-                        "pin": pin,
+                        "password": password,
                         "percent": percent,
                     ],
                     token: token
@@ -864,7 +857,8 @@ struct StaffEditor: View {
                три поля, не говорит, какое из них переписать. */
             switch (e.code, e.reason) {
             case ("PHONE_TAKEN", _): error = L("auth.phoneTaken")
-            case (_, "TRIVIAL_PIN"), (_, "BAD_PIN"): error = L("auth.pinTrivial")
+            case (_, "PASSWORD_SHORT"): error = L("auth.passwordShort")
+            case (_, "PASSWORD_COMMON"): error = L("auth.passwordCommon")
             case (_, "BAD_PHONE"): error = L("auth.wrongCredentials")
             case ("TOO_MANY_TRIES", _): error = L("auth.throttled")
             default:
@@ -878,14 +872,14 @@ struct StaffEditor: View {
     }
 
     /**
-     * Выдать сотруднику новый код.
+     * Выдать сотруднику новый пароль.
      *
-     * Экран не закрываем: владелец только что придумал код и сейчас
+     * Экран не закрываем: владелец только что придумал пароль и сейчас
      * продиктует его человеку, а закрывшаяся карточка забрала бы его с
      * глаз. Вместо этого форма сворачивается, а на месте ошибки встаёт
      * подтверждение.
      */
-    private func resetPin(_ person: API.StaffMember) async {
+    private func issuePassword(_ person: API.StaffMember) async {
         busy = true
         defer { busy = false }
         error = nil
@@ -895,20 +889,21 @@ struct StaffEditor: View {
                 try await APIClient.shared.raw(
                     "staff/\(person.id)/pin",
                     method: "POST",
-                    body: ["pin": newPin],
+                    body: ["password": newPassword],
                     token: token
                 )
             }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            resettingPin = false
-            newPin = ""
-            pinDone = true
+            issuingPassword = false
+            newPassword = ""
+            passwordDone = true
             await onSave()
         } catch let e as APIError {
             switch (e.code, e.reason) {
-            case (_, "WORKS_ELSEWHERE"): error = L("settings.pinWorksElsewhere")
-            case ("PIN_WEAK", _): error = L("auth.pinTrivial")
-            case ("FORBIDDEN", _): error = L("settings.pinWorksElsewhere")
+            case (_, "WORKS_ELSEWHERE"): error = L("settings.passwordWorksElsewhere")
+            case (_, "PASSWORD_SHORT"): error = L("auth.passwordShort")
+            case (_, "PASSWORD_COMMON"): error = L("auth.passwordCommon")
+            case ("FORBIDDEN", _): error = L("settings.passwordWorksElsewhere")
             default:
                 error = e.isOffline
                     ? L("errors.offline")

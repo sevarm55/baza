@@ -2,9 +2,10 @@
 
 import { useActionState, useState, useTransition } from 'react';
 import { KeyRound, Wallet } from 'lucide-react';
-import { archiveStaff, resetStaffPinAction, saveStaff, type FormState } from '@/app/actions';
+import { archiveStaff, resetStaffPasswordAction, saveStaff, type FormState } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { PasswordField } from '@/components/patterns/password-field';
 import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group';
 import { LoadingButton } from '@/components/loading';
@@ -193,17 +194,18 @@ export function StaffSheet({
             <DetailList>
               <DetailRow label={t.auth.phone} value={formatPhone(person.phone)} mono />
               <DetailRow
-                label={t.auth.staffAccessCode}
+                label={t.auth.staffPassword}
                 value={<span className="font-normal text-muted-foreground">{t.settings.pinHidden}</span>}
               />
               <DetailRow label={t.settings.role} value={person.roleLabel} />
             </DetailList>
             <FieldDescription className="text-xs">{t.settings.staffNote}</FieldDescription>
 
-            {/* Новый код — только сотруднику и только тому, кто больше
-                нигде не работает: отказ приходит с сервера словами. */}
+            {/* Новый пароль — только сотруднику и только тому, кто
+                больше нигде не работает: отказ приходит с сервера
+                словами. */}
             {person.canRemove && !person.owner && (
-              <ResetPin id={person.id} key={`pin-${person.id}`} />
+              <ResetPassword id={person.id} key={`password-${person.id}`} />
             )}
           </FormSection>
 
@@ -235,16 +237,24 @@ export function StaffSheet({
 }
 
 /**
- * Новый код сотруднику.
+ * Новый пароль сотруднику.
  *
- * Свёрнуто по умолчанию: пустой ряд клеток в карточке ничего не
- * спрашивает и читается сломанным элементом. Код показывается открытым:
- * владелец придумывает его вслух, стоя рядом с работником, и должен
- * видеть, что набрал.
+ * Свёрнуто по умолчанию: пустое поле в карточке ничего не спрашивает и
+ * читается сломанным элементом. Пароль показывается открытым: владелец
+ * придумывает его вслух, стоя рядом с работником, и должен видеть, что
+ * набрал.
+ *
+ * До этой правки поле принимало ровно шесть цифр — от ПИНа, которого в
+ * продукте больше нет. Сервер к тому времени уже писал пароль и требовал
+ * восемь знаков, так что выдать доступ было нельзя вовсе: форма всегда
+ * отвечала общей ошибкой.
  */
-function ResetPin({ id }: { id: string }) {
+function ResetPassword({ id }: { id: string }) {
   const t = useT();
-  const [state, action, pending] = useActionState<FormState, FormData>(resetStaffPinAction, null);
+  const [state, action, pending] = useActionState<FormState, FormData>(
+    resetStaffPasswordAction,
+    null,
+  );
   const [open, setOpen] = useState(false);
 
   /* После удачи форма сворачивается, а подтверждение остаётся строкой
@@ -260,9 +270,9 @@ function ResetPin({ id }: { id: string }) {
       <div className="flex flex-col gap-2">
         <Button variant="ghost" size="sm" className="self-start" onClick={() => setOpen(true)}>
           <KeyRound data-icon="inline-start" aria-hidden />
-          {t.settings.pinReset}
+          {t.settings.passwordIssue}
         </Button>
-        {state?.ok && <FormMessage tone="success">{t.settings.pinResetDone}</FormMessage>}
+        {state?.ok && <FormMessage tone="success">{t.auth.staffPasswordIssued}</FormMessage>}
       </div>
     );
   }
@@ -277,21 +287,15 @@ function ResetPin({ id }: { id: string }) {
     >
       <input type="hidden" name="id" value={id} />
 
-      <Field>
-        <FieldLabel htmlFor="staff-pin">{t.settings.pinReset}</FieldLabel>
-        <Input
-          id="staff-pin"
-          name="pin"
-          inputMode="numeric"
-          pattern="[0-9]{6}"
-          maxLength={6}
-          autoComplete="off"
-          autoFocus={autoFocusOnDesktop()}
-          required
-          className="num"
-        />
-        <FieldDescription className="text-xs">{t.settings.pinResetNote}</FieldDescription>
-      </Field>
+      <PasswordField
+        name="password"
+        label={t.settings.passwordIssue}
+        hint={t.settings.passwordIssueNote}
+        autoComplete="off"
+        autoFocus={autoFocusOnDesktop()}
+        openByDefault
+        invalid={Boolean(state?.error)}
+      />
 
       {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
 

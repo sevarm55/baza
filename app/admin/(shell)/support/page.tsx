@@ -37,8 +37,11 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
       if (m.access.state === 'blocked') diagnosis.push(a.support.diag.blockedTenant(m.tenantName));
       if (m.access.state === 'unpaid') diagnosis.push(a.support.diag.unpaid(m.tenantName));
     }
-    if (first.account.pinHash === 'none') diagnosis.push(a.support.diag.noPin);
-    if (!first.account.phoneVerifiedAt) diagnosis.push(a.support.diag.unverified);
+    if (!first.account.passwordHash) diagnosis.push(a.support.diag.noPassword);
+    /* Не «номер не подтверждён»: подтверждать его больше нечем, SMS из
+       продукта ушли. Значение имеет почта — без неё человек не вернёт
+       себе доступ сам, и это работа поддержки. */
+    if (!first.account.email) diagnosis.push(a.support.diag.noEmail);
     if (first.failedLogins > 0) diagnosis.push(a.support.diag.failedLogins(first.failedLogins));
     if (diagnosis.length === 0) diagnosis.push(a.support.diag.ok);
   }
