@@ -215,7 +215,7 @@ struct LoginView: View {
                                    столбец на свою половину. При вводе и на
                                    длинной регистрации он уходит: там место
                                    над клавиатурой дороже воздуха. */
-                                .padding(.bottom, focus == nil && stage != .register ? 96 : 24)
+                                .padding(.bottom, focus == nil ? (stage == .register ? 24 : 96) : 12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(maxWidth: .infinity)
@@ -326,22 +326,31 @@ struct LoginView: View {
             remembered(account)
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                Text(headline)
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(.white)
-                    .tracking(-0.8)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let subhead {
-                    Text(subhead)
-                        .font(.system(size: 15))
-                        .foregroundStyle(.white.opacity(0.66))
+                /* Заголовок складывается на время ввода, не уничтожаясь:
+                   тот же вид с нулевой высотой, а не `if`, чтобы смена
+                   фокуса не пересобирала столбец и не роняла клавиатуру. */
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(headline)
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundStyle(.white)
+                        .tracking(-0.8)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 8)
+
+                    if let subhead {
+                        Text(subhead)
+                            .font(.system(size: 15))
+                            .foregroundStyle(.white.opacity(0.66))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 8)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: typing ? 0 : nil, alignment: .top)
+                .opacity(typing ? 0 : 1)
+                .clipped()
 
                 sheet
-                    .padding(.top, 26)
+                    .padding(.top, typing ? 8 : 26)
 
                 if stage == .register {
                     /* Зачем адрес и какой пароль — одной сноской под
@@ -368,7 +377,7 @@ struct LoginView: View {
 
                 secondary
 
-                if let helper {
+                if let helper, !typing {
                     Text(helper)
                         .font(.system(size: 13))
                         .foregroundStyle(.white.opacity(0.5))
@@ -421,18 +430,38 @@ struct LoginView: View {
     // ══════════════════════ карточка и маскот ══════════════════════
 
     private enum Mascot {
-        /// Ширина фигуры. Одна на покой и на ввод, и это не лень: пока
-        /// размер зависел от фокуса, рамка робота ехала своей пружиной, а
-        /// карточка своей, и на треть секунды он висел поверх стекла.
-        /// Обе картинки одной пропорции, поэтому смена прищура на широкие
-        /// глаза не меняет ни размера, ни места.
+        /// Ширина фигуры в покое. Обе картинки одной пропорции, поэтому
+        /// смена прищура на широкие глаза не меняет ни размера, ни места.
         static let width: CGFloat = 148
+        /// Ширина при вводе. Клавиатура с полосой подсказок забирает
+        /// больше трети экрана, и форма обязана поместиться в остаток
+        /// целиком (см. `typing`). Размер меняется вместе с раскладкой в
+        /// одной транзакции: пружины стоят внутри рамки и до неё не
+        /// дотягиваются, иначе робот отставал от карточки.
+        static let typingWidth: CGFloat = 100
         static let ratio: CGFloat = 900.0 / 631.0
-        static var height: CGFloat { width / ratio }
         /// На сколько пальцы заходят на карточку. Столько же, сколько на
         /// витрине: девять точек, и кромка оказывается под ладонью.
         static let overlap: CGFloat = 9
     }
+
+    /**
+     * Идёт ввод: клавиатура открыта.
+     *
+     * Пока идёт ввод, форма ОБЯЗАНА помещаться над клавиатурой без
+     * прокрутки, и это не про красоту. Как только содержимое выше
+     * свободного места, `ScrollView` начинает прокручиваться, а система
+     * при каждой смене поля сама, без анимации, подкручивает к активному
+     * полю. Карточка прыгала на триста точек за кадр, робот при этом ехал
+     * своей пружиной, и на телефоне это читалось как «робот выскакивает и
+     * дёргается». Поэтому на время ввода заголовок складывается (он и так
+     * уезжал за край), робот ужимается, подсказка под кнопкой уходит:
+     * остаток помещается даже с полосой подсказок над клавиатурой.
+     */
+    private var typing: Bool { focus != nil }
+
+    private var mascotWidth: CGFloat { typing ? Mascot.typingWidth : Mascot.width }
+    private var mascotHeight: CGFloat { mascotWidth / Mascot.ratio }
 
     /// Робот прячется, пока набирают скрытый пароль.
     private var mascotHidden: Bool { focus == .password && !shown }
@@ -480,7 +509,7 @@ struct LoginView: View {
                     .transition(.opacity)
             }
         }
-        .offset(y: visible ? 0 : Mascot.height + Mascot.overlap + 2)
+        .offset(y: visible ? 0 : mascotHeight + Mascot.overlap + 2)
         .animation(
             reduceMotion ? nil : .spring(response: 0.52, dampingFraction: 0.86),
             value: risen
@@ -490,7 +519,7 @@ struct LoginView: View {
             value: mascotHidden
         )
         .animation(.easeOut(duration: Motion.normal), value: mascotArt)
-        .frame(width: Mascot.width, height: Mascot.height)
+        .frame(width: mascotWidth, height: mascotHeight)
         /* Маска, а не `clipped()`, и высота у неё живая.
          *
          * Рамка робота заходит на карточку на глубину пальцев, и обрезка
@@ -503,7 +532,7 @@ struct LoginView: View {
          * кромке, и только когда он доехал, пальцы ложатся поверх. */
         .mask(alignment: .top) {
             Rectangle()
-                .frame(height: visible ? Mascot.height : Mascot.height - Mascot.overlap)
+                .frame(height: visible ? mascotHeight : mascotHeight - Mascot.overlap)
                 .animation(
                     visible
                         ? .easeOut(duration: Motion.instant).delay(0.34)
@@ -758,7 +787,7 @@ struct LoginView: View {
         }
         .padding(.leading, 16)
         .padding(.trailing, trailing == nil ? 16 : 6)
-        .padding(.vertical, 13)
+        .padding(.vertical, 11)
         .contentShape(Rectangle())
         .onTapGesture { if let holds { move(to: holds) } }
         .animation(.easeOut(duration: Motion.fast), value: lit)
