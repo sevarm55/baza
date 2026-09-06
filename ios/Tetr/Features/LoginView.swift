@@ -134,7 +134,10 @@ struct LoginView: View {
     @State private var risen = false
 
     /// Робот прячется, пока набирают скрытый пароль.
-    private var mascotHidden: Bool { focus == .password && !shown }
+    private var mascotHidden: Bool { focus == .password }
+
+    /// Какая из двух дверей пароля сейчас открыта глазом.
+    private var passwordField: LoginField { shown ? .passwordShown : .password }
 
     /**
      * Идёт ввод: клавиатура открыта.
@@ -149,11 +152,11 @@ struct LoginView: View {
      * уезжал за край), робот ужимается, подсказка под кнопкой уходит:
      * остаток помещается даже с полосой подсказок над клавиатурой.
      */
-    private var typing: Bool { focus != nil }
+    @State private var typing = false
 
     /// Прищур — когда пароль показали и всё ещё набирают. Имена файлов те
     /// же, что на витрине: `grip` смотрит широко, `peek` щурится.
-    private var mascotArt: String { focus == .password && shown ? "peek.png" : "grip.png" }
+    private var mascotArt: String { focus == .passwordShown ? "peek.png" : "grip.png" }
 
     var body: some View {
         ZStack {
@@ -258,6 +261,14 @@ struct LoginView: View {
         /* Ссылка могла прийти, когда экран уже открыт: человек ушёл в
            почту из этого же приложения и вернулся сюда же. */
         .onChange(of: session.pendingLogin) { _, _ in adoptPendingLogin() }
+        /* Складывание заголовка и ужатие робота идут за фокусом, но НЕ
+           напрямую: фокус снимает и система (протяжка клавиатуры вниз,
+           «готово»), без транзакции, и раскладка тогда перескакивала
+           одним кадром. Здесь смена всегда заворачивается в анимацию,
+           откуда бы ни пришла. */
+        .onChange(of: focus) { _, now in
+            withAnimation(.snappy(duration: 0.32)) { typing = now != nil }
+        }
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
@@ -682,7 +693,7 @@ struct LoginView: View {
         password = ""
         manual = true
         stage = .entry
-        focus = .password
+        focus = passwordField
     }
 
     /**
@@ -864,7 +875,23 @@ private struct Grain: View {
 }
 
 /// Какое поле держит клавиатуру.
-private enum LoginField { case login, password, email, businessName }
+/**
+ * Поля формы.
+ *
+ * У пароля ДВЕ двери: скрытое поле и открытое. Одно поле с переключением
+ * `isSecureTextEntry` SwiftUI не умеет, а замена `SecureField` на
+ * `TextField` под общим `id` пересоздаёт первый ответчик: фокус падал,
+ * клавиатура закрывалась и открывалась заново, и весь экран дёргался
+ * на каждое нажатие глаза. Теперь оба поля живут одновременно, и глаз
+ * лишь переводит фокус с одного на другое: для системы это переход между
+ * двумя полями, клавиатура остаётся на месте.
+ */
+private enum LoginField {
+    case login, password, passwordShown, email, businessName
+
+    /// Любое из двух полей пароля.
+    var isPassword: Bool { self == .password || self == .passwordShown }
+}
 
 /// Что сейчас на экране.
 private enum LoginStage: Equatable {
@@ -1065,6 +1092,9 @@ private struct GlassCard: View {
     @Binding var businessName: String
     @Binding var shown: Bool
     @FocusState.Binding var focus: LoginField?
+
+    /// Какая из двух дверей пароля сейчас открыта глазом.
+    private var passwordField: LoginField { shown ? .passwordShown : .password }
     let move: (LoginField?) -> Void
     let submit: () -> Void
 
@@ -1133,7 +1163,7 @@ private struct GlassCard: View {
                 .textContentType(.username)
                 .submitLabel(.next)
                 .focused($focus, equals: .login)
-                .onSubmit { move(.password) }
+                .onSubmit { move(passwordField) }
                 .accessibilityIdentifier("login.login")
                 .accessibilityLabel(L("auth.loginLabel"))
         }
@@ -1151,23 +1181,32 @@ private struct GlassCard: View {
      * клавиатуре `newPassword`, и по «готово» ничего не отправляется.
      */
     private func passwordRow(title: String, fresh: Bool) -> some View {
-        row(icon: "lock.fill", title: title, holds: .password, empty: password.isEmpty, trailing: AnyView(eye)) {
-            Group {
-                if shown {
-                    TextField("", text: $password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } else {
-                    SecureField("", text: $password)
-                }
+        row(icon: "lock.fill", title: title, holds: passwordField, empty: password.isEmpty, trailing: AnyView(eye)) {
+            /* Оба поля стоят друг на друге и живут постоянно. Спрятанное
+               не видно и не ловит касаний, но остаётся в дереве: глаз
+               переводит фокус с одного на другое, а не пересоздаёт поле,
+               и клавиатура не успевает закрыться. */
+            ZStack(alignment: .leading) {
+                SecureField("", text: $password)
+                    .focused($focus, equals: .password)
+                    .accessibilityIdentifier(fresh ? "login.newPassword" : "login.password")
+                    .opacity(shown ? 0 : 1)
+                    .allowsHitTesting(!shown)
+                    .accessibilityHidden(shown)
+
+                TextField("", text: $password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($focus, equals: .passwordShown)
+                    .accessibilityIdentifier(fresh ? "login.newPasswordShown" : "login.passwordShown")
+                    .opacity(shown ? 1 : 0)
+                    .allowsHitTesting(shown)
+                    .accessibilityHidden(!shown)
             }
             .textContentType(fresh ? .newPassword : .password)
             .submitLabel(fresh ? .done : .go)
-            .focused($focus, equals: .password)
             .onSubmit { if !fresh { submit() } }
-            .accessibilityIdentifier(fresh ? "login.newPassword" : "login.password")
             .accessibilityLabel(title)
-            .id("login.password.box")
         }
     }
 
@@ -1175,14 +1214,13 @@ private struct GlassCard: View {
     /// голоса — верный способ ошибиться трижды подряд.
     private var eye: some View {
         Button {
-            /* Смена скрытого поля на открытое пересоздаёт первый ответчик,
-               и фокус падает вместе с клавиатурой, хотя `id` у них общий.
-               Возвращаем его следующим тактом: человек нажал глаз, чтобы
-               ПРОВЕРИТЬ набранное и продолжить, а не чтобы закончить. */
-            let typing = focus == .password
+            /* Человек нажал глаз, чтобы ПРОВЕРИТЬ набранное и продолжить,
+               а не чтобы закончить: если пароль набирали, фокус переходит
+               в другую дверь того же пароля, и клавиатура остаётся. */
+            let typing = focus?.isPassword == true
             shown.toggle()
             if typing {
-                DispatchQueue.main.async { move(.password) }
+                move(shown ? .passwordShown : .password)
             }
         } label: {
             Image(systemName: shown ? "eye.slash" : "eye")
@@ -1205,7 +1243,7 @@ private struct GlassCard: View {
                 .submitLabel(last ? .go : .next)
                 .focused($focus, equals: .email)
                 .onSubmit {
-                    if last { submit() } else { move(.password) }
+                    if last { submit() } else { move(passwordField) }
                 }
                 .accessibilityIdentifier(last ? "login.email" : "login.registerEmail")
                 .accessibilityLabel(title)
