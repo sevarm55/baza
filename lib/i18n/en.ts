@@ -278,7 +278,7 @@ export const en: Dict = {
     signOut: 'Sign out',
     welcomeBack: 'Welcome back',
     tapAvatar: 'Tap your avatar to sign in',
-    anotherAccount: 'Sign in with another number',
+    anotherAccount: 'Sign in with another account',
     rememberedExpired: 'The saved sign-in has expired. Enter your number and PIN.',
     wrongCredentials: 'Wrong number or PIN',
     phoneTaken: 'This number is already registered',
@@ -291,7 +291,6 @@ export const en: Dict = {
     currentPin: 'Current PIN',
     newPin: 'New PIN',
     confirmPin: 'Repeat the new PIN',
-    pinMismatch: 'The PIN does not match',
     wrongPin: 'The current PIN is wrong',
     pinChangedNote: 'After the change every device signs out, including this one.',
     welcome: 'Welcome back',
@@ -468,7 +467,7 @@ export const en: Dict = {
     interface: 'Interface',
     account: 'Account',
     phone: 'Phone',
-    pinNote: 'Lets you sign in without SMS. This PIN is also used for quick access to your account.',
+    passwordNote: 'You sign in to the cabinet and the app with it. Changing it signs out every device.',
     access: 'Subscription',
     session: 'This device',
     devices: 'Devices',
@@ -1227,24 +1226,21 @@ export const en: Dict = {
     tierPrices: 'Prices by class',
     tierPriceHint: 'Empty means the base price',
 
-    pinReset: 'Issue a new PIN',
+    passwordIssue: 'Issue a new password',
 
-    pinResetNote: 'The staff member forgot the PIN. Set a new one, sign-ins with the old PIN will close.',
+    passwordIssueNote: 'The staff member forgot the password. Set a new one, sign-ins with the old one will close.',
 
-    pinResetDone: 'The PIN is changed. Pass it to the staff member.',
 
-    pinWorksElsewhere: 'This person works elsewhere too. They change the PIN themselves, from their own page.',
+    passwordWorksElsewhere: 'This person works elsewhere too. They change the password themselves, from their own page.',
 
 
     deleteTitle: 'Delete the business',
     deleteWhat:
       'Everything goes: records, clients, services and all staff. Staff access closes immediately.',
     deleteNoWayBack: 'It cannot be restored.',
-    deletePin: 'Confirm with your PIN',
     deleteKeep: 'Download the data and delete',
     deleteWipe: 'Delete without downloading',
     deleteHint: 'The file downloads for Excel, then the business is deleted.',
-    deleteWrongPin: 'The PIN is wrong.',
     deleteThrottled: 'Too many attempts. Wait and try again.',
     deleteFailed: "Couldn't do it. Try again.",
     deleteSendCode: 'Send a confirmation code',

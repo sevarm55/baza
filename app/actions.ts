@@ -8,7 +8,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ensureDb } from '@/lib/db/ready';
 import { alertSnoozes, clients, tenants, users } from '@/lib/db/schema';
-import { getDict, getLocale } from '@/lib/i18n/server';
+import { getDict } from '@/lib/i18n/server';
 import type { Dict } from '@/lib/i18n';
 import { intlLocale } from '@/lib/i18n/format';
 import { serviceNameTerm } from '@/lib/i18n/terms';
@@ -31,7 +31,7 @@ import { passesEnabled } from '@/lib/features';
 import { currentAccess, SubscriptionExpiredError } from '@/lib/subscription';
 import { createBusiness } from '@/lib/tenant';
 import { revokeDevice } from '@/lib/devices';
-import { changePin, deletePin, ProfileError, saveProfile } from '@/lib/profile';
+import { ProfileError, saveProfile } from '@/lib/profile';
 import { createOrder, cancelOrder, setOrderCrew, type Payment } from '@/lib/orders';
 import { canRecord, closeShift, openShift } from '@/lib/shifts';
 import { SNOOZE_DAYS } from '@/lib/alerts';
@@ -47,18 +47,10 @@ import {
 } from '@/lib/auth';
 import { checkLogin, clientIp, noteLogin } from '@/lib/login-guard';
 import { accountOf, listPoints, markPointUsed } from '@/lib/accounts';
-import { hasPin } from '@/lib/pin';
-import { isValidPhone, maskPhone, normalizePhone, pinProblem } from '@/lib/phone';
-import {
-  changeNeedsCode,
-  finishPhoneChange,
-  startPhoneChange,
-  startSelfProof,
-  type PhoneProblem,
-} from '@/lib/phone-change';
+import { changeOwnPassword } from '@/lib/auth-password';
+import { isValidPhone, normalizePhone } from '@/lib/phone';
 import { isNicheAvailable, type NicheKey } from '@/lib/niches';
 import { logSecurityInBackground } from '@/lib/security-log';
-import { beginPhoneProof, completePhoneProof } from '@/lib/auth-flow';
 
 /**
  * Успех помечен явным `ok`, а не отсутствием ошибки.
@@ -68,6 +60,21 @@ import { beginPhoneProof, completePhoneProof } from '@/lib/auth-flow';
  * просто не сработает, и владелец отправит те же данные второй раз.
  */
 export type FormState = { error?: string; ok?: true } | null;
+
+/**
+ * Что не так с паролем, словами.
+ *
+ * Один ответ на все формы, где пароль назначают: свой, сотруднику при
+ * найме и сотруднику взамен забытого. «Короткий» и «его подберут
+ * первым» — разные беды, и общий ответ на них заставляет гадать.
+ * Возвращает `null`, если беда не про пароль: вызывающий разбирает её
+ * сам.
+ */
+function passwordProblem(problem: string, t: Dict): string | null {
+  if (problem === 'PASSWORD_SHORT') return t.auth.passwordShort;
+  if (problem === 'PASSWORD_COMMON') return t.auth.passwordCommon;
+  return null;
+}
 
 /* ------------------------------------------------------------------ *
  * Каждое действие само проверяет сессию и права.
@@ -244,26 +251,32 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
 
   const name = String(formData.get('name') ?? '').trim();
   const phone = normalizePhone(String(formData.get('phone') ?? ''));
-  const pin = String(formData.get('pin') ?? '');
+  const password = String(formData.get('password') ?? '');
   const percent = Number(formData.get('percent') ?? 0);
 
   if (name.length < 2) return { error: t.errors.required };
   if (!isValidPhone(phone)) return { error: t.errors.badPhone };
-  /* «Мало цифр» и «слишком очевидный» — разные беды, и общий ответ на
-     них заставляет владельца гадать. Он в этот момент стоит рядом с
-     новым мойщиком и придумывает ему код вслух. */
-  const badPin = pinProblem(pin);
-  if (badPin === 'length') return { error: t.errors.badPin };
-  if (badPin === 'trivial') return { error: t.auth.pinTrivial };
   if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
     return { error: t.errors.badPercent };
   }
 
   try {
-    await catalog.addStaff({ tenantId: session.tid, name, phone, password: pin, percent, actorId: session.uid });
+    await catalog.addStaff({
+      tenantId: session.tid,
+      name,
+      phone,
+      password,
+      percent,
+      actorId: session.uid,
+    });
   } catch (e) {
-    if (e instanceof catalog.ValidationError && e.message === 'PHONE_TAKEN') {
-      return { error: t.auth.phoneTaken };
+    if (e instanceof catalog.ValidationError) {
+      if (e.message === 'PHONE_TAKEN') return { error: t.auth.phoneTaken };
+      /* «Короткий» и «его подберут первым» — разные беды, и общий ответ
+         на них заставляет владельца гадать. Он в этот момент стоит рядом
+         с новым мойщиком и придумывает пароль вслух. */
+      const said = passwordProblem(e.message, t);
+      if (said) return { error: said };
     }
     return { error: t.errors.required };
   }
@@ -490,7 +503,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
  * который работает не только здесь, код так не выдают. Назначенный нами
  * код открыл бы чужой бизнес.
  */
-export async function resetStaffPinAction(
+export async function resetStaffPasswordAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -505,17 +518,13 @@ export async function resetStaffPinAction(
       tenantId: session.tid,
       id: String(formData.get('id') ?? ''),
       actorId: session.uid,
-      password: String(formData.get('pin') ?? ''),
+      password: String(formData.get('password') ?? ''),
     });
   } catch (e) {
     if (e instanceof catalog.ValidationError) {
-      if (e.message === 'BAD_PIN') {
-        /* «Мало цифр» и «слишком очевидный» здесь не различаются:
-           `isValidPin` отвечает одним признаком, и придумывать разницу
-           только для этой формы значило бы соврать про правило. */
-        return { error: t.errors.badPin };
-      }
-      if (e.message === 'WORKS_ELSEWHERE') return { error: t.settings.pinWorksElsewhere };
+      const said = passwordProblem(e.message, t);
+      if (said) return { error: said };
+      if (e.message === 'WORKS_ELSEWHERE') return { error: t.settings.passwordWorksElsewhere };
       return { error: t.errors.generic };
     }
     return { error: t.errors.generic };
@@ -525,7 +534,7 @@ export async function resetStaffPinAction(
     event: 'role.changed',
     tenantId: session.tid,
     userId: session.uid,
-    data: { staffId: String(formData.get('id') ?? ''), what: 'pin' },
+    data: { staffId: String(formData.get('id') ?? ''), what: 'password' },
   });
 
   revalidatePath('/owner/staff');
@@ -697,7 +706,25 @@ export async function saveOwnName(_prev: FormState, formData: FormData): Promise
   return { ok: true };
 }
 
-export async function changePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
+/**
+ * Сменить себе пароль.
+ *
+ * Раньше здесь менялся ПИН — и с переходом на почту и пароль это стало
+ * работой вхолостую: код исправно перезаписывался, а войти по нему было
+ * уже нельзя. Человек получал «сохранено» и ничего не менял.
+ *
+ * Действие одно, а было три. Создать и удалить были у ПИНа оттого, что
+ * он был необязателен: вторая дверь рядом с кодом из SMS. Пароль —
+ * единственная дверь, удалить его значило бы запереть себя снаружи.
+ *
+ * Текущий пароль спрашивается обязательно, и тот же счётчик попыток,
+ * что на входе: без него форма — тихий способ подобрать пароль изнутри
+ * уже открытой сессии, без блокировки и без следа в истории входов.
+ */
+export async function changePasswordAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const session = await requireSession();
   const t = await getDict();
   await ensureDb();
@@ -705,9 +732,6 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
   const current = String(formData.get('current') ?? '');
   const next = String(formData.get('next') ?? '');
 
-  /* Тот же счётчик попыток, что на входе. Без него форма смены кода —
-     тихий способ подобрать текущий PIN изнутри уже открытой сессии: без
-     блокировки, без следа в истории входов и без предела попыток. */
   const ip = clientIp(await headers());
   const me = await getUser(session.tid, session.uid);
   if (!me) redirect('/session-ended');
@@ -717,92 +741,22 @@ export async function changePinAction(_prev: FormState, formData: FormData): Pro
     return { error: t.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
   }
 
-  /* Была ли у человека вторая дверь до этой минуты. От этого зависит,
-     выкидывать ли его: смена кода гасит сессии, а первая установка —
-     нет, отбирать там нечего. */
   const account = await accountOf(me);
-  const had = hasPin(account.pinHash);
+  const done = await changeOwnPassword({ accountId: account.id, current, next, ip });
 
-  try {
-    await changePin(session.uid, current, next);
-  } catch (e) {
-    if (e instanceof ProfileError) {
-      if (e.message === 'WRONG_PIN') await noteLogin(me.phone, ip, false);
-      if (e.message === 'BAD_PIN') return { error: t.errors.badPin };
-      if (e.message === 'TRIVIAL_PIN') return { error: t.auth.pinTrivial };
-      return { error: t.auth.wrongPin };
-    }
-    return { error: t.errors.generic };
-  }
-
-  await noteLogin(me.phone, ip, true);
-  logSecurityInBackground({
-    event: 'auth.pin.changed',
-    phone: me.phone,
-    tenantId: session.tid,
-    userId: session.uid,
-    ip,
-  });
-
-  /* Сменил — сессии погашены, включая эту, идти внутрь больше некуда.
-     Задал впервые — остаётся на месте, как после любой другой правки в
-     профиле. */
-  if (had) redirect('/?auth=signIn');
-
-  revalidatePath('/owner/profile');
-  return { ok: true };
-}
-
-/**
- * Убрать ПИН совсем.
- *
- * Третье действие рядом с «создать» и «изменить», и оно не декоративное:
- * ПИН необязателен, а до сих пор заведённый однажды нельзя было
- * убрать никак. Человек, назначивший себе постоянный код и передумавший,
- * оставался с ним навсегда.
- *
- * Текущий код спрашиваем, тот же счётчик попыток, что на входе: без него
- * форма — тихий способ подобрать код изнутри уже открытой сессии.
- *
- * После удаления сессии погашены, включая эту, — как при смене. Уводим на
- * вход: идти внутрь больше некуда.
- */
-export async function deletePinAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await requireSession();
-  const t = await getDict();
-  await ensureDb();
-
-  const current = String(formData.get('current') ?? '');
-
-  const ip = clientIp(await headers());
-  const me = await getUser(session.tid, session.uid);
-  if (!me) redirect('/session-ended');
-
-  const guard = await checkLogin(me.phone, ip);
-  if (!guard.allowed) {
-    return { error: t.auth.tooManyTries(Math.ceil(guard.retryAfter / 60)) };
-  }
-
-  try {
-    await deletePin(session.uid, current);
-  } catch (e) {
-    if (e instanceof ProfileError) {
+  if (!done.ok) {
+    if (done.problem === 'WRONG_CURRENT') {
       await noteLogin(me.phone, ip, false);
-      return { error: t.auth.wrongPin };
+      return { error: t.auth.wrongPassword };
     }
-    return { error: t.errors.generic };
+    return { error: passwordProblem(done.problem, t) ?? t.errors.generic };
   }
 
   await noteLogin(me.phone, ip, true);
-  logSecurityInBackground({
-    event: 'auth.pin.changed',
-    phone: me.phone,
-    tenantId: session.tid,
-    userId: session.uid,
-    ip,
-    data: { deleted: true },
-  });
 
+  /* Сессии погашены все, включая эту: тот, у кого старый пароль в
+     руках, обязан перестать работать в ту же секунду. Идти внутрь
+     больше некуда, поэтому на дверь. */
   redirect('/?auth=signIn');
 }
 
@@ -835,211 +789,6 @@ export async function revokeDeviceAction(sessionId: string): Promise<void> {
   });
 
   revalidatePath('/owner/profile');
-}
-
-/* ------------------- подтверждение своего номера ------------------- */
-
-export type VerifyPhoneState =
-  | null
-  | { step: 'idle'; error?: string }
-  | { step: 'code'; challengeId: string; error?: string }
-  | { step: 'done' };
-
-/**
- * Доказать, что номер аккаунта — свой.
- *
- * Только для себя и только по своему номеру: он берётся из аккаунта, а
- * не из формы. Присланный номер здесь означал бы, что подтвердить можно
- * что угодно, — и восстановление PIN, которое на это подтверждение
- * опирается, потеряло бы смысл целиком.
- */
-export async function verifyOwnPhoneAction(
-  prev: VerifyPhoneState,
-  formData: FormData,
-): Promise<VerifyPhoneState> {
-  const session = await requireSession();
-  const t = await getDict();
-  await ensureDb();
-
-  const me = await getUser(session.tid, session.uid);
-  if (!me?.accountId) redirect('/session-ended');
-
-  const ip = clientIp(await headers());
-  const locale = await getLocale();
-  const challengeId = String(formData.get('challengeId') ?? '').trim();
-
-  if (challengeId) {
-    const done = await completePhoneProof({
-      challengeId,
-      code: String(formData.get('code') ?? '').trim(),
-      accountId: me.accountId,
-      ip,
-    });
-
-    if (!done) return { step: 'code', challengeId, error: t.auth.otpInvalid };
-
-    revalidatePath('/owner/profile');
-    return { step: 'done' };
-  }
-
-  const started = await beginPhoneProof({
-    accountId: me.accountId,
-    phone: me.phone,
-    ip,
-    locale,
-  });
-
-  if (!started.ok) {
-    return {
-      step: 'idle',
-      error:
-        started.reason === 'THROTTLED'
-          ? t.auth.tooManyTries(Math.ceil(started.retryAfter / 60))
-          : t.auth.smsFailed,
-    };
-  }
-
-  void prev;
-  return { step: 'code', challengeId: started.challengeId };
-}
-
-/* ------------------------ смена своего номера ------------------------ */
-
-export type ChangePhoneState =
-  | null
-  /** закрыто, или вернулись после отказа */
-  | { step: 'idle'; error?: string }
-  /** у кого нет PIN: код на свой номер */
-  | { step: 'proof'; proofId: string; phone: string; error?: string }
-  /** доказали себя, называем новый номер */
-  | { step: 'phone'; proofId?: string; proofCode?: string; error?: string }
-  /** код с нового номера */
-  | { step: 'code'; challengeId: string; phone: string; error?: string }
-  | { step: 'done' };
-
-/**
- * Сменить свой номер телефона.
- *
- * Считает `lib/phone-change.ts` — тот же код, которым живёт приложение.
- * Действие только раскладывает форму по шагам и переводит отказы на язык
- * смотрящего: правила безопасности не имеют права зависеть от того, с
- * сайта пришли или с телефона.
- *
- * Шагов на экране до трёх, и первый из них появляется не у всех: тому, у
- * кого есть PIN, доказывать себя кодом незачем — он вводит PIN на том же
- * шаге, где называет новый номер.
- */
-export async function changePhoneAction(
-  prev: ChangePhoneState,
-  formData: FormData,
-): Promise<ChangePhoneState> {
-  const session = await requireSession();
-  const t = await getDict();
-  await ensureDb();
-
-  const me = await getUser(session.tid, session.uid);
-  if (!me) redirect('/session-ended');
-  const account = await accountOf(me);
-
-  const ip = clientIp(await headers());
-  const locale = await getLocale();
-  const field = (name: string) => String(formData.get(name) ?? '').trim();
-
-  /* Отказ модуля — в строку на экране. Один разбор на все шаги: два
-     списка сообщений разошлись бы на первой же новой причине. */
-  const say = (problem: PhoneProblem, retryAfter?: number): string => {
-    switch (problem) {
-      case 'BAD_PHONE':
-        return t.errors.badPhone;
-      case 'SAME_PHONE':
-        return t.auth.samePhone;
-      case 'PHONE_TAKEN':
-        return t.auth.phoneTaken;
-      case 'WRONG_PIN':
-        return t.auth.wrongPin;
-      case 'THROTTLED':
-        return t.auth.tooManyTries(Math.ceil((retryAfter ?? 60) / 60));
-      case 'CODE_EXPIRED':
-        return t.auth.otpExpired;
-      case 'CODE_TOO_MANY':
-        return t.auth.otpTooMany;
-      case 'SMS_FAILED':
-        return t.auth.smsFailed;
-      default:
-        return t.auth.otpInvalid;
-    }
-  };
-
-  const challengeId = field('challengeId');
-
-  /* ---- шаг последний: код с нового номера ---- */
-  if (challengeId) {
-    const done = await finishPhoneChange({
-      account,
-      tenantId: session.tid,
-      userId: session.uid,
-      challengeId,
-      code: field('code'),
-      ip,
-    });
-
-    if (!done.ok) {
-      return { step: 'code', challengeId, phone: field('shown'), error: say(done.problem) };
-    }
-
-    /* Страницу НЕ перерисовываем, и это не забывчивость. Смена гасит все
-       сессии, включая эту; `revalidatePath` пошёл бы на сервер уже
-       мёртвым cookie и увёл бы на экран входа. Человек увидел бы, что
-       его выкинуло, но не узнал бы, почему, — а причина ровно та, что он
-       только что сделал. Поэтому последним кадром остаётся «номер
-       изменён, войдите заново», и уходит человек сам. */
-    return { step: 'done' };
-  }
-
-  /* ---- нулевой шаг: код на свой номер, у кого нет PIN ---- */
-  if (changeNeedsCode(account) && !field('proofId')) {
-    const started = await startSelfProof({ account, ip, locale });
-    if (!started.ok) return { step: 'idle', error: say(started.problem, started.retryAfter) };
-
-    void prev;
-    return { step: 'proof', proofId: started.challengeId, phone: maskPhone(account.phone) };
-  }
-
-  const proofId = field('proofId');
-  const proofCode = field('proofCode');
-
-  /* Между «доказал себя» и «назвал номер» экран меняется, а
-     доказательство обязано дожить до конца: код проверяется один раз,
-     вместе с новым номером. Пока номера нет, спрашивать нечего. */
-  if (!field('phone')) return { step: 'phone', proofId, proofCode };
-
-  const started = await startPhoneChange({
-    account,
-    phone: field('phone'),
-    country: field('country') || undefined,
-    pin: field('pin'),
-    proofId,
-    proofCode,
-    ip,
-    locale,
-  });
-
-  if (!started.ok) {
-    /* Просроченный или исчерпанный код на СВОЙ номер отбрасывает в
-       начало: доказывать себя придётся заново, и оставлять человека на
-       экране с мёртвым кодом в скрытом поле значило бы показывать ему
-       одну и ту же ошибку до перезагрузки страницы. */
-    const dead =
-      started.problem === 'CODE_EXPIRED' ||
-      started.problem === 'CODE_TOO_MANY' ||
-      started.problem === 'CODE_INVALID';
-    if (changeNeedsCode(account) && dead) {
-      return { step: 'idle', error: say(started.problem, started.retryAfter) };
-    }
-    return { step: 'phone', proofId, proofCode, error: say(started.problem, started.retryAfter) };
-  }
-
-  return { step: 'code', challengeId: started.challengeId, phone: maskPhone(started.phone) };
 }
 
 export async function saveBusiness(formData: FormData): Promise<void> {

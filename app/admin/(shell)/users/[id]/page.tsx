@@ -52,7 +52,10 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           <DetailList>
             <DetailRow label={a.common.phone} value={phone} mono />
             <DetailRow label={a.common.verified} value={d.account.phoneVerifiedAt ? date(d.account.phoneVerifiedAt) : a.common.no} mono />
-            <DetailRow label="PIN" value={d.account.pinHash !== 'none' ? a.users.pinSet : a.users.pinNone} />
+            <DetailRow
+              label={a.common.password}
+              value={d.account.passwordHash ? a.users.passwordSet : a.users.passwordNone}
+            />
             <DetailRow label={a.users.trialUsed} value={d.account.trialUsedAt ? date(d.account.trialUsedAt) : a.common.no} mono />
             <DetailRow label={a.common.created} value={date(d.account.createdAt)} mono />
             {d.account.blockedAt && (

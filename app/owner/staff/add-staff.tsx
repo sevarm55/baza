@@ -10,6 +10,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/
 import { LoadingButton } from '@/components/loading';
 import { EntitySheet, SheetActions } from '@/components/patterns/entity-sheet';
 import { FormMessage, FormSection } from '@/components/patterns/form';
+import { PasswordField } from '@/components/patterns/password-field';
 import { useT } from '@/lib/i18n/client';
 import { autoFocusOnDesktop } from '@/lib/autofocus';
 
@@ -135,22 +136,17 @@ export function AddStaff({
               />
             </Field>
 
-            <Field>
-              <FieldLabel htmlFor="staff-new-pin">
-                {t.auth.staffAccessCode} · {t.auth.pinHint}
-              </FieldLabel>
-              <Input
-                id="staff-new-pin"
-                name="pin"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                required
-                autoComplete="off"
-                className="num"
-              />
-              <FieldDescription className="text-xs">{t.auth.staffAccessCodeNote}</FieldDescription>
-            </Field>
+            {/* Пароль открыт: владелец придумывает его вслух, стоя
+                рядом с новым мойщиком, и должен видеть, что набрал. */}
+            <PasswordField
+              name="password"
+              label={t.auth.staffPassword}
+              hint={t.auth.passwordHint}
+              autoComplete="off"
+              openByDefault
+              invalid={Boolean(state?.error)}
+            />
+            <FieldDescription className="-mt-1 text-xs">{t.auth.staffPasswordNote}</FieldDescription>
           </FormSection>
 
           {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
