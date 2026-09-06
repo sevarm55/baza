@@ -71,28 +71,15 @@ struct LoginView: View {
     /// национальную часть, а сверяет сервер по E.164.
     @State private var country = Countries.default
 
-    @State private var stage: Stage = .entry
+    @State private var stage: LoginStage = .entry
     @State private var error: String?
     @State private var busy = false
     /// Человек попросил другой аккаунт: сохранённый профиль больше не
     /// показываем до следующего запуска.
     @State private var manual = false
 
-    @FocusState private var focus: Field?
+    @FocusState private var focus: LoginField?
 
-    private enum Field { case login, password, email, businessName }
-
-    /// Что сейчас на экране.
-    private enum Stage: Equatable {
-        /// логин и пароль
-        case entry
-        /// забыл пароль: почта, чтобы выслать ссылку
-        case reset
-        /// новая мойка: название, имя, почта, пароль, телефон, валюта
-        case register
-        /// письмо ушло на этот адрес; дальше человек идёт в почту
-        case sent(String)
-    }
 
     /**
      * Предзаполнение формы для проверки на локальном сервере.
@@ -146,9 +133,16 @@ struct LoginView: View {
     /// чтобы подъём был виден, а не случился до появления экрана.
     @State private var risen = false
 
+    /// Робот прячется, пока набирают скрытый пароль.
+    private var mascotHidden: Bool { focus == .password && !shown }
+
+    /// Прищур — когда пароль показали и всё ещё набирают. Имена файлов те
+    /// же, что на витрине: `grip` смотрит широко, `peek` щурится.
+    private var mascotArt: String { focus == .password && shown ? "peek.png" : "grip.png" }
+
     var body: some View {
         ZStack {
-            backdrop
+            Backdrop()
                 .contentShape(Rectangle())
                 // Свободный фон — естественная кнопка «готово» для
                 // цифровой клавиатуры, на которой своей кнопки нет.
@@ -253,29 +247,6 @@ struct LoginView: View {
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
     }
-
-    /**
-     * Полотно.
-     *
-     * Свет из центра тот же, что на заставке (`Brand.splashGlow`).
-     * Лаймовый отсвет снизу слабее десятой доли: он должен читаться как
-     * тепло от кнопки, а не как второй источник света.
-     */
-    private var backdrop: some View {
-        ZStack {
-            Brand.grapeDeep
-            Brand.splashGlow
-            RadialGradient(
-                colors: [Brand.lime.opacity(0.14), Brand.lime.opacity(0)],
-                center: UnitPoint(x: 0.5, y: 1.06),
-                startRadius: 0,
-                endRadius: 420
-            )
-            Grain()
-        }
-        .ignoresSafeArea()
-    }
-
     /**
      * Язык — прямо на экране входа.
      *
@@ -340,7 +311,21 @@ struct LoginView: View {
                         .padding(.top, 8)
                 }
 
-                sheet
+                SignInSheet(
+                    stage: stage,
+                    art: mascotArt,
+                    risen: risen,
+                    hidden: mascotHidden,
+                    reduceMotion: reduceMotion,
+                    login: $login,
+                    password: $password,
+                    email: $email,
+                    businessName: $businessName,
+                    shown: $shown,
+                    focus: $focus,
+                    move: { move(to: $0) },
+                    submit: { Task { await runPrimary() } }
+                )
                     .padding(.top, 26)
 
                 if stage == .register {
@@ -418,355 +403,7 @@ struct LoginView: View {
         }
     }
 
-    // ══════════════════════ карточка и маскот ══════════════════════
 
-    private enum Mascot {
-        /// Ширина фигуры. Одна на покой и на ввод, и это не лень: пока
-        /// размер зависел от фокуса, рамка робота ехала своей пружиной, а
-        /// карточка своей, и на треть секунды он висел поверх стекла.
-        /// Обе картинки одной пропорции, поэтому смена прищура на широкие
-        /// глаза не меняет ни размера, ни места.
-        static let width: CGFloat = 148
-        static let ratio: CGFloat = 900.0 / 631.0
-        static var height: CGFloat { width / ratio }
-        /// На сколько пальцы заходят на карточку. Столько же, сколько на
-        /// витрине: девять точек, и кромка оказывается под ладонью.
-        static let overlap: CGFloat = 9
-    }
-
-    /// Робот прячется, пока набирают скрытый пароль.
-    private var mascotHidden: Bool { focus == .password && !shown }
-
-    /// Прищур — когда пароль показали и всё ещё набирают. Имена файлов те
-    /// же, что на витрине: `grip` смотрит широко, `peek` щурится.
-    private var mascotArt: String { focus == .password && shown ? "peek.png" : "grip.png" }
-
-    /**
-     * Карточка с маскотом над ней.
-     *
-     * Маскот стоит в стопке ПЕРЕД карточкой с отрицательным нижним
-     * полем: раскладка отдаёт карточке место сразу под его рамкой, а
-     * пальцы, нарисованные ниже рамки, ложатся на её кромку. `zIndex`
-     * держит его поверх карточки, иначе кромка перекрыла бы руки.
-     */
-    private var sheet: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            mascot
-                .padding(.trailing, 22)
-                .padding(.bottom, -Mascot.overlap)
-                .zIndex(1)
-
-            card
-        }
-    }
-
-    /// Робот на виду: поднялся и не прячется от пароля.
-    private var visible: Bool { risen && !mascotHidden }
-
-    private var mascot: some View {
-        /* Порядок модификаторов здесь и есть починка. Пружины стоят на
-           картинке со смещением и НЕ дотягиваются до рамки: рамка
-           принадлежит раскладке и едет вместе с карточкой в одной
-           транзакции, а вверх-вниз внутри рамки робот ходит своим ходом.
-           Стоило повесить пружину снаружи рамки, и она подхватывала
-           всё, что менялось вместе с фокусом, включая место робота на
-           экране. */
-        ZStack(alignment: .bottom) {
-            if let art = UIImage(named: mascotArt) {
-                Image(uiImage: art)
-                    .resizable()
-                    .scaledToFit()
-                    .id(mascotArt)
-                    .transition(.opacity)
-            }
-        }
-        .offset(y: visible ? 0 : Mascot.height + Mascot.overlap + 2)
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.52, dampingFraction: 0.86),
-            value: risen
-        )
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
-            value: mascotHidden
-        )
-        .animation(.easeOut(duration: Motion.normal), value: mascotArt)
-        .frame(width: Mascot.width, height: Mascot.height)
-        /* Маска, а не `clipped()`, и высота у неё живая.
-         *
-         * Рамка робота заходит на карточку на глубину пальцев, и обрезка
-         * по рамке режет его линией НИЖЕ кромки: при спуске он тонул в
-         * стекло, а не уходил за него. Поэтому пока он выглядывает, маска
-         * во всю рамку и пальцы лежат на кромке; как только он прячется,
-         * маска за один короткий такт поджимается к самой кромке, и
-         * дальше он уходит ровно за неё. Вверх маска раскрывается с
-         * задержкой на длину пружины: пока робот едет, линия стоит на
-         * кромке, и только когда он доехал, пальцы ложатся поверх. */
-        .mask(alignment: .top) {
-            Rectangle()
-                .frame(height: visible ? Mascot.height : Mascot.height - Mascot.overlap)
-                .animation(
-                    visible
-                        ? .easeOut(duration: Motion.instant).delay(0.34)
-                        : .easeOut(duration: Motion.instant),
-                    value: visible
-                )
-        }
-        .accessibilityHidden(true)
-    }
-
-    /**
-     * Стеклянная карточка формы.
-     *
-     * Строки внутри — по одной на поле, через волосяную линию, как в
-     * системных настройках: рука знает этот предмет и попадает по нему
-     * не глядя. Набор строк зависит от шага, а строки логина и пароля
-     * объявлены по одному разу.
-     */
-    private var card: some View {
-        VStack(spacing: 0) {
-            if stage == .entry {
-                loginRow
-                hairline
-                passwordRow(title: L("auth.passwordLabel"), fresh: false)
-            }
-
-            if stage == .reset {
-                emailRow(title: L("auth.emailLabel"), last: true)
-            }
-
-            if stage == .register {
-                businessRow
-                hairline
-                emailRow(title: L("auth.registerEmail"), last: false)
-                hairline
-                passwordRow(title: L("auth.registerPassword"), fresh: true)
-            }
-
-            if case .sent(let address) = stage {
-                row(icon: "envelope.open.fill", title: L("auth.emailLabel"), lit: true) {
-                    Text(address)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-            }
-        }
-        .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
-        .overlay(
-            /* Блик по кромке: сверху светлее, снизу гаснет. Это то, что
-               делает стекло стеклом, а не серой плашкой. */
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.32), .white.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Brand.grapeDeep.opacity(0.55), radius: 30, y: 18)
-    }
-
-    private var hairline: some View {
-        Rectangle()
-            .fill(.white.opacity(0.1))
-            .frame(height: 1)
-            .padding(.leading, 72)
-    }
-
-    // ══════════════════════ строки ══════════════════════
-
-    private var loginRow: some View {
-        row(icon: "person.fill", title: L("auth.loginLabel"), holds: .login, empty: login.isEmpty) {
-            TextField("", text: $login)
-                /* Ни заглавных, ни автоподстановки: почту телефон норовит
-                   исправить на знакомое слово, а телефон — на дату. */
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.emailAddress)
-                .textContentType(.username)
-                .submitLabel(.next)
-                .focused($focus, equals: .login)
-                .onSubmit { move(to: .password) }
-                .accessibilityIdentifier("login.login")
-                .accessibilityLabel(L("auth.loginLabel"))
-        }
-    }
-
-    /**
-     * Пароль с глазом.
-     *
-     * Два разных поля под одним `if`, а не `SecureField` с переключением
-     * `isSecureTextEntry`: SwiftUI пересоздаёт вид при смене типа, и без
-     * общего `id` каретка прыгала в начало, а набранное иногда стиралось
-     * целиком. Общий идентификатор говорит движку, что это одна вещь.
-     *
-     * `fresh` — это регистрация: поле называется «придумайте», подсказка
-     * клавиатуре `newPassword`, и по «готово» ничего не отправляется.
-     */
-    private func passwordRow(title: String, fresh: Bool) -> some View {
-        row(icon: "lock.fill", title: title, holds: .password, empty: password.isEmpty, trailing: AnyView(eye)) {
-            Group {
-                if shown {
-                    TextField("", text: $password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } else {
-                    SecureField("", text: $password)
-                }
-            }
-            .textContentType(fresh ? .newPassword : .password)
-            .submitLabel(fresh ? .done : .go)
-            .focused($focus, equals: .password)
-            .onSubmit { if !fresh { Task { await runPrimary() } } }
-            .accessibilityIdentifier(fresh ? "login.newPassword" : "login.password")
-            .accessibilityLabel(title)
-            .id("login.password.box")
-        }
-    }
-
-    /// Глаз. Мойщику диктуют пароль вслух, и набрать его вслепую с чужого
-    /// голоса — верный способ ошибиться трижды подряд.
-    private var eye: some View {
-        Button {
-            /* Смена скрытого поля на открытое пересоздаёт первый ответчик,
-               и фокус падает вместе с клавиатурой, хотя `id` у них общий.
-               Возвращаем его следующим тактом: человек нажал глаз, чтобы
-               ПРОВЕРИТЬ набранное и продолжить, а не чтобы закончить. */
-            let typing = focus == .password
-            shown.toggle()
-            if typing {
-                DispatchQueue.main.async { move(to: .password) }
-            }
-        } label: {
-            Image(systemName: shown ? "eye.slash" : "eye")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white.opacity(0.62))
-                .frame(width: 44, height: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(L(shown ? "auth.hidePassword" : "auth.showPassword"))
-    }
-
-    private func emailRow(title: String, last: Bool) -> some View {
-        row(icon: "envelope.fill", title: title, holds: .email, empty: email.isEmpty) {
-            TextField("", text: $email)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.emailAddress)
-                .textContentType(.emailAddress)
-                .submitLabel(last ? .go : .next)
-                .focused($focus, equals: .email)
-                .onSubmit {
-                    if last { Task { await runPrimary() } } else { move(to: .password) }
-                }
-                .accessibilityIdentifier(last ? "login.email" : "login.registerEmail")
-                .accessibilityLabel(title)
-        }
-    }
-
-    /**
-     * Регистрация: три поля и ни одного лишнего.
-     *
-     * Раньше их было шесть, и это была анкета. Причина не в красоте: до
-     * перехода по ссылке из письма НЕ СОЗДАЁТСЯ НИЧЕГО. Всё, что человек
-     * набрал, час лежит в заявке и пропадает, если он до почты не дошёл.
-     * Осталось то, чем он будет входить, и то, без чего мойку не назвать.
-     */
-    private var businessRow: some View {
-        row(icon: "building.2.fill", title: L("onboarding.bizName"), holds: .businessName, empty: businessName.isEmpty) {
-            TextField("", text: $businessName)
-                .textContentType(.organizationName)
-                .autocorrectionDisabled()
-                .submitLabel(.next)
-                .focused($focus, equals: .businessName)
-                .onSubmit { move(to: .email) }
-                .accessibilityIdentifier("login.businessName")
-                .accessibilityLabel(L("onboarding.bizName"))
-        }
-    }
-
-    /**
-     * Строка карточки: значок в плитке, подпись, поле.
-     *
-     * Строка сама ловит касание. SwiftUI отдаёт `TextField` ровно ту
-     * площадь, которую занимает набранный текст: у пустого поля это
-     * несколько точек возле каретки. Человек бил в строку и не понимал,
-     * почему клавиатура не появляется. Цель теперь во всю строку, то есть
-     * выше сорока четырёх точек, как и требует система.
-     *
-     * Фокус подсвечивает плитку лаймом, а не рамку: рамки у строки нет,
-     * а зажечь значок — это сказать «сюда пишут» одним пятном.
-     */
-    @ViewBuilder
-    private func row<Content: View>(
-        icon: String,
-        title: String,
-        holds: Field? = nil,
-        lit forced: Bool = false,
-        /* Пустое ли поле. Пока оно пустое и без фокуса, подпись стоит в
-           нём самом крупно, как подсказка; при касании или с первым
-           знаком поднимается над ним мелкой. Так в пустой строке нет
-           провала под подписью, а в заполненной подпись не теряется. */
-        empty: Bool = false,
-        trailing: AnyView? = nil,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        let lit = forced || (holds != nil && focus == holds)
-        let raised = lit || !empty
-
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(lit ? Brand.onLime : .white.opacity(0.82))
-                .frame(width: 40, height: 40)
-                .background(
-                    lit ? Brand.lime : .white.opacity(0.1),
-                    in: .rect(cornerRadius: 12, style: .continuous)
-                )
-
-            ZStack(alignment: .leading) {
-                /* Подсказка в поле: крупная, пока поле пустое и спит. */
-                Text(title)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(1)
-                    .opacity(raised ? 0 : 1)
-                    .offset(y: raised ? -10 : 0)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(lit ? Brand.lime : .white.opacity(0.58))
-                        .lineLimit(1)
-                        .opacity(raised ? 1 : 0)
-                        .offset(y: raised ? 0 : 8)
-
-                    content()
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.white)
-                        .tint(Brand.lime)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .opacity(raised ? 1 : 0)
-                }
-            }
-
-            if let trailing {
-                trailing
-            }
-        }
-        .padding(.leading, 16)
-        .padding(.trailing, trailing == nil ? 16 : 6)
-        .padding(.vertical, 13)
-        .contentShape(Rectangle())
-        .onTapGesture { if let holds { move(to: holds) } }
-        .animation(.easeOut(duration: Motion.fast), value: lit)
-        /* Подпись меняет место за один короткий такт: при более долгом
-           перекрёстном затухании обе надписи успевали стоять друг на
-           друге, и это читалось задвоением, а не движением. */
-        .animation(.easeOut(duration: Motion.instant), value: raised)
-    }
 
     // ══════════════════════ сохранённый вход ══════════════════════
 
@@ -1032,11 +669,11 @@ struct LoginView: View {
      * секунды висел поверх карточки. Явная анимация даёт раскладке ту
      * же длительность, что и роботу, и они едут вместе.
      */
-    private func move(to field: Field?) {
+    private func move(to field: LoginField?) {
         withAnimation(.snappy(duration: 0.32)) { focus = field }
     }
 
-    private func go(_ next: Stage) {
+    private func go(_ next: LoginStage) {
         withAnimation(.snappy(duration: 0.28)) {
             focus = nil
             stage = next
@@ -1198,5 +835,449 @@ private struct Grain: View {
                 .blendMode(.plusLighter)
                 .allowsHitTesting(false)
         }
+    }
+}
+
+/// Какое поле держит клавиатуру.
+private enum LoginField { case login, password, email, businessName }
+
+/// Что сейчас на экране.
+private enum LoginStage: Equatable {
+    /// логин и пароль
+    case entry
+    /// забыл пароль: почта, чтобы выслать ссылку
+    case reset
+    /// новая мойка: название, имя, почта, пароль, телефон, валюта
+    case register
+    /// письмо ушло на этот адрес; дальше человек идёт в почту
+    case sent(String)
+}
+
+// ═══════════════════ части экрана входа ═══════════════════
+//
+// Экран разложен на отдельные виды не ради порядка в файле.
+// SwiftUI собирает `body` в ОДИН обобщённый тип, и вложенные
+// `some View`-свойства вклеиваются в него целиком. У этого экрана
+// свойств полтора десятка, и каждое со стеклом, маской и градиентом:
+// тип разрастался так, что на живом телефоне его сборка не помещалась
+// в стек главного потока и приложение падало с EXC_BAD_ACCESS ещё до
+// первого кадра. В симуляторе этого не видно: там у главного потока
+// восемь мегабайт против одного на устройстве.
+//
+// Каждая часть здесь — свой тип со своим `body`. Тип экрана перестал
+// быть монолитом, а кадры стали мелкими. На вид и на поведение
+// разбиение не влияет: код внутри частей тот же.
+
+
+/**
+ * Полотно.
+ *
+ * Свет из центра тот же, что на заставке (`Brand.splashGlow`).
+ * Лаймовый отсвет снизу слабее десятой доли: он должен читаться как
+ * тепло от кнопки, а не как второй источник света.
+ */
+private struct Backdrop: View {
+    var body: some View {
+        ZStack {
+            Brand.grapeDeep
+            Brand.splashGlow
+            RadialGradient(
+                colors: [Brand.lime.opacity(0.14), Brand.lime.opacity(0)],
+                center: UnitPoint(x: 0.5, y: 1.06),
+                startRadius: 0,
+                endRadius: 420
+            )
+            Grain()
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private enum Mascot {
+    /// Ширина фигуры. Одна на покой и на ввод, и это не лень: пока
+    /// размер зависел от фокуса, рамка робота ехала своей пружиной, а
+    /// карточка своей, и на треть секунды он висел поверх стекла.
+    /// Обе картинки одной пропорции, поэтому смена прищура на широкие
+    /// глаза не меняет ни размера, ни места.
+    static let width: CGFloat = 148
+    static let ratio: CGFloat = 900.0 / 631.0
+    static var height: CGFloat { width / ratio }
+    /// На сколько пальцы заходят на карточку. Столько же, сколько на
+    /// витрине: девять точек, и кромка оказывается под ладонью.
+    static let overlap: CGFloat = 9
+}
+
+/**
+ * Карточка с маскотом над ней.
+ *
+ * Маскот стоит в стопке ПЕРЕД карточкой с отрицательным нижним
+ * полем: раскладка отдаёт карточке место сразу под его рамкой, а
+ * пальцы, нарисованные ниже рамки, ложатся на её кромку. `zIndex`
+ * держит его поверх карточки, иначе кромка перекрыла бы руки.
+ */
+private struct SignInSheet: View {
+    let stage: LoginStage
+    let art: String
+    let risen: Bool
+    let hidden: Bool
+    let reduceMotion: Bool
+    @Binding var login: String
+    @Binding var password: String
+    @Binding var email: String
+    @Binding var businessName: String
+    @Binding var shown: Bool
+    @FocusState.Binding var focus: LoginField?
+    /// Перевести фокус, включая снятие: живёт в экране, ему же принадлежит
+    /// клавиатура.
+    let move: (LoginField?) -> Void
+    /// Главное действие по «готово» на клавиатуре.
+    let submit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            MascotView(art: art, risen: risen, hidden: hidden, reduceMotion: reduceMotion)
+                .padding(.trailing, 22)
+                .padding(.bottom, -Mascot.overlap)
+                .zIndex(1)
+
+            GlassCard(
+                stage: stage,
+                login: $login,
+                password: $password,
+                email: $email,
+                businessName: $businessName,
+                shown: $shown,
+                focus: $focus,
+                move: move,
+                submit: submit
+            )
+        }
+    }
+}
+
+private struct MascotView: View {
+    let art: String
+    let risen: Bool
+    let hidden: Bool
+    let reduceMotion: Bool
+
+    /// Робот на виду: поднялся и не прячется от пароля.
+    private var visible: Bool { risen && !hidden }
+
+    var body: some View {
+        /* Порядок модификаторов здесь и есть починка. Пружины стоят на
+           картинке со смещением и НЕ дотягиваются до рамки: рамка
+           принадлежит раскладке и едет вместе с карточкой в одной
+           транзакции, а вверх-вниз внутри рамки робот ходит своим ходом.
+           Стоило повесить пружину снаружи рамки, и она подхватывала
+           всё, что менялось вместе с фокусом, включая место робота на
+           экране. */
+        ZStack(alignment: .bottom) {
+            if let art = UIImage(named: art) {
+                Image(uiImage: art)
+                    .resizable()
+                    .scaledToFit()
+                    .id(art)
+                    .transition(.opacity)
+            }
+        }
+        .offset(y: visible ? 0 : Mascot.height + Mascot.overlap + 2)
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.52, dampingFraction: 0.86),
+            value: risen
+        )
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
+            value: hidden
+        )
+        .animation(.easeOut(duration: Motion.normal), value: art)
+        .frame(width: Mascot.width, height: Mascot.height)
+        /* Маска, а не `clipped()`, и высота у неё живая.
+         *
+         * Рамка робота заходит на карточку на глубину пальцев, и обрезка
+         * по рамке режет его линией НИЖЕ кромки: при спуске он тонул в
+         * стекло, а не уходил за него. Поэтому пока он выглядывает, маска
+         * во всю рамку и пальцы лежат на кромке; как только он прячется,
+         * маска за один короткий такт поджимается к самой кромке, и
+         * дальше он уходит ровно за неё. Вверх маска раскрывается с
+         * задержкой на длину пружины: пока робот едет, линия стоит на
+         * кромке, и только когда он доехал, пальцы ложатся поверх. */
+        .mask(alignment: .top) {
+            Rectangle()
+                .frame(height: visible ? Mascot.height : Mascot.height - Mascot.overlap)
+                .animation(
+                    visible
+                        ? .easeOut(duration: Motion.instant).delay(0.34)
+                        : .easeOut(duration: Motion.instant),
+                    value: visible
+                )
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/**
+ * Стеклянная карточка формы.
+ *
+ * Строки внутри — по одной на поле, через волосяную линию, как в
+ * системных настройках: рука знает этот предмет и попадает по нему
+ * не глядя. Набор строк зависит от шага, а строки логина и пароля
+ * объявлены по одному разу.
+ */
+private struct GlassCard: View {
+    let stage: LoginStage
+    @Binding var login: String
+    @Binding var password: String
+    @Binding var email: String
+    @Binding var businessName: String
+    @Binding var shown: Bool
+    @FocusState.Binding var focus: LoginField?
+    let move: (LoginField?) -> Void
+    let submit: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if stage == .entry {
+                loginRow
+                hairline
+                passwordRow(title: L("auth.passwordLabel"), fresh: false)
+            }
+
+            if stage == .reset {
+                emailRow(title: L("auth.emailLabel"), last: true)
+            }
+
+            if stage == .register {
+                businessRow
+                hairline
+                emailRow(title: L("auth.registerEmail"), last: false)
+                hairline
+                passwordRow(title: L("auth.registerPassword"), fresh: true)
+            }
+
+            if case .sent(let address) = stage {
+                row(icon: "envelope.open.fill", title: L("auth.emailLabel"), lit: true) {
+                    Text(address)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
+        .overlay(
+            /* Блик по кромке: сверху светлее, снизу гаснет. Это то, что
+               делает стекло стеклом, а не серой плашкой. */
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.32), .white.opacity(0.06)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: Brand.grapeDeep.opacity(0.55), radius: 30, y: 18)
+    }
+
+    private var hairline: some View {
+        Rectangle()
+            .fill(.white.opacity(0.1))
+            .frame(height: 1)
+            .padding(.leading, 72)
+    }
+
+    // ══════════════════════ строки ══════════════════════
+
+    private var loginRow: some View {
+        row(icon: "person.fill", title: L("auth.loginLabel"), holds: .login, empty: login.isEmpty) {
+            TextField("", text: $login)
+                /* Ни заглавных, ни автоподстановки: почту телефон норовит
+                   исправить на знакомое слово, а телефон — на дату. */
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.emailAddress)
+                .textContentType(.username)
+                .submitLabel(.next)
+                .focused($focus, equals: .login)
+                .onSubmit { move(.password) }
+                .accessibilityIdentifier("login.login")
+                .accessibilityLabel(L("auth.loginLabel"))
+        }
+    }
+
+    /**
+     * Пароль с глазом.
+     *
+     * Два разных поля под одним `if`, а не `SecureField` с переключением
+     * `isSecureTextEntry`: SwiftUI пересоздаёт вид при смене типа, и без
+     * общего `id` каретка прыгала в начало, а набранное иногда стиралось
+     * целиком. Общий идентификатор говорит движку, что это одна вещь.
+     *
+     * `fresh` — это регистрация: поле называется «придумайте», подсказка
+     * клавиатуре `newPassword`, и по «готово» ничего не отправляется.
+     */
+    private func passwordRow(title: String, fresh: Bool) -> some View {
+        row(icon: "lock.fill", title: title, holds: .password, empty: password.isEmpty, trailing: AnyView(eye)) {
+            Group {
+                if shown {
+                    TextField("", text: $password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } else {
+                    SecureField("", text: $password)
+                }
+            }
+            .textContentType(fresh ? .newPassword : .password)
+            .submitLabel(fresh ? .done : .go)
+            .focused($focus, equals: .password)
+            .onSubmit { if !fresh { submit() } }
+            .accessibilityIdentifier(fresh ? "login.newPassword" : "login.password")
+            .accessibilityLabel(title)
+            .id("login.password.box")
+        }
+    }
+
+    /// Глаз. Мойщику диктуют пароль вслух, и набрать его вслепую с чужого
+    /// голоса — верный способ ошибиться трижды подряд.
+    private var eye: some View {
+        Button {
+            /* Смена скрытого поля на открытое пересоздаёт первый ответчик,
+               и фокус падает вместе с клавиатурой, хотя `id` у них общий.
+               Возвращаем его следующим тактом: человек нажал глаз, чтобы
+               ПРОВЕРИТЬ набранное и продолжить, а не чтобы закончить. */
+            let typing = focus == .password
+            shown.toggle()
+            if typing {
+                DispatchQueue.main.async { move(.password) }
+            }
+        } label: {
+            Image(systemName: shown ? "eye.slash" : "eye")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white.opacity(0.62))
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L(shown ? "auth.hidePassword" : "auth.showPassword"))
+    }
+
+    private func emailRow(title: String, last: Bool) -> some View {
+        row(icon: "envelope.fill", title: title, holds: .email, empty: email.isEmpty) {
+            TextField("", text: $email)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.emailAddress)
+                .textContentType(.emailAddress)
+                .submitLabel(last ? .go : .next)
+                .focused($focus, equals: .email)
+                .onSubmit {
+                    if last { submit() } else { move(.password) }
+                }
+                .accessibilityIdentifier(last ? "login.email" : "login.registerEmail")
+                .accessibilityLabel(title)
+        }
+    }
+
+    /**
+     * Регистрация: три поля и ни одного лишнего.
+     *
+     * Раньше их было шесть, и это была анкета. Причина не в красоте: до
+     * перехода по ссылке из письма НЕ СОЗДАЁТСЯ НИЧЕГО. Всё, что человек
+     * набрал, час лежит в заявке и пропадает, если он до почты не дошёл.
+     * Осталось то, чем он будет входить, и то, без чего мойку не назвать.
+     */
+    private var businessRow: some View {
+        row(icon: "building.2.fill", title: L("onboarding.bizName"), holds: .businessName, empty: businessName.isEmpty) {
+            TextField("", text: $businessName)
+                .textContentType(.organizationName)
+                .autocorrectionDisabled()
+                .submitLabel(.next)
+                .focused($focus, equals: .businessName)
+                .onSubmit { move(.email) }
+                .accessibilityIdentifier("login.businessName")
+                .accessibilityLabel(L("onboarding.bizName"))
+        }
+    }
+
+    /**
+     * Строка карточки: значок в плитке, подпись, поле.
+     *
+     * Строка сама ловит касание. SwiftUI отдаёт `TextField` ровно ту
+     * площадь, которую занимает набранный текст: у пустого поля это
+     * несколько точек возле каретки. Человек бил в строку и не понимал,
+     * почему клавиатура не появляется. Цель теперь во всю строку, то есть
+     * выше сорока четырёх точек, как и требует система.
+     *
+     * Фокус подсвечивает плитку лаймом, а не рамку: рамки у строки нет,
+     * а зажечь значок — это сказать «сюда пишут» одним пятном.
+     */
+    @ViewBuilder
+    private func row<Content: View>(
+        icon: String,
+        title: String,
+        holds: LoginField? = nil,
+        lit forced: Bool = false,
+        /* Пустое ли поле. Пока оно пустое и без фокуса, подпись стоит в
+           нём самом крупно, как подсказка; при касании или с первым
+           знаком поднимается над ним мелкой. Так в пустой строке нет
+           провала под подписью, а в заполненной подпись не теряется. */
+        empty: Bool = false,
+        trailing: AnyView? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let lit = forced || (holds != nil && focus == holds)
+        let raised = lit || !empty
+
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(lit ? Brand.onLime : .white.opacity(0.82))
+                .frame(width: 40, height: 40)
+                .background(
+                    lit ? Brand.lime : .white.opacity(0.1),
+                    in: .rect(cornerRadius: 12, style: .continuous)
+                )
+
+            ZStack(alignment: .leading) {
+                /* Подсказка в поле: крупная, пока поле пустое и спит. */
+                Text(title)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+                    .opacity(raised ? 0 : 1)
+                    .offset(y: raised ? -10 : 0)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(lit ? Brand.lime : .white.opacity(0.58))
+                        .lineLimit(1)
+                        .opacity(raised ? 1 : 0)
+                        .offset(y: raised ? 0 : 8)
+
+                    content()
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(.white)
+                        .tint(Brand.lime)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .opacity(raised ? 1 : 0)
+                }
+            }
+
+            if let trailing {
+                trailing
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, trailing == nil ? 16 : 6)
+        .padding(.vertical, 13)
+        .contentShape(Rectangle())
+        .onTapGesture { if let holds { move(holds) } }
+        .animation(.easeOut(duration: Motion.fast), value: lit)
+        /* Подпись меняет место за один короткий такт: при более долгом
+           перекрёстном затухании обе надписи успевали стоять друг на
+           друге, и это читалось задвоением, а не движением. */
+        .animation(.easeOut(duration: Motion.instant), value: raised)
     }
 }
