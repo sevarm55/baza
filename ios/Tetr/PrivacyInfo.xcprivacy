@@ -36,6 +36,23 @@
             </array>
         </dict>
 
+        <!-- Почта: логин владельца, адрес для писем о подтверждении и о
+             новом пароле. Появилась вместе с входом по паролю, и Apple
+             сверяет этот список с карточкой приложения: тип, которого
+             здесь нет, а в продукте есть, — это отказ. -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
         <!-- Телефон — это логин. Ни для чего другого он не используется:
              ни звонков, ни рассылок. -->
         <dict>

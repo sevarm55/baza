@@ -62,25 +62,25 @@
       }
     },
     "NSFaceIDUsageDescription" : {
-      "comment" : "Зачем Face ID: чтобы не набирать PIN каждый раз.",
+      "comment" : "Зачем Face ID: чтобы не набирать пароль каждый раз.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "So you don't type your PIN every time"
+            "value" : "So you don't type your password every time"
           }
         },
         "hy" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Որպեսզի PIN-ը ամեն անգամ չհավաքեք"
+            "value" : "Որպեսզի գաղտնաբառը ամեն անգամ չհավաքեք"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Чтобы не набирать PIN каждый раз"
+            "value" : "Чтобы не набирать пароль каждый раз"
           }
         }
       }

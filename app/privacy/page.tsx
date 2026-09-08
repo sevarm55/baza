@@ -56,9 +56,9 @@ export default async function PrivacyPage() {
       <h2 className={h2}>Ի՞նչ տվյալներ ենք պահում</h2>
       <ul className={list}>
         <li>
-          <b>Հաշիվ.</b> անուն, հեռախոսահամար, դեր (սեփականատեր կամ աշխատակից), աշխատակցի տոկոսը։
-          PIN-ը պահվում է միայն գաղտնագրված տեսքով (scrypt) — բուն կոդը մեզ հայտնի չէ և վերականգնման
-          ենթակա չէ։
+          <b>Հաշիվ.</b> անուն, էլ. փոստ (սեփականատիրոջ մուտքանունը), հեռախոսահամար, դեր
+          (սեփականատեր կամ աշխատակից), աշխատակցի տոկոսը։ Գաղտնաբառը պահվում է միայն
+          գաղտնագրված տեսքով (scrypt) — բուն գաղտնաբառը մեզ հայտնի չէ և վերականգնման ենթակա չէ։
         </li>
         <li>
           <b>Բիզնես.</b> անվանում, ոլորտ, արժույթ, ժամային գոտի։
@@ -75,8 +75,8 @@ export default async function PrivacyPage() {
           <b>Ծախսեր, հերթափոխեր, աշխատավարձեր.</b> գումարներ, ամսաթվեր, ում է վերաբերում։
         </li>
         <li>
-          <b>Անվտանգություն.</b> մուտքի փորձերը (հեռախոս, IP հասցե, ժամանակ) — որպեսզի կոդի
-          ընտրության փորձերը կանգնեցվեն։ Սեսիաների ցանկը՝ սարքի անունով։
+          <b>Անվտանգություն.</b> մուտքի փորձերը (մուտքանուն, IP հասցե, ժամանակ) — որպեսզի
+          գաղտնաբառի ընտրության փորձերը կանգնեցվեն։ Սեսիաների ցանկը՝ սարքի անունով։
         </li>
         <li>
           <b>Ծանուցումներ.</b> սարքի token, եթե միացրել եք push-ծանուցումները։
@@ -142,8 +142,9 @@ export default async function PrivacyPage() {
         <h2 className={h2}>What we store</h2>
         <ul className={list}>
           <li>
-            <b>Account:</b> name, phone number, role (owner or staff), staff percentage. The PIN is
-            stored only as a scrypt hash — we do not know the code itself and cannot recover it.
+            <b>Account:</b> name, email address (the owner's login), phone number, role (owner or
+            staff), staff percentage. The password is stored only as a scrypt hash — we do not know
+            it and cannot recover it.
           </li>
           <li>
             <b>Business:</b> name, industry, currency, time zone.
@@ -159,8 +160,8 @@ export default async function PrivacyPage() {
             <b>Expenses, shifts, payroll:</b> amounts, dates, and who they relate to.
           </li>
           <li>
-            <b>Security:</b> login attempts (phone, IP address, time) to stop PIN guessing, and a
-            list of sessions with the device name.
+            <b>Security:</b> login attempts (the login used, IP address, time) to stop password
+            guessing, and a list of sessions with the device name.
           </li>
           <li>
             <b>Notifications:</b> a device token, if you enabled push notifications.

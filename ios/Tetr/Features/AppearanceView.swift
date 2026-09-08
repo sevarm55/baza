@@ -177,6 +177,16 @@ struct AppIconOption: Identifiable {
                 title: L("appearance.iconMain"),
                 note: L("appearance.iconMainNote")
             ),
+            /* Та же марка, только прозрачная: стоит сразу за основной,
+               потому что это одна вещь в двух подачах, а «График» —
+               другой рисунок. */
+            AppIconOption(
+                id: "clear",
+                alternateName: "AppIconClear",
+                preview: "IconPreviewClear",
+                title: L("appearance.iconClear"),
+                note: L("appearance.iconClearNote")
+            ),
             AppIconOption(
                 id: "glass",
                 alternateName: "AppIconGlass",

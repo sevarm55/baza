@@ -38,8 +38,8 @@ settings:
     # Совпадает с номером версии в App Store Connect. Не совпадёт —
     # загруженная сборка прицепится к другой версии и в списке для
     # отправки её просто не будет.
-    MARKETING_VERSION: "1.2"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "1.3"
+    CURRENT_PROJECT_VERSION: "5"
     # Команда разработчика. Здесь, а не в настройках Xcode: .xcodeproj
     # пересоздаётся из этого файла, и выставленное мышкой пропало бы при
     # первом же `xcodegen generate`.
@@ -125,7 +125,7 @@ targets:
         # отправке сборки, и однажды на него ответят наугад.
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Համարանիշը սկանավորելու համար
-        NSFaceIDUsageDescription: Որպեսզի PIN-ը ամեն անգամ չհավաքեք
+        NSFaceIDUsageDescription: Որպեսզի գաղտնաբառը ամեն անգամ չհավաքեք
         # Досылка очереди, когда приложение закрыто
         UIBackgroundModes: [processing]
         # Разрешение на уведомления спрашивается в приложении, но система
@@ -150,8 +150,9 @@ targets:
         # показать; чистое стекло iOS 26 каталог не выражает, и это
         # осознанная цена за возможность выбора.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # Вторая иконка. Имя ровно то, что уходит в setAlternateIconName.
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconGlass
+        # Значки, кроме основного. Имена ровно те, что уходят в
+        # setAlternateIconName, через пробел: список, а не одно имя.
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconGlass AppIconClear
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         SWIFT_EMIT_LOC_STRINGS: YES
