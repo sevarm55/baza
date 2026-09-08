@@ -394,6 +394,21 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/*
+ * Заголовок группы. В свёрнутой панели он не прячется, а уезжает вверх
+ * отрицательным отступом и гасится прозрачностью — так он умеет плавно
+ * возвращаться при разворачивании.
+ *
+ * Из-за этого он и остаётся на месте для мыши: невидимый прямоугольник
+ * ложится ровно на иконку под собой и забирает клики себе. Снаружи это
+ * выглядело так, что пункт меню нажимается только краями, а по центру
+ * не отзывается вовсе — попасть можно было лишь в полоску, которую
+ * заголовок не накрыл.
+ *
+ * Поэтому здесь `pointer-events-none`: он ничего не меняет в анимации и
+ * возвращает иконке всю её площадь. Правка местная — если компонент
+ * когда-нибудь обновят из shadcn, её надо внести заново.
+ */
 function SidebarGroupLabel({
   className,
   render,
@@ -404,7 +419,7 @@ function SidebarGroupLabel({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+          "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
           className
         ),
       },
