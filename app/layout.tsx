@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { THEME_SCRIPT } from '@/lib/theme-script';
+import { ThemeByRoute } from '@/components/theme-by-route';
 import { ServiceWorker } from '@/components/service-worker';
 import { StagingBadge } from '@/components/staging-badge';
 import { isStaging, stagingLabel } from '@/lib/staging';
@@ -250,6 +251,10 @@ export default async function RootLayout({
               это правило возвращает его на место. */}
           <style>{`[data-reveal],[data-reveal] *{opacity:1!important;filter:none!important;transform:none!important}`}</style>
         </noscript>
+        {/* Скрипт в `<head>` ставит тему один раз, на загрузке документа.
+            Дальше по продукту ходят клиентскими переходами, и без этого
+            кабинет, открытый с тёмной витрины, оставался тёмным. */}
+        <ThemeByRoute />
         <I18nProvider locale={locale}>
           <TooltipProvider>
             {children}

@@ -46,10 +46,14 @@ export async function POST(request: Request) {
      живёт в «бизнесе», и отказ, показанный на прейскуранте, человек не
      увидит вовсе. */
   const back = (params: Record<string, string>) => {
-    const url = new URL('/owner/settings', request.url);
-    url.searchParams.set('s', 'business');
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-    return Response.redirect(url, 303);
+    /* Путь относительный: `request.url` за прокси указывает внутрь
+       контейнера (`http://0.0.0.0:3000`), и абсолютный адрес из него
+       уводил бы в никуда. См. `app/session-ended/route.ts`. */
+    const query = new URLSearchParams({ s: 'business', ...params });
+    return new Response(null, {
+      status: 303,
+      headers: { Location: `/owner/settings?${query}` },
+    });
   };
 
   const [user] = await db.select().from(users).where(eq(users.id, session.uid));
@@ -93,5 +97,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return Response.redirect(new URL('/', request.url), 303);
+  return new Response(null, { status: 303, headers: { Location: '/' } });
 }
