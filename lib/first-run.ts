@@ -53,6 +53,8 @@ export type FirstRunOrder = {
   createdAt: Date;
   clientKey: string | null;
   authorName: string | null;
+  /** записана в режиме «глазами работника», то есть скорее всего проба */
+  fromPreview: boolean;
 };
 
 /**
@@ -105,6 +107,9 @@ async function latestOrder(tenantId: string): Promise<FirstRunOrder | null> {
       createdAt: orders.createdAt,
       clientKey: clients.key,
       authorName: users.name,
+      /* Учебная ли машина. Только такую финал предложит убрать: настоящую,
+         записанную тем же вечером, трогать нельзя. */
+      fromPreview: orders.fromPreview,
     })
     .from(orders)
     .leftJoin(clients, eq(clients.id, orders.clientId))

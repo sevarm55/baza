@@ -15,6 +15,7 @@ import { currentAccess } from '@/lib/subscription';
 import { addExpense } from '@/lib/expenses';
 import * as catalog from '@/lib/catalog';
 import { firstRunWorker, setFirstRunStage } from '@/lib/first-run';
+import { removePreviewOrder } from '@/lib/orders';
 import { isValidPhone, normalizePhone } from '@/lib/phone';
 import { toMinor } from '@/lib/money';
 import { logSecurityInBackground } from '@/lib/security-log';
@@ -278,6 +279,27 @@ export async function leaveWorkerPreview(): Promise<void> {
 export async function finishFirstRun(): Promise<void> {
   const session = await requireOwner();
   await ensureDb();
+  await setFirstRunStage(session.uid, session.tid, 'done');
+  revalidatePath('/', 'layout');
+  redirect('/owner');
+}
+
+/**
+ * Закрыть сценарий и убрать учебную машину.
+ *
+ * Второй выход с финала, для того случая, когда номер был выдуман ради
+ * посмотреть. Владелец нажимает — и машина уходит вместе с обучением: ни
+ * строки в журнале, ни визита в базе клиентов.
+ *
+ * Удаление разрешено только записи с пометкой `from_preview` и только в
+ * своей точке — проверяет это `removePreviewOrder`, а не экран. Не нашли
+ * такую запись — сценарий всё равно закрывается: человек нажал «готово»,
+ * и упереться в отказ на последнем шаге он не должен.
+ */
+export async function finishFirstRunAndRemove(orderId: string): Promise<void> {
+  const session = await requireOwner();
+  await ensureDb();
+  await removePreviewOrder({ tenantId: session.tid, orderId });
   await setFirstRunStage(session.uid, session.tid, 'done');
   revalidatePath('/', 'layout');
   redirect('/owner');

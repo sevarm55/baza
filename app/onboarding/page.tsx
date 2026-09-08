@@ -60,6 +60,8 @@ export default async function FirstRunPage() {
     body = (
       <Finale
         lead={name ? t.firstRun.fLead(name) : null}
+        orderId={view.order.id}
+        fromPreview={view.order.fromPreview}
         order={{
           clientKey: view.order.clientKey,
           serviceName: serviceNameTerm(view.order.serviceName, t.locale),

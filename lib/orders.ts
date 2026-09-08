@@ -4,6 +4,7 @@ import { crewOf, crewSplit, MAX_CREW } from './crew';
 import { db } from './db';
 import { recordActivity } from './activity';
 import {
+  activityEvents,
   audit,
   clients,
   orderItems,
@@ -64,6 +65,15 @@ export type CreateOrderInput = {
    */
   tier?: string;
   note?: string;
+  /**
+   * Машину записывают в режиме «глазами работника» из первого запуска.
+   *
+   * Запись от этого не становится ненастоящей: она считается, попадает в
+   * смену и в деньги, как любая другая. Признак живёт ради одного шага —
+   * на финале обучения владельцу предлагают убрать её, если номер был
+   * выдуман. См. `orders.from_preview`.
+   */
+  fromPreview?: boolean;
   /**
    * Сколько взяли на самом деле, если меньше прайса.
    *
@@ -368,6 +378,7 @@ export async function createOrder(input: CreateOrderInput) {
         passId,
         clientRef: input.clientRef ?? null,
         note: input.note?.trim() || null,
+        fromPreview: input.fromPreview === true,
         createdAt: now,
       })
       .onConflictDoNothing({ target: [orders.tenantId, orders.clientRef] })
@@ -744,6 +755,101 @@ export async function setOrderCrew(params: {
  * разойдётся с первым, — а пока способ один, совместная мойка исчезает
  * у всех участников сразу и целиком.
  */
+/**
+ * Убрать учебную машину, записанную в первом запуске.
+ *
+ * Единственное место во всём продукте, где запись УДАЛЯЕТСЯ, а не
+ * отменяется, и на то есть причина. Отмена — про работу, которая была и
+ * не состоялась: машину вписали ошибочно, клиент уехал. Серая строка в
+ * журнале там и нужна, она объясняет вечерний пересчёт кассы.
+ *
+ * Здесь работы не было вовсе. Человек вводил выдуманный номер, чтобы
+ * посмотреть, как устроен продукт, и след этого не должен пережить
+ * обучение: ни строкой в журнале, ни машиной в базе клиентов, ни
+ * визитом в её истории. Иначе первое, что владелец видит в чистой мойке,
+ * — отменённая запись, которой он не делал.
+ *
+ * Поэтому удаление полное и с уборкой за собой: строки услуг и долей
+ * уходят каскадом, счётчики клиента откатываются, сам клиент исчезает,
+ * если эта машина была у него единственной, а из живой ленты уходят обе
+ * строки — и про машину, и про клиента. Ровно то состояние, в котором
+ * мойка была до обучения.
+ *
+ * Внутренний журнал `audit` при этом остаётся: его читает не владелец, а
+ * поддержка, и там след как раз нужен — иначе удаление записи было бы
+ * единственным действием в продукте, не оставляющим следов вообще.
+ *
+ * Согласия здесь не спрашивают — его спросили на экране, и удалить можно
+ * только запись с пометкой `from_preview` и только владельцу своей
+ * точки. Настоящая машина, записанная тем же вечером, под это не
+ * подходит ни при каких условиях.
+ */
+export async function removePreviewOrder(params: {
+  tenantId: string;
+  orderId: string;
+}): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.id, params.orderId),
+          eq(orders.tenantId, params.tenantId),
+          eq(orders.fromPreview, true),
+        ),
+      );
+    if (!order) return false;
+
+    await tx.delete(orders).where(eq(orders.id, order.id));
+
+    /* Живая лента — самостоятельная таблица, и каскад до неё не доходит.
+       Без этой уборки машина исчезает из дня, но остаётся строкой
+       «Ашот записал 00PROBA1 · 5 000 ֏» в ленте и в разделе активности —
+       ровно тем следом, ради отсутствия которого всё и затевалось. */
+    const traces: string[] = [order.id];
+
+    if (order.clientId) {
+      /* Счётчики клиента денормализованы, и откатывать их надо вручную —
+         каскад до них не доходит. Если эта машина была у клиента
+         единственной, клиента больше нет: заводила его она же. */
+      const [rest] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(orders)
+        .where(eq(orders.clientId, order.clientId));
+
+      if ((rest?.n ?? 0) === 0) {
+        await tx.delete(clients).where(eq(clients.id, order.clientId));
+        /* Клиента завела эта же машина — событие о его появлении уходит
+           вместе с ним. У живого клиента строку «новый клиент» трогать
+           нельзя: он остаётся, и появился он честно. */
+        traces.push(order.clientId);
+      } else {
+        await tx
+          .update(clients)
+          .set({
+            visits: sql`greatest(${clients.visits} - 1, 0)`,
+            total: sql`greatest(${clients.total} - ${
+              order.payment === 'pass' ? 0 : order.price
+            }, 0)`,
+          })
+          .where(eq(clients.id, order.clientId));
+      }
+    }
+
+    await tx
+      .delete(activityEvents)
+      .where(
+        and(
+          eq(activityEvents.tenantId, params.tenantId),
+          inArray(activityEvents.entityId, traces),
+        ),
+      );
+
+    return true;
+  });
+}
+
 export async function cancelOrder(params: {
   tenantId: string;
   orderId: string;

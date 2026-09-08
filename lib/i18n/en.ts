@@ -462,6 +462,10 @@ export const en: Dict = {
     fLead: (name: string) => `${name} added the first car`,
     fNote: 'From now on it works like this: workers record the cars, and you instantly see the work, the revenue and the payroll.',
     fCta: 'Start working',
+    /* The second way out of the finale: the plate was made up, just to
+       look around. Offered only for the training car. */
+    fDropTest: 'That was a test, remove it',
+    fDropTestNote: 'The car disappears from the day and from the client base.',
   },
 
   profile: {
