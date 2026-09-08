@@ -143,7 +143,13 @@ export function PayrollWorkspace({
   const settle = useAsyncAction(async (items: PayItem[]) => {
     try {
       const result = await settlePayroll(items);
-      if (result.ok) toast.success(t.payroll.done(money(result.paid)));
+      /* Число — серверное, а не сумма отмеченного: долг мог измениться
+         между листом и нажатием. `ok: false` с ненулевой суммой — расчёт
+         оборвался посередине, и часть уже лежит в истории; сказать про
+         это «не удалось» значило бы позвать человека заплатить дважды. */
+      if (result.ok && result.paid > 0) toast.success(t.payroll.done(money(result.paid)));
+      else if (result.ok) toast.error(t.payroll.nothingOwed);
+      else if (result.paid > 0) toast.error(t.payroll.partial(money(result.paid)));
       else toast.error(t.payroll.failed);
     } catch {
       toast.error(t.payroll.failed);

@@ -1,9 +1,6 @@
 {
   "sourceLanguage": "hy",
   "strings": {
-    "0": {},
-    "40": {},
-    "365": {},
     "%": {},
     "%@ %@": {
       "localizations": {
@@ -111,6 +108,9 @@
     "+%@": {},
     "+%lld": {},
     "+374 77 123 456": {},
+    "0": {},
+    "365": {},
+    "40": {},
     "TETRIN": {},
     "alerts.empty": {
       "extractionState": "manual",
@@ -3016,19 +3016,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It stops working on %1$@. Set your own PIN."
+            "value": "It stops working on %1$@. Set your own password."
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այն կդադարի աշխատել %1$@․ դրեք ձեր PIN-ը։"
+            "value": "Այն կդադարի աշխատել %1$@․ դրեք ձեր գաղտնաբառը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Он перестанет работать %1$@. Задайте свой ПИН."
+            "value": "Он перестанет работать %1$@. Задайте свой пароль."
           }
         }
       }
@@ -3039,19 +3039,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your PIN is temporary"
+            "value": "Your password is temporary"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ձեր PIN-ը ժամանակավոր է"
+            "value": "Ձեր գաղտնաբառը ժամանակավոր է"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваш ПИН временный"
+            "value": "Ваш пароль временный"
           }
         }
       }
@@ -3248,19 +3248,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Սխալ համար կամ PIN"
+            "value": "Սխալ համար կամ գաղտնաբառ"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Неверный номер или ПИН"
+            "value": "Неверный номер или пароль"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wrong number or PIN"
+            "value": "Wrong number or password"
           }
         }
       }
@@ -5891,6 +5891,29 @@
         }
       }
     },
+    "expenses.emptyNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rent, chemicals, water. A one-off expense stays in its day, a monthly one spreads itself out."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վարձ, քիմիա, ջուր։ Միանվագ ծախսը կմնա իր օրում, ամսականն ինքը կբաշխվի։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аренда, химия, вода. Разовый расход ляжет в свой день, ежемесячный распределится сам."
+          }
+        }
+      }
+    },
     "expenses.hint1": {
       "extractionState": "manual",
       "localizations": {
@@ -6604,6 +6627,29 @@
         }
       }
     },
+    "feed.truncated": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing %1$@ of %2$@"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ցուցադրված է %1$@ %2$@-ից"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показаны %1$@ из %2$@"
+          }
+        }
+      }
+    },
     "handover.cardNote": {
       "extractionState": "manual",
       "localizations": {
@@ -6794,19 +6840,19 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@-ը չհաստատվեց։ Մուտքագրեք PIN-ը։"
+            "value": "%@-ը չհաստատվեց։ Մուտքագրեք գաղտնաբառը։"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ не подтвердил. Введите ПИН."
+            "value": "%@ не подтвердил. Введите пароль."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ did not confirm. Enter your PIN."
+            "value": "%@ did not confirm. Enter your password."
           }
         }
       }
@@ -6903,6 +6949,29 @@
         }
       }
     },
+    "more.appearanceLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theme and app icon"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Թեման և հավելվածի պատկերակը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема и значок приложения"
+          }
+        }
+      }
+    },
     "more.clientsLead": {
       "extractionState": "manual",
       "localizations": {
@@ -6922,6 +6991,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Visits and car history"
+          }
+        }
+      }
+    },
+    "more.expensesLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rent, water, chemicals"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վարձ, ջուր, քիմիա"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аренда, вода, химия"
           }
         }
       }
@@ -7089,6 +7181,29 @@
         }
       }
     },
+    "more.pointsLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch between locations"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Անցնել լվացման կետերի միջև"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключиться между мойками"
+          }
+        }
+      }
+    },
     "more.pointsSomeClosed": {
       "extractionState": "manual",
       "localizations": {
@@ -7131,6 +7246,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profile and access"
+          }
+        }
+      }
+    },
+    "more.reportLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Months, days and breakdowns"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամիսներ, օրեր և կտրվածքներ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месяцы, дни и разрезы"
+          }
+        }
+      }
+    },
+    "more.servicesLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price list and car classes"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գնացուցակ և մեքենաների դասեր"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прайс и классы машин"
           }
         }
       }
@@ -7779,6 +7940,29 @@
         }
       }
     },
+    "order.saveFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The record did not go through. Try again."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրանցումը չուղարկվեց։ Փորձեք նորից։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись не ушла. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
     "order.saving": {
       "extractionState": "manual",
       "localizations": {
@@ -8124,6 +8308,52 @@
         }
       }
     },
+    "owner.clientsEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clients appear on their own"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հաճախորդները հայտնվում են իրենք"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клиенты появляются сами"
+          }
+        }
+      }
+    },
+    "owner.clientsEmptyNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After the first wash the car lands in the base with visits, money spent and history."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Առաջին լվացումից հետո մեքենան ընկնում է բազա՝ այցերով, ծախսած գումարով և պատմությամբ։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После первой мойки машина попадает в базу с визитами, потраченной суммой и историей."
+          }
+        }
+      }
+    },
     "owner.clientsFresh": {
       "extractionState": "manual",
       "localizations": {
@@ -8235,6 +8465,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plate, name or phone"
+          }
+        }
+      }
+    },
+    "owner.clientsShelfEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a plate number"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Հավաքեք մեքենայի համարը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наберите номер машины"
           }
         }
       }
@@ -8837,6 +9090,29 @@
         }
       }
     },
+    "payroll.byDays": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By day"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ըստ օրերի"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дням"
+          }
+        }
+      }
+    },
     "payroll.confirm": {
       "extractionState": "manual",
       "localizations": {
@@ -9205,6 +9481,29 @@
         }
       }
     },
+    "payroll.nothingOwed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These days are already marked paid"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Այս օրերն արդեն նշված են վճարված"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эти дни уже отмечены выплаченными"
+          }
+        }
+      }
+    },
     "payroll.nothingUnpaid": {
       "extractionState": "manual",
       "localizations": {
@@ -9270,6 +9569,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paid"
+          }
+        }
+      }
+    },
+    "payroll.partial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of the payout was recorded · %@. Check the list"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Գրանցվել է վճարման մի մասը · %@։ Ստուգեք ցանկը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записана часть выплаты · %@. Проверьте список"
           }
         }
       }
@@ -9414,6 +9736,29 @@
         }
       }
     },
+    "payroll.showMore": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show %@ more"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ցույց տալ ևս %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать ещё %@"
+          }
+        }
+      }
+    },
     "payroll.showPaidDays": {
       "extractionState": "manual",
       "localizations": {
@@ -9550,6 +9895,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unpaid"
+          }
+        }
+      }
+    },
+    "payroll.unsure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The payout may not have been recorded. Check the history"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վճարումը կարող էր չգրանցվել։ Ստուգեք պատմությունը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выплата могла не записаться. Проверьте историю"
+          }
+        }
+      }
+    },
+    "payroll.walletOpenHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the day-by-day calculation"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բացել հաշվարկն ըստ օրերի"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть расчёт по дням"
           }
         }
       }
@@ -10382,6 +10773,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "After signing out you return via your avatar and device confirmation"
+          }
+        }
+      }
+    },
+    "profit.accrued": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "accrued"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "հաշվարկված"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "начислено"
+          }
+        }
+      }
+    },
+    "profit.breakdown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What it adds up from"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ինչից է գոյացել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из чего сложилось"
+          }
+        }
+      }
+    },
+    "profit.monthlyShare": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share of monthly expenses"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ամսական ծախսերի բաժինը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доля месячных расходов"
+          }
+        }
+      }
+    },
+    "profit.noPayments": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No payments yet"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Վճարումներ դեռ չեն եղել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оплат пока не было"
+          }
+        }
+      }
+    },
+    "profit.openHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the profit breakdown"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Բացել շահույթի վերլուծությունը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть разбор прибыли"
+          }
+        }
+      }
+    },
+    "push.primeAllow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on notifications"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Միացնել ծանուցումները"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить уведомления"
+          }
+        }
+      }
+    },
+    "push.primeBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can turn them on later, in your profile."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Միացնել կարելի է հետո՝ պրոֆիլում։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить можно потом, в профиле."
+          }
+        }
+      }
+    },
+    "push.primeLead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications arrive when a washer opens a shift, records a car and hands over cash."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ծանուցումները գալիս են, երբ լվացողը բացում է հերթափոխը, գրանցում մեքենան և հանձնում կանխիկը։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомления приходят, когда мойщик открывает смену, записывает машину и сдаёт наличные."
+          }
+        }
+      }
+    },
+    "push.primeTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Know about every car"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Իմանալ ամեն մեքենայի մասին"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Знать про каждую машину"
           }
         }
       }
@@ -12989,6 +13587,52 @@
         }
       }
     },
+    "shift.emptyOpenNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The first car is still on its way. Record it as soon as it arrives."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Առաջին մեքենան դեռ ճանապարհին է։ Գրանցեք այն, հենց որ հասնի։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первая машина ещё в пути. Запишите её, как только приедет."
+          }
+        }
+      }
+    },
+    "shift.endShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ավարտել"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить"
+          }
+        }
+      }
+    },
     "shift.greetingDay": {
       "extractionState": "manual",
       "localizations": {
@@ -13288,6 +13932,29 @@
         }
       }
     },
+    "shift.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start the shift"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Սկսել հերթափոխը"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать смену"
+          }
+        }
+      }
+    },
     "shift.toHandOver": {
       "extractionState": "manual",
       "localizations": {
@@ -13539,6 +14206,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "due %@"
+          }
+        }
+      }
+    },
+    "staff.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No staff yet"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Աշխատակիցներ դեռ չկան"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сотрудников пока нет"
+          }
+        }
+      }
+    },
+    "staff.emptyNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a washer. They sign in from their own phone, log cars, and payroll adds itself up."
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ավելացրեք լվացողին՝ նա կմտնի իր հեռախոսով, կգրանցի մեքենաները, իսկ աշխատավարձը կհաշվարկվի ինքն իրեն։"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте мойщика. Он войдёт со своего телефона, будет записывать машины, а зарплата посчитается сама."
           }
         }
       }

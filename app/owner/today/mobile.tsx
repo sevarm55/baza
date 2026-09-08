@@ -214,7 +214,15 @@ export async function TodayMobile({
 
       {crew.length > 0 && (
         <MSection
-          title={isToday ? t.today.nowWorking : t.settings.staff}
+          /* Как в сводке на компьютере: «сейчас» держится только пока
+             кто-то на смене, иначе это список отработавших за день. */
+          title={
+            isToday
+              ? crew.some((p) => p.present)
+                ? t.today.nowWorking
+                : t.today.workedToday
+              : t.settings.staff
+          }
           count={crew.length}
           action={<MLink href="/owner/staff">{t.owner.allClients}</MLink>}
         >

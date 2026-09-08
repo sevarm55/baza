@@ -43,92 +43,56 @@ struct DayView: View {
     private var currency: String { session.tenant?.currency ?? "AMD" }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if let failure {
-                    problem(failure)
-                } else if let day {
-                    if day.feed.isEmpty && day.shifts.isEmpty && day.stats.revenue == 0 && day.costs.total == 0 {
-                        empty
-                    } else {
-                        reading(day)
-                        crew(day.shifts)
-                        if day.feed.isEmpty { empty } else { records(day.feed) }
-                    }
-                } else if loading {
-                    /* Скелет по форме экрана, а не большой лоадер:
-                       фирменная фигура принадлежит только запуску. */
-                    Delayed(active: true) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            TetrSkeleton(width: 120, height: 12)
-                            TetrSkeleton(width: 210, height: 42, radius: 14)
-                            TetrSkeleton(height: 74, radius: 22)
-                            TetrSkeletonList(rows: 4, avatar: true)
-                                .padding(.top, 10)
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let failure {
+                        problem(failure)
+                    } else if let day {
+                        if day.feed.isEmpty && day.shifts.isEmpty && day.stats.revenue == 0 && day.costs.total == 0 {
+                            empty
+                        } else {
+                            reading(day)
+                            crew(day.shifts)
+                            if day.feed.isEmpty { empty } else { records(day.feed, total: day.stats.count) }
                         }
-                        .padding(.top, 16)
-                        .padding(.horizontal, 4)
+                    } else if loading {
+                        /* Скелет по форме экрана, а не большой лоадер:
+                           фирменная фигура принадлежит только запуску. */
+                        Delayed(active: true) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                TetrSkeleton(height: 140, radius: 28)
+                                TetrSkeletonList(rows: 4, avatar: true)
+                                    .padding(.top, 10)
+                            }
+                            .padding(.top, 12)
+                            .padding(.horizontal, 4)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+                .padding(.bottom, 28)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 28)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
-        .safeAreaInset(edge: .top) { header }
-        .task { await load() }
-        .refreshable { await load() }
-        .presentationDragIndicator(.hidden)
-    }
-
-    // ══════════════════════════ шапка ══════════════════════════
-
-    /**
-     * Дата и день недели.
-     *
-     * День недели поставлен под числом намеренно: владелец помнит не «18
-     * августа», а «та суббота, когда было много». Календарь, из которого
-     * сюда заходят, расставляет дни по числам и этого не говорит, поэтому
-     * первое, что должна сообщить карточка, — какой это был день.
-     */
-    private var header: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-            }
-            .buttonStyle(.press)
-            .accessibilityLabel(L("common.close"))
-
-            Spacer()
-
-            VStack(spacing: 1) {
-                Text(Self.title(date))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-                if let weekday = Self.weekday(date) {
-                    Text(weekday)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+            /* Оттягивания здесь нет. День — снимок прошедших суток, и
+               обновлять в нём нечего; а внутри листа оттягивание ещё и
+               перехватывало жест закрытия, из-за чего лист ловился только
+               за полоску сверху. */
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .meshPage()
+            .brandTitleFont()
+            .navigationTitle(Self.title(date))
+            .navigationSubtitle(Self.weekday(date) ?? "")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("common.close")) { dismiss() }
                 }
             }
-
-            Spacer()
-
-            // симметрия: без пустого кружка справа заголовок стоял бы не по
-            // центру экрана, а по центру остатка, и это заметно
-            Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 10)
-        .background(Brand.board.ignoresSafeArea(edges: .top))
+        .task { await load() }
+        .presentationDragIndicator(.visible)
     }
 
     // ══════════════════════════ показание ══════════════════════════
@@ -141,85 +105,57 @@ struct DayView: View {
      * осталось.
      */
     private func reading(_ day: API.Day) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(day.profit >= 0 ? L("day.kept") : L("day.red"))
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .tracking(1.15)
-                    .foregroundStyle(Brand.boardMuted)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.onLime.opacity(0.75))
 
-            /* Минус настоящий, U+2212: дефис на таком кегле читается точкой.
-               Цвет по знаку — то же правило, что на сводке. */
+            /* Минус настоящий, U+2212: дефис на таком кегле читается
+               точкой. Убыток краснеет — на лайме это единственный цвет,
+               который читается тревогой. */
             Text((day.profit < 0 ? "−" : "") + money(abs(day.profit), currency))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.sign(day.profit))
+                .foregroundStyle(day.profit < 0 ? Brand.badOnBoard : Brand.onLime)
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
 
-            totals(day)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 2)
-    }
-
-    /**
-     * Итоги дня лентой чисел, а не цветными плитками.
-     *
-     * Плиток было две, и обе повторяли то, что на экране уже есть: выручку
-     * объясняет журнал построчно, число машин подписано над ним. Читались
-     * они при этом громче всего остального — тёмная заливка со свечением
-     * рядом с чёрным числом на светлом полотне забирает взгляд первой.
-     *
-     * Лента называет цепочку целиком: пришло, ушло людям, ушло на расходы.
-     * Это те самые три числа, из которых вышло большое число сверху, — и
-     * стоят они на своём месте, сразу под ним, без коробок и без цвета.
-     * Число машин отсюда убрано намеренно: оно живёт над журналом, где
-     * отвечает за длину списка.
-     */
-    @ViewBuilder
-    private func totals(_ day: API.Day) -> some View {
-        if day.stats.revenue > 0 || day.costs.total > 0 {
-            HStack(alignment: .top, spacing: 6) {
-                dayMetric(money(day.stats.revenue, currency), L("owner.revenue"), Brand.mintInk)
-                metricDivider
-                dayMetric(money(day.stats.payroll, currency), L("summary.toStaff"), Brand.lavenderInk)
-                metricDivider
-                dayMetric(money(day.costs.total, currency), L("expenses.title"), Brand.sandInk)
-            }
-            .padding(16)
-            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07))
+            /* Цепочка дня фишками: пришло, ушло людям, ушло на расходы.
+               Раньше это была лента из трёх чисел в отдельной белой
+               коробке под голым числом — два блока про одни и те же
+               деньги подряд. Ноль не называется: «расходы 0 ֏» сообщает
+               ровно то же, что их отсутствие. */
+            if day.stats.revenue > 0 || day.costs.total > 0 {
+                FlowLayout(spacing: 8) {
+                    if day.stats.revenue > 0 {
+                        pill("\(L("owner.revenue")) \(money(day.stats.revenue, currency))")
+                    }
+                    if day.stats.payroll > 0 {
+                        pill("\(L("summary.toStaff")) \(money(day.stats.payroll, currency))")
+                    }
+                    if day.costs.total > 0 {
+                        pill("\(L("expenses.title")) \(money(day.costs.total, currency))")
+                    }
+                }
+                .padding(.top, 16)
             }
         }
-    }
-
-    private func dayMetric(_ value: String, _ label: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(2)
-        }
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.lime, in: .rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: Brand.lime.opacity(0.35), radius: 16, y: 8)
     }
 
-    private var metricDivider: some View {
-        Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
-            .frame(width: 1, height: 34)
+    private func pill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(Brand.onLime)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.white.opacity(0.55), in: .capsule)
     }
 
     // ══════════════════════════ смены ══════════════════════════
@@ -253,11 +189,7 @@ struct DayView: View {
                         shiftRow(s)
                     }
                 }
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                }
+                .paperCard(22)
             }
         }
     }
@@ -283,7 +215,7 @@ struct DayView: View {
                     Circle()
                         .fill(Brand.goodOnBoard)
                         .frame(width: 11, height: 11)
-                        .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 2))
+                        .overlay(Circle().strokeBorder(Brand.paper, lineWidth: 2))
                         .offset(x: 1, y: 1)
                 }
             }
@@ -292,7 +224,7 @@ struct DayView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(s.name)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
+                        .foregroundStyle(Brand.ink)
                         .lineLimit(1)
 
                     Spacer(minLength: 4)
@@ -300,7 +232,7 @@ struct DayView: View {
                     Text(span(s))
                         .font(.system(size: 13))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .lineLimit(1)
                 }
 
@@ -335,11 +267,11 @@ struct DayView: View {
     private func cash(expected: Int, declared: Int?) -> some View {
         HStack(spacing: 5) {
             Text(L("day.cashInShift", money(expected, currency)))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
 
             if let declared {
                 Text(L("day.handedOver", money(declared, currency)))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
 
                 let diff = declared - expected
                 if diff != 0 {
@@ -376,18 +308,34 @@ struct DayView: View {
      * кружок стоит у этого человека в смене над журналом и в команде;
      * список не читают, его просматривают, и цвет опознаётся раньше слова.
      */
-    private func records(_ feed: [API.FeedItem]) -> some View {
-        LazyVStack(spacing: 0) {
-            section(
-                L("day.records"),
-                trailing: Terms.units(feed.count, session.tenant?.unitOne ?? "")
-                    .trimmingCharacters(in: .whitespaces)
-            )
+    /// `total` — из статистики дня, а не длина ленты: сервер отдаёт
+    /// двести строк, и в редкий день длиннее справа стояло бы «200».
+    private func records(_ feed: [API.FeedItem], total: Int) -> some View {
+        let units = { (n: Int) in
+            Terms.units(n, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces)
+        }
+        return VStack(spacing: 0) {
+            section(L("day.records"), trailing: units(max(total, feed.count)))
 
-            ForEach(feed) { item in
-                recordRow(item)
-                if item.id != feed.last?.id { separator }
+            if feed.count < total {
+                Text(L("feed.truncated", units(feed.count), units(total)))
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 8)
             }
+
+            LazyVStack(spacing: 0) {
+                ForEach(feed) { item in
+                    recordRow(item)
+                        .padding(.horizontal, 14)
+                    if item.id != feed.last?.id { separator }
+                }
+            }
+            .padding(.vertical, 4)
+            .paperCard(22)
         }
     }
 
@@ -414,14 +362,14 @@ struct DayView: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(unknown ? Brand.board : .white)
                 .frame(width: 34, height: 34)
-                .background(unknown ? Brand.boardMuted : tone.base, in: .circle)
+                .background(unknown ? Brand.muted : tone.base, in: .circle)
                 .padding(.top, 1)
 
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.clientKey ?? "—")
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Brand.onBoard)
+                        .foregroundStyle(Brand.ink)
                         .lineLimit(1)
 
                     /* Услуга — потому что без неё цена необъяснима: 2 500 и
@@ -432,14 +380,14 @@ struct DayView: View {
                        знать, что они разные. */
                     Text("\(Terms.service(item.serviceName)) · \(paymentLabel(item.payment).lowercased())")
                         .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     Text(hhmm(item.createdAt))
                         .font(.system(size: 12))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted.opacity(0.75))
+                        .foregroundStyle(Brand.muted.opacity(0.75))
 
                     /* Состав — отдельной строкой и только у совместной
                        работы. У одиночной записи человека называет кружок
@@ -449,7 +397,7 @@ struct DayView: View {
                     if item.shared {
                         Text(who)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Brand.boardMuted)
+                            .foregroundStyle(Brand.muted)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -468,12 +416,12 @@ struct DayView: View {
                                 .font(.system(size: 12))
                                 .monospacedDigit()
                                 .strikethrough()
-                                .foregroundStyle(Brand.boardMuted)
+                                .foregroundStyle(Brand.muted)
                         }
                         Text(money(item.price, currency))
                             .font(.system(size: 15, weight: .semibold))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
+                            .foregroundStyle(Brand.ink)
                     }
 
                     /* При нулевой ставке строки долей нет вовсе: у
@@ -483,13 +431,13 @@ struct DayView: View {
                         Text(L("summary.toBusiness", money(item.price - item.earned, currency)))
                             .font(.system(size: 12))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted)
+                            .foregroundStyle(Brand.muted)
                             .lineLimit(1)
 
                         Text(L("summary.share", money(item.earned, currency)))
                             .font(.system(size: 12))
                             .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted.opacity(0.75))
+                            .foregroundStyle(Brand.muted.opacity(0.75))
                             .lineLimit(1)
                     }
                 }
@@ -506,26 +454,27 @@ struct DayView: View {
     /// Подпись раздела: слово слева, счёт справа. Одна на оба списка —
     /// именно повтор и делает их двумя частями одного экрана.
     private func section(_ title: String, trailing: String?) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
-            Spacer()
+        HStack(spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .black, design: .rounded))
+                .tracking(1.3)
+                .foregroundStyle(Brand.muted)
+            Spacer(minLength: 8)
             if let trailing {
                 Text(trailing)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.top, 22)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 6)
+        .padding(.top, 24)
+        .padding(.bottom, 9)
     }
 
     private var separator: some View {
         Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
+            .fill(Brand.ink.opacity(0.07))
             .frame(height: 1)
     }
 
@@ -541,26 +490,22 @@ struct DayView: View {
                             Circle().fill(Brand.grape.opacity(0.32)).frame(width: 6, height: 6)
                         }
                     }
-                    Capsule().fill(Brand.boardInk.opacity(0.12)).frame(width: 54, height: 7)
-                    Capsule().fill(Brand.boardInk.opacity(0.08)).frame(width: 38, height: 7)
+                    Capsule().fill(Brand.ink.opacity(0.12)).frame(width: 54, height: 7)
+                    Capsule().fill(Brand.ink.opacity(0.08)).frame(width: 38, height: 7)
                 }
             }
 
             Text(L("day.empty"))
                 .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .multilineTextAlignment(.center)
             Text(Self.title(date))
                 .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 38)
-        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07))
-        }
+        .paperCard(28)
         .padding(.top, 12)
     }
 

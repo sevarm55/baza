@@ -228,7 +228,7 @@ export const adminEn: AdminDict = {
     unblocked: 'User unblocked',
     logoutAll: 'Sign out everywhere',
     logoutAllTitle: (phone: string) => `End all sessions of ${phone}?`,
-    logoutAllNote: 'Every device signs out. The person can sign in again with their PIN or a code.',
+    logoutAllNote: 'Every device signs out. The person can sign in again with their password.',
     loggedOut: 'Sessions ended',
     resetAccess: 'Reset access',
     resetAccessTitle: (phone: string) => `Reset access for ${phone}?`,

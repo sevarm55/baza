@@ -36,14 +36,45 @@ final class Push: NSObject, ObservableObject {
         #endif
     }
 
-    func askAndRegister() async {
+    /**
+     * Стоит ли показать подводку перед системным окном.
+     *
+     * Правда ровно в одном состоянии: система ещё ни разу не спрашивала.
+     * После «Разрешить» подводке нечего добавить, а после «Запретить»
+     * системное окно больше не появится вовсе, и лист, который обещает
+     * его показать, врал бы.
+     *
+     * Спрашиваем систему, а не свой флаг: разрешение живёт в настройках
+     * телефона, и человек мог выдать или отобрать его там, ни разу не
+     * дойдя до нашего листа.
+     */
+    func shouldPrime() async -> Bool {
+        guard live else { return false }
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus == .notDetermined
+    }
+
+    /// Есть ли кому доставлять. На локальном сервере уведомлений не
+    /// бывает: ключа APNs у него нет, а токен лёг бы в одноразовую базу.
+    /// Спрашивать разрешение ради этого — значит закрывать системным
+    /// окном тот самый экран, который и проверяют.
+    private var live: Bool {
         #if DEBUG
-        /* На локальном сервере уведомлений не бывает: ключа APNs у него
-           нет, а токен лёг бы в одноразовую базу. Спрашивать разрешение
-           ради этого — значит закрывать системным окном тот самый экран,
-           который и проверяют. */
-        if ProcessInfo.processInfo.environment["TETR_API"] != nil { return }
+        /* Проверка всего пути на своей машине: сервер с приёмником
+           уведомлений (`PUSH_TEST_SINK`) собирает настоящий текст, а
+           баннер в симулятор кладут `xcrun simctl push`. Без этой
+           лазейки локальный прогон обрывался на самом интересном месте —
+           подводка не показывалась вовсе.
+           `SIMCTL_CHILD_TETR_PUSH_LOCAL=1 xcrun simctl launch …` */
+        if ProcessInfo.processInfo.environment["TETR_PUSH_LOCAL"] != nil { return true }
+        return ProcessInfo.processInfo.environment["TETR_API"] == nil
+        #else
+        return true
         #endif
+    }
+
+    func askAndRegister() async {
+        guard live else { return }
 
         let center = UNUserNotificationCenter.current()
         center.delegate = self

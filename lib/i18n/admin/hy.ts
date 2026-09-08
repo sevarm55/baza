@@ -226,7 +226,7 @@ export const adminHy: AdminDict = {
     unblocked: 'Օգտատերն ապաարգելափակված է',
     logoutAll: 'Դուրս գալ ամենուր',
     logoutAllTitle: (phone: string) => `Ավարտե՞լ ${phone}-ի բոլոր նիստերը`,
-    logoutAllNote: 'Բոլոր սարքերը դուրս կգան հաշվից։ Մարդը կկարողանա նորից մտնել իր PIN-ով կամ կոդով։',
+    logoutAllNote: 'Բոլոր սարքերը դուրս կգան հաշվից։ Մարդը կկարողանա նորից մտնել իր գաղտնաբառով։',
     loggedOut: 'Նիստերն ավարտված են',
     resetAccess: 'Զրոյացնել մուտքը',
     resetAccessTitle: (phone: string) => `Զրոյացնե՞լ ${phone}-ի մուտքը`,

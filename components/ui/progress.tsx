@@ -2,17 +2,37 @@
 
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 
+import { useLocale } from "@/lib/i18n/client"
 import { cn } from "@/lib/utils"
 
 function Progress({
   className,
   children,
   value,
+  locale,
+  getAriaValueText,
   ...props
 }: ProgressPrimitive.Root.Props) {
+  /* Язык задаётся явно: без него `Intl` берёт локаль среды, а она у
+     сервера и у браузера разная. */
+  const current = useLocale()
+
   return (
     <ProgressPrimitive.Root
       value={value}
+      locale={locale ?? current}
+      /* Пробел перед знаком процента снимается руками, и это не
+         придирка к типографике. Node и браузер расставляют его
+         по-разному даже на одной локали: сервер отдаёт «100 %», клиент
+         рисует «100%», а React 19 такие расхождения атрибутов не
+         сглаживает — он пишет в консоль предупреждение о гидратации на
+         каждой загрузке страницы. Само по себе оно ничего не ломает, но
+         засоряет ровно то место, где ищут настоящие ошибки.
+
+         Читалке от этого хуже не становится: «100%» она произносит так
+         же, а рядом стоит человеческий `aria-label` вроде
+         «Оплачено · 30 дней». */
+      getAriaValueText={getAriaValueText ?? ((formatted) => formatted.replace(/\s+/g, ''))}
       data-slot="progress"
       className={cn("flex flex-wrap gap-3", className)}
       {...props}

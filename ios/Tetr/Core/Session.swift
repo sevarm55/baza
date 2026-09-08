@@ -155,17 +155,23 @@ final class Session: ObservableObject {
     var canSwitch: Bool { points.count > 1 }
 
     private var accessToken: String? {
-        didSet { Keychain.set(accessToken, for: "access") }
+        didSet { Keychain.set(accessToken, for: Self.accessKey) }
     }
     private var refreshToken: String? {
-        didSet { Keychain.set(refreshToken, for: "refresh") }
+        didSet { Keychain.set(refreshToken, for: Self.refreshKey) }
     }
 
     private let api = APIClient.shared
 
+    /* Ключи хранилища помечены контуром (`APIClient.scope`): вход в бой
+       и вход в сервер разработчика живут порознь и друг друга не
+       затирают. У боя метка пустая, поэтому у магазинной сборки имена
+       ключей прежние. */
     private static let rememberEnabledKey = "tetr.login.remember.enabled"
-    private static let rememberAccountKey = "tetr.login.remember.account"
-    private static let rememberedRefreshKey = "remembered-refresh"
+    private static var rememberAccountKey: String { "tetr.login.remember.account" + APIClient.scope }
+    private static var rememberedRefreshKey: String { "remembered-refresh" + APIClient.scope }
+    private static var accessKey: String { "access" + APIClient.scope }
+    private static var refreshKey: String { "refresh" + APIClient.scope }
 
     #if DEBUG
     /* Сброс — ровно один раз за запуск процесса. SwiftUI пересоздаёт
@@ -191,8 +197,8 @@ final class Session: ObservableObject {
          */
         if ProcessInfo.processInfo.environment["TETR_RESET"] == "1", !Self.didReset {
             Self.didReset = true
-            Keychain.set(nil, for: "access")
-            Keychain.set(nil, for: "refresh")
+            Keychain.set(nil, for: Self.accessKey)
+            Keychain.set(nil, for: Self.refreshKey)
             Keychain.set(nil, for: Self.rememberedRefreshKey)
             UserDefaults.standard.removeObject(forKey: Self.rememberAccountKey)
             UserDefaults.standard.removeObject(forKey: Self.rememberEnabledKey)
@@ -204,9 +210,33 @@ final class Session: ObservableObject {
            это человек сам, в своём профиле. */
         rememberLogin = UserDefaults.standard.object(forKey: Self.rememberEnabledKey) as? Bool ?? false
         rememberedAccount = Self.loadRememberedAccount()
-        accessToken = Keychain.get("access")
-        refreshToken = Keychain.get("refresh")
+        accessToken = Keychain.get(Self.accessKey)
+        refreshToken = Keychain.get(Self.refreshKey)
     }
+
+    #if DEBUG
+    /**
+     * Адрес сервера сменили прямо в приложении.
+     *
+     * Токены помечены контуром (`APIClient.scope`), поэтому менять их не
+     * надо — надо перечитать: у нового адреса своя пара ключей и своя
+     * жизнь. Есть вход в новый контур — заходим в него, нет — показываем
+     * форму. Прежний вход при этом остаётся на месте и вернётся, когда
+     * вернут прежний адрес.
+     */
+    func switchedServer() async {
+        accessToken = Keychain.get(Self.accessKey)
+        refreshToken = Keychain.get(Self.refreshKey)
+        rememberedAccount = Self.loadRememberedAccount()
+        tenant = nil
+        me = nil
+        access = nil
+        services = []
+        points = []
+        state = .checking
+        await start()
+    }
+    #endif
 
     /// Пуск: есть ли живой вход. Токен мог протухнуть, пока приложение
     /// не открывали, — тогда молча обновляем и идём дальше.
@@ -219,8 +249,35 @@ final class Session: ObservableObject {
             try await loadBootstrap()
             state = .signedIn
         } catch {
-            state = .signedOut
+            /* `authed` уже решил, что сессию отозвали, — с этим не спорим. */
+            guard state == .checking else { return }
+
+            /* Сеть упала или сервер прилёг — это не отзыв доступа. Раньше
+               любой отказ здесь выбрасывал на экран входа, и мойщик в
+               подвале без связи не мог даже открыть приложение, чтобы
+               положить машину в очередь. Показываем то, что знали при
+               прошлом удачном запуске; пересчитаемся, как только связь
+               вернётся (`refreshOnReturn`, `loadedAt` остаётся пустым).
+
+               Известный отказ — 401, 403, непонятный ответ — по-прежнему
+               выход: снимок не обходит запрет, он только пережидает
+               отсутствие связи. */
+            if Self.isTransient(error), await restoreSnapshot() {
+                state = .signedIn
+            } else {
+                state = .signedOut
+            }
         }
+    }
+
+    /// Отказ, за которым может не стоять ничего, кроме сети: связи нет,
+    /// сервер отвечает 5xx или просит подождать. Всё остальное — ответ
+    /// по существу, и его слушаемся.
+    private static func isTransient(_ error: Error) -> Bool {
+        if let api = error as? APIError {
+            return api.isOffline || api.status >= 500 || api.status == 429
+        }
+        return error is URLError
     }
 
     /**
@@ -582,6 +639,7 @@ final class Session: ObservableObject {
         welcomeSeen = true
         setupHidden = false
         if !preserveRemembered { clearRememberedAccount() }
+        Self.dropSnapshot()
         state = .signedOut
     }
 
@@ -613,10 +671,63 @@ final class Session: ObservableObject {
     }
 
     func loadBootstrap() async throws {
-        let boot: API.Bootstrap = try await authed { token in
-            try await self.api.send("bootstrap", token: token, as: API.Bootstrap.self)
+        /* Сырой ответ, а не разобранный: его же кладём на диск как снимок
+           для запуска без связи. `Bootstrap` только читается, кодировать
+           его обратно значило бы держать вторую копию каждого поля. */
+        let data = try await authed { token in
+            try await self.api.raw("bootstrap", token: token)
         }
+        let boot = try await api.decode(API.Bootstrap.self, from: data)
         loadedAt = Date()
+        apply(boot)
+        Self.storeSnapshot(data)
+    }
+
+    // ─────────────────────────── снимок для запуска без связи ───────────────────────────
+
+    /**
+     * Последний удачный bootstrap, как он пришёл с сервера.
+     *
+     * Только чтобы открыться без связи с тем, что уже знали: точка,
+     * прайс, права. Права из снимка — вчерашние, и это допустимо ровно
+     * до первого ответа сервера: истёкший срок или отозванный доступ
+     * приедут с ним. Живёт рядом с очередью записей, под той же защитой
+     * данных, что и всё в Application Support, и удаляется вместе с
+     * выходом: снимок чужого аккаунта на общем телефоне — не то, что
+     * должно пережить смену человека.
+     */
+    private static var snapshotFile: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            /* Снимок тоже свой у каждого контура: иначе бой открывался
+               бы вчерашними данными сервера разработчика. */
+            .appendingPathComponent("bootstrap\(APIClient.scope).json")
+    }
+
+    private static func storeSnapshot(_ data: Data) {
+        /* Отказ диска — не ошибка сессии: без снимка приложение просто
+           не откроется без связи, как и раньше. */
+        try? FileManager.default.createDirectory(
+            at: snapshotFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? data.write(to: snapshotFile, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    private static func dropSnapshot() {
+        try? FileManager.default.removeItem(at: snapshotFile)
+    }
+
+    /// Поднять контекст из снимка. `loadedAt` нарочно не трогаем: первое
+    /// же возвращение в приложение со связью перечитает всё с сервера.
+    private func restoreSnapshot() async -> Bool {
+        guard let data = try? Data(contentsOf: Self.snapshotFile),
+              let boot = try? await api.decode(API.Bootstrap.self, from: data)
+        else { return false }
+        apply(boot)
+        return true
+    }
+
+    private func apply(_ boot: API.Bootstrap) {
         tenant = boot.tenant
         me = boot.me
         access = boot.access
@@ -727,7 +838,16 @@ final class Session: ObservableObject {
         do {
             return try await work(token)
         } catch let error as APIError where error.isStaleToken {
-            guard let refreshed = try? await renew() else {
+            let refreshed: String
+            do {
+                refreshed = try await renew()
+            } catch let failure where Self.isTransient(failure) {
+                /* Обновить не смогли, потому что пропала связь, а не потому
+                   что сессию отозвали. Выбрасывать на вход за это нельзя:
+                   refresh, скорее всего, жив, и следующий запрос со связью
+                   его обновит. Наружу уходит сетевая ошибка, не 401. */
+                throw failure
+            } catch {
                 state = .signedOut
                 throw error
             }

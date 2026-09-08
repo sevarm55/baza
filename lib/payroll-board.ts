@@ -133,16 +133,20 @@ export async function getPayrollBoard(
      них свой у каждого. */
   locale: string = DEFAULT_LOCALE,
   historyLimit = 120,
+  /* До какого момента считать записи. Снаружи приходит только из
+     отладки (заголовок `X-Tetr-Today` вне продакшена): так экран
+     зарплаты можно посмотреть «завтра», не дожидаясь полуночи. */
+  until: Date = new Date(),
 ): Promise<PayrollBoard> {
   const [days, paidDays, lines, payouts, unitsPerDay] = await Promise.all([
-    getUnsettledByDay(tenantId, timezone),
+    getUnsettledByDay(tenantId, timezone, until),
     getPaidByDay(tenantId),
-    getUnsettledOrderLines(tenantId, timezone),
+    getUnsettledOrderLines(tenantId, timezone, 500, until),
     listPayouts(tenantId, historyLimit),
     /* Машины дня считаются отдельно и по машинам, а не сложением
        участий: у совместной работы строк столько, сколько людей, и
        сумма назвала бы одну машину тремя. */
-    getUnsettledUnitsByDay(tenantId, timezone),
+    getUnsettledUnitsByDay(tenantId, timezone, until),
   ]);
 
   const paidBy = new Map(paidDays.map((p) => [`${p.staffId}|${p.day}`, p]));

@@ -52,7 +52,11 @@ export async function TempAccessBanner({
         <p className="mt-0.5 text-muted-foreground">{t.auth.tempAccessNote(deadline)}</p>
         {canChange && (
           <Link
-            href="/owner/profile#pin"
+            /* Якорь именно `#security`: раздел профиля называется так с
+               тех пор, как ПИН сменился паролем. Со старым `#pin` ссылка
+               открывала профиль сверху, и человек, которому только что
+               сказали «смените пароль», искал форму сам. */
+            href="/owner/profile#security"
             className="mt-1 inline-block font-medium text-warning-soft-foreground underline underline-offset-4"
           >
             {t.auth.tempAccessAction}

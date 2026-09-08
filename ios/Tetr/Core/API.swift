@@ -74,8 +74,16 @@ enum API {
         let percent: Int
         /// Слать ли владельцу уведомление о каждой записи.
         let notifyOrders: Bool?
-        /// Он же логин.
+        /// Номер. У сотрудника он же логин, у владельца просто связь.
         let phone: String?
+        /**
+         * Почта. Это логин владельца, у сотрудника её нет.
+         *
+         * Необязательное дважды: сотруднику почта не заводится вовсе, а
+         * сервер может оказаться старее приложения и поля не прислать.
+         * Экран профиля в обоих случаях показывает телефон, как и раньше.
+         */
+        let email: String?
         /**
          * Читал ли человек приветствие первого входа.
          *
@@ -1187,7 +1195,10 @@ actor APIClient {
        и обрывать его нельзя: на телефонах стоят сборки, которые ходят
        именно туда, и для них смена адреса означала бы мёртвое приложение
        до следующего обновления. */
-    private let base = APIClient.baseURL()
+    /* Вычисляется каждый раз, а не запоминается при создании клиента:
+       в отладочной сборке адрес сервера меняют прямо на экране входа, и
+       запомненный однажды base пришлось бы догонять перезапуском. */
+    private var base: URL { APIClient.baseURL() }
 
     /// Боевой адрес. Единственное место, где он написан.
     static let production = URL(string: "https://tetrin.pro/api/v1/")!
@@ -1239,12 +1250,102 @@ actor APIClient {
      * случая, когда всё и так работает.
      */
     static var debugAddress: String { baseURL().absoluteString }
+
+    /**
+     * Метка контура для хранилища.
+     *
+     * Приложение на одном телефоне может ходить то на бой, то на сервер
+     * разработчика: с домашнего экрана оно идёт на `tetrin.pro`, а
+     * запущенное из Xcode с `TETR_API` — на компьютер. Пока вход обеих
+     * жизней лежал под одним ключом, они затирали друг друга: запуск из
+     * Xcode забирал ключи себе, а следующее открытие с домашнего экрана
+     * предъявляло бою чужой токен, получало отказ и выбрасывало на экран
+     * входа. Снаружи это выглядело как «приложение забыло вход».
+     *
+     * У боя метка пустая НАМЕРЕННО: ключи магазинной сборки обязаны
+     * остаться теми же, иначе обновление вышибло бы из аккаунта всех
+     * живых клиентов разом.
+     */
+    static var scope: String {
+        let url = baseURL()
+        guard url != production else { return "" }
+        var mark = url.host ?? "dev"
+        if let port = url.port { mark += "-\(port)" }
+        return "@" + mark
+    }
+    #endif
+
+    /**
+     * Свой адрес сервера, введённый в приложении.
+     *
+     * Ради телефона. Переменную окружения задаёт тот, кто запускает
+     * процесс, — то есть Xcode; открытое с домашнего экрана приложение
+     * её не видит и уходит на бой. Проверять новое на живых клиентах
+     * нельзя, поэтому адрес можно ввести один раз прямо на экране входа,
+     * и он переживает и закрытие приложения, и перезапуск телефона.
+     *
+     * Только в отладочной сборке: в магазинной этого кода нет вовсе.
+     */
+    #if DEBUG
+    static let overrideKey = "tetr.api.override"
+
+    static var override: String? {
+        get { UserDefaults.standard.string(forKey: overrideKey) }
+        set {
+            if let clean = normalizedAddress(newValue) {
+                UserDefaults.standard.set(clean, forKey: overrideKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: overrideKey)
+            }
+            /* Сбрасываем на диск немедленно. `UserDefaults` пишет когда
+               сочтёт нужным, а адрес вводят ровно затем, чтобы тут же
+               закрыть приложение свайпом и открыть заново: запись не
+               успевала, и телефон снова уходил на бой. Метод считается
+               устаревшим, но другого способа сказать «сохрани сейчас»
+               система не даёт. */
+            UserDefaults.standard.synchronize()
+        }
+    }
+
+    /**
+     * Прощающий разбор адреса.
+     *
+     * Вводят его пальцем на телефоне, поэтому принимаем и короткое
+     * «192.168.15.214:3200»: схему и хвост `/api/v1/` дописываем сами.
+     * Строгий разбор здесь означал бы молчаливый откат на бой из-за
+     * забытого «http://», а именно от боя человек и уходит.
+     */
+    static func normalizedAddress(_ raw: String?) -> String? {
+        var text = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+
+        if !text.contains("://") { text = "http://" + text }
+        if !text.hasSuffix("/") { text += "/" }
+        if !text.contains("/api/") { text += "api/v1/" }
+
+        guard let url = URL(string: text), url.host != nil else { return nil }
+        return text
+    }
     #endif
 
     private static func baseURL() -> URL {
         #if DEBUG
-        let raw = ProcessInfo.processInfo.environment["TETR_API"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        /* Переменная процесса главнее: её задают осознанно на один
+           запуск, и она не должна спорить с тем, что человек однажды
+           ввёл на экране. */
+        let raw = (ProcessInfo.processInfo.environment["TETR_API"] ?? override ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        /* Живой телефон без переменной — на бой. `localhost` на телефоне
+           это сам телефон, и сервера там нет никогда: каждая отладочная
+           сборка, поднятая с домашнего экрана, упиралась в «нет связи»,
+           и владелец каждый раз спрашивал, что сломалось. Симулятор
+           по-прежнему ходит на свой компьютер: там localhost и есть
+           dev-сервер, и проверка новых экранов не трогает живых клиентов.
+           Адрес по-прежнему виден строкой на экране входа. */
+        #if !targetEnvironment(simulator)
+        if raw.isEmpty { return production }
+        #endif
 
         if raw.isEmpty { return development }
         if raw == "prod" || raw == "production" { return production }
@@ -1298,6 +1399,13 @@ actor APIClient {
         return try decoder.decode(T.self, from: data)
     }
 
+    /// Разобрать ответ тем же декодером, что и `send`. Нужен тому, кто
+    /// хранит сырой ответ на диске и читает его позже без связи —
+    /// снимку bootstrap в `Session`.
+    func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        try decoder.decode(T.self, from: data)
+    }
+
     @discardableResult
     func raw(
         _ path: String,
@@ -1321,6 +1429,13 @@ actor APIClient {
            колокольчика, шапка выгрузки. Токен при этом не трогается —
            язык меняют в настройках, а не перевходом. */
         request.setValue(LangStore.currentLang.rawValue, forHTTPHeaderField: "Accept-Language")
+        #if DEBUG
+        /* Подмена «сегодня» для экрана зарплаты (см. `PayrollView.debugToday`):
+           сервер вне продакшена считает лист до конца этого дня. */
+        if let today = ProcessInfo.processInfo.environment["TETR_TODAY"], !today.isEmpty {
+            request.setValue(today, forHTTPHeaderField: "X-Tetr-Today")
+        }
+        #endif
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

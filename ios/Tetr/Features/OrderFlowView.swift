@@ -39,6 +39,9 @@ struct OrderFlowView: View {
     @State private var payment: String?
     /// Отправка идёт: засов от второго касания той же кнопки.
     @State private var sending = false
+    /// Запись не легла на диск. Форма остаётся с набранным: набирать
+    /// номер заново после честной ошибки — работа впустую.
+    @State private var saveFailed = false
     /// Скидка: развёрнута ли строка и что в ней набрано.
     @State private var showDiscount = false
     /// Открыт вопрос «сбросить набранное?» при закрытии полной формы.
@@ -90,7 +93,10 @@ struct OrderFlowView: View {
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             ZStack {
-                Brand.board.ignoresSafeArea()
+                /* Белый лист, как на смене: форма открывается поверх неё,
+                   и серое табло под белой витриной читалось другим
+                   продуктом. */
+                Brand.boardSurface.ignoresSafeArea()
                 composer
             }
         }
@@ -127,22 +133,6 @@ struct OrderFlowView: View {
                         tierRow
                     }
 
-                    if scanning {
-                        PlateCameraPanel(
-                            onFound: { plate in
-                                acceptDetected(plate)
-                            },
-                            onManual: { typing = true },
-                            onClose: { scanning = false }
-                        )
-                        .frame(height: 320)
-                        .padding(.top, 12)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                    }
-
                     section(L("owner.colService"))
                     services
                     discountRow
@@ -164,6 +154,31 @@ struct OrderFlowView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .safeAreaInset(edge: .bottom) { checkout }
+        /* Камера выезжает снизу отдельной панелью и закрывает полосу
+           оплаты, а не втискивается под поле номера: так попросил
+           владелец, показав, как это сделано в других приложениях.
+           Панель занимает нижнюю половину экрана — столько нужно, чтобы
+           навести телефон на знак, не поднимая его к глазам, — а поле
+           номера остаётся видно сверху, и распознанное ложится в него
+           на глазах. */
+        .sheet(isPresented: $scanning) {
+            PlateCameraPanel(
+                onFound: { plate in
+                    acceptDetected(plate)
+                },
+                onManual: { typing = true },
+                onClose: { scanning = false }
+            )
+            /* Системный лист на три пятых экрана: кадр во весь лист,
+               скруглённый верх, ручка. Столько нужно, чтобы навести
+               телефон на знак, не поднимая его к глазам, а поле номера
+               над листом остаётся видно, и распознанное ложится в него
+               на глазах. */
+            .presentationDetents([.fraction(0.62), .large])
+            .presentationCornerRadius(36)
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.black)
+        }
     }
 
     /// В форме уже есть набранное — закрытие стирает его.
@@ -224,10 +239,25 @@ struct OrderFlowView: View {
 
     // ══════════════════════════ номер ══════════════════════════
 
+    /**
+     * Поле номера — номерной знак.
+     *
+     * Белая табличка с чёрной рамкой и синим блоком флага слева, как
+     * настоящий знак и как строка в журнале смены: то, что набирают,
+     * выглядит так же, как то, что потом увидят в списке. Блок с флагом
+     * только у ниш с номерами; у телефона клиента это обычное поле.
+     *
+     * Камера отсюда переехала вниз, к кнопке записи: владелец попросил.
+     * Поле занимает всю ширину, и восемь знаков номера в нём читаются с
+     * расстояния вытянутой руки.
+     */
     private var plateRow: some View {
-        HStack(spacing: 10) {
+        let isPlate = session.tenant?.clientIdType == "plate"
+        return HStack(spacing: 12) {
             TextField(Terms.clientId(session.tenant?.clientIdLabel ?? ""), text: $clientKey)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 27, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .kerning(1)
                 .foregroundStyle(Brand.onBoard)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
@@ -235,78 +265,57 @@ struct OrderFlowView: View {
                    латиница и цифры, а на армянской раскладке их нет — до
                    этой правки каждый номер стоил двух переключений
                    раскладки, сорок раз за смену. */
-                .keyboardType(session.tenant?.clientIdType == "phone" ? .phonePad : .asciiCapable)
+                .keyboardType(isPlate ? .asciiCapable : (session.tenant?.clientIdType == "phone" ? .phonePad : .asciiCapable))
                 .focused($typing)
                 /* Поле без подписи: на экране его объясняет крупный
                    плейсхолдер, а VoiceOver читал бы пустоту. Здесь же
                    имя, по которому его находят UI-тесты. */
                 .accessibilityIdentifier("order.clientKey")
                 .accessibilityLabel(Terms.clientId(session.tenant?.clientIdLabel ?? ""))
-                .padding(.horizontal, 16)
-                .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(Brand.boardControl, in: .rect(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            /* Камера — только для номеров и только там, где она есть. Ручной
-               ввод остаётся рядом всегда: номер бывает грязный, гнутый или
-               иностранный, и воевать с камерой вместо восьми символов
-               человек не должен. */
-            if session.tenant?.clientIdType == "plate", PlateScannerView.isAvailable {
-                if let detectedPlate {
-                    HStack(spacing: 7) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
-                        Text(detectedPlate)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .monospaced()
-                            .lineLimit(1)
-                    }
+            /* Распознанный камерой номер отмечается галкой в самом поле:
+               камера внизу, и отдельной плашке рядом с полем места нет. */
+            if detectedPlate != nil {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Brand.onLime)
-                    .padding(.horizontal, 14)
-                    .frame(height: 60)
-                    .glassEffect(
-                        .regular.tint(Brand.lime).interactive(false),
-                        in: .rect(cornerRadius: 18, style: .continuous)
-                    )
-                    .glassEffectID("plate-scan", in: glass)
-                    .glassEffectTransition(.matchedGeometry)
-                    .transition(.opacity)
-                } else {
-                    Button {
-                        typing = false
-                        withAnimation(
-                            reduceMotion
-                                ? .easeOut(duration: Motion.fast)
-                                : .spring(response: 0.34, dampingFraction: 0.92)
-                        ) {
-                            scanning.toggle()
-                        }
-                    } label: {
-                        Image(systemName: scanning ? "xmark" : "camera.viewfinder")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(scanning ? Brand.onBoard : Brand.grape)
-                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                            .symbolEffect(
-                                .drawOn,
-                                options: .nonRepeating,
-                                isActive: scanning && !reduceMotion
-                            )
-                            .frame(width: 60, height: 60)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(
-                        .regular
-                            .tint(scanning ? Brand.boardInk.opacity(0.12) : Brand.grape.opacity(0.08))
-                            .interactive(),
-                        in: .rect(cornerRadius: 18, style: .continuous)
-                    )
-                    .glassEffectID("plate-scan", in: glass)
-                    .glassEffectTransition(.matchedGeometry)
-                    .accessibilityLabel(scanning ? L("order.closeCamera") : L("order.openCamera"))
-                }
+                    .symbolEffect(.drawOn, options: .nonRepeating, isActive: !reduceMotion)
+                    .frame(width: 30, height: 30)
+                    .background(Brand.lime, in: .circle)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
+        .padding(.horizontal, 18)
+        /**
+         * Поле номера — просто поле, без синего блока с флагом.
+         *
+         * Блок был копией настоящего знака: синяя полоса слева, флаг над
+         * кодом страны. На экране записи он не работал. Страну здесь
+         * никто не выбирает — она одна на весь бизнес и уже написана в
+         * его валюте, — а синяя плашка забирала левый край и первой
+         * ловила глаз вместо самого номера, ради которого поле и стоит.
+         * В журнале смены знак остаётся знаком: там номер надо УЗНАТЬ
+         * среди сорока строк, а здесь — НАБРАТЬ.
+         *
+         * Взамен поле само отвечает на касание: в покое волосяная грань,
+         * под набором — грейповая рамка и мягкий отсвет, как у всякого
+         * активного поля продукта.
+         */
+        .frame(height: 62)
+        .background(Brand.paper, in: .rect(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    typing ? Brand.grape.opacity(0.55) : Brand.onBoard.opacity(0.10),
+                    lineWidth: typing ? 1.8 : 1
+                )
+        }
+        .shadow(color: typing ? Brand.grape.opacity(0.18) : .clear, radius: 14, y: 4)
+        .animation(.easeOut(duration: Motion.fast), value: typing)
+        .contentShape(.rect)
+        .onTapGesture { typing = true }
+        .animation(.easeOut(duration: Motion.fast), value: detectedPlate)
         /* Клавиатура сама не встаёт. Форма открывается на пол-экрана
            поверх смены, и поднятая клавиатура забирала вторую половину:
            человек видел поле ввода и больше ничего, хотя первым делом он
@@ -358,7 +367,7 @@ struct OrderFlowView: View {
                             .foregroundStyle(on ? Brand.onLime : Brand.onBoard)
                             .padding(.horizontal, 16)
                             .frame(minHeight: 44)
-                            .background(on ? Brand.lime : Brand.boardControl, in: .capsule)
+                            .formGlass(R.control, selected: on)
                     }
                     .buttonStyle(.press)
                     .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -427,10 +436,7 @@ struct OrderFlowView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
-                    .background(
-                        on ? Brand.lime : Brand.boardControl,
-                        in: .rect(cornerRadius: 18, style: .continuous)
-                    )
+                    .formGlass(18, selected: on)
                 }
                 .buttonStyle(.press)
                 .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -692,10 +698,9 @@ struct OrderFlowView: View {
                         .foregroundStyle(on ? Brand.board : Brand.onBoard)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(
-                            on ? Brand.boardInk : Brand.boardControl,
-                            in: .rect(cornerRadius: 18, style: .continuous)
-                        )
+                        .background(on ? Brand.boardInk : Color.clear, in: .rect(cornerRadius: 18, style: .continuous))
+                        .formGlass(18, selected: false)
+                        .opacity(1)
                     }
                     .buttonStyle(.press)
                     .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -728,23 +733,69 @@ struct OrderFlowView: View {
 
                Теперь бледнеет только неполная запись. Занятая кнопка
                остаётся в полном цвете и показывает, что делает. */
-            Button {
-                record()
-            } label: {
-                Text(L("work.addFor", Terms.unit(session.tenant?.unitOne ?? "").acc, money(charged, currency)))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            HStack(spacing: 10) {
+                /* Камера — внизу, рядом с записью, а не у поля: так
+                   попросил владелец. Первое движение мойщика с мокрыми
+                   руками — навести камеру, и большой квадрат у большого
+                   пальца ближе, чем кружок наверху. Только для номеров и
+                   только там, где камера есть; ручной ввод остаётся
+                   всегда — номер бывает грязный, гнутый или иностранный. */
+                if session.tenant?.clientIdType == "plate", PlateScannerView.isAvailable {
+                    Button {
+                        typing = false
+                        withAnimation(
+                            reduceMotion
+                                ? .easeOut(duration: Motion.fast)
+                                : .spring(response: 0.34, dampingFraction: 0.92)
+                        ) {
+                            scanning.toggle()
+                        }
+                    } label: {
+                        Image(systemName: scanning ? "xmark" : "camera.viewfinder")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(scanning ? Brand.onBoard : Brand.grape)
+                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                            .frame(width: 58, height: 58)
+                            .background(
+                                scanning ? Brand.boardControl : Brand.grape.opacity(0.10),
+                                in: .rect(cornerRadius: R.card, style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.press)
+                    .accessibilityLabel(scanning ? L("order.closeCamera") : L("order.openCamera"))
+                }
+
+                Button {
+                    record()
+                } label: {
+                    Text(L("work.addFor", Terms.unit(session.tenant?.unitOne ?? "").acc, money(charged, currency)))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .accessibilityIdentifier("order.save")
+                .buttonStyle(LimeButton(loading: sending, busyTitle: L("order.saving")))
+                .disabled(!canRecord || sending)
+                .opacity(canRecord ? 1 : 0.45)
+                .shadow(color: Brand.lime.opacity(canRecord ? 0.4 : 0), radius: 16, y: 6)
+                .animation(.easeOut(duration: Motion.normal), value: canRecord)
             }
-            .accessibilityIdentifier("order.save")
-            .buttonStyle(LimeButton(loading: sending, busyTitle: L("order.saving")))
-            .disabled(!canRecord || sending)
-            .opacity(canRecord ? 1 : 0.45)
-            .animation(.easeOut(duration: Motion.normal), value: canRecord)
+
+            if saveFailed {
+                /* Единственная ошибка, которая приходит не с сервера, а с
+                   собственного диска. Под кнопкой, а не поверх формы:
+                   набранное должно остаться на виду. */
+                Text(L("order.saveFailed"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.badOnBoard)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                    .transition(.opacity)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background(Brand.board.ignoresSafeArea(edges: .bottom))
+        .background(Brand.boardSurface.ignoresSafeArea(edges: .bottom))
         .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: charged)
     }
 
@@ -804,9 +855,9 @@ struct OrderFlowView: View {
     private func record() {
         guard let first = chosen.first, let payment, !sending else { return }
         sending = true
+        saveFailed = false
 
-        queue.add(
-            .init(
+        let item = OrderQueue.Item(
                 ref: UUID().uuidString,
                 clientKey: normalizedClientKey(clientKey),
                 // старое поле заполняем всегда: очередь могла быть записана
@@ -825,8 +876,20 @@ struct OrderFlowView: View {
                 // кто ещё мыл; пусто — одиночная запись, как и была
                 participants: crewIds.isEmpty ? nil : crewIds,
                 at: Date()
-            )
         )
+
+        do {
+            try queue.add(item)
+        } catch {
+            /* Диск отказал. «Готово» здесь было бы ложью: запись не
+               пережила бы перезапуск. Форма остаётся с набранным, человек
+               нажимает ещё раз — или переписывает машину на бумажку, но
+               знает об этом. */
+            sending = false
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            withAnimation(reduceMotion ? nil : .easeOut(duration: Motion.normal)) { saveFailed = true }
+            return
+        }
 
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
@@ -944,6 +1007,37 @@ struct Flow: Layout {
             view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/**
+ * Матовое стекло формы — то же, что у плиток на смене: белёсая
+ * заливка с сиреневым низом, белая грань и тонкая грейповая. Выбранное
+ * заливается лаймом целиком; стекло у него не остаётся.
+ */
+extension View {
+    func formGlass(_ radius: CGFloat, selected: Bool = false) -> some View {
+        background {
+            if selected {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Brand.lime)
+            } else {
+                LinearGradient(
+                    colors: [
+                        adaptivePublic(light: 0xFAF8FE, dark: 0x1F1A2C),
+                        adaptivePublic(light: 0xEEE8F9, dark: 0x181425),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(.rect(cornerRadius: radius, style: .continuous))
+            }
+        }
+        .overlay {
+            if !selected {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(Brand.grapeFill.opacity(0.12), lineWidth: 0.8)
+            }
         }
     }
 }

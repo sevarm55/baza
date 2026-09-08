@@ -231,7 +231,7 @@ export const adminRu = {
     unblocked: 'Пользователь разблокирован',
     logoutAll: 'Выйти везде',
     logoutAllTitle: (phone: string) => `Завершить все сессии ${phone}?`,
-    logoutAllNote: 'Все устройства выйдут из аккаунта. Человек сможет войти снова своим PIN или кодом.',
+    logoutAllNote: 'Все устройства выйдут из аккаунта. Человек сможет войти снова своим паролем.',
     loggedOut: 'Сессии завершены',
     resetAccess: 'Сбросить доступ',
     resetAccessTitle: (phone: string) => `Сбросить доступ ${phone}?`,

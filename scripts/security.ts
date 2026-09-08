@@ -122,6 +122,21 @@ function codeFor(phone: string): string | null {
   return null;
 }
 
+/** Токен из последнего письма на адрес — из файла почтового провайдера. */
+function mailToken(email: string): string {
+  const sink = process.env.MAIL_TEST_SINK ?? './.data/mail-test.log';
+  if (!existsSync(sink)) return '';
+
+  const lines = readFileSync(sink, 'utf8').trim().split('\n').filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const row = JSON.parse(lines[i]) as { to: string; text: string };
+    if (row.to !== email) continue;
+    const m = /[?&]t=([A-Za-z0-9_-]+)/.exec(row.text);
+    if (m) return m[1];
+  }
+  return '';
+}
+
 /**
  * Обнулить счётчики защиты перед прогоном.
  *
@@ -546,13 +561,18 @@ async function main() {
   section('Роли');
 
   const staffPhone = freshPhone();
+  /* Доступ сотруднику выдаётся паролем: ПИН у найма отобрали вместе с
+     переходом на пароли, и короткий секрет тут больше не принимается. */
+  const staffPassword = 'sec-Mojshik-7361';
   const hired = await api('/staff', {
     token: a.access,
-    body: { name: 'Мойщик', phone: staffPhone, pin: '736294', percent: 30 },
+    body: { name: 'Мойщик', phone: staffPhone, password: staffPassword, percent: 30 },
   });
   check('владелец нанимает сотрудника', hired.status === 200 || hired.status === 201, hired);
 
-  const staffLogin = await api('/auth/login', { body: { phone: staffPhone, pin: '736294' } });
+  const staffLogin = await api('/auth/login', {
+    body: { login: staffPhone, password: staffPassword },
+  });
   check('сотрудник входит', staffLogin.status === 200, { status: staffLogin.status });
 
   if (staffLogin.status === 200) {
@@ -712,6 +732,103 @@ async function main() {
     (throttledResponse.body.retryAfter as number) <= 3600,
     throttledResponse.body,
   );
+
+
+  /* ============ ВХОД ПО ПОЧТЕ И ПАРОЛЮ: ОСНОВНАЯ ДВЕРЬ ============ */
+  section('Почта и пароль');
+
+  {
+    /* Каждой проверке свой адрес: щит от частых писем считает их по
+       адресу, и три отказа подряд на один ящик оставили бы настоящую
+       заявку без письма. */
+    const mail = `sec-${Date.now()}@tetrin.test`;
+    const spare = (n: number) => `sec-${Date.now()}-${n}@tetrin.test`;
+    const password = 'sec-Parol-4820';
+
+    /* Слабый пароль не принимается. Проверяем оба отказа: короткий и
+       частый — у них разные причины и разные тексты на экране. */
+    const short = await api('/auth/signup', {
+      body: { niche: 'carwash', businessName: 'Мойка', ownerName: 'Ашот', email: spare(1), password: '1234' },
+    });
+    check('короткий пароль отклонён', short.status === 400 && short.body.error === 'PASSWORD_SHORT', short);
+
+    const common = await api('/auth/signup', {
+      /* Пароль из запретного списка (`lib/password.ts`): проверяем, что
+         механизм отказа работает, а не насколько список полон. */
+      body: { niche: 'carwash', businessName: 'Мойка', ownerName: 'Ашот', email: spare(2), password: 'password1' },
+    });
+    check(
+      'частый пароль отклонён',
+      common.status === 400 && common.body.error === 'PASSWORD_COMMON',
+      common,
+    );
+
+    const badMail = await api('/auth/signup', {
+      body: { niche: 'carwash', businessName: 'Мойка', ownerName: 'Ашот', email: 'не-почта', password },
+    });
+    check('кривой адрес отклонён', badMail.status === 400, badMail);
+
+    const started = await api('/auth/signup', {
+      body: { niche: 'carwash', businessName: 'Мойка', ownerName: 'Ашот', email: mail, password },
+    });
+    check('заявка принята', started.status === 200, started);
+    check(
+      'в ответе нет токенов',
+      !('access' in started.body) && !('refresh' in started.body),
+      started.body,
+    );
+
+    /* До подтверждения адреса бизнеса нет, и пароль ни к чему не подходит. */
+    const early = await api('/auth/login', { body: { login: mail, password } });
+    check(
+      'до подтверждения войти нельзя',
+      early.status === 401 && early.body.error === 'WRONG_CREDENTIALS',
+      early,
+    );
+
+    /* Щит от частых писем: форма регистрации не должна становиться
+       способом завалить письмами чужой ящик. */
+    const again = await api('/auth/signup', {
+      body: { niche: 'carwash', businessName: 'Мойка', ownerName: 'Ашот', email: mail, password },
+    });
+    check('второе письмо на тот же адрес придержано', again.status === 429, again);
+
+    const token = mailToken(mail);
+    check('в письме есть ссылка с токеном', Boolean(token), token);
+
+    /* Чужой токен не подходит: секрет в ссылке проверяется целиком, а не
+       по длине или началу. */
+    const { completeRegistration } = await import('../lib/auth-password');
+    const forged = await completeRegistration({
+      token: `${token.slice(0, -4)}xxxx`,
+      ip: '::1',
+      signals: { agent: 'security' },
+    });
+    check('подделанная ссылка не проходит', forged.ok === false, forged);
+
+    const done = await completeRegistration({ token, ip: '::1', signals: { agent: 'security' } });
+    check('верная ссылка создаёт бизнес', done.ok === true, done);
+
+    const reused = await completeRegistration({ token, ip: '::1', signals: { agent: 'security' } });
+    check('та же ссылка второй раз не проходит', reused.ok === false, reused);
+
+    const entry = await api('/auth/login', { body: { login: mail, password } });
+    check('после подтверждения пускает', entry.status === 200, { status: entry.status });
+
+    const wrong = await api('/auth/login', { body: { login: mail, password: 'sovsem-drugoy-9911' } });
+    check('чужой пароль не пускает', wrong.status === 401, wrong);
+
+    /* Восстановление не должно рассказывать, есть ли такой адрес. */
+    const resetKnown = await api('/auth/password/reset', { body: { email: mail } });
+    const resetUnknown = await api('/auth/password/reset', {
+      body: { email: `sec-none-${Date.now()}@tetrin.test` },
+    });
+    check(
+      'восстановление молчит о том, знаком ли адрес',
+      resetKnown.status === resetUnknown.status,
+      { known: resetKnown.status, unknown: resetUnknown.status },
+    );
+  }
 
   /* ===================== ИТОГ ===================== */
   console.log(`\n${passed} пройдено, ${failed} провалено`);

@@ -112,6 +112,17 @@ function phone(seed: number): string {
   return `099${n}`;
 }
 
+/** Одноразовый адрес почты того же прогона. */
+function mail(seed: number): string {
+  return `e2e-${Date.now()}-${seed}@tetrin.test`;
+}
+
+/** Пароль, годный для всех проверок: длинный и не из словаря частых. */
+const PASSWORD = 'e2e-Parol-9174';
+
+/** Пароль, который владелец выдаёт нанятому работнику. */
+const STAFF_PASSWORD = 'e2e-Mojshik-3620';
+
 async function main() {
   console.log(`\nсквозной прогон по ${BASE}${READONLY ? '  (только чтение)' : ''}`);
 
@@ -129,77 +140,113 @@ async function main() {
     return report();
   }
 
-  /* Регистрация стала двухшаговой: заявка → код из SMS → бизнес.
-     Код проверке взять неоткуда, поэтому сервер поднимают с
-     `SMS_TEST_SINK=<файл>` — провайдер дописывает туда отправленное.
-     Код при этом настоящий: случайный, одноразовый, с обычным сроком.
+  /* Регистрация двухшаговая: заявка → ссылка из письма → бизнес.
+     Письма проверке взять неоткуда, поэтому сервер поднимают с
+     `MAIL_TEST_SINK=<файл>` — провайдер дописывает туда отправленное.
+     Ссылка при этом настоящая: случайная, одноразовая, с обычным сроком.
      Подменена только доставка, а не проверка. */
-  const SINK = process.env.SMS_TEST_SINK ?? './.data/sms-test.log';
+  const SINK = process.env.MAIL_TEST_SINK ?? './.data/mail-test.log';
 
-  const smsCode = (to: string): string => {
+  /** Токен из последнего письма на этот адрес. */
+  const linkToken = (to: string): string => {
     const { readFileSync: read } = requireFs();
     const lines = read(SINK, 'utf8').trim().split('\n').filter(Boolean);
     for (let i = lines.length - 1; i >= 0; i--) {
       const row = JSON.parse(lines[i]) as { to: string; text: string };
       if (row.to !== to) continue;
-      const m = /Tetrin:\s(\d{6})/.exec(row.text);
+      const m = /[?&]t=([A-Za-z0-9_-]+)/.exec(row.text);
       if (m) return m[1];
     }
-    throw new Error(
-      `код для ${to} не найден в ${SINK}. Сервер запущен без SMS_TEST_SINK?`,
-    );
+    throw new Error(`письма для ${to} нет в ${SINK}. Сервер запущен без MAIL_TEST_SINK?`);
   };
 
-  const registerFully = async (body: Record<string, unknown>) => {
-    const started = await api('/auth/register', { body });
-    if (started.status !== 202) return started;
+  /** Вход по логину и паролю — единственная дверь продукта. */
+  const signIn = (login: string, password: string, device = 'e2e') =>
+    api('/auth/login', { body: { login, password, device } });
 
-    const { normalizePhone } = await import('../lib/phone');
-    return api('/auth/register/verify', {
-      body: {
-        challengeId: started.json?.challengeId,
-        code: smsCode(normalizePhone(String(body.phone))),
-        device: body.device,
-      },
+  /**
+   * Завести бизнес целиком: заявка по HTTP, подтверждение — вызовом.
+   *
+   * Второй шаг у продукта только один и он не по API: ссылку из письма
+   * открывает браузер, и гасит её серверное действие страницы
+   * `/auth/confirm`. Дёргать его снаружи значило бы подделывать
+   * внутренний протокол Next, который меняется от сборки к сборке.
+   * Поэтому здесь зовётся ровно та функция, которую зовёт страница, — а
+   * всё, что до неё, идёт по-настоящему через HTTP.
+   */
+  const registerFully = async (body: Record<string, unknown>) => {
+    const started = await api('/auth/signup', { body });
+    if (started.status !== 200) return started;
+
+    const { completeRegistration } = await import('../lib/auth-password');
+    const done = await completeRegistration({
+      token: linkToken(String(body.email)),
+      ip: '::1',
+      signals: { agent: 'e2e', installId: String(body.device ?? 'e2e') },
     });
+    if (!done.ok) return { status: 400, json: done as unknown, text: '', location: null } as Res;
+
+    /* Токены выдаёт вход, а не подтверждение: страница `/auth/confirm`
+       заводит бизнес и открывает браузерную сессию, а приложению и
+       проверке нужен обычный вход. Отдаём их вместе с итогом заявки —
+       дальше по прогону нужен именно доступ, а не факт создания. */
+    const entered = await signIn(String(body.email), String(body.password), String(body.device ?? 'e2e'));
+    return {
+      status: 201,
+      json: { ...(done as object), ...(entered.json ?? {}) },
+      text: '',
+      location: null,
+    } as Res;
   };
 
   /* ─────────────── регистрация ─────────────── */
   group('регистрация');
-  const ownerPhone = phone(1);
+  const ownerMail = mail(1);
   const reg = await registerFully({
-      niche: 'carwash',
-      businessName: 'Тест Мойка',
-      ownerName: 'Тест Владелец',
-      phone: ownerPhone,
-      pin: '892468',
-      device: 'e2e',
+    niche: 'carwash',
+    businessName: 'Тест Мойка',
+    ownerName: 'Тест Владелец',
+    email: ownerMail,
+    password: PASSWORD,
+    device: 'e2e',
   });
-  check('регистрация проходит', reg.status === 201, reg.status);
-  const owner = reg.json ?? {};
+  check('регистрация проходит', reg.status === 201, reg.json);
+
+  const entry = await signIn(ownerMail, PASSWORD, 'e2e-first');
+  check('после подтверждения пускает', entry.status === 200, entry.status);
+  const owner = entry.json ?? {};
   check('выдан access-токен', typeof owner.access === 'string', Object.keys(owner));
   check('выдан refresh-токен', typeof owner.refresh === 'string');
 
-  const dup = await api('/auth/register', {
+  /* Второй бизнес на тот же адрес. Заявка на него не уходит вовсе:
+     раньше здесь ждали 409 EMAIL_TAKEN, но первым срабатывает щит от
+     частых писем — он и не даёт превратить форму регистрации в способ
+     завалить письмами чужой ящик. Оба ответа означают «второму бизнесу
+     на этот адрес не быть», и проверка принимает любой из них. */
+  const dup = await api('/auth/signup', {
     body: {
       niche: 'carwash',
       businessName: 'Второй',
       ownerName: 'Второй',
-      phone: ownerPhone,
-      pin: '901111',
+      email: ownerMail,
+      password: PASSWORD,
       device: 'e2e',
     },
   });
-  check('тот же номер второй раз — отказ', dup.status === 409, dup.status);
-  check('и код ошибки PHONE_TAKEN', dup.json?.error === 'PHONE_TAKEN', dup.json);
+  check('тот же адрес второй раз — отказ', dup.status === 400 || dup.status === 429, dup.status);
+  check(
+    'и причина названа',
+    dup.json?.error === 'EMAIL_TAKEN' || dup.json?.error === 'TOO_MANY_TRIES',
+    dup.json,
+  );
 
   for (const [what, payload] of [
-    ['ниша', { niche: 'нетакой', businessName: 'A', ownerName: 'B', phone: phone(2), pin: '511234' }],
-    ['имя', { niche: 'carwash', businessName: 'A', ownerName: 'B', phone: phone(3), pin: '511234' }],
-    ['телефон', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', phone: '123', pin: '511234' }],
-    ['PIN', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', phone: phone(4), pin: '12' }],
+    ['ниша', { niche: 'нетакой', businessName: 'A', ownerName: 'B', email: mail(2), password: PASSWORD }],
+    ['название', { niche: 'carwash', businessName: 'A', ownerName: 'B', email: mail(3), password: PASSWORD }],
+    ['почта', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', email: 'не-почта', password: PASSWORD }],
+    ['пароль', { niche: 'carwash', businessName: 'Аа', ownerName: 'Бб', email: mail(4), password: '123' }],
   ] as const) {
-    const bad = await api('/auth/register', { body: payload });
+    const bad = await api('/auth/signup', { body: payload });
     check(`кривой ${what} — 400`, bad.status === 400, bad.json);
   }
 
@@ -207,15 +254,15 @@ async function main() {
 
   /* ─────────────── вход ─────────────── */
   group('вход');
-  const login = await api('/auth/login', { body: { phone: ownerPhone, pin: '892468', device: 'e2e-2' } });
-  check('вход с верным кодом', login.status === 200, login.json);
+  const login = await signIn(ownerMail, PASSWORD, 'e2e-2');
+  check('вход с верным паролем', login.status === 200, login.json);
 
-  const wrong = await api('/auth/login', { body: { phone: ownerPhone, pin: '069999', device: 'x' } });
-  check('неверный код — 401', wrong.status === 401, wrong.status);
+  const wrong = await signIn(ownerMail, 'sovsem-drugoy-parol', 'x');
+  check('неверный пароль — 401', wrong.status === 401, wrong.status);
   check('и код ошибки WRONG_CREDENTIALS', wrong.json?.error === 'WRONG_CREDENTIALS', wrong.json);
 
-  const nobody = await api('/auth/login', { body: { phone: phone(9), pin: '511234', device: 'x' } });
-  check('несуществующий номер — 401, а не 404', nobody.status === 401, nobody.status);
+  const nobody = await signIn(mail(9), PASSWORD, 'x');
+  check('незнакомый адрес — 401, а не 404', nobody.status === 401, nobody.status);
 
   /* ─────────────── токены ─────────────── */
   group('токены');
@@ -243,7 +290,16 @@ async function main() {
   check('и возвращает свой id', Boolean(serviceId), svc.json);
 
   const svcList = await api('/services', { token });
-  check('услуга видна в списке', svcList.status === 200 && JSON.stringify(svcList.json).includes('Комплекс'));
+  /* Ищем по id, а не по названию: сервер отдаёт имя на языке бизнеса, и
+     заведённый здесь «Комплекс» возвращается армянским «Կոմպլեքս» —
+     обратный указатель терминов узнаёт заводскую услугу в любом из её
+     написаний (см. lib/i18n/terms.ts). Проверять слово значило бы
+     проверять язык ответа, а не то, что услуга легла в прайс. */
+  check(
+    'услуга видна в списке',
+    svcList.status === 200 && JSON.stringify(svcList.json).includes(String(serviceId)),
+    svcList.json,
+  );
 
   /* ─────────────── смена и запись ─────────────── */
   group('смена и запись машины');
@@ -398,14 +454,14 @@ async function main() {
 
   /* ─────────────── чужое ─────────────── */
   group('изоляция бизнесов');
-  const otherPhone = phone(50);
+  const otherMail = mail(20);
   const other = await registerFully({
-      niche: 'carwash',
-      businessName: 'Чужая мойка',
-      ownerName: 'Чужой',
-      phone: otherPhone,
-      pin: '121357',
-      device: 'e2e',
+    niche: 'carwash',
+    businessName: 'Чужая мойка',
+    ownerName: 'Чужой',
+    email: otherMail,
+    password: PASSWORD,
+    device: 'e2e',
   });
   const otherToken = other.json?.access;
   check('второй бизнес создан', Boolean(otherToken), other.json);
@@ -429,7 +485,7 @@ async function main() {
   const staffPhone = phone(80);
   const hire = await api('/staff', {
     token,
-    body: { name: 'Мойщик', phone: staffPhone, pin: '604321', percent: 40 },
+    body: { name: 'Мойщик', phone: staffPhone, password: STAFF_PASSWORD, percent: 40 },
   });
   check('работник нанимается', hire.status === 200 || hire.status === 201, hire.json);
 
@@ -443,7 +499,7 @@ async function main() {
   check('у человека известна смена', typeof hired?.onShift === 'boolean', hired);
   check('и долг', typeof hired?.due === 'number', hired);
 
-  const staffLogin = await api('/auth/login', { body: { phone: staffPhone, pin: '604321', device: 'e2e-staff' } });
+  const staffLogin = await signIn(staffPhone, STAFF_PASSWORD, 'e2e-staff');
   check('работник входит своим кодом', staffLogin.status === 200, staffLogin.json);
   const staffToken = staffLogin.json?.access;
 
@@ -578,22 +634,23 @@ async function main() {
   /* Проверяем не «запрос прошёл», а то, что после гонки цифры сходятся.
      Мойка — это два-три телефона во дворе и связь, которая пропадает;
      ошибки такого рода не ломают запрос, а тихо задваивают выручку. */
+  const raceMail = mail(50);
   const raceOwner = await registerFully({
-      niche: 'carwash', businessName: 'Гонки', ownerName: 'Вл',
-      phone: phone(50), pin: '892468', device: 'race',
+    niche: 'carwash', businessName: 'Гонки', ownerName: 'Владелец',
+    email: raceMail, password: PASSWORD, device: 'race',
   });
   const rt = raceOwner.json?.access as string;
   const raceSvc = await api('/services', { token: rt, body: { name: 'Мойка', price: 5000 } });
   const raceSvcId = raceSvc.json?.service?.id ?? raceSvc.json?.id;
 
   const oneMan = await api('/staff', {
-    token: rt, body: { name: 'Первый', phone: phone(51), pin: '901111', percent: 30 },
+    token: rt, body: { name: 'Первый', phone: phone(51), password: `${STAFF_PASSWORD}-a`, percent: 30 },
   });
   const twoMan = await api('/staff', {
-    token: rt, body: { name: 'Второй', phone: phone(52), pin: '672222', percent: 50 },
+    token: rt, body: { name: 'Второй', phone: phone(52), password: `${STAFF_PASSWORD}-b`, percent: 50 },
   });
-  const tA = (await api('/auth/login', { body: { phone: oneMan.json?.staff?.phone, pin: '901111', device: 'A' } })).json?.access;
-  const tB = (await api('/auth/login', { body: { phone: twoMan.json?.staff?.phone, pin: '672222', device: 'B' } })).json?.access;
+  const tA = (await signIn(String(oneMan.json?.staff?.phone), `${STAFF_PASSWORD}-a`, 'A')).json?.access;
+  const tB = (await signIn(String(twoMan.json?.staff?.phone), `${STAFF_PASSWORD}-b`, 'B')).json?.access;
   await api('/shift', { token: tA, body: { open: true } });
   await api('/shift', { token: tB, body: { open: true } });
 

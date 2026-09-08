@@ -194,12 +194,29 @@ export async function saveProfile(input: {
     const phone = given ? normalizePhone(given) : '';
     if (given && !isValidPhone(phone)) throw new ProfileError('BAD_PHONE');
 
-    const account = await accountOf({ id: input.userId } as never).catch(() => null);
+    /* Номер человека живёт в аккаунте, а участие держит свою копию.
+       Обновлять обязательно обе: по `accounts.phone` ищет вход, по
+       `users.phone` показывают человека в кабинете.
+
+       Здесь стоял `accountOf({ id })` с приведением типа, и это молча не
+       работало: функция читает `accountId`, которого в огрызке объекта
+       нет, уходила в ветку «завести человека заново», падала на пустых
+       полях, а `.catch(() => null)` глотал ошибку. Номер ложился только в
+       участие. Владелец видел его в профиле, окно входа предлагало
+       «почта или телефон», а вход этим телефоном отвечал «неверный логин
+       или пароль»: искали-то в аккаунте, где по-прежнему было пусто.
+
+       Читаем связь сами: она у участия уже есть, и заводить человека
+       заново при правке телефона не надо ни при каких обстоятельствах. */
+    const [me] = await db
+      .select({ accountId: users.accountId })
+      .from(users)
+      .where(eq(users.id, input.userId));
 
     try {
       await db.transaction(async (tx) => {
-        if (account) {
-          await tx.update(accounts).set({ phone }).where(eq(accounts.id, account.id));
+        if (me?.accountId) {
+          await tx.update(accounts).set({ phone }).where(eq(accounts.id, me.accountId));
         }
         await tx.update(users).set({ phone }).where(eq(users.id, input.userId));
       });

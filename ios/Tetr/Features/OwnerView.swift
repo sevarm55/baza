@@ -27,6 +27,8 @@ struct OwnerView: View {
     @EnvironmentObject private var session: Session
 
     @State private var summary: API.Summary?
+    @State private var openedProfit: ProfitDetailSnapshot?
+    @Namespace private var profitTransition
     @State private var period = "today"
     /// Период именно тех цифр, которые уже пришли с сервера. Выбор в
     /// segmented control меняется сразу, но подписи старых данных не имеют
@@ -40,9 +42,20 @@ struct OwnerView: View {
     @State private var showClients = false
     @State private var failure: String?
     @State private var cancelling: API.FeedItem?
+    /// Запись журнала, взятая долгим нажатием: панель вкладок уступает
+    /// место стеклянной полосе действий для неё.
+    @State private var focused: API.FeedItem?
+    /// Клиент этой записи, найденный по номеру: телефон и история.
+    @State private var focusedClient: API.Client?
+    @State private var historyClient: API.Client?
     /// Идёт запрос. На это время период фиксируется, чтобы второй быстрый
     /// выбор не вернул на экран ответ от предыдущего периода.
     @State private var loading = false
+    /// Такт прихода содержимого: лист собирается по секциям сверху вниз,
+    /// как только приехали первые числа.
+    @State private var beat: Beat = .waiting
+    /// Главное число накручивается от нуля при первом показе.
+    @State private var countUp = false
     @State private var detailsVisible = true
     @State private var newestFeedID: String?
     @State private var loadID = 0
@@ -56,6 +69,17 @@ struct OwnerView: View {
 
     private let periods = [("today", L("common.today")), ("month", L("owner.periodMonth")), ("prevmonth", L("owner.periodPrevMonth"))]
 
+    /**
+     * Проба композиции «цветные блоки стопкой» для сегодняшнего дня:
+     * белая карточка с приветствием и фишками денег, лаймовый блок с
+     * прибылью, грейповый блок с графиком часов. Владелец показал такой
+     * экран, примерил 6 сентября 2026 и попросил вернуть прежнюю
+     * раскладку. Код оставлен под флагом на случай, если захочется
+     * вернуться к пробе.
+     */
+    private let bentoToday = false
+
+
     var body: some View {
         /* Отдельного экрана «данных нет» больше нет.
          *
@@ -64,23 +88,60 @@ struct OwnerView: View {
          * и спокойнее — утром человек видит привычную раскладку, а не
          * другой экран, который надо прочитать заново. Ноль в начале дня
          * правдив: работы ещё не было. */
-        dashboardScroll
+        /* Прокрутка уходит под часы, чтобы шапка была полотном от
+           самого верха; отступ под часы шапка добавляет сама, поэтому
+           его меряет геометрия снаружи. */
+        dashboardScroll()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
-        .safeAreaInset(edge: .top) { chips }
+        /* Белый лист с сиреневым отсветом и стекло — тот же язык, что
+           у смены: владелец попросил не менять раскладку сводки, а
+           переодеть её в мотив смены. Шапка над листом — грейповое
+           полотно входа с маскотом: выбрано из трёх картинок. */
+        /* Тот же лист, что у зарплаты: светлый с пятнами сирени и лайма,
+           бумажные карточки, пилюля периода. Грейповую шапку владелец
+           попросил заменить полной рекомпозицией. */
+        .meshPage()
         .task { await reload() }
+        /* Данные обычно приезжают ещё под заставкой; приход ждёт её ухода,
+           иначе сборка листа проходит за непрозрачным полотном. */
+        .onReceive(NotificationCenter.default.publisher(for: .splashDone)) { _ in
+            if summary != nil, beat == .waiting {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(120))
+                    arrive(first: true)
+                }
+            }
+        }
     }
 
-    private var dashboardScroll: some View {
+    /// Секции приходят по очереди, число накручивается следом.
+    private func arrive(first: Bool) {
+        if Launch.splashShowing && !reduceMotion { return }
+        beat = .here
+        if first && !reduceMotion {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(260))
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.1)) { countUp = true }
+            }
+        } else {
+            countUp = true
+        }
+    }
+
+    private func dashboardScroll() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                header
+
+                VStack(alignment: .leading, spacing: 0) {
                 if let failure {
                     // Нули вместо выручки — худшее, что может показать этот
                     // экран: неверные данные выглядят как верные, и владелец
                     // принимает решение по ним. Лучше честно ничего.
                     problem(failure)
                 } else if let s = summary {
-                    reading(s)
+                    hero(s)
+                        .reveal(beat, step: 0)
 
                     /* Детали завёрнуты в общий столбец, и это не
                        оформление, а необходимость.
@@ -123,21 +184,56 @@ struct OwnerView: View {
                     /* Первая загрузка: место щита, а не пустой экран. */
                     Delayed(active: loading) {
                         VStack(alignment: .leading, spacing: 14) {
-                            TetrSkeleton(width: 130, height: 13)
-                            TetrSkeleton(height: 52, radius: 14)
                             TetrSkeleton(height: 96, radius: 22)
-                            TetrSkeleton(height: 190, radius: 28)
                             TetrSkeleton(width: 120, height: 13)
                             TetrSkeletonList(rows: 4)
                         }
                         .padding(.top, 10)
                     }
                 }
+                }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
-        .refreshable { await reload() }
+            /* Обновление вешается на саму прокрутку, а не в конец
+               цепочки. Снаружи оно попадает в окружение всего, что ниже,
+               включая листы: форма найма наследовала «потянуть, чтобы
+               обновить», отвечала на движение вниз загрузчиком и не
+               давала закрыть себя смахиванием. */
+            .refreshable { await reload() }
+        .brandTitleFont()
+        /* Взятая запись: вкладки уходят, снизу вырастает стеклянная
+           полоса действий той же формы — приём «панель перетекает в
+           действие», как в ролике Kavsoft. */
+        .toolbar(focused == nil ? .visible : .hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom) {
+            if let item = focused {
+                actionBar(item)
+                    .transition(.scale(scale: 0.55, anchor: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : Motion.springSnap, value: focused?.id)
+        .sheet(item: $historyClient) { client in
+            NavigationStack {
+                ClientHistoryView(client: client, currency: currency)
+            }
+            .environmentObject(session)
+        }
+        .fullScreenCover(item: $openedProfit) { snapshot in
+            if reduceMotion {
+                ProfitDetailView(snapshot: snapshot)
+            } else {
+                ProfitDetailView(snapshot: snapshot)
+                    .navigationTransition(.zoom(sourceID: "owner.profit", in: profitTransition))
+            }
+        }
+        .navigationTitle(L("tab.summary"))
+        .navigationSubtitle(periodDates)
+        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { bell }
+        }
         .sheet(isPresented: $showAlerts) {
             /* Куда ведёт повод, решает приложение: у него свои разделы,
                и адрес страницы браузера здесь не при чём. Зарплата —
@@ -158,9 +254,9 @@ struct OwnerView: View {
                без заголовка и без «Закрыть» — единственный такой в
                продукте. */
             NavigationStack {
+                /* Заголовок ставит сам экран: крупный, сжимается в центр
+                   при прокрутке. Здесь только выход из листа. */
                 ClientsView()
-                    .navigationTitle(L("owner.tabClients"))
-                    .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button(L("common.close")) { showClients = false }
@@ -185,78 +281,147 @@ struct OwnerView: View {
         }
     }
 
-    // ══════════════════════════ верхняя строка ══════════════════════════
+    // ══════════════════════════ шапка ══════════════════════════
 
     /**
-     * Период — системный segmented picker. На iOS 26 он сам получает
-     * актуальную геометрию и материал и остаётся знакомым органом выбора.
-     * Ручное обновление не дублируем кнопкой: для него уже есть pull to
-     * refresh. Стекло остаётся только у действия с уведомлениями.
+     * Заголовок, даты периода, колокольчик и пилюля периода.
+     *
+     * Та же шапка, что у зарплаты: крупное слово, дата под ним, фишки.
+     * Период — пилюлей, а не системным сегментом: пилюля уже стоит на
+     * зарплате, и владелец узнаёт орган по форме.
      */
-    private var chips: some View {
-        HStack(spacing: 10) {
-            Picker(
-                L("owner.periodLabel"),
-                selection: Binding(
+    /**
+     * Заголовок и даты — нативные: крупный заголовок панели, при
+     * прокрутке сжимается в центр над стеклом, даты подзаголовком.
+     * Владелец попросил именно эту системную вещь iOS 26. Здесь остаются
+     * только плашка «кто на смене» и пилюля периода.
+     */
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                crewChip
+                Spacer(minLength: 0)
+                TetrRefreshDot(active: loading && summary != nil && detailsVisible)
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+
+            /**
+             * Периоды — тем же переключателем, что и полки на прайсе,
+             * клиентах, расходах и зарплате.
+             *
+             * До этого здесь стоял системный `Picker(.segmented)`, и
+             * сводка была единственной вкладкой, которая переключается
+             * не как остальные четыре. Тёмный бегунок системный контрол
+             * тоже умеет — `selectedSegmentTintColor` на iOS 26
+             * принимается и стекло при этом остаётся настоящим, — но
+             * задаётся он глобальным прокси UIKit, а дорожка и ширина
+             * сегментов всё равно остаются чужими. Один язык на все
+             * вкладки оказался дороже родной анимации бегунка.
+             */
+            PillTabs(
+                items: periods.map { ($0.0, $0.1) },
+                selection: Binding<String>(
                     get: { period },
-                    set: { key in Task { await selectPeriod(key) } }
+                    set: { (key: String) in Task { await selectPeriod(key) } }
                 )
-            ) {
-                ForEach(periods, id: \.0) { key, label in
-                    Text(label).tag(key)
-                }
-            }
-            .pickerStyle(.segmented)
-            /* Переключатель НЕ гаснет на время запроса. Порядок ответов
-               держит `loadID` вместе со сверкой периода — поздний ответ
-               на старый период на экран не попадает, — и гасить сверх
-               этого нечего: погашенный переключатель отбирает выбор за
-               работу, которая идёт полсекунды, а владелец в это время
-               как раз и щёлкает между «сегодня» и «месяцем». */
-
-            /* Идёт сверка: точка, а не заслонка. Данные на экране
-               остаются верными, просто чуть старыми.
-
-               Только при сверке, но НЕ при смене периода. При смене в
-               середине экрана уже крутится загрузка, и точка рядом с
-               переключателем становилась вторым ответом на тот же
-               вопрос: два разных значка про одно и то же читаются как
-               два разных дела. */
-            TetrRefreshDot(active: loading && summary != nil && detailsVisible)
-
-            Button {
-                showAlerts = true
-            } label: {
-                /* Меньше, чем было: колокольчик — не действие экрана, а
-                   вход в список поводов, и раз в неделю. Кнопка в 38
-                   точек рядом с переключателем периода читалась как
-                   равная ему по важности. */
-                Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
-                    .font(.system(size: 13, weight: .semibold))
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                    .frame(width: 32, height: 32)
-                    .overlay(alignment: .topTrailing) {
-                        if !alerts.isEmpty {
-                            Text("\(alerts.count)")
-                                .font(.system(size: 9, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(Brand.onLime)
-                                .frame(minWidth: 15, minHeight: 15)
-                                .background(Brand.lime, in: .circle)
-                                .offset(x: 3, y: -3)
-                        }
-                    }
-            }
-            .buttonStyle(.glass)
-            /* Круглым: колокольчик — единственная кнопка-значок в этой
-               строке, и круг отделяет её от прямоугольного переключателя
-               периода рядом, не прибавляя ни веса, ни размера. */
-            .buttonBorderShape(.circle)
-            .accessibilityLabel(L("alerts.title"))
+            )
+            .accessibilityIdentifier("owner.period")
+            .padding(.top, 16)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 8)
-        .background(Brand.board.ignoresSafeArea(edges: .top))
+    }
+
+    /// Вход в список поводов: кнопка панели, стекло ей даёт система.
+    private var bell: some View {
+        Button {
+            showAlerts = true
+        } label: {
+            Image(systemName: alerts.isEmpty ? "bell" : "bell.badge")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                .overlay(alignment: .topTrailing) {
+                    if !alerts.isEmpty {
+                        Text("\(alerts.count)")
+                            .font(.system(size: 10, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.onLime)
+                            .frame(minWidth: 17, minHeight: 17)
+                            .background(Brand.lime, in: .circle)
+                            .offset(x: 8, y: -8)
+                    }
+                }
+        }
+        .accessibilityLabel(L("alerts.title"))
+    }
+
+    /**
+     * Показание — лаймовая карточка.
+     *
+     * Лайм в продукте значит «здесь и сейчас», и главное число дня стоит
+     * на нём: прибыль, под ней сравнение и две фишки — обслужено и на
+     * смене. Вся карточка раскрывается в разбор того же финансового снимка.
+     */
+    private func hero(_ s: API.Summary) -> some View {
+        /* Полосы долей здесь нет: три плитки денег стоят сразу под
+           карточкой, и полоса повторяла их третий раз. */
+        Button {
+            openedProfit = ProfitDetailSnapshot(
+                summary: s, period: summaryPeriod, title: profitTitle,
+                dates: periodDates, currency: currency
+            )
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    Text(profitTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.onLime.opacity(0.75))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Brand.lime)
+                        .frame(width: 36, height: 36)
+                        .background(Brand.onLime, in: .circle)
+                        .accessibilityHidden(true)
+                }
+
+                /* Минус настоящий, U+2212: дефис на таком кегле читается точкой. */
+                /* Накручивается от нуля при первом показе: движение разрядов
+                   и есть «число посчитано», как в приборе. */
+                let shown = countUp ? s.profit : 0
+                Text((shown < 0 ? "−" : "") + money(abs(shown), currency))
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.onLime)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.45)
+                    .contentTransition(.numericText(value: Double(shown)))
+                    .padding(.top, 2)
+
+                change
+
+                HStack(spacing: 8) {
+                    bentoPill(L("summary.served"), "\(s.stats.count)")
+                    bentoPill(L("owner.onShift"), "\(s.onShift.count)", live: !s.onShift.isEmpty)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 16)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.lime, in: .rect(cornerRadius: 28, style: .continuous))
+            .contentShape(.rect(cornerRadius: 28))
+            .matchedTransitionSource(id: "owner.profit", in: profitTransition) { source in
+                source.background(Brand.lime).clipShape(.rect(cornerRadius: 28))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("owner.profit.open")
+        .accessibilityHint(L("profit.openHint"))
+        .shadow(color: Brand.lime.opacity(0.35), radius: 16, y: 8)
+        .padding(.top, 18)
     }
 
     // ══════════════════════════ показание ══════════════════════════
@@ -308,25 +473,7 @@ struct OwnerView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Brand.boardSurface)
-                Circle()
-                    .fill(Brand.grape.opacity(0.075))
-                    .frame(width: 138, height: 138)
-                    .blur(radius: 4)
-                    .offset(x: 54, y: -70)
-            }
-            .clipShape(.rect(cornerRadius: 28, style: .continuous))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
-        }
-        /* Тень чёрная, а не чернилами полотна: `boardInk` в тёмной теме
-           почти белый и светился бы под карточкой. В светлой разницы нет. */
-        .shadow(color: .black.opacity(0.05), radius: 18, y: 8)
+        .paperCard(28)
         .padding(.top, 6)
     }
 
@@ -374,7 +521,7 @@ struct OwnerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
-        .boardCard(R.small)
+        .paperCard(R.small)
         .accessibilityElement(children: .combine)
     }
 
@@ -457,7 +604,7 @@ struct OwnerView: View {
             .foregroundStyle(c.up ? Brand.goodOnBoard : Brand.badOnBoard)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
+            .background(.white.opacity(0.55), in: .rect(cornerRadius: 10, style: .continuous))
             .padding(.top, 9)
         }
     }
@@ -487,8 +634,7 @@ struct OwnerView: View {
         let present = (summary?.onShift ?? []).filter { $0.userId != session.me?.id }
         if !present.isEmpty {
             NavigationLink {
-                StaffView().navigationTitle(Terms.staff(session.tenant?.staffRole ?? "").many)
-                    .navigationBarTitleDisplayMode(.inline)
+                StaffView()
             } label: {
                 HStack(spacing: 5) {
                     // единственный настоящий кружок в продукте: точка
@@ -527,7 +673,10 @@ struct OwnerView: View {
            посмотрел на него и решил, что достаточно приветственного
            листа снизу. Серверные шаги настройки при этом живут — их
            по-прежнему видно в веб-кабинете. */
-        moneyTiles(s)
+        if !(bentoToday && summaryPeriod == "today") {
+            moneyTiles(s)
+                .reveal(beat, step: 1)
+        }
 
         if summaryPeriod == "today" {
             /* Графика на сегодняшнем экране нет.
@@ -541,8 +690,8 @@ struct OwnerView: View {
 
                За месяц он остаётся: там тридцать точек, и форма месяца —
                настоящий ответ, которого больше нигде нет. */
-            todaySnapshot(s)
             crewBoard(s)
+                .reveal(beat, step: 2)
             /* Разреза по способам оплаты в сегодняшнем дне нет.
 
                За день на него отвечает сам журнал: пять строк, и в каждой
@@ -553,13 +702,242 @@ struct OwnerView: View {
 
                За месяц он остаётся: тридцать дней по строкам не сложить, и
                доля наличных за период — ответ, которого больше нигде нет. */
-            journal(s.feed)
+            journal(s.feed, total: s.stats.count)
+                .reveal(beat, step: 3)
         } else {
             chart(s.series)
+                .reveal(beat, step: 2)
             grid(s)
+                .reveal(beat, step: 3)
             paymentBreakdown(s)
-            journal(s.feed)
+                .reveal(beat, step: 4)
+            journal(s.feed, total: s.stats.count)
+                .reveal(beat, step: 5)
         }
+    }
+
+    // ══════════════════════════ блоки стопкой ══════════════════════════
+
+    /// Приветствие по времени суток — то же, что на смене.
+    private var hello: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: return L("shift.greetingMorning")
+        case 12..<18: return L("shift.greetingDay")
+        case 18..<24: return L("shift.greetingEvening")
+        default: return L("shift.greetingPlain")
+        }
+    }
+
+    /**
+     * Три блока стопкой: белый, лаймовый, грейповый.
+     *
+     * Каждый блок — своя мысль и свой цвет: кто и где (белый), сколько
+     * осталось (лайм — «здесь и сейчас»), как шёл день (грейп — марка).
+     * Числа не повторяются между блоками: приход, зарплата и расходы
+     * стоят фишками в белом, прибыль в лайме, часы в грейпе.
+     */
+    @ViewBuilder
+    private func bento(_ s: API.Summary) -> some View {
+        VStack(spacing: 10) {
+            bentoHello(s)
+            bentoProfit(s)
+            bentoHours(s)
+        }
+        .padding(.top, 6)
+    }
+
+    private func bentoHello(_ s: API.Summary) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(session.me.map { "\(hello), \($0.name)" } ?? hello)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(Brand.onBoard)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    HStack(spacing: 7) {
+                        Text(periodDates)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Brand.boardMuted)
+                        crewChip
+                    }
+                }
+                Spacer(minLength: 8)
+            }
+
+            /* Фишки денег: приход, людям, расходы. Точка цвета — из
+               словаря продукта, тот же, что у полосы долей. */
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    bentoChip(paidTitle, s.stats.revenue, dot: Brand.grapeFill)
+                    bentoChip(L("summary.toStaff"), s.stats.payroll, dot: Brand.lavenderInk)
+                    bentoChip(spentTitle, s.costs.total, dot: Brand.sandInk)
+                }
+            }
+            .scrollClipDisabled()
+            .padding(.top, 18)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Glass.top, in: .rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: Brand.grapeDeep.opacity(0.10), radius: 14, y: 6)
+    }
+
+    private func bentoChip(_ title: String, _ amount: Int, dot: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(dot).frame(width: 7, height: 7)
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Brand.boardMuted)
+            Text(money(amount, currency))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onBoard)
+                .contentTransition(.numericText(value: Double(amount)))
+        }
+        .lineLimit(1)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Glass.page, in: .rect(cornerRadius: R.control, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: R.control, style: .continuous)
+                .strokeBorder(Brand.boardInk.opacity(0.08), lineWidth: 0.8)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Лаймовый блок: прибыль, полоса долей и две фишки-показателя.
+    private func bentoProfit(_ s: API.Summary) -> some View {
+        let parts = Split.money(mine: s.profit, staff: s.stats.payroll, costs: s.costs.total)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Text(profitTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.onLime.opacity(0.75))
+                Spacer()
+                /* Круглая тёмная кнопка ведёт в зарплаты: там прибыль
+                   разложена по людям. */
+                Button {
+                    NotificationCenter.default.post(name: .openPayroll, object: nil)
+                } label: {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Brand.lime)
+                        .frame(width: 36, height: 36)
+                        .background(Brand.onLime, in: .circle)
+                }
+                .buttonStyle(.press)
+                .accessibilityLabel(L("tab.payroll"))
+            }
+
+            Text((s.profit < 0 ? "−" : "") + money(abs(s.profit), currency))
+                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onLime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.45)
+                .contentTransition(.numericText(value: Double(s.profit)))
+                .padding(.top, 2)
+
+            if !parts.isEmpty {
+                SplitBar(parts: parts, height: 8)
+                    .padding(.top, 12)
+                    .opacity(0.85)
+            }
+
+            HStack(spacing: 8) {
+                bentoPill(L("summary.served"), "\(s.stats.count)")
+                bentoPill(L("owner.onShift"), "\(s.onShift.count)", live: !s.onShift.isEmpty)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 16)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.lime, in: .rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: Brand.lime.opacity(0.35), radius: 16, y: 8)
+    }
+
+    private func bentoPill(_ title: String, _ value: String, live: Bool = false) -> some View {
+        HStack(spacing: 7) {
+            if live {
+                Circle().fill(Brand.goodOnBoard).frame(width: 7, height: 7)
+            }
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.onLime)
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Brand.onLime.opacity(0.75))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.white.opacity(0.55), in: .rect(cornerRadius: R.control, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    /**
+     * Грейповый блок: приход по часам столбиками.
+     *
+     * Столбики белые полупрозрачные, лучший час — сплошной белый. Часы
+     * без денег стоят низкой чертой, чтобы ось не рвалась.
+     */
+    private func bentoHours(_ s: API.Summary) -> some View {
+        let points = s.series
+        let top = max(1, points.map(\.revenue).max() ?? 1)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L("summary.paymentsDay"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                Spacer()
+                Text(money(s.stats.revenue, currency))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+            }
+
+            if points.isEmpty {
+                Text(L("work.emptyOpenNote"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+            } else {
+                HStack(alignment: .bottom, spacing: 5) {
+                    ForEach(points) { point in
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(point.revenue == top ? Color.white : Color.white.opacity(point.revenue > 0 ? 0.42 : 0.16))
+                            .frame(height: max(6, 96 * CGFloat(point.revenue) / CGFloat(top)))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 96, alignment: .bottom)
+                .padding(.top, 18)
+
+                HStack {
+                    ForEach(Array(points.enumerated()), id: \.offset) { i, point in
+                        if i == 0 || i == points.count - 1 || i == points.count / 2 {
+                            Text(point.hourLabel)
+                                .font(.system(size: 11, weight: .medium))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.6))
+                                .frame(maxWidth: .infinity, alignment: i == 0 ? .leading : (i == points.count - 1 ? .trailing : .center))
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Brand.grapeFill, Brand.grapeMid], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: .rect(cornerRadius: 28, style: .continuous)
+        )
+        .shadow(color: Brand.grapeDeep.opacity(0.25), radius: 16, y: 8)
     }
 
     // ══════════════════════════ кто работает ══════════════════════════
@@ -671,12 +1049,7 @@ struct OwnerView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
         .frame(width: 150, height: 72, alignment: .leading)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-        }
-        .shadow(color: Brand.boardInk.opacity(0.035), radius: 10, y: 4)
+        .paperCard(18)
         .accessibilityElement(children: .combine)
     }
 
@@ -764,9 +1137,7 @@ struct OwnerView: View {
             snapshotValue(L("owner.onShift"), "\(s.onShift.count)")
         }
         .padding(.vertical, 15)
-        /* Белая бумага, как у соседних карточек: серая вдавленная плита
-           выбивалась из ряда, и владелец попросил её осветлить. */
-        .boardCard(R.card)
+        .paperCard(R.card)
         .padding(.top, 12)
         .accessibilityElement(children: .contain)
     }
@@ -866,7 +1237,7 @@ struct OwnerView: View {
         .padding(.vertical, 15)
         /* Белая бумага, как у соседних карточек: серая вдавленная плита
            выбивалась из ряда, и владелец попросил её осветлить. */
-        .boardCard(R.card)
+        .paperCard(R.card)
         .padding(.top, 12)
     }
 
@@ -931,7 +1302,7 @@ struct OwnerView: View {
             }
         }
         .padding(15)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
+        .paperCard(22)
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
@@ -991,8 +1362,16 @@ struct OwnerView: View {
      * различает их быстрее, чем текст. Тот же цвет у этого человека в
      * ленте смены и в списке зарплат — цвет здесь имя, а не украшение.
      */
+    private func units(_ n: Int) -> String {
+        Terms.units(n, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// `total` — число записей за период из статистики, а не длина ленты:
+    /// сервер отдаёт последние сто строк, и за месяц с тремя сотнями машин
+    /// справа стояло «100 машин». Теперь справа настоящее число, а под
+    /// шапкой сказано, сколько из них видно.
     @ViewBuilder
-    private func journal(_ feed: [API.FeedItem]) -> some View {
+    private func journal(_ feed: [API.FeedItem], total: Int) -> some View {
         if !feed.isEmpty {
             /* Способы оплаты — только те, что реально встретились: кнопка
                «Փոխանցում», не выбирающая ни одной записи, сообщает ровно
@@ -1022,7 +1401,7 @@ struct OwnerView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Brand.boardMuted)
                     Spacer()
-                    Text(Terms.units(feed.count, session.tenant?.unitOne ?? "").trimmingCharacters(in: .whitespaces))
+                    Text(units(max(total, feed.count)))
                         .font(.system(size: 12))
                         .monospacedDigit()
                         .foregroundStyle(Brand.boardMuted)
@@ -1030,6 +1409,16 @@ struct OwnerView: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 22)
                 .padding(.bottom, 4)
+
+                if feed.count < total {
+                    Text(L("feed.truncated", units(feed.count), units(total)))
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.boardMuted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, 6)
+                }
 
                 if filterable {
                     methodFilter(methods)
@@ -1044,13 +1433,13 @@ struct OwnerView: View {
                     ForEach(shown) { item in
                         journalRow(item)
                         if item.id != shown.last?.id {
-                            Hairline(inset: 56)
+                            Hairline(inset: 4)
                         }
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .boardCard(R.card)
+                .paperCard(R.card)
             }
         }
     }
@@ -1092,11 +1481,12 @@ struct OwnerView: View {
             }
         } label: {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(on ? Brand.board : Brand.boardMuted)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 6)
-                .background(on ? Brand.onBoard : Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(on ? Brand.onInk : Brand.ink)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 7)
+                .background(on ? Brand.ink : Brand.paper, in: .capsule)
+                .overlay(Capsule().strokeBorder(Brand.ink.opacity(on ? 0 : 0.08), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -1130,19 +1520,19 @@ struct OwnerView: View {
         let face = item.crew?.first?.name ?? item.staffName ?? "—"
         let tone = Brand.personTone(face)
 
+        /* Кружка с буквой больше нет — владелец попросил его убрать из
+           списка. Кто мыл, называется словом в строке под номером, а
+           цвет человека остаётся точкой перед именем: тот же оттенок,
+           что в команде и в зарплатах. */
         return HStack(alignment: .top, spacing: 12) {
-            Text(String(face.prefix(1)))
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(tone.base, in: .circle)
-                .padding(.top, 1)
-
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 7) {
+                        /* Номер — просто жирным: рамку со флагом в этом
+                           списке владелец отверг. */
                         Text(item.clientKey ?? "—")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .monospacedDigit()
                             .foregroundStyle(Brand.onBoard)
                             .lineLimit(1)
                         if newestFeedID == item.id {
@@ -1160,11 +1550,18 @@ struct OwnerView: View {
                        оплаты словом, а не значком: значок карты и значок
                        перевода на десяти точках различаются только если
                        знать, что они разные. */
-                    Text("\(Terms.service(item.serviceName)) · \(paymentLabel(item.payment).lowercased())")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(tone.base)
+                            .frame(width: 6, height: 6)
+                        Text(item.shared
+                            ? "\(Terms.service(item.serviceName)) · \(paymentLabel(item.payment).lowercased())"
+                            : "\(face) · \(Terms.service(item.serviceName)) · \(paymentLabel(item.payment).lowercased())")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.boardMuted)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
 
                     Text(at(item.createdAt))
                         .font(.system(size: 12))
@@ -1236,7 +1633,7 @@ struct OwnerView: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 10)
         .background(
-            newestFeedID == item.id ? Brand.grape.opacity(0.12) : Color.clear,
+            newestFeedID == item.id || focused?.id == item.id ? Brand.grape.opacity(0.12) : Color.clear,
             in: .rect(cornerRadius: 14, style: .continuous)
         )
         .transition(
@@ -1245,11 +1642,88 @@ struct OwnerView: View {
                 : .move(edge: .top).combined(with: .opacity)
         )
         .contentShape(.rect)
-        .contextMenu {
-            Button(L("work.revoke"), role: .destructive) {
-                cancelling = item
+        /* Долгое нажатие берёт запись: строка подсвечивается, а внизу
+           вырастает полоса действий. Повторное нажатие отпускает. */
+        .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 8) {
+            if focused?.id == item.id { release() } else { focus(item) }
+        }
+    }
+
+    // ══════════════════════════ полоса действий ══════════════════════════
+
+    private func focus(_ item: API.FeedItem) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        focusedClient = nil
+        withAnimation(reduceMotion ? nil : Motion.springSnap) { focused = item }
+        guard let key = item.clientKey else { return }
+        Task {
+            let result: API.Clients? = try? await session.authed { token in
+                try await APIClient.shared.send("clients", token: token, as: API.Clients.self)
+            }
+            guard focused?.id == item.id else { return }
+            focusedClient = result?.clients.first { $0.key == key }
+        }
+    }
+
+    private func release() {
+        withAnimation(reduceMotion ? nil : Motion.springSnap) { focused = nil }
+    }
+
+    /**
+     * Стеклянная полоса вместо вкладок: номер и цена записи, история
+     * клиента, звонок, отмена записи и крестик. Кнопки — кружки в одном
+     * стеклянном контейнере, чтобы сливались в одну форму, как панель.
+     */
+    private func actionBar(_ item: API.FeedItem) -> some View {
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Text(item.clientKey ?? "—")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                        .layoutPriority(2)
+                    Text(money(item.price, currency))
+                        .font(.system(size: 13, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .glassEffect(.regular, in: .capsule)
+
+                barButton("clock.arrow.circlepath", enabled: focusedClient != nil) {
+                    historyClient = focusedClient
+                }
+                barButton("phone.fill", enabled: focusedClient?.phone != nil) {
+                    if let phone = focusedClient?.phone, let url = URL(string: "tel:\(phone)") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                barButton("trash.fill", tint: Brand.badOnBoard) {
+                    cancelling = item
+                }
+                barButton("xmark") { release() }
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    private func barButton(_ symbol: String, tint: Color = Brand.ink, enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(enabled ? tint : Brand.muted.opacity(0.5))
+                .frame(width: 46, height: 46)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .glassEffect(.regular.interactive(), in: .circle)
     }
     private func problem(_ text: String) -> some View {
         VStack(spacing: 12) {
@@ -1388,6 +1862,7 @@ struct OwnerView: View {
     private func since(_ date: Date) -> String { L("summary.since", clock().string(from: date)) }
 
     private func cancel(_ item: API.FeedItem) async {
+        release()
         _ = try? await session.authed { token in
             try await APIClient.shared.raw(
                 "orders/\(item.id)/cancel",
@@ -1451,9 +1926,14 @@ struct OwnerView: View {
                Первая загрузка идёт без анимации: прокрутка от нуля к сумме на
                старте читается как индикатор загрузки, а не как смысл. */
             if summary == nil || reduceMotion {
+                let first = summary == nil
                 summary = fresh
                 summaryPeriod = requestedPeriod
                 newestFeedID = inserted?.id
+                /* Первый показ: секции приходят по очереди, число
+                   накручивается от нуля следом за карточкой. Владелец
+                   показал ролик с таким приходом и попросил так же. */
+                arrive(first: first)
             } else {
                 withAnimation(.spring(response: 0.38, dampingFraction: 0.94)) {
                     summary = fresh
@@ -1462,6 +1942,14 @@ struct OwnerView: View {
                 }
             }
             failure = nil
+
+            /* Мойка ожила: на площадке уже что-то происходило. Отсюда, а
+               не из первого входа, приложение предлагает уведомления —
+               спрашивать про них на пустом экране значит сжечь
+               единственную попытку системного окна. */
+            if !fresh.feed.isEmpty {
+                NotificationCenter.default.post(name: .washAlive, object: nil)
+            }
 
             if staged && !reduceMotion {
                 try? await Task.sleep(for: .milliseconds(110))
@@ -1483,6 +1971,8 @@ struct OwnerView: View {
             return
         } catch let error as APIError {
             detailsVisible = true
+            beat = .here
+            countUp = true
             period = summaryPeriod
             failure = error.isOffline
                 ? L("errors.offline")
@@ -1498,6 +1988,3 @@ struct OwnerView: View {
 }
 
 // ══════════════════════ пустая сводка: иллюстрация ══════════════════════
-
-
-

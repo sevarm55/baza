@@ -16,12 +16,22 @@ export async function GET(request: Request) {
     const ctx = await authorize(request, { owner: true });
     if (denied(ctx)) return ctx;
 
+    /* Отладочная подмена «сегодня»: приложение в DEBUG-сборке шлёт
+       `X-Tetr-Today`, и лист считается до конца того дня. В продакшене
+       заголовок игнорируется — записи из будущего туда не попадают. */
+    const debugToday = process.env.NODE_ENV !== 'production'
+      ? request.headers.get('x-tetr-today')
+      : null;
+    const until = debugToday && /^\d{4}-\d{2}-\d{2}$/.test(debugToday)
+      ? new Date(new Date(`${debugToday}T00:00:00Z`).getTime() + 2 * 86_400_000)
+      : new Date();
+
     const [rows, byDay, settled, history, board] = await Promise.all([
       getUnsettledPayroll(ctx.tenant.id),
-      getUnsettledByDay(ctx.tenant.id, ctx.tenant.timezone),
+      getUnsettledByDay(ctx.tenant.id, ctx.tenant.timezone, until),
       getSettledUntil(ctx.tenant.id),
       listPayouts(ctx.tenant.id),
-      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone, ctx.locale),
+      getPayrollBoard(ctx.tenant.id, ctx.tenant.timezone, ctx.locale, 120, until),
     ]);
 
     return ok({

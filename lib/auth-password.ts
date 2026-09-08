@@ -559,7 +559,13 @@ export async function completePasswordReset(input: {
   const accountId = verified.payload.accountId;
   await db
     .update(accounts)
-    .set({ passwordHash: await hashPassword(password) })
+    /* Как и при смене пароля вручную: восстановленный по письму пароль
+       свой, а значит временный статус снимается вместе с ним. */
+    .set({
+      passwordHash: await hashPassword(password),
+      tempAccessUntil: null,
+      tempAccessBy: null,
+    })
     .where(eq(accounts.id, accountId));
 
   await revokeAccountSessions(accountId);
@@ -606,7 +612,14 @@ export async function issueStaffPassword(input: {
 
   await db
     .update(accounts)
-    .set({ passwordHash: await hashPassword(input.password) })
+    /* Пароль от владельца заменяет временный, выданный платформой: у
+       сотрудника не должно остаться срока, о котором знает только чужой
+       журнал. */
+    .set({
+      passwordHash: await hashPassword(input.password),
+      tempAccessUntil: null,
+      tempAccessBy: null,
+    })
     .where(eq(accounts.id, member.accountId));
 
   await revokeAccountSessions(member.accountId);
@@ -653,7 +666,18 @@ export async function changeOwnPassword(input: {
 
   await db
     .update(accounts)
-    .set({ passwordHash: await hashPassword(input.next) })
+    /* Свой пароль снимает временный статус: выданный админом ключ
+       перестаёт быть «временным» ровно в тот момент, когда человек
+       заменил его своим. Старый путь (смена ПИНа) это делал, новый
+       унаследовать забыл, и метка оставалась навсегда: баннер «пароль
+       временный, перестанет работать <дата>» висел в кабинете после
+       того, как пароль уже свой, а вход по прежнему ПИНу — он ещё жив
+       для версии в магазине — упирался в истёкший срок. */
+    .set({
+      passwordHash: await hashPassword(input.next),
+      tempAccessUntil: null,
+      tempAccessBy: null,
+    })
     .where(eq(accounts.id, account.id));
 
   await revokeAccountSessions(account.id);

@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 /**
  * Вход.
@@ -53,6 +53,12 @@ import SwiftUI
  * сюда нельзя.
  */
 struct LoginView: View {
+    #if DEBUG
+    /// Открыт ввод адреса сервера (только отладочная сборка).
+    @State private var pickingServer = false
+    @State private var serverField = ""
+    #endif
+
     @EnvironmentObject private var session: Session
     @EnvironmentObject private var lock: BiometricLock
     @EnvironmentObject private var lang: LangStore
@@ -166,23 +172,6 @@ struct LoginView: View {
                 // цифровой клавиатуры, на которой своей кнопки нет.
                 .onTapGesture { move(to: nil) }
 
-            #if DEBUG
-            /* Адрес отладочной сборки — у нижнего края и только в DEBUG.
-               Без него «нет связи» на телефоне неотличимо от «сервер не
-               поднят», а чаще всего значит третье: приложение открыли с
-               домашнего экрана, и переменной с адресом в процессе нет.
-               Магазинной сборки это не касается вовсе. */
-            VStack {
-                Spacer()
-                Text(APIClient.debugAddress)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.bottom, 4)
-            }
-            .allowsHitTesting(false)
-            #endif
 
             /* Центрирование в покое, верх при вводе.
              *
@@ -272,6 +261,56 @@ struct LoginView: View {
         // Экран стоит на грейпе, и он тёмный при любой теме телефона:
         // иначе строка состояния становится чёрной на тёмно-фиолетовом
         .preferredColorScheme(.dark)
+        /* Адрес отладочной сборки — у нижнего края и только в DEBUG.
+           Без него «нет связи» на телефоне неотличимо от «сервер не
+           поднят», а чаще всего значит третье: приложение открыли с
+           домашнего экрана, и переменной с адресом в процессе нет.
+
+           Через `safeAreaInset`, а не слоем в стопке экрана: слоем строка
+           оказывалась ПОД формой входа, которая занимает весь экран, и
+           нажатие до неё не доходило — надпись было видно, а тронуть её
+           нельзя. Полоса безопасной зоны лежит поверх содержимого всегда.
+
+           Магазинной сборки это не касается вовсе. */
+        #if DEBUG
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button {
+                serverField = APIClient.override ?? ""
+                pickingServer = true
+            } label: {
+                Text(APIClient.debugAddress)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(maxWidth: .infinity)
+                    /* Цель во весь минимум касания: строка в десять точек
+                       высотой пальцем не берётся. */
+                    .frame(height: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
+        #endif
+
+        #if DEBUG
+        /* Ввод адреса: полный адрес с http и портом, например
+           http://192.168.15.214:3200/api/v1/ — телефон и компьютер должны
+           быть в одной сети. Пустое поле возвращает адрес по умолчанию. */
+        .alert(Text(verbatim: "Сервер"), isPresented: $pickingServer) {
+            TextField(text: $serverField) { Text(verbatim: "http://адрес:порт/api/v1/") }
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            Button(L("common.save")) {
+                APIClient.override = serverField
+                Task { await session.switchedServer() }
+            }
+            Button(L("common.cancel"), role: .cancel) {}
+        } message: {
+            Text(verbatim: "Куда ходит эта сборка. Пусто — адрес по умолчанию.")
+        }
+        #endif
     }
     /**
      * Язык — прямо на экране входа.
@@ -848,32 +887,6 @@ private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
-/**
- * Зерно на полотне.
- *
- * Маленькая плитка белого шума с прозрачностью, замощённая на весь
- * экран и почти невидимая. Ровная заливка на телефоне выглядит
- * пластиком, зерно делает её бумагой. Плитка отдаётся системе в
- * масштабе 3, чтобы одно зерно было одним пикселем, а не тремя:
- * крупное зерно читается грязью.
- */
-private struct Grain: View {
-    private static let tile: UIImage? = {
-        guard let raw = UIImage(named: "grain.png"), let cg = raw.cgImage else { return nil }
-        return UIImage(cgImage: cg, scale: 3, orientation: .up)
-    }()
-
-    var body: some View {
-        if let tile = Self.tile {
-            Image(uiImage: tile)
-                .resizable(resizingMode: .tile)
-                .opacity(0.07)
-                .blendMode(.plusLighter)
-                .allowsHitTesting(false)
-        }
-    }
-}
-
 /// Какое поле держит клавиатуру.
 /**
  * Поля формы.
@@ -939,7 +952,7 @@ private struct Backdrop: View {
                 startRadius: 0,
                 endRadius: 420
             )
-            Grain()
+            GrainLayer()
         }
         .ignoresSafeArea()
     }

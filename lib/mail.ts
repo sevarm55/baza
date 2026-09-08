@@ -151,10 +151,44 @@ function smtpProvider(host: string): MailProvider {
   };
 }
 
+
+/**
+ * Провайдер для автоматических проверок: письмо дописывается в файл.
+ *
+ * Тот же приём, что у SMS (`lib/sms.ts`), и по той же причине: подменяем
+ * ДОСТАВКУ, а не проверку. Ссылка в письме настоящая — случайная,
+ * одноразовая, с обычным сроком; прогон просто читает её из файла вместо
+ * почтового ящика. Отмычки вида «этот токен подходит всегда» здесь нет и
+ * быть не может: она жила бы в коде проверки ссылки, то есть ровно там,
+ * где однажды забудут условие окружения.
+ *
+ * В бою ветка недостижима: она под явной проверкой окружения, и одной
+ * переменной её не включить.
+ */
+function sinkProvider(path: string): MailProvider {
+  return {
+    name: 'sink',
+    async send({ to, subject, text }) {
+      const { appendFileSync } = await import('node:fs');
+      appendFileSync(path, `${JSON.stringify({ to, subject, text, at: Date.now() })}\n`);
+      return { ok: true, provider: 'sink' };
+    },
+  };
+}
+
 let resolved: MailProvider | null = null;
 
 function mailProvider(): MailProvider {
   if (resolved) return resolved;
+
+  /* Приёмник впереди настоящих отправок: если он задан, значит идёт
+     прогон, и письма не должны уходить наружу ни при какой другой
+     настройке в том же окружении. */
+  const sink = env('MAIL_TEST_SINK');
+  if (sink && (process.env.NODE_ENV !== 'production' || isStaging())) {
+    resolved = sinkProvider(sink);
+    return resolved;
+  }
 
   const host = env('MAIL_HOST');
   if (host && host !== 'smtp.gmail.com') {

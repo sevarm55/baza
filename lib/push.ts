@@ -32,6 +32,26 @@ const FCM_KEY = process.env.FCM_PRIVATE_KEY?.replace(/\\n/g, '\n');
 /** Куда несём токен. Хранится в `push_tokens.platform`. */
 type Platform = 'apns' | 'fcm';
 
+/**
+ * Приёмник уведомлений для проверки на своей машине.
+ *
+ * Тем же способом, что и SMS (`SMS_TEST_SINK` в `lib/sms.ts`), и по той
+ * же причине: ключа APNs у локального сервера нет, а проверить надо
+ * СОБРАННЫЙ ТЕКСТ — тот, который увидит владелец. Строка уходит в файл,
+ * и оттуда её можно доставить в симулятор `xcrun simctl push`.
+ *
+ * Только вне боевого окружения: на бою уведомления обязаны уходить
+ * людям, а не в файл.
+ */
+const SINK =
+  process.env.NODE_ENV === 'production' ? undefined : process.env.PUSH_TEST_SINK;
+
+async function toSink(note: Note, targets: number) {
+  if (!SINK) return;
+  const { appendFileSync } = await import('node:fs');
+  appendFileSync(SINK, `${JSON.stringify({ ...note, targets, at: Date.now() })}\n`);
+}
+
 function apnsEnabled(): boolean {
   return Boolean(KEY && KEY_ID && TEAM_ID);
 }
@@ -50,7 +70,7 @@ function fcmEnabled(): boolean {
  * Firebase глушило бы и эппловские уведомления, которые работают.
  */
 export function pushEnabled(): boolean {
-  return apnsEnabled() || fcmEnabled();
+  return apnsEnabled() || fcmEnabled() || Boolean(SINK);
 }
 
 /**
@@ -253,6 +273,10 @@ async function sendOneFcm(jwt: string, token: string, note: Note): Promise<Deliv
  * невозможна, и удалять их было бы потерей.
  */
 async function deliver(rows: { token: string; sandbox: boolean; platform: string }[], note: Note) {
+  /* В приёмник пишем ДО проверки адресатов: на своей машине токенов может
+     не быть вовсе, а проверяют здесь текст, а не доставку. */
+  await toSink(note, rows.length);
+
   if (rows.length === 0) return;
 
   const apple = rows.filter((r) => r.platform !== 'fcm');

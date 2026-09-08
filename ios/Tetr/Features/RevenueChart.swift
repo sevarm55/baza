@@ -122,21 +122,21 @@ struct RevenueChart: View {
            тут отвечает на «что я сейчас трогаю», а не украшает — без
            касания график серый и спокойный, а пик и так подписан
            словами в шапке. */
-        let lit = touched == i && value > 0
+        /* Лучший день и тронутый столбик — лаймом, остальные грейпом:
+           серые столбики владелец попросил перекрасить, график должен
+           говорить цветами марки, как и весь лист. */
+        let lit = (touched == i || value == peak) && value > 0
 
         return RoundedRectangle(cornerRadius: min(5, width / 2), style: .continuous)
             .fill(
                 lit
-                    /* Подсвеченный столбик — лаймом с растворением книзу:
-                       он должен читаться как свет прибора, а не как
-                       залитый прямоугольник. */
                     ? LinearGradient(
-                        colors: [Brand.lime, Brand.lime.opacity(0.55)],
+                        colors: [Brand.lime, Brand.lime.opacity(0.6)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     : LinearGradient(
-                        colors: [Brand.boardInk.opacity(0.22), Brand.boardInk.opacity(0.11)],
+                        colors: [Brand.grapeFill.opacity(value > 0 ? 0.85 : 0.25), Brand.grapeFill.opacity(value > 0 ? 0.5 : 0.2)],
                         startPoint: .top,
                         endPoint: .bottom
                     )

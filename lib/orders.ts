@@ -470,6 +470,29 @@ export async function createOrder(input: CreateOrderInput) {
        его владелец. Название услуги переводится тем же правилом, что на
        экране: заводское на язык, своё владельца насквозь. */
     const locale = input.locale ?? DEFAULT_LOCALE;
+
+    /* Кто мыл машину — в той же строке, что услуга и сумма.
+     *
+     * Без имени уведомление отвечало только на «что записали», и на мойке
+     * с двумя работниками владелец не мог сказать, чья это машина, не
+     * открыв приложение. А смысл уведомления в том, чтобы не открывать.
+     *
+     * Имена, а не автор записи: мыли втроём — начислено троим, и в
+     * уведомлении должны стоять те же трое, что в зарплатном листе.
+     * Одиночная запись даёт одно имя, и это тот, кто её сделал. */
+    const washed = (made.crew ?? [])
+      .map((person) => person.name)
+      .filter(Boolean)
+      .join(', ');
+
+    const what = discountLine(
+      serviceNameTerm(made.order.serviceName, locale),
+      made.order.price,
+      made.order.listPrice,
+      locale,
+      input.currency,
+    );
+
     notifyOwnersInBackground(
       input.tenantId,
       made.order.staffId,
@@ -477,13 +500,7 @@ export async function createOrder(input: CreateOrderInput) {
         title: made.client?.key ?? serviceNameTerm(made.order.serviceName, locale),
         // скидку показываем сразу: она всплывает в тот же вечер, а не
         // через месяц при сверке
-        body: discountLine(
-          serviceNameTerm(made.order.serviceName, locale),
-          made.order.price,
-          made.order.listPrice,
-          locale,
-          input.currency,
-        ),
+        body: washed ? `${what} · ${washed}` : what,
         thread: 'orders',
       },
       'orders',

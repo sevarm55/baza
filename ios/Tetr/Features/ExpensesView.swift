@@ -23,9 +23,8 @@ struct ExpensesView: View {
     @State private var items: [API.Expense] = []
     @State private var hints: [String] = []
     @State private var costs: API.Costs?
-    /// Выручка и средний расход в день — того же периода, с сервера.
+    /// Выручка периода — с сервера, для доли расходов в ней.
     @State private var revenue = 0
-    @State private var perDayAvg = 0
     @State private var adding = false
     @State private var editing: API.Expense?
     @State private var confirmingRemoval: API.Expense?
@@ -37,15 +36,16 @@ struct ExpensesView: View {
      * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
      * человек читал «Դեռ ծախսեր չկան» о месяце, в котором расходы есть.
      * Дальше он заводил их второй раз.
-     *
-     * Причина отдельной строкой и только когда она известна точнее, чем
-     * «не вышло»: пропавшая связь — это совет, который можно выполнить,
-     * а код ответа сервера владельцу мойки не говорит ничего.
      */
     @State private var failed = false
     @State private var failNote: String?
     /// Какой месяц смотрим. Считает сервер — здесь только выбор.
     @State private var month: Month = .current
+
+    /// Такт прихода: показание, постоянные и разовые собираются по очереди.
+    @State private var beat: Beat = .waiting
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Month: String, CaseIterable {
         case current, prev
@@ -57,120 +57,85 @@ struct ExpensesView: View {
     private var monthlyOnes: [API.Expense] { items.filter(\.monthly) }
     private var oneOffs: [API.Expense] { items.filter { !$0.monthly } }
 
-
     var body: some View {
-        /* Список, а не прокрутка со стопкой плиток: смахивание по строке
-           существует только в `List`.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                PillTabs(items: Month.allCases.map { ($0, $0.label) }, selection: monthBinding)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
 
-           Тем же приёмом свайп когда-то был сделан в прайсе, и он был
-           верным. Своя реализация на `DragGesture` повторяет повадки
-           системного списка приблизительно — сопротивление, порог,
-           реакцию на бросок приходится подбирать на глаз, и палец
-           замечает расхождение раньше, чем глаз. Система эти повадки
-           уже знает.
-
-           Плитки при этом остаются как были: подложка строки прозрачная,
-           разделители сняты, поля свои. От `List` берётся жест, а не
-           внешний вид. */
-        List {
-            /* Шапка есть, только когда есть чем её заполнить: итог и его
-               части считает сервер, и без них показывать здесь нечего —
-               ноль на месте расходов читается как «ничего не тратил». */
-            if loaded && costs != nil && !items.isEmpty {
-                reading
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 8, leading: 16, bottom: 5, trailing: 16))
-            }
-
-            if !monthlyOnes.isEmpty {
-                heading(L("expenses.monthlyOnes"), "\(monthlyOnes.count)")
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 5, leading: 16, bottom: 0, trailing: 16))
-
-                ForEach(monthlyOnes) { item in
-                    if month == .current {
-                        card(item)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
-                            .swipeActions(edge: .trailing) { erase(item) }
-                    } else {
-                        card(item)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
-                    }
+                /* Показание есть, только когда есть чем его заполнить:
+                   итог и его части считает сервер, и без них показывать
+                   здесь нечего — ноль на месте расходов читается как
+                   «ничего не тратил». */
+                if loaded, costs != nil, !items.isEmpty {
+                    reading
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .reveal(beat, step: 0)
                 }
-            }
 
-            if !oneOffs.isEmpty {
-                heading(L("expenses.oneOffs"), "\(oneOffs.count)")
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 5, leading: 16, bottom: 0, trailing: 16))
-
-                /* Разделителей нет: у каждой строки своя подложка, и линия
-                   между двумя подложками — вторая граница там, где
-                   хватает одной. */
-                ForEach(oneOffs) { item in
-                    if month == .current {
-                        row(item)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 3, leading: 16, bottom: 3, trailing: 16))
-                            .swipeActions(edge: .trailing) { erase(item) }
-                    } else {
-                        row(item)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(.init(top: 3, leading: 16, bottom: 3, trailing: 16))
-                    }
+                if !monthlyOnes.isEmpty {
+                    heading(L("expenses.monthlyOnes"), monthlyOnes.count, spentMonthly)
+                        .padding(.top, 26)
+                    monthlyGrid
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .reveal(beat, step: 1)
                 }
-            }
 
-            if !loaded {
-                /* Места строк, а не пустой экран. Порог в две десятых
-                   секунды: быстрый ответ не должен успевать мигнуть
-                   скелетом. */
-                Delayed(active: true) {
-                    TetrScreenLoader(height: 300)
+                if !oneOffs.isEmpty {
+                    heading(L("expenses.oneOffs"), oneOffs.count, spentOneOff)
+                        .padding(.top, 26)
+                    oneOffList
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .reveal(beat, step: 2)
                 }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-            } else if failed, items.isEmpty {
-                TetrFailure(
-                    title: L("common.loadFailed"),
-                    note: failNote,
-                    retry: { await reload() }
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 0, leading: 16, bottom: 0, trailing: 16))
-            } else if items.isEmpty {
-                emptyState
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: 0, leading: 16, bottom: 0, trailing: 16))
-            }
 
-            // те же слова, что в кабинете (`hy.expenses.note`): одно и то
-            // же правило, объяснённое двумя разными фразами, читается как
-            // два разных правила
-            Text(L("expenses.note"))
-                .font(.system(size: 12))
-                .foregroundStyle(Brand.boardMuted)
-                .fixedSize(horizontal: false, vertical: true)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 6, leading: 18, bottom: month == .current ? 92 : 28, trailing: 18))
+                if !loaded {
+                    /* Места строк, а не пустой экран. Порог в две десятых
+                       секунды: быстрый ответ не должен успевать мигнуть
+                       скелетом. */
+                    Delayed(active: true) { TetrScreenLoader(height: 300) }
+                        .padding(.horizontal, 16)
+                } else if failed, items.isEmpty {
+                    TetrFailure(
+                        title: L("common.loadFailed"),
+                        note: failNote,
+                        retry: { await reload() }
+                    )
+                    .padding(.horizontal, 16)
+                } else if items.isEmpty {
+                    empty
+                        .padding(.horizontal, 16)
+                        .padding(.top, 18)
+                }
+
+                // те же слова, что в кабинете (`hy.expenses.note`): одно и
+                // то же правило, объяснённое двумя разными фразами,
+                // читается как два разных правила
+                Text(L("expenses.note"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 22)
+            }
+            .padding(.bottom, 28)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
+            /* Обновление вешается на саму прокрутку, а не в конец
+               цепочки. Снаружи оно попадает в окружение всего, что ниже,
+               включая листы: форма найма наследовала «потянуть, чтобы
+               обновить», отвечала на движение вниз загрузчиком и не
+               давала закрыть себя смахиванием. */
+            .refreshable { await reload() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("expenses.title"))
+        .navigationSubtitle(loaded && costs != nil ? money(spentTotal, currency) : "")
+        .toolbarTitleDisplayMode(.inlineLarge)
         .safeAreaInset(edge: .bottom) {
             if month == .current { addButton } else { readOnlyNote }
         }
@@ -206,16 +171,28 @@ struct ExpensesView: View {
             }
         }
         .task { await reload() }
-        .refreshable { await reload() }
     }
 
+    /// Выбор месяца через полки: смена сразу тянет данные с сервера.
+    private var monthBinding: Binding<Month> {
+        Binding(
+            get: { month },
+            set: { fresh in
+                guard fresh != month else { return }
+                month = fresh
+                Task { await reload() }
+            }
+        )
+    }
+
+    // ══════════════════════════ показание ══════════════════════════
+
     /**
-     * Сколько ушло за тот период, который показан ниже.
+     * Сколько ушло за выбранный месяц — кобальтовой картой.
      *
-     * Стояло «Ամսական ծախս 345 000 ֏», а под ним лежали ещё и разовые на
-     * 42 000. Число в шапке отвечало не на тот вопрос, с которым сюда
-     * заходят: человек читает верхнюю цифру как «столько я потратил» и
-     * недосчитывается сорока двух тысяч.
+     * Кобальт здесь не украшение: этим цветом расходы обозначены на
+     * сводке, в разрезе прибыли и в полосе долей. Показание в нём же
+     * говорит, о каких деньгах речь, раньше, чем прочитано слово.
      *
      * Период — календарный месяц, а не скользящие тридцать дней: так
      * считает сервер, так же считает кабинет, и так владелец платит
@@ -223,66 +200,34 @@ struct ExpensesView: View {
      *
      * Под итогом — доля в выручке и из чего итог сложился. Сумма сама по
      * себе не плохая и не хорошая: сто тысяч при выручке в миллион это
-     * обычный месяц, а при выручке в двести — беда. Оба числа приходят с
-     * сервера: считать их второй раз на телефоне значило бы завести
-     * второй источник правды для денег.
+     * обычный месяц, а при выручке в двести — беда.
      */
     private var reading: some View {
         let parts = [
-            Split(
-                id: "monthly",
-                label: L("expenses.monthlyOnes"),
-                ink: Brand.sandInk,
-                amount: spentMonthly
-            ),
-            Split(
-                id: "oneOff",
-                label: L("expenses.oneOffs"),
-                ink: Brand.grape,
-                amount: spentOneOff
-            ),
+            Split(id: "monthly", label: L("expenses.monthlyOnes"), ink: Brand.sandInk, amount: spentMonthly),
+            Split(id: "oneOff", label: L("expenses.oneOffs"), ink: Brand.grapeFill, amount: spentOneOff),
         ].filter { $0.amount > 0 }
 
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                HStack(spacing: 5) {
-                    ForEach(Month.allCases, id: \.self) { option in
-                        Button {
-                            month = option
-                            Task { await reload() }
-                        } label: {
-                            Text(option.label)
-                                .font(.system(size: 13, weight: month == option ? .semibold : .regular))
-                                .foregroundStyle(month == option ? Brand.board : Brand.boardMuted)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(
-                                    month == option ? Brand.onBoard : Brand.boardInk.opacity(0.055),
-                                    in: .rect(cornerRadius: 8, style: .continuous)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
+            HStack(alignment: .top) {
+                Text(L("expenses.title"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.sandInk.opacity(0.75))
+                Spacer(minLength: 8)
                 if let share = revenueShare {
                     Text(L("expenses.shareOfRevenue", share))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(Brand.sandInk)
                         .lineLimit(1)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Brand.paper.opacity(0.75), in: .capsule)
                 }
             }
 
-            Text(L("expenses.title"))
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Brand.boardMuted)
-                .padding(.top, 22)
-
             Text(money(spentTotal, currency))
-                .font(.system(size: 43, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Brand.sandInk)
                 .lineLimit(1)
@@ -290,42 +235,27 @@ struct ExpensesView: View {
                 .contentTransition(.numericText(value: Double(spentTotal)))
                 .padding(.top, 2)
 
+            /* Ни среднего за день, ни подписей под полосой.
+               «В день 5 000» здесь значило средний расход за прошедшие
+               дни, а на плитке аренды «в день 10 000» — долю самой
+               аренды: два разных смысла одними словами в двадцати
+               сантиметрах друг от друга. Подписи под полосой повторяли
+               заголовки разделов ниже, слово в слово и сумма в сумму.
+               Полоса осталась: она показывает долю картинкой, не
+               прибавляя к экрану ни одного числа. */
             if !parts.isEmpty {
-                SplitBar(parts: parts, height: 11)
+                SplitBar(parts: parts, height: 9)
                     .padding(.top, 18)
-                SplitLegend(parts: parts, currency: currency)
-                    .padding(.top, 7)
-            }
-
-            if perDayAvg > 0 {
-                Text(L("expenses.perDay", money(perDayAvg, currency)))
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .padding(.top, 10)
             }
         }
-        .padding(19)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Brand.boardSurface)
-                Circle()
-                    .fill(Brand.sandInk.opacity(0.09))
-                    .frame(width: 150, height: 150)
-                    .offset(x: 58, y: -78)
-            }
-            .clipShape(.rect(cornerRadius: 28, style: .continuous))
-        }
+        .background(Brand.sandCard, in: .rect(cornerRadius: 28, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.075), lineWidth: 0.8)
+                .strokeBorder(Brand.sandInk.opacity(0.18), lineWidth: 1)
         }
-        /* Тени нет намеренно. Она была цветом `boardInk`, который в
-           тёмной теме почти белый, — и под карточкой светилось белое
-           пятно. Грани для отделения от полотна достаточно, как у всех
-           карточек продукта. */
+        .shadow(color: Brand.sandInk.opacity(0.18), radius: 16, y: 8)
     }
 
     /**
@@ -334,8 +264,7 @@ struct ExpensesView: View {
      * Здесь стоял запасной счёт на случай старого сервера: сложить суммы
      * постоянных расходов из списка. Он давал НОМИНАЛ вместо доли —
      * триста тысяч аренды десятого августа вместо девяноста семи, — то
-     * есть не «примерно», а втрое мимо, и молча. Лучше не показать
-     * ничего, чем показать неправду: без `costs` шапки просто нет.
+     * есть не «примерно», а втрое мимо, и молча.
      */
     private var spentMonthly: Int { costs?.monthlyShare ?? 0 }
     private var spentOneOff: Int { costs?.oneOff ?? 0 }
@@ -350,154 +279,260 @@ struct ExpensesView: View {
         return exact < 1 ? "<1" : String(Int(exact.rounded()))
     }
 
-    private func heading(_ title: String, _ count: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
-            Spacer()
-            Text(count)
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-        }
-        .padding(.horizontal, 6)
-        .padding(.top, 14)
-        .padding(.bottom, 2)
-    }
-
     /**
-     * Постоянный расход — такой же строкой, как разовый.
+     * Заголовок раздела с его суммой.
      *
-     * Была плитка с тоном и свечением, и она весила на экране втрое
-     * больше строки. Основание было такое: постоянный тянет деньги
-     * каждый день. Но это не разные вещи, а одна — деньги, ушедшие из
-     * кассы, — и разный носитель говорил, что аренда важнее химии,
-     * которой за месяц набирается на столько же.
-     *
-     * Разницу несёт значок, а не размер: «ամսական» рядом с названием
-     * сказано словом, и это ровно та подробность, которой оно и
-     * является.
+     * Сумма стоит здесь, а не в подписи под полосой наверху: там она
+     * была вторым экземпляром тех же слов и того же числа. Раздел сам
+     * называет, во что он обошёлся, — и это единственное место, где это
+     * число написано.
      */
-    @ViewBuilder
-    private func card(_ item: API.Expense) -> some View {
-        if month == .current && item.endedAt == nil {
-            Button {
-                editing = item
-            } label: {
-                line(title: item.category, badge: L("expenses.perMonth"), note: monthlyNote(item), amount: item.amount)
+    private func heading(_ title: String, _ count: Int, _ amount: Int) -> some View {
+        HStack(spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .black, design: .rounded))
+                .tracking(1.3)
+                .foregroundStyle(Brand.muted)
+            Text("\(count)")
+                .font(.system(size: 11, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.muted.opacity(0.7))
+            Spacer(minLength: 8)
+            Text(money(amount, currency))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 22)
+    }
+
+    // ══════════════════════════ постоянные ══════════════════════════
+
+    /**
+     * Постоянные расходы — плитками, и крупным числом стоит НЕ номинал.
+     *
+     * Аренда в триста тысяч десятого числа обошлась в сто, и раньше
+     * список показывал справа именно триста: владелец читал верхнее
+     * число как «столько я потратил» и недосчитывался двухсот. Теперь
+     * крупно то, во что расход обошёлся за этот месяц, а договорная сумма
+     * стоит под ним подписью — там, где ей и место.
+     */
+    private var monthlyGrid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
+            ForEach(monthlyOnes) { item in
+                monthlyTile(item)
             }
-            .buttonStyle(.press)
-            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private func monthlyTile(_ item: API.Expense) -> some View {
+        let editable = month == .current && item.endedAt == nil
+        let tile = VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Image(systemName: symbol(for: item.category))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.sandInk)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.paper.opacity(0.8), in: .circle)
+                Spacer(minLength: 0)
+            }
+
+            Text(item.category)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .padding(.top, 10)
+
+            Spacer(minLength: 8)
+
+            /* Крупно — доля этого месяца; когда сервер её не прислал,
+               ставим номинал, но тогда и подписи под ним нет: две
+               одинаковые суммы подряд читаются как ошибка. */
+            Text(money(item.share ?? item.amount, currency))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+
+            Text(monthlyNote(item))
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(Brand.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.top, 1)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 138, alignment: .topLeading)
+        .background(Brand.sandCard.opacity(item.endedAt == nil ? 1 : 0.5), in: .rect(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Brand.sandInk.opacity(0.16), lineWidth: 1)
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+
+        if editable {
+            Button { editing = item } label: { tile }
+                .buttonStyle(.press)
+                .contextMenu { eraseButton(item) }
         } else {
-            line(title: item.category, badge: L("expenses.perMonth"), note: monthlyNote(item), amount: item.amount)
+            tile
         }
     }
 
     /**
-     * Что стоит под названием постоянного расхода.
+     * Что стоит под суммой постоянного расхода.
      *
-     * Справа — номинал, то, о чём договорились с арендодателем. Здесь —
-     * сколько из него уже набежало за этот месяц и сколько это в сутки.
-     * Одного номинала мало десятого числа, одной доли мало всегда.
-     *
-     * Оба числа приходят с сервера. Раньше дневная доля делилась прямо
-     * здесь, на длину ТЕКУЩЕГО месяца, — и в прошлом месяце тридцать
-     * один день делился на тридцать: цифра в приложении не сходилась с
-     * кабинетом ровно там, где её и проверяют.
+     * Договорная сумма, и только она: крупное число уже сказало, во
+     * что расход обошёлся за месяц, а третьим числом на плитке стояла
+     * дневная доля — её читают раз в жизни, и она же путалась со
+     * средним расходом за день в шапке. Дневная доля осталась в карточке
+     * правки, где о ней и спрашивают.
      */
     private func monthlyNote(_ item: API.Expense) -> String {
         if let ended = item.endedAt { return L("expenses.stoppedOn", day(ended)) }
-
-        var parts: [String] = []
-        if let share = item.share { parts.append(L("expenses.accruedSum", money(share, currency))) }
-        if let perDay = item.perDay, perDay > 0 { parts.append(L("expenses.perDay", money(perDay, currency))) }
-        return parts.joined(separator: " · ")
+        guard item.share != nil else { return L("expenses.perMonth") }
+        return "\(money(item.amount, currency)) \(L("expenses.perMonth"))"
     }
 
-    /// Общая строка расхода. Одна на оба вида — в этом весь смысл.
-    private func line(title: String, badge: String?, note: String?, amount: Int) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol(for: title))
+    // ══════════════════════════ разовые ══════════════════════════
+
+    /**
+     * Разовые — строками в одной бумаге.
+     *
+     * Плиткой им быть незачем: разовый расход уже случился и больше
+     * ничего не тянет, читают их пачкой и по дням. Знак слева не
+     * украшение — за месяц набирается два десятка одинаковых «Химия» и
+     * «Вода», и по значку список листается глазами, без чтения.
+     */
+    private var oneOffList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(oneOffs.enumerated()), id: \.element.id) { index, item in
+                oneOffRow(item)
+                if index < oneOffs.count - 1 { Hairline(inset: 60) }
+            }
+        }
+        .paperCard(22)
+    }
+
+    @ViewBuilder
+    private func oneOffRow(_ item: API.Expense) -> some View {
+        let face = HStack(spacing: 12) {
+            Image(systemName: symbol(for: item.category))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Brand.sandInk)
-                .frame(width: 38, height: 38)
-                .background(Brand.sandCard, in: .rect(cornerRadius: 14, style: .continuous))
+                .frame(width: 36, height: 36)
+                .background(Brand.sandCard, in: .rect(cornerRadius: 12, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-
-                    if let badge {
-                        Text(badge)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Brand.boardMuted)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Brand.boardInk.opacity(0.09), in: .rect(cornerRadius: 6, style: .continuous))
-                    }
-                }
-
-                if let note {
-                    Text(note)
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.category)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                Text(day(item.at))
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.muted)
             }
 
             Spacer(minLength: 8)
 
-            Text(money(amount, currency))
-                .font(.system(size: 15, weight: .semibold))
+            Text(money(item.amount, currency))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 13)
+        .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.065), lineWidth: 0.8)
-        }
         .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+
+        if month == .current {
+            Button { editing = item } label: { face }
+                .buttonStyle(.press)
+                .contextMenu { eraseButton(item) }
+        } else {
+            face
+        }
     }
 
-    /// Разовый — строкой: он уже случился и больше ничего не тянет.
     /**
-     * Разовый расход.
+     * Убрать расход.
      *
-     * Была голая строка: дата колонкой, название, сумма — три текста в
-     * ряд, разделённые волосяной линией. На тёмном полотне такой список
-     * читается таблицей выгрузки, а не тем же продуктом, что плитки над
-     * ним, и разовые расходы выглядели придатком к постоянным.
-     *
-     * Теперь у каждого своя подложка со скруглением — та же форма, что у
-     * плиток, только тише по цвету: разовый расход не событие месяца, ему
-     * не нужен тон и свечение.
-     *
-     * Знак слева не украшение. Постоянных расходов два-три, их узнают по
-     * названию; разовых за месяц набирается два десятка одинаковых
-     * «Քիմիա» и «Ջուր», и по значку список листается глазами, без чтения.
+     * Долгим нажатием, а не смахиванием: смахивание живёт только в
+     * системном списке, а этот экран собран плитками и бумагой. Само
+     * удаление осталось прежним — с подтверждением, потому что
+     * постоянный расход влияет на прибыль каждого следующего дня.
      */
     @ViewBuilder
-    private func row(_ item: API.Expense) -> some View {
-        if month == .current {
-            Button {
-                editing = item
-            } label: {
-                line(title: item.category, badge: nil, note: day(item.at), amount: item.amount)
-            }
-            .buttonStyle(.press)
-            .accessibilityElement(children: .combine)
-        } else {
-            line(title: item.category, badge: nil, note: day(item.at), amount: item.amount)
+    private func eraseButton(_ item: API.Expense) -> some View {
+        Button(role: .destructive) {
+            confirmingRemoval = item
+        } label: {
+            Label(L("common.delete"), systemImage: "trash")
         }
+    }
+
+    // ══════════════════════════ пусто и кнопки ══════════════════════════
+
+    /** Пустой месяц — законченный экран, а не одинокая подпись списка. */
+    private var empty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "tray.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Brand.sandInk)
+                .frame(width: 52, height: 52)
+                .background(Brand.sandCard, in: .circle)
+            Spacer(minLength: 10)
+            Text(L("expenses.empty"))
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L("expenses.emptyNote"))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .paperCard(26)
+    }
+
+    /// Прошлый месяц закрыт для правок — и говорит об этом сам. Раньше
+    /// список просто молча не отвечал на касания и выглядел сломанным.
+    private var readOnlyNote: some View {
+        Text(L("expenses.closedMonth"))
+            .font(.system(size: 13))
+            .foregroundStyle(Brand.muted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+    }
+
+    private var addButton: some View {
+        Button {
+            adding = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .black))
+                Text(L("expenses.addExpense"))
+            }
+        }
+        .buttonStyle(LimeButton())
+        .shadow(color: Brand.lime.opacity(0.45), radius: 16, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
     }
 
     /// Значок по названию. Совпадение по подсказкам из `EXPENSE_HINTS` —
@@ -520,95 +555,8 @@ struct ExpensesView: View {
         return "tray.fill"
     }
 
-    /// Прошлый месяц закрыт для правок — и говорит об этом сам. Раньше
-    /// список просто молча не отвечал на касания и выглядел сломанным.
-    private var readOnlyNote: some View {
-        Text(L("expenses.closedMonth"))
-            .font(.system(size: 13))
-            .foregroundStyle(Brand.boardMuted)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-            .background(Brand.board.ignoresSafeArea(edges: .bottom))
-    }
-
-    /// Добавление — строкой в самом списке, а не плюсиком в панели: плюсик
-    /// в углу ищут глазами, строка стоит там, куда смотрит человек.
-    private var addButton: some View {
-        Button {
-            adding = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .black))
-                Text(L("expenses.addExpense"))
-            }
-        }
-        .buttonStyle(LimeButton())
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .background(Brand.board.ignoresSafeArea(edges: .bottom))
-    }
-
-    /** Пустой месяц — законченный экран, а не одинокая подпись списка. */
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Brand.boardSurface)
-                    .frame(height: 150)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                    }
-
-                HStack(alignment: .bottom, spacing: 8) {
-                    ForEach([0.34, 0.58, 0.82, 0.46], id: \.self) { value in
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(Brand.sandInk.opacity(0.16 + value * 0.36))
-                            .frame(width: 19, height: 24 + 62 * value)
-                    }
-                }
-                .padding(.leading, 22)
-                .padding(.bottom, 20)
-
-                Image(systemName: "arrow.down.right")
-                    .font(.system(size: 25, weight: .semibold))
-                    .foregroundStyle(Brand.sandInk)
-                    .frame(width: 58, height: 58)
-                    .background(Brand.sandCard, in: .rect(cornerRadius: 18, style: .continuous))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 20)
-                    .padding(.trailing, 20)
-            }
-            .accessibilityHidden(true)
-
-            Text(L("expenses.empty"))
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .tracking(-0.3)
-                .foregroundStyle(Brand.onBoard)
-                .padding(.top, 18)
-
-            Text(L("expenses.note"))
-                .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 7)
-        }
-        .padding(.horizontal, 4)
-        .padding(.top, 12)
-        .padding(.bottom, 18)
-    }
-
     /**
-     * Когда потратили.
-     *
-     * Ближние два дня называются словом, а не числом: «сколько я потратил
-     * вчера» — вопрос, который задают вслух, и дата в нём не звучит. Те
-     * же два слова стоят в кабинете, над группами разовых расходов.
+     * «Сегодня», «вчера» или число.
      *
      * Сравнение идёт по календарю бизнеса, а не по разнице в секундах:
      * запись, сделанная в половине первого ночи, вчерашней не была.
@@ -641,25 +589,10 @@ struct ExpensesView: View {
      * сегодняшнего дня. Уже прожитые дни остаются в истории: удаление
      * аренды не должно задним числом увеличивать прибыль прошлых дней.
      */
-    /**
-     * Кнопка, которая появляется из-под строки.
-     *
-     * Свайп и красная кнопка показывают намерение, но постоянный расход
-     * влияет на прибыль каждого следующего дня. Поэтому после жеста есть
-     * системное destructive-подтверждение с прямым описанием результата.
-     */
-    @ViewBuilder
-    private func erase(_ item: API.Expense) -> some View {
-        Button(role: .destructive) {
-            confirmingRemoval = item
-        } label: {
-            Label(L("common.delete"), systemImage: "trash")
-        }
-        .tint(.red)
-    }
-
     private func remove(_ item: API.Expense) async {
-        items.removeAll { $0.id == item.id }
+        withAnimation(.snappy(duration: Motion.normal)) {
+            items.removeAll { $0.id == item.id }
+        }
         let ok: Bool = (try? await session.authed { token in
             _ = try await APIClient.shared.raw("expenses/\(item.id)", method: "DELETE", token: token)
             return true
@@ -672,11 +605,12 @@ struct ExpensesView: View {
             let result = try await session.authed { token in
                 try await APIClient.shared.send("expenses?month=\(month.rawValue)", token: token, as: API.Expenses.self)
             }
-            items = result.expenses
+            withAnimation(.snappy(duration: Motion.normal)) {
+                items = result.expenses
+                costs = result.costs
+            }
             hints = result.hints
-            costs = result.costs
             revenue = result.revenue ?? 0
-            perDayAvg = result.perDayAvg ?? 0
             failed = false
             failNote = nil
         } catch is CancellationError {
@@ -691,6 +625,17 @@ struct ExpensesView: View {
             failNote = nil
         }
         loaded = true
+        arrive()
+    }
+
+    /// Показание, постоянные и разовые приходят по очереди.
+    private func arrive() {
+        guard beat == .waiting else { return }
+        if reduceMotion {
+            beat = .here
+        } else {
+            withAnimation { beat = .here }
+        }
     }
 }
 
@@ -725,6 +670,7 @@ struct ExpenseEditor: View {
     @State private var busy = false
     @State private var error: String?
     @FocusState private var typingAmount: Bool
+    @FocusState private var typingCategory: Bool
 
     /// Календарь бизнеса: и выбор дня, и его отправка идут по нему, иначе
     /// у владельца в поездке выбранное «15 августа» уехало бы в 14-е.
@@ -813,6 +759,14 @@ struct ExpenseEditor: View {
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
+        /* Короткая форма не тянется и не пружинит.
+           Прокрутка внутри листа перехватывала жест вниз: экран отвечал
+           оттягиванием, как будто это обновление списка, а лист при этом
+           не закрывался — поймать его удавалось только за полоску
+           сверху. С `basedOnSize` содержимое, которое помещается,
+           прокруткой не считается, и движение вниз достаётся листу: он
+           закрывается смахиванием откуда угодно. */
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
@@ -863,11 +817,18 @@ struct ExpenseEditor: View {
 
             Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
 
-            FieldBox(L("expenses.category")) {
-                TextField(L("expenses.categoryPlaceholder"), text: $category)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-            }
+            /* Поле называет себя само: заголовок «На что» стоял над
+               коробкой, а внутри лежал пример «аренда, вода, химия» —
+               два вопроса об одном. Готовые ответы и так стоят фишками
+               строкой ниже. */
+            TextField(L("expenses.category"), text: $category)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Brand.onBoard)
+                .focused($typingCategory)
+                .padding(.horizontal, 16)
+                .frame(height: 58)
+                .contentShape(.rect)
+                .onTapGesture { typingCategory = true }
         }
         .boardCard()
     }

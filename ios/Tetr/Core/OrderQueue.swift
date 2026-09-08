@@ -92,9 +92,22 @@ final class OrderQueue: ObservableObject {
         load()
     }
 
-    func add(_ item: Item) {
+    /// Положить запись в очередь.
+    ///
+    /// Бросает, если файл не записался. Раньше отказ диска глотался
+    /// молча: экран говорил «готово», запись жила в памяти до первого
+    /// перезапуска и исчезала вместе с ним. Для продукта, который
+    /// обещает «не потеряется», это хуже честной ошибки. Несохранённая
+    /// запись убирается и из памяти: иначе смена показала бы её как
+    /// ждущую отправки, и человек ушёл бы домой спокойным.
+    func add(_ item: Item) throws {
         items.append(item)
-        save()
+        do {
+            try save()
+        } catch {
+            items.removeAll { $0.ref == item.ref }
+            throw error
+        }
     }
 
     /// Отправить всё, что накопилось.
@@ -197,12 +210,17 @@ final class OrderQueue: ObservableObject {
     private func mark(_ ref: String, failure: String?) {
         guard let i = items.firstIndex(where: { $0.ref == ref }) else { return }
         items[i].failure = failure
-        save()
+        /* Пометка не записалась — после перезапуска запись попробует уйти
+           ещё раз и получит тот же отказ. Это лишний запрос, а не потеря. */
+        try? save()
     }
 
     private func remove(_ ref: String) {
         items.removeAll { $0.ref == ref }
-        save()
+        /* Файл не обновился — запись останется на диске и после перезапуска
+           уйдёт второй раз. Сервер узнает её по `ref` и ответит 200:
+           дубля не будет, см. шапку файла. */
+        try? save()
     }
 
     private func load() {
@@ -212,9 +230,9 @@ final class OrderQueue: ObservableObject {
         items = (try? decoder.decode([Item].self, from: data)) ?? []
     }
 
-    private func save() {
+    private func save() throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        try? encoder.encode(items).write(to: file, options: .atomic)
+        try encoder.encode(items).write(to: file, options: .atomic)
     }
 }

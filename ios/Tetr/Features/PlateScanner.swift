@@ -198,11 +198,22 @@ struct PlateCameraPanel: View {
     private let hold: Double = 1.2
 
     var body: some View {
-        VStack(spacing: 0) {
+        /* Кадр во весь лист, кнопки лежат поверх него внизу — как в
+           системной камере, а не в чёрной полосе под кадром. Скругление
+           даёт сам лист, в котором панель показана. */
+        ZStack(alignment: .bottom) {
             viewfinder
             controls
+                .background {
+                    LinearGradient(
+                        colors: [.black.opacity(0), .black.opacity(0.55)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                }
         }
-        .background(Color.black, in: .rect(cornerRadius: 28, style: .continuous))
+        .background(Color.black)
         /* Отсчёт привязан к самому номеру, а не к таймеру: сменился
            кандидат — задача снимается и заводится заново, пропал — не
            остаётся висеть. Обратный отсчёт, переживший уход номера из
@@ -237,9 +248,10 @@ struct PlateCameraPanel: View {
             // номер. Она не обрезает распознавание — она говорит, куда
             // целиться, и этого достаточно.
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.white.opacity(candidate == nil ? 0.5 : 0), lineWidth: 1.5)
-                .frame(height: 84)
-                .padding(.horizontal, 34)
+                .strokeBorder(.white.opacity(candidate == nil ? 0.6 : 0), lineWidth: 2)
+                .frame(height: 96)
+                .padding(.horizontal, 36)
+                .padding(.bottom, 70)
                 .animation(.easeOut(duration: Motion.normal), value: candidate == nil)
 
             if let candidate {
@@ -254,7 +266,7 @@ struct PlateCameraPanel: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(.rect(cornerRadius: 28, style: .continuous))
+        .ignoresSafeArea()
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: candidate)
     }
 
@@ -269,8 +281,9 @@ struct PlateCameraPanel: View {
                 onClose()
             }
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 28)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
     }
 
     /**
@@ -307,8 +320,9 @@ struct PlateCameraPanel: View {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(.white.opacity(0.16), in: .circle)
+                .frame(width: 48, height: 48)
+                .background(.white.opacity(0.18), in: .circle)
+                .overlay { Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.8) }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

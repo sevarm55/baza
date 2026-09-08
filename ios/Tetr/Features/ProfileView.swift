@@ -44,12 +44,6 @@ struct ProfileView: View {
     /// подряд выходили без единого слова, и человек не знал, ждать ли файл.
     @State private var exportFailed = false
 
-    /// Фото раскрыто во всю ширину.
-    @State private var photoOpen = false
-
-    /// Насколько проявлена полоса под часами: 0 — фото ещё стоит вверху,
-    /// 1 — оно ушло, и под статусом лежит полотно.
-    @State private var cover: Double = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
@@ -62,70 +56,48 @@ struct ProfileView: View {
     private let brow: CGFloat = 114
 
     var body: some View {
-        GeometryReader { geo in
-            ScrollView {
-                VStack(spacing: 0) {
-                    header(width: geo.size.width, safeTop: geo.safeAreaInsets.top)
+        ScrollView {
+            VStack(spacing: gap) {
+                identityCard
 
-                    VStack(spacing: gap) {
-                        if let access = session.access { accessTile(access) }
-                        identitySettings
-                        if changed || saved { saveRow }
-                        if saveFailed {
-                            Text(L("common.failed"))
-                                .font(.system(size: 13))
-                                .foregroundStyle(Brand.warnOnBoard)
-                                .padding(.horizontal, 6)
-                        }
-                        switches
-                        actions
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 28)
-                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
-                    .animation(.easeOut(duration: Motion.normal), value: saved)
+                if let access = session.access { accessTile(access) }
+
+                identitySettings
+
+                if saveFailed {
+                    Text(L("common.failed"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.warnOnBoard)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 6)
                 }
+
+                switches
+                actions
             }
-            /* Шапка больше не меняет высоту ScrollView. Порог жеста меняет
-               только форму кадра внутри фиксированного места. Так быстрый разворот
-               жеста не запускает цикл «новая высота → новый offset → новая высота». */
-            .onScrollGeometryChange(for: CGFloat.self) {
-                $0.contentOffset.y + $0.contentInsets.top
-            } action: { _, y in
-                if !photoOpen, -y > 74 {
-                    setPhoto(true)
-                } else if photoOpen, y > 38 {
-                    setPhoto(false)
-                }
-                /* Полосу трогаем только на её же отрезке: наблюдатель
-                   срабатывает на каждом кадре прокрутки, и записывать
-                   состояние всю дорогу значит пересобирать экран впустую. */
-                let next = min(1, max(0, (y - (brow - 24)) / 24))
-                if abs(next - cover) > 0.01 { cover = next }
-            }
-            /* Фото уходит под часы, как в мессенджерах: иначе раскрытие
-               упирается в полосу статуса и читается как картинка в рамке,
-               а не как верх экрана. */
-            .ignoresSafeArea(edges: .top)
-            .overlay(alignment: .top) { statusBar(safeTop: geo.safeAreaInsets.top) }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 28)
+            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: changed)
+            .animation(.easeOut(duration: Motion.normal), value: saved)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
-        /* Назад — глазами, а не только краевым свайпом. Панель навигации
-           здесь скрыта ради фото во всю ширину, и профиль был
-           единственным экраном без видимого выхода. Стекло — чтобы кнопка
-           читалась и на фотографии, и на полотне. */
-        .overlay(alignment: .topLeading) {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 44)
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("more.profileLead"))
+        .navigationSubtitle(session.tenant?.name ?? "")
+        .toolbarTitleDisplayMode(.inlineLarge)
+        /* Сохранение прижато ко дну, а не строкой посреди списка.
+           Кнопка появлялась между полями и переключателями и уезжала за
+           край, как только человек долистывал до устройств: правку имени
+           было видно, а чем её закончить — нет. */
+        .safeAreaInset(edge: .bottom) {
+            if changed || saving {
+                saveRow
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel(L("common.back"))
-            .padding(.leading, 10)
         }
         .sheet(isPresented: $changingPassword) { PasswordChangeView() }
         .sheet(isPresented: $deleting) { DeleteBusinessView() }
@@ -138,133 +110,63 @@ struct ProfileView: View {
         }
     }
 
-    /**
-     * Полотно за часами.
-     *
-     * Фото уходит под статус намеренно: на тёмном шёлке время читается, и
-     * верх экрана не выглядит картинкой в рамке. Но следом за фото под часы
-     * едут белые карточки, и слово «Бизнес» вставало ровно за цифрами.
-     *
-     * Поэтому полоса не висит всегда, а проявляется за последние 24 точки
-     * хода — ровно тогда, когда низ фото подходит к часам снизу. Ниже
-     * полосы короткий сход в прозрачность: жёсткая линия поперёк экрана
-     * читалась бы как вторая панель, которой здесь нет.
-     */
-    private func statusBar(safeTop: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            Brand.board.frame(height: safeTop)
-            LinearGradient(
-                colors: [Brand.board, Brand.board.opacity(0)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 10)
-        }
-        .opacity(cover)
-        .allowsHitTesting(false)
-        .ignoresSafeArea(edges: .top)
-    }
-
     // ══════════════════════════ кто я ══════════════════════════
 
     /**
-     * Шапка: фото, имя, номер. И одно движение — оттянуть.
+     * Кто вошёл — карточкой в потоке, а не шапкой во весь верх.
      *
-     * Раньше здесь стояла цветная плитка человека: кружок с буквой, имя,
-     * мойка, номер. Плитка отвечала на вопрос «кто вошёл» — но ровно так же
-     * отвечают ещё шесть плиток ниже, и лицо экрана ничем не отличалось от
-     * его настроек.
+     * Фото во всю ширину с оттягиванием отсюда убрано. Профиль в этом
+     * продукте не витрина человека, а место, где правят имя, язык и
+     * доступ; большая фотография обещала первое, а экран делал второе, и
+     * до первой настройки приходилось листать полэкрана картинки.
      *
-     * Теперь верх устроен как в мессенджерах, и не ради подражания: это
-     * единственная фигура, которую человек уже умеет читать без обучения.
-     * Кружок — это я; потянул вниз — фото раскрылось во всю ширину; отпустил
-     * и прокрутил вверх — сложилось обратно. Отклик пальцу даёт не только
-     * картинка, но и толчок: раскрытие защёлкивается, и рука это чувствует.
-     *
-     * Форма кружка здесь не капсула из общего запрета, а портрет: круглым
-     * человека рисуют везде, и квадрат с этим спорить не станет.
-     *
-     * Своей карточки у людей пока нет — вместо неё общий снимок: тёмный
-     * фиолетовый шёлк с лаймовой полосой света. Ни знака, ни буквы, ни
-     * подписи: заглушка стоит на месте ЧУЖОГО лица и не должна ничего
-     * утверждать о человеке. Абстракция ещё и переживает обрез — она
-     * одинаково цела и в компактном кружке, и в широком кадре, а любой знак в
-     * круге пришлось бы подрезать.
-     *
-     * Низ кадра тёмный намеренно: по нему в раскрытом виде идёт белое имя.
-     *
-     * Буква имени осталась запасным лицом на случай, если картинка не
-     * приехала: пустой серый круг хуже любой заглушки.
+     * Кружок остался: человека везде рисуют круглым, и по цвету его
+     * узнают в ленте, на смене и в зарплатах. Своей карточки у людей
+     * пока нет — вместо неё общий снимок, тёмный шёлк с лаймовой
+     * полосой; заглушка стоит на месте ЧУЖОГО лица и ничего о человеке
+     * не утверждает.
      */
-    private func header(width: CGFloat, safeTop: CGFloat) -> some View {
+    private var identityCard: some View {
         let name = session.me?.name ?? "—"
-        let tone = Brand.personTone(name)
-        let height = safeTop + brow
-        let side: CGFloat = photoOpen ? width : 82
-        let tall: CGFloat = photoOpen ? height : 82
-        let top: CGFloat = photoOpen ? 0 : safeTop + 14
+        return HStack(spacing: 14) {
+            face(name: name, tone: Brand.personTone(name), side: 56)
+                .frame(width: 56, height: 56)
+                .clipShape(.circle)
+                .overlay(Circle().strokeBorder(Brand.ink.opacity(0.08), lineWidth: 1))
 
-        return ZStack(alignment: .topLeading) {
-            face(name: name, tone: tone, side: side)
-                .frame(width: side, height: tall)
-                    /* Кадр не двигаем и не приближаем: знак стоит ровно в
-                       середине квадрата, и кружок берёт его целиком. */
-                    .clipShape(.rect(cornerRadius: photoOpen ? 0 : 41, style: .continuous))
-                    .overlay {
-                        /* Затемнение снизу — только под раскрытым фото:
-                           белое имя ложится на капли, а капли светлые. */
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.66)],
-                            startPoint: UnitPoint(x: 0.5, y: 0.42),
-                            endPoint: .bottom
-                        )
-                        .opacity(photoOpen ? 1 : 0)
-                    }
-                    .offset(x: photoOpen ? 0 : 16, y: top)
-                    .contentShape(.rect)
-                    .onTapGesture { setPhoto(!photoOpen) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(meta)
+                    .font(.system(size: 13))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
 
-            titles(name: name, onPhoto: true)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
-                .frame(width: width, height: height, alignment: .bottomLeading)
-                .opacity(photoOpen ? 1 : 0)
-
-            titles(name: name, onPhoto: false)
-                .frame(width: max(0, width - 126), alignment: .leading)
-                .offset(x: 114, y: top + 15)
-                .opacity(photoOpen ? 0 : 1)
+            Spacer(minLength: 0)
         }
-            .frame(width: width, height: height, alignment: .topLeading)
-            .clipped()
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(name)
-            .accessibilityValue(meta)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .paperCard(24)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(name)
+        .accessibilityValue(meta)
     }
 
-    /// Имя и строка под ним. Одни и те же слова в обоих состояниях —
-    /// меняется только цвет и то, куда они прижаты.
-    private func titles(name: String, onPhoto: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(name)
-                .font(.system(size: onPhoto ? 26 : 22, weight: .bold))
-                .foregroundStyle(onPhoto ? .white : Brand.onBoard)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(meta)
-                .font(.system(size: onPhoto ? 14 : 13))
-                .monospacedDigit()
-                .foregroundStyle(onPhoto ? .white.opacity(0.78) : Brand.boardMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-    }
-
-    /// Номер и мойка одной строкой. Номер первым: он про человека, мойка —
-    /// про место, и человек здесь главный. Правке номер не поддаётся — это
-    /// логин, и смена сломала бы вход.
+    /// Логин и мойка одной строкой. Логин первым: он про человека, мойка —
+    /// про место, и человек здесь главный. Правке он не поддаётся: сменить
+    /// его значит сменить вход.
+    ///
+    /// У владельца логин это почта, у сотрудника телефон. Пока здесь стоял
+    /// один телефон, владелец читал в шапке своего профиля не ту строку,
+    /// которой входит.
     private var meta: String {
-        [session.me?.phone ?? "", session.tenant?.name ?? ""]
+        [session.me?.email ?? session.me?.phone ?? "", session.tenant?.name ?? ""]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
     }
@@ -288,32 +190,6 @@ struct ProfileView: View {
     }
 
     /**
-     * Раскрыть или сложить фото.
-     *
-     * Толчок — часть ответа, а не украшение: движение пальца тут не
-     * попадает по кнопке, и подтвердить его нечем, кроме как отдачей. Мягкий
-     * на раскрытие, лёгкий на складывание — второе тише, потому что это
-     * возврат, а не событие.
-     *
-     * Высота шапки не меняется: пружина работает только с формой фото.
-     */
-    private func setPhoto(_ open: Bool) {
-        guard open != photoOpen else { return }
-        UIImpactFeedbackGenerator(style: open ? .soft : .light).impactOccurred()
-
-        if reduceMotion {
-            photoOpen = open
-        } else {
-            /* Короткая, почти критически затухшая пружина. SwiftUI перенацеливает
-               её из текущего кадра, поэтому быстрый жест назад не ждёт окончания
-               предыдущей анимации. */
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.96)) {
-                photoOpen = open
-            }
-        }
-    }
-
-    /**
      * Состояние доступа — плиткой, а не строкой в списке.
      *
      * Янтарной, когда срок подходит: это единственное на экране, из-за чего
@@ -321,17 +197,18 @@ struct ProfileView: View {
      * ещё одна настройка.
      */
     private func accessTile(_ access: API.Access) -> some View {
-        HStack(spacing: 12) {
+        let ink = access.warn ? Brand.warnOnBoard : Brand.goodOnBoard
+        return HStack(spacing: 12) {
             Image(systemName: access.warn ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(access.warn ? Tone.amber.ink : Brand.goodOnBoard)
+                .foregroundStyle(ink)
             VStack(alignment: .leading, spacing: 1) {
                 Text(L("auth.signInTitle"))
                     .font(.system(size: 12))
-                    .foregroundStyle(access.warn ? Tone.amber.ink.opacity(0.72) : Brand.boardMuted)
+                    .foregroundStyle(access.warn ? ink.opacity(0.75) : Brand.muted)
                 Text(Self.plan(access))
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(access.warn ? Tone.amber.ink : Brand.onBoard)
+                    .foregroundStyle(access.warn ? ink : Brand.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -347,19 +224,19 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             fields
             Rectangle()
-                .fill(Brand.boardInk.opacity(0.07))
+                .fill(Brand.ink.opacity(0.07))
                 .frame(height: 1)
                 .padding(.leading, 16)
             language
         }
-        .boardCard()
+        .paperCard(22)
     }
 
     private var fields: some View {
         VStack(spacing: 0) {
             if isOwner {
                 field(L("settings.business"), $businessName)
-                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                Rectangle().fill(Brand.ink.opacity(0.07)).frame(height: 1)
             }
             field(L("owner.clientName"), $myName)
 
@@ -379,17 +256,17 @@ struct ProfileView: View {
              * сервер; экран только перестаёт предлагать.
              */
             if isOwner, let code = session.tenant?.currency {
-                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                Rectangle().fill(Brand.ink.opacity(0.07)).frame(height: 1)
 
                 if session.tenant?.currencyLocked == true {
                     HStack {
                         Text(L("profile.currency"))
                             .font(.system(size: 13))
-                            .foregroundStyle(Brand.boardMuted)
+                            .foregroundStyle(Brand.muted)
                         Spacer(minLength: 8)
                         Text("\(Money.symbol(code))\u{202F}\(code)")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
+                            .foregroundStyle(Brand.ink)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
@@ -416,7 +293,7 @@ struct ProfileView: View {
             Text(L("onboarding.currency"))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.6)
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
 
             HStack(spacing: 6) {
                 ForEach(Money.currencies, id: \.self) { code in
@@ -431,11 +308,11 @@ struct ProfileView: View {
                                 .font(.system(size: 9, weight: .semibold))
                                 .opacity(0.7)
                         }
-                        .foregroundStyle(on ? Brand.grapeDeep : Brand.onBoard.opacity(0.7))
+                        .foregroundStyle(on ? Brand.grapeDeep : Brand.ink.opacity(0.7))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(
-                            on ? Brand.lime : Brand.boardInk.opacity(0.06),
+                            on ? Brand.lime : Brand.ink.opacity(0.06),
                             in: .rect(cornerRadius: 12, style: .continuous)
                         )
                         .contentShape(.rect)
@@ -448,7 +325,7 @@ struct ProfileView: View {
 
             Text(L("onboarding.currencyOnce"))
                 .font(.system(size: 11))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
@@ -460,12 +337,34 @@ struct ProfileView: View {
         try? await session.saveProfile(name: nil, businessName: nil, currency: code)
     }
 
+    /**
+     * Поле настройки: имя слева, значение справа.
+     *
+     * Подсказкой внутри поля имя тут быть не может, в отличие от форм
+     * заведения: эти поля всегда заполнены, и подсказка исчезла бы
+     * вместе с первым же значением — остались бы два слова подряд без
+     * ответа на вопрос, где имя мойки, а где имя человека. Строка «имя
+     * слева, значение справа» — та же, что у валюты и языка ниже, и
+     * весь блок читается одним списком настроек.
+     */
     private func field(_ title: String, _ value: Binding<String>) -> some View {
-        FieldBox(title) {
-            TextField("", text: value)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 15))
+                .foregroundStyle(Brand.muted)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            TextField(title, text: value)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
         }
+        .padding(.horizontal, 16)
+        .frame(height: 56)
+        .contentShape(.rect)
     }
 
     /// Кнопка сохранения есть только когда есть что сохранять. В системной
@@ -503,7 +402,7 @@ struct ProfileView: View {
             }
 
             if isOwner {
-                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                Rectangle().fill(Brand.ink.opacity(0.07)).frame(height: 1)
             }
             toggleRow(
                 L("profile.rememberLogin"),
@@ -512,7 +411,7 @@ struct ProfileView: View {
             )
 
             if lock.available {
-                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
+                Rectangle().fill(Brand.ink.opacity(0.07)).frame(height: 1)
                 toggleRow(
                     L("lock.quickSignIn", lock.kindName),
                     L("profile.lockNote"),
@@ -520,7 +419,7 @@ struct ProfileView: View {
                 )
             }
         }
-        .boardCard()
+        .paperCard(22)
     }
 
     // ══════════════════════════ язык ══════════════════════════
@@ -554,15 +453,15 @@ struct ProfileView: View {
                     .foregroundStyle(Brand.grape)
                 Text(L("common.language"))
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(Brand.ink)
                 Spacer(minLength: 8)
                 Text(lang.current.ownName)
                     .font(.system(size: 14))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -581,10 +480,10 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(Brand.ink)
                 Text(note)
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -621,7 +520,7 @@ struct ProfileView: View {
                     exportRow
                 }
             }
-            .boardCard()
+            .paperCard(22)
 
             if isOwner {
                 action(L("billing.wallDelete"), L("profile.deleteNote"),
@@ -665,12 +564,12 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(exporting ? L("common.preparing") : L("more.export"))
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
+                        .foregroundStyle(Brand.ink)
                     /* Подзаголовок и есть место ответа: не получилось —
                        строка говорит это здесь же, повтор тем же касанием. */
                     Text(exportFailed ? L("common.failed") : L("more.exportLead"))
                         .font(.system(size: 12))
-                        .foregroundStyle(exportFailed ? Brand.badOnBoard : Brand.boardMuted)
+                        .foregroundStyle(exportFailed ? Brand.badOnBoard : Brand.muted)
                 }
                 Spacer(minLength: 0)
                 /* Загрузчик на месте шеврона, а не вместо надписи: надпись
@@ -744,11 +643,11 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(danger ? Brand.badOnBoard : Brand.onBoard)
+                    .foregroundStyle(danger ? Brand.badOnBoard : Brand.ink)
                 if !note.isEmpty {
                     Text(note)
                         .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
@@ -757,7 +656,7 @@ struct ProfileView: View {
             if leadsSomewhere {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted.opacity(0.6))
+                    .foregroundStyle(Brand.muted.opacity(0.6))
             }
         }
         .padding(16)
@@ -767,7 +666,7 @@ struct ProfileView: View {
 
     private var profileDivider: some View {
         Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
+            .fill(Brand.ink.opacity(0.07))
             .frame(height: 1)
             .padding(.leading, 50)
     }
@@ -899,15 +798,32 @@ struct ShareSheet: UIViewControllerRepresentable {
 private struct AccessSkin: ViewModifier {
     let warn: Bool
 
+    /**
+     * Светлый янтарь, а не тёмная плита.
+     *
+     * Плитка с чёрно-коричневым градиентом и свечением пришла из прежнего
+     * языка приборной панели. На белом листе профиля она читалась куском
+     * другого приложения: единственное тёмное пятно среди бумажных
+     * карточек, и притом не самое важное на экране. Теперь это такая же
+     * карточка, только залитая янтарём в одну десятую — тем же, каким на
+     * смене помечено предупреждение о временном коде.
+     */
     func body(content: Content) -> some View {
-        if warn {
-            content.tile(.amber, radius: 22, pad: 16)
-        } else {
-            content
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .boardCard()
-        }
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                warn ? AnyShapeStyle(Brand.warnOnBoard.opacity(0.10)) : AnyShapeStyle(Brand.paper),
+                in: .rect(cornerRadius: 22, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(
+                        warn ? Brand.warnOnBoard.opacity(0.18) : Brand.ink.opacity(0.07),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(color: Brand.ink.opacity(warn ? 0 : 0.05), radius: 12, y: 6)
     }
 }
 
@@ -964,11 +880,11 @@ struct PasswordChangeView: View {
 
                             Text(L("auth.changePassword"))
                                 .font(.system(size: 27, weight: .bold, design: .rounded))
-                                .foregroundStyle(Brand.onBoard)
+                                .foregroundStyle(Brand.ink)
 
                             Text(L("auth.passwordChangedNote"))
                                 .font(.system(size: 15))
-                                .foregroundStyle(Brand.boardMuted)
+                                .foregroundStyle(Brand.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -980,10 +896,10 @@ struct PasswordChangeView: View {
                             secret(L("auth.confirmPassword"), $again)
                         }
                         .padding(.horizontal, 17)
-                        .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .background(Brand.paper, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .strokeBorder(Brand.boardInk.opacity(0.07))
+                                .strokeBorder(Brand.ink.opacity(0.07))
                         }
 
                         if !again.isEmpty && next != again {
@@ -993,7 +909,7 @@ struct PasswordChangeView: View {
                         } else {
                             Text(L("auth.passwordHint"))
                                 .font(.system(size: 13))
-                                .foregroundStyle(Brand.boardMuted)
+                                .foregroundStyle(Brand.muted)
                         }
 
                         if let error {
@@ -1043,7 +959,7 @@ struct PasswordChangeView: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
+            .fill(Brand.ink.opacity(0.07))
             .frame(height: 1)
     }
 

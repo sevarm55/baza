@@ -2,59 +2,65 @@ import SwiftUI
 import UIKit
 
 /**
- * Заставка запуска: марка собирается на грейповом полотне.
+ * Заставка запуска: марка ставится штампом, маскот выглядывает снизу.
  *
  * Почему это отдельный экран, а не Launch Screen. `UILaunchScreen` в iOS —
  * статичная раскладка, которую система рисует до того, как приложение
  * получило управление; движения в ней нет в принципе. Поэтому система
- * показывает залитый прямоугольник (цвет — `Brand.launchCanvas`, тот же,
- * что здесь), а заставку мы рисуем сами — первым же кадром после старта,
- * поверх всего остального.
+ * показывает залитый прямоугольник (цвет — `Brand.launchCanvas`), а
+ * заставку мы рисуем сами первым же кадром после старта.
  *
- * Раньше здесь крутился mp4. Ролик весил полтора мегабайта, играл ровно
- * четыре секунды и на разных телефонах обрезался по-разному. Теперь то же
- * самое нарисовано видами: вес нулевой, кадр всегда чёткий, а времена
- * лежат в коде и правятся строкой.
+ * Хореография та же, что у марки на вебе (`docs/brand/logo-motion/
+ * motion_spec.md`): буквы TETR встают из-под базовой линии слева направо
+ * внахлёст, плашка «IN» проявляется приподнятой, делает замах и падает
+ * штампом; удар сжимает плашку на три процента и волной проходит по
+ * буквам справа налево. Один такт — 1200 мс. Следом снизу выглядывает
+ * маскот и держится за кромку экрана: тот же персонаж, что на смене и на
+ * входе.
  *
  * Заставка уходит по первому из двух: истекли свои секунды или человек
- * коснулся экрана. И только на холодном старте: `@State` в `App` живёт
- * столько же, сколько процесс, а возврат из фона процесс не пересоздаёт.
+ * коснулся экрана. Только на холодном старте.
  */
 struct LaunchSplashView: View {
     let onFinish: () -> Void
 
-    /* Системная настройка «уменьшить движение» — не про вкусы: у части
-       людей движение вызывает головокружение. Тогда заставки нет вовсе. */
+    /* «Уменьшить движение» — не про вкусы: у части людей движение
+       вызывает головокружение. Тогда заставки нет вовсе. */
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Взведён ли вход. Все появления навешаны на это одно значение,
-    /// каждое со своей задержкой, — так задержки видно списком.
+    /// Взведён ли вход: буквы и плашка.
     @State private var on = false
+    /// Штамп ударил: волна по буквам, вспышка, маскот.
+    @State private var hit = false
+    /// Маскот поднялся к кромке.
+    @State private var mascot = false
 
-    /// Сколько заставка держится на экране.
-    ///
-    /// Вход кончается на 2.4 секунде (последней въезжает нижняя подпись),
-    /// дальше добавлена доля секунды, чтобы собранный кадр успели увидеть
-    /// целым. Ролик держал четыре — это было заметно долго.
-    private static let total: Double = 2.9
+    /// Сколько заставка держится. Штамп кончается на 1.2 с, маскот встаёт
+    /// к 1.7, дальше доля секунды, чтобы собранный кадр увидели целым.
+    private static let total: Double = 2.7
+
+    private static let backdrop = UIImage(named: "splash-bg.jpg")
+    private static let grip = UIImage(named: "grip.png")
 
     var body: some View {
         GeometryReader { geo in
-            /* Раскладка набрана в тех же числах, что и макет: 430×932.
-               На экран она кладётся целиком, с обрезкой по краям, — как
-               это делал ролик. У широких телефонов обрезка копеечная, а
-               вот SE заметно короче макета: видимая высота в макетных
-               координатах у него ~765 из 932, и всё, что прибито к низу
-               макета, уезжало за край. Поэтому низ считается от видимой
-               высоты, а не от 932. */
-            let fill = max(geo.size.width / Macket.w, geo.size.height / Macket.h)
-            let visibleH = geo.size.height / fill
+            ZStack {
+                Brand.launchCanvas
 
-            canvas(visibleH: visibleH)
-                .frame(width: Macket.w, height: Macket.h)
-                .scaleEffect(fill)
-                .frame(width: geo.size.width, height: geo.size.height)
-                .clipped()
+                scene(geo.size)
+
+                glow(geo.size)
+
+                VStack(spacing: 18) {
+                    wordmark
+                    kicker
+                }
+                .position(x: geo.size.width / 2, y: geo.size.height * 0.40)
+
+                mascotView(geo.size)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
         }
         .background(Brand.launchCanvas)
         .ignoresSafeArea()
@@ -63,217 +69,179 @@ struct LaunchSplashView: View {
         .task { await play() }
     }
 
-    // MARK: - Кадр
+    // MARK: - Сцена
 
-    private enum Macket {
-        static let w: CGFloat = 430
-        static let h: CGFloat = 932
-    }
-
-    private func canvas(visibleH: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            Brand.launchCanvas
-
-            rail
-            runner
-
-            kicker
-                .offset(x: 112, y: 112)
-
-            VStack(alignment: .leading, spacing: 22) {
-                wordmark
-                marks
-            }
-            // на коротком экране марка поднимается вместе с видимым низом
-            .offset(x: 112, y: min(390, visibleH * 0.42))
-
-            roller
-                .offset(x: 112, y: min(Macket.h, visibleH) - 104 - 18)
+    /// Мокрая студия с пеной: медленный наезд, чтобы кадр дышал. Без
+    /// картинки в бандле остаётся полотно с грейповым светом.
+    @ViewBuilder
+    private func scene(_ size: CGSize) -> some View {
+        if let image = Self.backdrop {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .scaleEffect(on ? 1.07 : 1.0)
+                .animation(.easeOut(duration: Self.total + 0.6), value: on)
+                .overlay {
+                    /* Притемнение к центру: марка должна читаться на любом
+                       кадре, а сцена остаётся вокруг неё. */
+                    RadialGradient(
+                        colors: [Brand.grapeDeep.opacity(0.55), Brand.grapeDeep.opacity(0.1)],
+                        center: UnitPoint(x: 0.5, y: 0.4),
+                        startRadius: 40,
+                        endRadius: size.width * 0.9
+                    )
+                }
+                .clipped()
+        } else {
+            Brand.splashGlow
         }
-        .frame(width: Macket.w, height: Macket.h, alignment: .topLeading)
     }
 
-    /**
-     * Поле слева.
-     *
-     * Тетрадь и есть поле с полосой: весь текст на экране стоит от одной
-     * вертикали, и эта вертикаль нарисована. Полоса приезжает сверху вниз
-     * первой — до неё на экране нет ничего, и она задаёт, откуда читать.
-     */
-    private var rail: some View {
-        Rectangle()
-            .fill(Brand.lime.opacity(0.22))
-            .frame(width: 4, height: Macket.h)
-            .scaleEffect(x: 1, y: on ? 1 : 0, anchor: .top)
-            .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.1), value: on)
-            .offset(x: 74)
-    }
-
-    /**
-     * Бегунок по полю.
-     *
-     * Яркий отрезок, который бесконечно сходит по бледной полосе. Он и
-     * есть индикатор загрузки: полоски со шкалой на заставке нет, а
-     * сказать «работаем» чем-то надо. Появляется и гаснет на концах
-     * пути, чтобы не было видно, как он выскакивает из-под края.
-     */
-    private var runner: some View {
-        KeyframeAnimator(initialValue: Runner(), repeating: true) { frame in
-            Rectangle()
-                .fill(Brand.lime)
-                .frame(width: 4, height: 120)
-                .opacity(frame.opacity)
-                .offset(x: 74, y: frame.top)
+    /// Лаймовая вспышка за маркой: тлеет, на ударе вспыхивает и гаснет.
+    private func glow(_ size: CGSize) -> some View {
+        RadialGradient(
+            colors: [Brand.lime.opacity(0.9), Brand.lime.opacity(0)],
+            center: .center,
+            startRadius: 0,
+            endRadius: size.width * 0.55
+        )
+        .frame(width: size.width * 1.4, height: size.width * 1.4)
+        .position(x: size.width / 2, y: size.height * 0.40)
+        .keyframeAnimator(initialValue: 0.0, trigger: hit) { view, value in
+            view.opacity(value)
         } keyframes: { _ in
-            KeyframeTrack(\.top) {
-                LinearKeyframe(0, duration: 1)
-                CubicKeyframe(Macket.h, duration: 3.2)
-            }
-            KeyframeTrack(\.opacity) {
-                LinearKeyframe(0, duration: 1)
-                LinearKeyframe(1, duration: 3.2 * 0.12)
-                LinearKeyframe(1, duration: 3.2 * 0.76)
-                LinearKeyframe(0, duration: 3.2 * 0.12)
+            KeyframeTrack {
+                LinearKeyframe(hit ? 0.42 : 0.0, duration: 0.06)
+                CubicKeyframe(0.14, duration: 1.1)
             }
         }
+        .blendMode(.screen)
+        .allowsHitTesting(false)
     }
 
-    private struct Runner {
-        var top: CGFloat = 0
-        var opacity: CGFloat = 0
-    }
+    // MARK: - Марка
 
-    /**
-     * Надпись над маркой.
-     *
-     * Девять пунктов с разрядкой в семь — это не текст, а линия из букв:
-     * читать её никто не станет, а увидит как ещё одну горизонталь. Набрана
-     * системным шрифтом: в бандле лежит одно начертание Unbounded, чёрное,
-     * и на таком кегле разница в буквах не видна, а лишний файл шрифта —
-     * это мегабайты в приложении, которое ставят с телефона на мойке.
-     */
-    private var kicker: some View {
-        /* `verbatim`, а не обычный `Text`: иначе строка уходит в каталог
-           переводов и ждёт, пока её переведут на три языка. Переводить
-           тут нечего — это часть знака, и на всех языках она одна. */
-        Text(verbatim: "TETRIN · CAR WASH BOOK")
-            .font(.system(size: 9, weight: .light))
-            .tracking(7)
-            .foregroundStyle(.white.opacity(0.45))
-            .opacity(on ? 1 : 0)
-            .animation(.easeOut(duration: 1).delay(0.5), value: on)
-    }
+    private static let name = "TETRIN"
+    private static let letterSize: CGFloat = 58
 
     /**
-     * Марка.
+     * «TETR» буквами и «IN» плашкой.
      *
-     * Открывается слева направо — не проявляется и не выезжает, а именно
-     * прописывается, будто её пишут по полю. Отсюда и маска: она режет
-     * буквы по вертикали, и в любой момент видно ровно то, что уже
-     * «написано».
-     *
-     * Unbounded Black — тот же файл, что на витрине; марка нигде не
-     * набирается ничем другим.
+     * Буквы встают из-под базовой линии по очереди, плашка падает
+     * штампом. Времена — из спецификации марки на вебе: замах 0…240,
+     * действие 240…840, удар 810, довод до 1200.
      */
     private var wordmark: some View {
-        Text("TETRIN")
-            .font(.custom("Unbounded-Black", size: 56))
-            .tracking(-2)
-            .foregroundStyle(.white)
-            .mask(alignment: .leading) {
-                Rectangle().scaleEffect(x: on ? 1 : 0, anchor: .leading)
+        HStack(alignment: .lastTextBaseline, spacing: 0) {
+            ForEach(Array(Self.name.prefix(4).enumerated()), id: \.offset) { i, ch in
+                letter(String(ch), index: i)
             }
-            .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.05).delay(0.6), value: on)
-    }
-
-    /// Три квадрата под маркой: тетрамино, разобранное на клетки, и
-    /// заодно счётчик — они загораются по очереди и гаснущей яркостью.
-    private var marks: some View {
-        HStack(spacing: 5) {
-            mark(Brand.lime, delay: 1.05)
-            mark(Brand.lime.opacity(0.45), delay: 1.15)
-            mark(Brand.lime.opacity(0.22), delay: 1.25)
+            plaque
+                .padding(.leading, Self.letterSize * 0.14)
         }
+        .font(.custom("Unbounded-Black", size: Self.letterSize))
+        .foregroundStyle(.white)
     }
 
-    private func mark(_ fill: Color, delay: Double) -> some View {
-        Rectangle()
-            .fill(fill)
-            .frame(width: 16, height: 16)
-            .opacity(on ? 1 : 0)
-            .offset(y: on ? 0 : 10)
-            .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.7).delay(delay), value: on)
-    }
-
-    /**
-     * Подпись внизу, которая переворачивается.
-     *
-     * Две строки в окне высотой в одну: окно стоит на месте, а лента под
-     * ним сдвигается на строку и через паузу возвращается. Пауза длинная
-     * намеренно — подпись должна смениться, пока на неё не смотрят, а не
-     * мигать.
-     *
-     * Первый переворот приходится на 3.3 секунду, то есть при обычном
-     * запуске его не видно: заставка к тому времени уже ушла. Он для
-     * того случая, когда сеть тормозит и заставка держится дольше, —
-     * тогда экран продолжает жить, а не застывает картинкой.
-     */
-    private var roller: some View {
-        KeyframeAnimator(initialValue: Roll(), repeating: true) { frame in
-            VStack(spacing: 0) {
-                line("LEZGO GO", Brand.lime)
-                line("LOADING", .white.opacity(0.55))
-            }
-            .offset(y: frame.y)
-        } keyframes: { _ in
-            KeyframeTrack(\.y) {
-                LinearKeyframe(0, duration: 1.936)
-                CubicKeyframe(-18, duration: 0.264)
-                LinearKeyframe(-18, duration: 1.936)
-                CubicKeyframe(0, duration: 0.264)
-            }
-        }
-        .frame(width: 220, height: 18, alignment: .topLeading)
-        .clipped()
-        .opacity(on ? 1 : 0)
-        .animation(.easeOut(duration: 1).delay(1.4), value: on)
-    }
-
-    private struct Roll {
-        var y: CGFloat = 0
-    }
-
-    private func line(_ text: String, _ ink: Color) -> some View {
+    /// Буква: встаёт снизу с длинным выкатом, на ударе чуть приседает —
+    /// волна идёт справа налево, от плашки.
+    private func letter(_ text: String, index: Int) -> some View {
         Text(verbatim: text)
-            .font(.system(size: 9, weight: .light))
-            .tracking(8)
-            .foregroundStyle(ink)
-            .frame(width: 220, height: 18, alignment: .leading)
+            .tracking(Self.letterSize * 0.02)
+            .opacity(on ? 1 : 0)
+            .offset(y: on ? 0 : Self.letterSize * 0.6)
+            .animation(
+                .timingCurve(0.16, 1, 0.3, 1, duration: 0.62).delay(0.09 + Double(index) * 0.085),
+                value: on
+            )
+            .keyframeAnimator(initialValue: 1.0, trigger: hit) { view, scale in
+                view.scaleEffect(x: 1, y: scale, anchor: .bottom)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    LinearKeyframe(1.0, duration: 0.02 + Double(3 - index) * 0.055)
+                    CubicKeyframe(hit ? 0.955 : 1.0, duration: 0.07)
+                    SpringKeyframe(1.0, duration: 0.42, spring: .init(response: 0.32, dampingRatio: 0.6))
+                }
+            }
+    }
+
+    /// Плашка «IN»: проявляется приподнятой, замахивается и падает.
+    /// На ударе сжимается на три процента и мягко восстанавливается.
+    private var plaque: some View {
+        Text(verbatim: String(Self.name.suffix(2)))
+            .tracking(Self.letterSize * 0.02)
+            .foregroundStyle(Brand.onLime)
+            .padding(.leading, Self.letterSize * 0.2)
+            .padding(.trailing, Self.letterSize * 0.12)
+            .padding(.vertical, Self.letterSize * 0.12)
+            .background(Brand.lime, in: .rect(cornerRadius: Self.letterSize * 0.2, style: .continuous))
+            .keyframeAnimator(initialValue: Stamp(), trigger: on) { view, frame in
+                view
+                    .opacity(frame.opacity)
+                    .offset(y: frame.y)
+                    .scaleEffect(x: frame.squash > 0 ? 1 + frame.squash * 0.5 : 1, y: 1 - frame.squash, anchor: .bottom)
+            } keyframes: { _ in
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(on ? 0 : 0, duration: 0.42)
+                    LinearKeyframe(on ? 1 : 0, duration: 0.16)
+                }
+                KeyframeTrack(\.y) {
+                    LinearKeyframe(-30, duration: 0.42)
+                    CubicKeyframe(-42, duration: 0.2)
+                    CubicKeyframe(0, duration: 0.2)
+                }
+                KeyframeTrack(\.squash) {
+                    LinearKeyframe(0, duration: 0.82)
+                    LinearKeyframe(0.03, duration: 0.05)
+                    SpringKeyframe(0, duration: 0.4, spring: .init(response: 0.3, dampingRatio: 0.55))
+                }
+            }
+    }
+
+    private struct Stamp {
+        var opacity: Double = 0
+        var y: CGFloat = -30
+        var squash: CGFloat = 0
+    }
+
+    /// Подпись под маркой: линия из букв, приходит после удара.
+    private var kicker: some View {
+        Text(verbatim: "CAR WASH BOOK")
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(6)
+            .foregroundStyle(.white.opacity(0.6))
+            .opacity(hit ? 1 : 0)
+            .offset(y: hit ? 0 : 6)
+            .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.7).delay(0.1), value: hit)
+    }
+
+    // MARK: - Маскот
+
+    /// Выглядывает снизу и держится за кромку экрана. Поднимается
+    /// пружиной после удара штампа: сначала марка, потом тот, кто её
+    /// поставил.
+    @ViewBuilder
+    private func mascotView(_ size: CGSize) -> some View {
+        if let image = Self.grip {
+            let width = size.width * 0.66
+            let height = width * image.size.height / image.size.width
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: width, height: height)
+                .shadow(color: Brand.lime.opacity(0.35), radius: 28, y: -6)
+                .position(x: size.width / 2, y: size.height - height / 2 + 6)
+                .offset(y: mascot ? 0 : height * 1.05)
+                .animation(.spring(response: 0.62, dampingFraction: 0.72), value: mascot)
+        }
     }
 
     // MARK: - Ход
 
     /**
-     * Отклик в ладонь.
-     *
-     * Один тяжёлый удар в момент, когда марка дописана, и следом три
-     * коротких тика — по одному на каждый загоревшийся квадрат, всё
-     * сильнее. Ощущается это не как уведомление, а как то, что
-     * приложение включилось.
-     *
-     * Стиль `.rigid` для тиков намеренно: у него короткий резкий импульс,
-     * и три удара подряд остаются тремя касаниями. Мягкий `.light` на
-     * такой частоте сливается в жужжание.
-     *
-     * Времена привязаны к анимации выше. Меняется она — меняются и они.
+     * Отклик в ладонь: один тяжёлый удар в момент штампа и мягкий толчок,
+     * когда маскот берётся за кромку.
      */
-    private static let beats: [(at: Double, heavy: Bool, force: CGFloat)] = [
-        (0.95, true, 0.8),
-        (1.40, false, 0.5),
-        (1.50, false, 0.7),
-        (1.60, false, 0.9),
-    ]
-
     private func play() async {
         guard !reduceMotion else {
             onFinish()
@@ -288,22 +256,24 @@ struct LaunchSplashView: View {
         on = true
 
         let land = UIImpactFeedbackGenerator(style: .heavy)
-        let tick = UIImpactFeedbackGenerator(style: .rigid)
+        let soft = UIImpactFeedbackGenerator(style: .soft)
         land.prepare()
-        tick.prepare()
+        soft.prepare()
 
-        var clock = 0.0
-        for beat in Self.beats {
-            try? await Task.sleep(for: .seconds(beat.at - clock))
-            guard !Task.isCancelled else { return }
-            clock = beat.at
+        try? await Task.sleep(for: .milliseconds(820))
+        guard !Task.isCancelled else { return }
+        hit = true
+        land.impactOccurred(intensity: 0.9)
 
-            let generator = beat.heavy ? land : tick
-            generator.impactOccurred(intensity: beat.force)
-            generator.prepare()
-        }
+        try? await Task.sleep(for: .milliseconds(140))
+        guard !Task.isCancelled else { return }
+        mascot = true
 
-        try? await Task.sleep(for: .seconds(Self.total - clock))
+        try? await Task.sleep(for: .milliseconds(420))
+        guard !Task.isCancelled else { return }
+        soft.impactOccurred(intensity: 0.6)
+
+        try? await Task.sleep(for: .seconds(Self.total - 1.4))
         guard !Task.isCancelled else { return }
         onFinish()
     }

@@ -62,6 +62,10 @@ enum Brand {
     static let muted = adaptive(light: 0x56506B, dark: 0xA9A2BD)
     static let line = adaptive(light: 0xE5E2EC, dark: 0x362F47)
     static let bg = adaptive(light: 0xFAF9FC, dark: 0x120F1A)
+    /// Бумажная карточка на листе: белая днём, графитовая в тёмной теме.
+    static let paper = adaptive(light: 0xFFFFFF, dark: 0x1C1926)
+    /// Текст на чернильной пилюле: чернила в тёмной теме светлые.
+    static let onInk = adaptive(light: 0xFFFFFF, dark: 0x120F1A)
 
     /* Табло. Почти чёрное в тёмной теме и почти белое в светлой — а плитки
        на нём тёмные в обеих: их цвет несёт смысл и меняться от того, светло
@@ -1189,3 +1193,558 @@ struct DangerButton: ButtonStyle {
     }
 }
 
+
+// ═══════════════════════════ зерно ═══════════════════════════
+
+/**
+ * Зерно на тёмном полотне.
+ *
+ * Маленькая плитка белого шума с прозрачностью, замощённая на всю
+ * поверхность и почти невидимая. Ровная заливка на телефоне выглядит
+ * пластиком, зерно делает её бумагой. Плитка отдаётся системе в
+ * масштабе 3, чтобы одно зерно было одним пикселем, а не тремя:
+ * крупное зерно читается грязью.
+ *
+ * Живёт здесь, а не в экране входа, потому что тёмных полотен в продукте
+ * два: заставка со входом и грейповая плита смены. Одно зерно на оба,
+ * иначе они разойдутся по крупности при первой же правке.
+ *
+ * Работает только на тёмном: смешение `plusLighter` на светлой бумаге
+ * ничего не добавляет.
+ */
+struct GrainLayer: View {
+    private static let tile: UIImage? = {
+        guard let raw = UIImage(named: "grain.png"), let cg = raw.cgImage else { return nil }
+        return UIImage(cgImage: cg, scale: 3, orientation: .up)
+    }()
+
+    var body: some View {
+        if let tile = Self.tile {
+            Image(uiImage: tile)
+                .resizable(resizingMode: .tile)
+                .opacity(0.07)
+                .blendMode(.plusLighter)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+// ═══════════════════════════ грейповое полотно ═══════════════════════════
+
+extension View {
+    /**
+     * Грейповое полотно входа над листом: темнее книзу, свет сверху по
+     * центру, лаймовый отсвет по нижней кромке, зерно, низ скруглён.
+     *
+     * Одно на сводку и зарплату: оба экрана владельца начинаются с
+     * показания на тёмном стекле, и полотно под ним обязано быть одним
+     * и тем же, иначе две соседние вкладки разойдутся при первой правке.
+     */
+    func grapeCanvas(bottomRadius: CGFloat = 28) -> some View {
+        background {
+            ZStack {
+                LinearGradient(
+                    colors: [Brand.grapeMid, Color(red: 0x26 / 255, green: 0x0D / 255, blue: 0x55 / 255)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                RadialGradient(
+                    colors: [Brand.grapeFill.opacity(0.5), Brand.grapeFill.opacity(0)],
+                    center: UnitPoint(x: 0.5, y: 0.22),
+                    startRadius: 0,
+                    endRadius: 300
+                )
+                RadialGradient(
+                    colors: [Brand.lime.opacity(0.22), Brand.lime.opacity(0)],
+                    center: UnitPoint(x: 0.5, y: 1.02),
+                    startRadius: 0,
+                    endRadius: 220
+                )
+                GrainLayer()
+            }
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 0, bottomLeadingRadius: bottomRadius,
+                    bottomTrailingRadius: bottomRadius, topTrailingRadius: 0,
+                    style: .continuous
+                )
+            )
+        }
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// Стеклянная карточка на грейповом полотне: настоящее размытие,
+    /// чуть белого поверх и белая грань.
+    func headerGlass(_ radius: CGFloat = 22) -> some View {
+        background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Color.white.opacity(0.06)
+            }
+            .clipShape(.rect(cornerRadius: radius, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+        }
+    }
+}
+
+// ═══════════════════════════ матовое стекло ═══════════════════════════
+
+/**
+ * Матовое стекло — поверхность витрины.
+ *
+ * Белёсая заливка с сиреневым низом, грейповый отблеск из верхнего
+ * угла, белая грань и тонкая грейповая внутри неё, тень грейпом. Так
+ * выглядят плитки на смене, и тем же стеклом одеты сводка и форма
+ * записи: экраны продукта не должны разговаривать в двух манерах.
+ *
+ * Значение выбрал владелец из трёх картинок низа смены («матовое
+ * стекло»), и с тех пор это поверхность по умолчанию для карточек на
+ * белом листе. `boardCard` остаётся для экранов на сером табло.
+ */
+enum Glass {
+    /* Стекло светлее листа, а не наоборот: на белом листе белёсое
+       стекло терялось («еле видно»), поэтому лист чуть притемнён в
+       сиреневый серый, а стекло начинается с чистого белого. */
+    static let top = adaptivePublic(light: 0xFFFFFF, dark: 0x211C30)
+    static let bottom = adaptivePublic(light: 0xEFEAF8, dark: 0x181425)
+    static let edge = adaptivePublic(light: 0xFFFFFF, dark: 0x3A3050)
+    /// Лист под стеклом: светло-сиреневый серый.
+    static let page = adaptivePublic(light: 0xF3F1F8, dark: 0x0A0A0C)
+}
+
+extension View {
+    func frostedGlass(_ radius: CGFloat = R.card, glow: Bool = true) -> some View {
+        background {
+            ZStack(alignment: .topTrailing) {
+                LinearGradient(
+                    colors: [Glass.top, Glass.bottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                if glow {
+                    RadialGradient(
+                        colors: [Brand.grapeFill.opacity(0.16), Brand.grapeFill.opacity(0)],
+                        center: .topTrailing,
+                        startRadius: 0,
+                        endRadius: 150
+                    )
+                }
+            }
+            .clipShape(.rect(cornerRadius: radius, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(Glass.edge, lineWidth: 1.2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(Brand.grapeFill.opacity(0.16), lineWidth: 0.8)
+                .padding(1.2)
+        }
+        .shadow(color: Brand.grapeDeep.opacity(0.14), radius: 14, y: 6)
+    }
+
+    /// Белый лист с сиреневым отсветом сверху — полотно витрины.
+    func glassPage() -> some View {
+        background {
+            ZStack {
+                Glass.page
+                LinearGradient(
+                    stops: [
+                        .init(color: Brand.grapeFill.opacity(0.07), location: 0),
+                        .init(color: Brand.grapeFill.opacity(0), location: 0.45),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .ignoresSafeArea()
+        }
+    }
+}
+
+/**
+ * Номерной знак в строке.
+ *
+ * Рамка чернилами, слева синий блок с флагом и кодом страны, как на
+ * настоящем знаке. Страна — по валюте мойки: у арендатора нет поля
+ * страны, а валюта выбирается один раз при заведении и не меняется.
+ * У ниш без номеров (телефон клиента) блока нет: там это не знак.
+ * Свежая запись — лаймом.
+ */
+struct PlateTag: View {
+    let text: String
+    /// Флаг и код страны; пусто — просто рамка с текстом.
+    let country: (flag: String, code: String)?
+    var fresh = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if let country {
+                VStack(spacing: 0) {
+                    Text(country.flag)
+                        .font(.system(size: 9))
+                    Text(country.code)
+                        .font(.system(size: 6, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 17)
+                .frame(maxHeight: .infinity)
+                .background(Color(red: 0x1E / 255, green: 0x3A / 255, blue: 0x8A / 255))
+            }
+            Text(text)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(fresh ? Brand.onLime : Brand.onBoard)
+                .lineLimit(1)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+        }
+        .fixedSize()
+        .background(fresh ? Brand.lime : Color.clear)
+        .clipShape(.rect(cornerRadius: 7, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(fresh ? Color.clear : Brand.onBoard.opacity(0.85), lineWidth: 1.5)
+        }
+    }
+
+    static func country(for currency: String) -> (flag: String, code: String)? {
+        switch currency {
+        case "AMD": return ("🇦🇲", "AM")
+        case "RUB": return ("🇷🇺", "RU")
+        case "GEL": return ("🇬🇪", "GE")
+        case "USD": return ("🇺🇸", "US")
+        case "EUR": return ("🇪🇺", "EU")
+        default: return nil
+        }
+    }
+}
+
+
+// ═══════════════════════════ лист с пятнами ═══════════════════════════
+
+/**
+ * Язык экранов владельца после зарплаты: светлый лист с размытыми
+ * пятнами сирени и лайма наверху, белые бумажные карточки с волосяной
+ * гранью, фишки-капсулы и переключатель-пилюля. Одно на сводку и
+ * зарплату, иначе соседние вкладки разойдутся при первой правке.
+ */
+extension View {
+    /// Светлый лист с mesh-пятнами наверху, книзу гаснет в `Brand.bg`.
+    func meshPage() -> some View {
+        background {
+            ZStack(alignment: .top) {
+                Brand.bg
+                MeshGradient(
+                    width: 3, height: 3,
+                    points: [
+                        [0, 0], [0.5, 0], [1, 0],
+                        [0, 0.5], [0.55, 0.45], [1, 0.5],
+                        [0, 1], [0.5, 1], [1, 1],
+                    ],
+                    /* В тёмной теме те же пятна, но глубокие: сирень
+                       уходит в грейп, лайм в оливу, лист остаётся тёмным. */
+                    colors: [
+                        adaptivePublic(light: 0xD9C8FB, dark: 0x2A1B4E),
+                        adaptivePublic(light: 0xF6ECFF, dark: 0x1A1426),
+                        adaptivePublic(light: 0xE3F7A6, dark: 0x25301A),
+                        adaptivePublic(light: 0xFBE4D6, dark: 0x201826),
+                        adaptivePublic(light: 0xFFFFFF, dark: 0x151220),
+                        adaptivePublic(light: 0xE0D6FA, dark: 0x221A38),
+                        Brand.bg, Brand.bg, Brand.bg,
+                    ]
+                )
+                .frame(height: 620)
+                .mask(LinearGradient(colors: [.black, .black, .clear], startPoint: .top, endPoint: .bottom))
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    /// Белая бумажная карточка: волосяная грань и мягкая тень.
+    func paperCard(_ radius: CGFloat = 24) -> some View {
+        background(Brand.paper, in: .rect(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Brand.ink.opacity(0.07), lineWidth: 1))
+            .shadow(color: Brand.ink.opacity(0.05), radius: 12, y: 6)
+    }
+}
+
+/// Фишка-капсула: короткий факт одной строкой.
+struct PillChip: View {
+    let text: String
+    var ink: Color = Brand.ink
+    var fill: Color = Brand.paper
+    /// Волосяная грань — только у бумажной фишки; цветной она не нужна.
+    var outlined = true
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 13, weight: .bold))
+            .monospacedDigit()
+            .foregroundStyle(ink)
+            .lineLimit(1)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .background(fill, in: .capsule)
+            .overlay(Capsule().strokeBorder(Brand.ink.opacity(outlined ? 0.08 : 0), lineWidth: 1))
+            .shadow(color: Brand.ink.opacity(0.05), radius: 6, y: 2)
+    }
+}
+
+/// Переключатель-пилюля: тёмная чернильная пилюля на светлом треке.
+struct PillTabs<T: Hashable>: View {
+    let items: [(T, String)]
+    @Binding var selection: T
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /**
+     * Сколько пилюль встаёт в ряд, не ужимая слова.
+     *
+     * Четыре — не круглое число из головы, а то, что реально помещается:
+     * «Кроссовер» на узком экране в пятую долю ширины уже не влезает и
+     * режется многоточием. Дальше ряд превращается в ленту, и лишние
+     * полки достаются пальцем — так же, как способы оплаты над журналом.
+     */
+    private let fits = 4
+
+    var body: some View {
+        Group {
+            if items.count > fits { rail } else { row }
+        }
+        .background(Brand.ink.opacity(0.05), in: .capsule)
+        .overlay(Capsule().strokeBorder(Brand.ink.opacity(0.06), lineWidth: 1))
+    }
+
+    /// Полки помещаются: делят ширину поровну.
+    private var row: some View {
+        HStack(spacing: 4) {
+            ForEach(items.indices, id: \.self) { i in
+                chip(items[i], stretch: true)
+            }
+        }
+        .padding(4)
+    }
+
+    /**
+     * Полок больше, чем помещается: лента вбок.
+     *
+     * Пилюли идут по своей ширине, а не по доле экрана: слово целиком
+     * важнее, чем ровные столбцы, — по обрезанному «Автоб…» полку не
+     * узнать. Выбранная подъезжает к середине сама, иначе выбранная с
+     * краю оставалась бы за экраном после возврата на экран.
+     */
+    private var rail: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 4) {
+                    ForEach(items.indices, id: \.self) { i in
+                        chip(items[i], stretch: false)
+                            .id(items[i].0)
+                    }
+                }
+                .padding(4)
+            }
+            .scrollIndicators(.hidden)
+            /* Обрезка капсулой, а не прямоугольником: без неё пилюли
+               выезжают из-под скруглённых краёв дорожки. */
+            .clipShape(.capsule)
+            .onChange(of: selection) { _, fresh in
+                withAnimation(reduceMotion ? nil : .snappy(duration: Motion.normal)) {
+                    proxy.scrollTo(fresh, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private func chip(_ item: (T, String), stretch: Bool) -> some View {
+        let (value, title) = item
+        let on = selection == value
+        return Button {
+            withAnimation(reduceMotion ? nil : Motion.springSnap) { selection = value }
+        } label: {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(stretch ? 0.7 : 1)
+                .fixedSize(horizontal: !stretch, vertical: false)
+                .foregroundStyle(on ? Brand.onInk : Brand.ink)
+                .frame(maxWidth: stretch ? .infinity : nil)
+                .padding(.vertical, 10)
+                .padding(.horizontal, stretch ? 6 : 16)
+                .background(on ? Brand.ink : .clear, in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.press)
+        .accessibilityAddTraits(on ? [.isSelected] : [])
+    }
+}
+
+/// Фишки в строку с переносом.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: width == .infinity ? x : width, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+
+// ═══════════════════════════ шрифт заголовков ═══════════════════════════
+
+/**
+ * Заголовки экранов — фирменным шрифтом, а не системным.
+ *
+ * Русский и английский набираются Unbounded (именованный экземпляр Bold
+ * вариативного файла), армянский — Mardoto Bold, тем же, что на витрине:
+ * армянских глифов у Unbounded нет, и слово ушло бы в системный шрифт
+ * молча. Выбор идёт по языку интерфейса, а не по строке: заголовок
+ * экрана всегда на языке интерфейса.
+ *
+ * Панель навигации берёт шрифт через appearance: крупный заголовок и
+ * сжатый в центре при прокрутке. Применяется при старте и при смене
+ * языка; вид перестраивается по `.id(lang)`, и новые панели берут новое.
+ */
+enum Typo {
+    /// Насколько ряд с крупным заголовком опущен от часов.
+    static let titleDrop: CGFloat = 22
+
+    static func titleFontName(for lang: Lang) -> String {
+        lang == .hy ? "Mardoto-Bold" : "Unbounded-Regular_Bold"
+    }
+
+    static func titleUIFont(_ size: CGFloat, lang: Lang = LangStore.currentLang) -> UIFont {
+        UIFont(name: titleFontName(for: lang), size: size)
+            ?? UIFont.systemFont(ofSize: size, weight: .bold)
+    }
+
+    static func title(_ size: CGFloat, lang: Lang = LangStore.currentLang) -> Font {
+        Font(titleUIFont(size, lang: lang))
+    }
+
+    /// Атрибуты заголовков панели для языка.
+    static func titleAttributes(for lang: Lang) -> (large: [NSAttributedString.Key: Any], inline: [NSAttributedString.Key: Any]) {
+        let ink = UIColor(Brand.ink)
+        return (
+            [.font: titleUIFont(lang == .hy ? 30 : 28, lang: lang), .foregroundColor: ink],
+            [.font: titleUIFont(lang == .hy ? 17 : 15, lang: lang), .foregroundColor: ink]
+        )
+    }
+
+    /// Ставит шрифт на конкретную панель. Фон и стекло остаются
+    /// системными: берётся копия текущей внешности, меняются только
+    /// атрибуты текста.
+    @MainActor
+    static func style(_ bar: UINavigationBar, for lang: Lang) {
+        let attrs = titleAttributes(for: lang)
+        func tuned(_ base: UINavigationBarAppearance?) -> UINavigationBarAppearance {
+            let a = (base?.copy() as? UINavigationBarAppearance) ?? UINavigationBarAppearance()
+            a.largeTitleTextAttributes = attrs.large
+            a.titleTextAttributes = attrs.inline
+            return a
+        }
+        bar.standardAppearance = tuned(bar.standardAppearance)
+        bar.scrollEdgeAppearance = tuned(bar.scrollEdgeAppearance ?? bar.standardAppearance)
+        bar.compactAppearance = tuned(bar.compactAppearance ?? bar.standardAppearance)
+        bar.largeTitleTextAttributes = attrs.large
+        bar.titleTextAttributes = attrs.inline
+    }
+
+    /// Прокси для панелей, которые ещё не созданы.
+    @MainActor
+    static func applyNavigationTitles(for lang: Lang) {
+        let attrs = titleAttributes(for: lang)
+        let bar = UINavigationBar.appearance()
+        bar.largeTitleTextAttributes = attrs.large
+        bar.titleTextAttributes = attrs.inline
+    }
+}
+
+
+/**
+ * Крючок к настоящей панели навигации экрана.
+ *
+ * Панель на iOS 26 не читает прокси `UINavigationBar.appearance()` из
+ * SwiftUI, поэтому шрифт ставится на сам экземпляр: пустой UIView
+ * находит через цепочку ответчиков контроллер и его панель. Ставится в
+ * фон корневого вида экрана, размера не имеет.
+ */
+struct TitleFontHook: UIViewRepresentable {
+    let lang: Lang
+
+    func makeUIView(context: Context) -> HookView {
+        let view = HookView()
+        view.lang = lang
+        return view
+    }
+
+    func updateUIView(_ view: HookView, context: Context) {
+        view.lang = lang
+        view.apply()
+    }
+
+    final class HookView: UIView {
+        var lang: Lang = .hy
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+            DispatchQueue.main.async { [weak self] in self?.apply() }
+        }
+
+        func apply() {
+            var responder: UIResponder? = self
+            while let next = responder {
+                if let controller = next as? UIViewController, let nav = controller.navigationController {
+                    Typo.style(nav.navigationBar, for: lang)
+                    /* Ряд с крупным заголовком опускается от часов:
+                       вплотную к ним владелец назвал «слишком высоко».
+                       Внешний отступ панель не читает — только
+                       дополнительная безопасная зона самого контроллера. */
+                    if nav.additionalSafeAreaInsets.top != Typo.titleDrop {
+                        nav.additionalSafeAreaInsets.top = Typo.titleDrop
+                    }
+                    return
+                }
+                responder = next.next
+            }
+        }
+    }
+}
+
+extension View {
+    /// Заголовки панели этого экрана — фирменным шрифтом по языку.
+    func brandTitleFont() -> some View {
+        background(TitleFontHook(lang: LangStore.currentLang).frame(width: 0, height: 0))
+    }
+}

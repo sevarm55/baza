@@ -3,16 +3,22 @@ import SwiftUI
 /**
  * Прайс.
  *
- * Услуги плитками в поток, теми же, что в записи машины. Список во всю
- * ширину показывал четыре услуги на экран и заставлял прокручивать; в поток
- * те же четыре встают в два ряда и видны сразу — а главное, прайс здесь
- * выглядит ровно так же, как в момент выбора, и владелец правит то, что
- * потом сам и нажимает.
+ * Экран отвечает на вопрос, с которым к прайсу подходят на площадке:
+ * «сколько стоит вот эта машина». Поэтому наверху стоят классы, а не
+ * список: приехал джип — нажал «Джип», и все цены на экране стали
+ * ценами для джипа. Прежний список показывал одну базовую цену на
+ * услугу, а цены по классам были спрятаны в карточке правки, и узнать
+ * стоимость джипа можно было, только открыв услугу и прочитав четвёртое
+ * поле сверху.
+ *
+ * Услуги — плитками по две в ряд, теми же, что машины в базе: название
+ * и цена крупно, всё остальное убрано. Прайс из шести позиций виден
+ * целиком, без прокрутки и без чтения строк.
  *
  * Правка цены не трогает прошлые записи: в каждом заказе лежит снимок.
- * Поэтому цены можно менять хоть каждый день — вчерашняя выручка и зарплаты
- * останутся прежними. Об этом сказано прямо на экране: без этой строчки
- * цену боятся трогать.
+ * Поэтому цены можно менять хоть каждый день — вчерашняя выручка и
+ * зарплаты останутся прежними. Об этом сказано прямо на экране: без
+ * этой строчки цену боятся трогать.
  */
 struct ServicesView: View {
     @EnvironmentObject private var session: Session
@@ -29,50 +35,88 @@ struct ServicesView: View {
      * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
      * человек читал «пока ничего нет» о списке, который просто не
      * привезли.
-     *
-     * Причина отдельной строкой и только когда она известна точнее, чем
-     * «не вышло»: пропавшая связь — совет, который можно выполнить, а
-     * код ответа сервера владельцу мойки не говорит ничего.
      */
     @State private var failed = false
     @State private var failNote: String?
+
+    /// Выбранный класс машины. `nil` — показывать базовую цену и разброс.
+    @State private var tier: Int?
+
+    /// Такт прихода: классы и плитки собираются по очереди.
+    @State private var beat: Beat = .waiting
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
     private var tiers: [String] { session.tenant?.tiers ?? [] }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                serviceRail
+            VStack(alignment: .leading, spacing: 0) {
+                if loaded, !tiers.isEmpty, !services.isEmpty {
+                    classes
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .reveal(beat, step: 0)
+                }
 
                 if !loaded {
                     Delayed(active: true) { TetrScreenLoader(height: 260) }
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 16)
                 } else if failed, services.isEmpty {
                     TetrFailure(
                         title: L("common.loadFailed"),
                         note: failNote,
                         retry: { await reload() }
                     )
+                    .padding(.horizontal, 16)
                 } else if services.isEmpty {
-                    servicesEmpty
+                    empty
+                        .padding(.horizontal, 16)
+                        .padding(.top, 18)
+                } else {
+                    grid
+                        .padding(.horizontal, 16)
+                        .padding(.top, tiers.isEmpty ? 8 : 14)
+                        .reveal(beat, step: 1)
                 }
 
-                tiersButton
+                /* Вход в классы, пока их нет. Когда они есть, он уезжает
+                   в панель: полки наверху уже говорят, что классы
+                   заведены, и вторая строка про то же под списком была бы
+                   шестой услугой в прайсе из пяти. */
+                if loaded, tiers.isEmpty {
+                    addTiers
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                }
 
                 Text(L("services.priceNote"))
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 6)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 20)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
             .padding(.bottom, 28)
         }
+            /* Обновление вешается на саму прокрутку, а не в конец
+               цепочки. Снаружи оно попадает в окружение всего, что ниже,
+               включая листы: форма найма наследовала «потянуть, чтобы
+               обновить», отвечала на движение вниз загрузчиком и не
+               давала закрыть себя смахиванием. */
+            .refreshable { await reload() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("settings.tabServices"))
+        .navigationSubtitle(subtitle)
+        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbar {
+            if !tiers.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) { tiersButton }
+            }
+        }
         .safeAreaInset(edge: .bottom) { newServiceButton }
         /* Полоска захвата видима нарочно: лист и раньше закрывался
            смахиванием, но без неё об этом никто не догадывался и искал
@@ -80,8 +124,7 @@ struct ServicesView: View {
         /* Половина экрана, а не весь.
            Правка цены — это одно число, и лист во весь рост под неё
            закрывал прайс целиком: человек переставал видеть, относительно
-           чего он эту цену ставит. На половине список остаётся на виду, а
-           кому мало — тянет лист вверх, вторая высота на месте. */
+           чего он эту цену ставит. */
         .sheet(item: $editing) { service in
             ServiceEditor(service: service, currency: currency) { await reload() }
                 .presentationDetents([.medium, .large])
@@ -98,109 +141,166 @@ struct ServicesView: View {
                 .presentationDragIndicator(.visible)
         }
         .task { await reload() }
-        .refreshable { await reload() }
     }
 
-    private var servicesEmpty: some View {
-        VStack(spacing: 15) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Brand.grape.opacity(0.09))
-                    .frame(width: 126, height: 78)
+    /// Подзаголовок панели: сколько позиций в прайсе.
+    private var subtitle: String {
+        guard loaded, !services.isEmpty else { return "" }
+        return Ln("services.count", services.count)
+    }
 
-                VStack(spacing: 7) {
-                    ForEach(Array(([CGFloat(0.72), 0.52, 0.86]).enumerated()), id: \.offset) { index, width in
-                        HStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(index == 1 ? Brand.sandInk : Brand.grape)
-                                .frame(width: 7, height: 7)
-                            Capsule()
-                                .fill(Brand.boardInk.opacity(0.13))
-                                .frame(width: 68 * width, height: 6)
-                            Spacer(minLength: 0)
-                            Capsule()
-                                .fill(Brand.boardInk.opacity(0.22))
-                                .frame(width: 21, height: 6)
-                        }
-                    }
-                }
-                .padding(.horizontal, 15)
-                .frame(width: 126)
-            }
+    // ══════════════════════════ классы ══════════════════════════
 
-            Text(L("services.empty"))
+    /**
+     * Классы машин полками.
+     *
+     * «Все» первой: без выбора прайс показывает базовую цену и разброс —
+     * так владелец видит, что цена не одна, ещё до того, как выберет
+     * класс. Прежний список этого не показывал вовсе: в строке стояла
+     * базовая цена, и джип с ценой вдвое выше выглядел так же, как седан.
+     */
+    private var classes: some View {
+        PillTabs(
+            items: [(Int?.none, L("today.all"))] + tiers.enumerated().map { (Int?($0.offset), $0.element) },
+            selection: $tier
+        )
+    }
+
+    private var tiersButton: some View {
+        Button { editingTiers = true } label: {
+            Image(systemName: "slider.horizontal.3")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-                .multilineTextAlignment(.center)
+                .foregroundStyle(Brand.ink)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .accessibilityLabel(L("services.tiers"))
     }
 
-    /// «5 000 — 9 000 ֏», когда у услуги разные цены по классам.
-    ///
-    /// Диапазон, а не первая цена: список прайса должен показывать, что
-    /// цена не одна, — иначе владелец правит седан и думает, что поправил
-    /// всё.
-    private func priceLabel(_ service: API.Service) -> String {
-        let all = (0..<max(1, tiers.count)).map { service.price(tier: tiers.isEmpty ? nil : $0) }
-        let low = all.min() ?? service.price
-        let high = all.max() ?? service.price
-        return low == high ? money(low, currency) : "\(money(low, currency)) — \(money(high, currency))"
+    /// Классов ещё нет — бумажная карточка с приглашением их завести.
+    private var addTiers: some View {
+        Button { editingTiers = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.grape)
+                    .frame(width: 44, height: 44)
+                    .background(Brand.grapeFill.opacity(0.1), in: .circle)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L("services.addTiers"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                    Text(L("services.tiersExample"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Brand.muted)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .paperCard(22)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+    }
+
+    // ══════════════════════════ прайс ══════════════════════════
+
+    private var grid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
+            ForEach(services) { service in
+                Button { editing = service } label: { tile(service) }
+                    .buttonStyle(.press)
+            }
+        }
     }
 
     /**
-     * Список, а не лента.
+     * Плитка услуги: название и цена.
      *
-     * Услуги лежали горизонтальными билетами: чтобы увидеть пятую, надо
-     * было листать вбок, а сколько их всего — не понять вовсе. Прайс
-     * читают сверху вниз, сравнивая цены столбиком; вбок его не читает
-     * никто.
+     * Цена крупная и стоит одна — прайс читают ценами, а не названиями,
+     * и в строке она всегда оказывалась прижата к правому краю, где её
+     * приходилось искать глазами по каждой строке отдельно.
+     *
+     * Под ценой разброс по классам, и только когда классы вправду
+     * разошлись: «5 000 — 9 000» говорит, что у услуги не одна цена, и
+     * этого владелец из прежнего списка не узнавал никак.
      */
-    private var serviceRail: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
-                Button {
-                    editing = service
-                } label: {
-                    HStack(spacing: 12) {
-                        Text(Terms.service(service.name))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
-                            .lineLimit(1)
+    private func tile(_ service: API.Service) -> some View {
+        let shownPrice = service.price(tier: tier)
+        let all = (0..<max(1, tiers.count)).map { service.price(tier: tiers.isEmpty ? nil : $0) }
+        let low = all.min() ?? service.price
+        let high = all.max() ?? service.price
+        let spread = tier == nil && low != high
 
-                        Spacer(minLength: 8)
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(Terms.service(service.name))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
 
-                        Text(money(service.price, currency))
-                            .font(.system(size: 15, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
+            Spacer(minLength: 14)
 
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Brand.boardMuted)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 54)
-                    /* Нажимается вся строка, а не буквы на ней. Без этой
-                       строки SwiftUI считает целью только текст: пустое
-                       поле между названием и ценой целью не является, и
-                       палец, попавший в середину, получает молчание. */
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.press)
+            Text(money(shownPrice, currency))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText(value: Double(shownPrice)))
 
-                if index < services.count - 1 {
-                    Divider().overlay(Brand.boardInk.opacity(0.07)).padding(.leading, 14)
-                }
-            }
-
+            /* Место под разброс занято всегда: иначе плитки с разными
+               ценами по классам стояли бы выше соседних, и ряд получался
+               рваным. */
+            Text(spread ? "\(money(low, currency)) — \(money(high, currency))" : " ")
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(Brand.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 1)
         }
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .paperCard(20)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Прайс пуст: так выглядит мойка в первый день, и сказать об этом
+    /// надо словами, а не пустым экраном.
+    private var empty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "tag.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Brand.lavenderInk)
+                .frame(width: 52, height: 52)
+                .background(Brand.lavenderCard, in: .circle)
+            Spacer(minLength: 10)
+            Text(L("services.empty"))
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Brand.ink)
+            Text(L("services.noTiersNote"))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .paperCard(26)
     }
 
     /**
@@ -208,68 +308,14 @@ struct ServicesView: View {
      *
      * Раньше это была последняя строка списка. На прайсе из десяти
      * позиций до неё приходилось долистывать, а завести услугу хотят чаще
-     * всего именно тогда, когда список уже длинный. Внизу она на одном
-     * месте всегда — тем же движением, что «Добавить мойщика» в
-     * «Команде».
+     * всего именно тогда, когда список уже длинный.
      */
     private var newServiceButton: some View {
         Button(L("settings.newService")) { adding = true }
             .buttonStyle(LimeButton())
+            .shadow(color: Brand.lime.opacity(0.45), radius: 16, y: 8)
             .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 8)
-            .background {
-                VStack(spacing: 0) {
-                    LinearGradient(
-                        colors: [Brand.board.opacity(0), Brand.board],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 20)
-
-                    Brand.board
-                }
-                .ignoresSafeArea(edges: .bottom)
-            }
-    }
-
-    private var tiersButton: some View {
-        Button {
-            editingTiers = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Brand.grape)
-                    .frame(width: 44, height: 44)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(tiers.isEmpty
-                         ? L("services.addTiers")
-                         : "\(session.tenant?.tierLabel ?? "Դաս") · \(tiers.joined(separator: ", "))")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-                    Text(tiers.isEmpty
-                         ? L("services.tiersExample")
-                         : L("services.tiersNote"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            /* Капсула, а не скруглённый прямоугольник: строка про классы
-               не часть прайса, а вход в его настройку. Другая форма
-               говорит это раньше, чем прочитан текст, — и не даёт
-               принять её за шестую услугу под списком из пяти. */
-            .background(Brand.boardSurface, in: .capsule)
-            .overlay { Capsule().strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8) }
-        }
-        .buttonStyle(.press)
+            .padding(.bottom, 6)
     }
 
     private func reload() async {
@@ -277,9 +323,13 @@ struct ServicesView: View {
             let result = try await session.authed { token in
                 try await APIClient.shared.send("services", token: token, as: API.Services.self)
             }
-            services = result.services
+            withAnimation(.snappy(duration: Motion.normal)) { services = result.services }
             failed = false
             failNote = nil
+            /* Класс мог исчезнуть, пока экран был открыт: их правят на
+               этом же экране листом. Тогда выбор сбрасывается на «все» —
+               иначе цены считались бы по классу, которого больше нет. */
+            if let current = tier, current >= tiers.count { tier = nil }
         } catch is CancellationError {
             // потянули вниз и отпустили: ничего не сломалось
             return
@@ -291,6 +341,17 @@ struct ServicesView: View {
             failNote = nil
         }
         loaded = true
+        arrive()
+    }
+
+    /// Классы и плитки приходят по очереди, как на соседних экранах.
+    private func arrive() {
+        guard beat == .waiting else { return }
+        if reduceMotion {
+            beat = .here
+        } else {
+            withAnimation { beat = .here }
+        }
     }
 }
 
@@ -317,6 +378,7 @@ struct ServiceEditor: View {
     @State private var tierPrices: [String] = []
     @State private var busy = false
     @State private var archiving = false
+    @FocusState private var typingName: Bool
     /// Почему не сохранилось. Пусто — всё в порядке.
     @State private var error: String?
     @FocusState private var typingPrice: Bool
@@ -345,13 +407,23 @@ struct ServiceEditor: View {
                    одной безымянной стопкой, причём цены сверху, — и по
                    ней нельзя было понять, что вообще заводится: то ли
                    услуга, то ли прайс на что-то уже существующее. */
-                caption(L("services.nameField"))
-
-                FieldBox(L("owner.clientName"), fill: Brand.boardControl) {
-                    TextField(L("services.namePlaceholder"), text: $name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                }
+                /* Поле называет себя само. Стояло три слоя подряд:
+                   подпись «Какая услуга», внутри коробки ещё заголовок
+                   «Имя», а в самом поле пример «Комплекс». Спрашивали
+                   трижды об одном, а пример ничего не объяснял: что
+                   писать в поле «Какая услуга», человек знает без
+                   образца. */
+                TextField(L("services.nameField"), text: $name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                    .focused($typingName)
+                    .submitLabel(.next)
+                    .onSubmit { typingPrice = true }
+                    .padding(.horizontal, 16)
+                    .frame(height: 58)
+                    .contentShape(.rect)
+                    .onTapGesture { typingName = true }
+                    .boardCard()
 
                 caption(tiers.isEmpty ? L("services.priceTitle") : L("services.priceByTier"))
 
@@ -379,21 +451,34 @@ struct ServiceEditor: View {
                         /* По строке на класс. Крупного поля здесь нет
                            намеренно: когда цен три, ни одна из них не
                            главная, и выделять первую значило бы врать. */
+                        /* Класс слева, цена справа: имя класса — это
+                           данные, а не имя поля, и уйти в подсказку оно
+                           не может — с первой набранной цифрой стало бы
+                           непонятно, чья это цена. */
                         ForEach(Array(tiers.enumerated()), id: \.offset) { i, tierName in
-                            FieldBox(tierName) {
+                            HStack(spacing: 12) {
+                                Text(tierName)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(Brand.onBoard)
+                                    .lineLimit(1)
+
+                                Spacer(minLength: 8)
+
                                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                                     TextField("0", text: binding(for: i))
                                         .font(.system(size: 19, weight: .bold, design: .rounded))
                                         .monospacedDigit()
                                         .foregroundStyle(Brand.onBoard)
                                         .keyboardType(.numberPad)
+                                        .multilineTextAlignment(.trailing)
                                         .fixedSize()
                                     Text(currency == "AMD" ? "֏" : currency)
                                         .font(.system(size: 13))
                                         .foregroundStyle(Brand.boardMuted)
-                                    Spacer(minLength: 0)
                                 }
                             }
+                            .padding(.horizontal, 16)
+                            .frame(height: 58)
 
                             if i < tiers.count - 1 {
                                 Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
@@ -420,6 +505,14 @@ struct ServiceEditor: View {
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
+        /* Короткая форма не тянется и не пружинит.
+           Прокрутка внутри листа перехватывала жест вниз: экран отвечал
+           оттягиванием, как будто это обновление списка, а лист при этом
+           не закрывался — поймать его удавалось только за полоску
+           сверху. С `basedOnSize` содержимое, которое помещается,
+           прокруткой не считается, и движение вниз достаётся листу: он
+           закрывается смахиванием откуда угодно. */
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
@@ -634,11 +727,15 @@ struct TierEditor: View {
         NavigationStack {
         ScrollView {
             VStack(spacing: 10) {
-                FieldBox(L("services.tierNameField"), fill: Brand.boardControl) {
-                    TextField(L("work.tier"), text: $label)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
-                }
+                /* Имя поля стоит в самом поле: коробка называлась «Как
+                   назовём», а внутри лежало то же слово подсказкой. */
+                TextField(L("work.tier"), text: $label)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Brand.onBoard)
+                    .padding(.horizontal, 16)
+                    .frame(height: 58)
+                    .contentShape(.rect)
+                    .boardCard()
 
                 VStack(spacing: 0) {
                     ForEach(names.indices, id: \.self) { i in
@@ -727,6 +824,14 @@ struct TierEditor: View {
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
+        /* Короткая форма не тянется и не пружинит.
+           Прокрутка внутри листа перехватывала жест вниз: экран отвечал
+           оттягиванием, как будто это обновление списка, а лист при этом
+           не закрывался — поймать его удавалось только за полоску
+           сверху. С `basedOnSize` содержимое, которое помещается,
+           прокруткой не считается, и движение вниз достаётся листу: он
+           закрывается смахиванием откуда угодно. */
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }

@@ -85,6 +85,18 @@
         }
       }
     },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Privacy - Local Network Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "hy" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Отладочная сборка подключается к серверу разработчика в этой же сети."
+          }
+        }
+      }
+    },
     "NSUserNotificationsUsageDescription" : {
       "comment" : "Зачем уведомления: смена и новые записи.",
       "extractionState" : "manual",

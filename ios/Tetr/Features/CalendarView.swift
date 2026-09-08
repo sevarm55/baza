@@ -55,7 +55,7 @@ struct CalendarView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: gap) {
+            VStack(alignment: .leading, spacing: 0) {
                 if let failure, data == nil {
                     TetrFailure(title: failure, retry: { await reload() })
                         .padding(.top, 60)
@@ -73,176 +73,122 @@ struct CalendarView: View {
                         }
                         .padding(12)
                         .background(Brand.badOnBoard.opacity(0.09), in: .rect(cornerRadius: 14, style: .continuous))
+                        .padding(.bottom, 12)
                     }
 
-                    if let total = data?.total { reading(total) }
+                    if let total = data?.total { hero(total) }
+
                     grid
+                        .padding(.top, 12)
+
                     weekProfile
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.top, 6)
             .padding(.bottom, 28)
         }
+        .refreshable { await reload() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
-        .safeAreaInset(edge: .top) { header }
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("calendar.title"))
+        .navigationSubtitle(Self.title(month))
+        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbar {
+            /* Месяцы листаются стрелками в панели, а не своей шапкой:
+               шапка была ещё одной строкой поверх экрана и повторяла
+               заголовок, который система рисует сама. Вперёд дальше
+               текущего месяца незачем — там пусто по определению. */
+            ToolbarItem(placement: .topBarTrailing) {
+                arrow("chevron.left", L("calendar.prevMonth")) { shift(by: -1) }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                arrow("chevron.right", L("calendar.nextMonth")) { shift(by: 1) }
+                    .disabled(month >= Self.currentMonth())
+                    .opacity(month >= Self.currentMonth() ? 0.35 : 1)
+            }
+        }
         .task {
             if month.isEmpty { month = Self.currentMonth() }
             await reload()
         }
-        .refreshable { await reload() }
         .sheet(item: $picked) { date in
             DayView(date: date).environmentObject(session)
         }
     }
 
-    // ══════════════════════════ шапка ══════════════════════════
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            /* Выход с экрана. Своя шапка заменила системную панель, и
-               вместе с панелью пропала кнопка «назад» — из календаря
-               можно было выйти только жестом от края, о котором знают не
-               все. Стрелки месяца при этом собраны справа: слева уход с
-               экрана, справа перемещение внутри него, и две разные по
-               смыслу стрелки больше не стоят рядом. */
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
-                    .frame(width: 38, height: 38)
-                    .background(Brand.boardInk.opacity(0.07), in: .circle)
-            }
-            .buttonStyle(.press)
-            .accessibilityLabel(L("common.back"))
-
-            Text(Self.title(month))
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Brand.onBoard)
-                .frame(maxWidth: .infinity)
-                .contentTransition(.numericText())
-
-            arrow("chevron.left", L("calendar.prevMonth")) { shift(by: -1) }
-
-            // вперёд дальше текущего месяца незачем: там пусто по определению
-            arrow("chevron.right", L("calendar.nextMonth")) { shift(by: 1) }
-                .disabled(month >= Self.currentMonth())
-                .opacity(month >= Self.currentMonth() ? 0.3 : 1)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
-        .background(Brand.board.ignoresSafeArea(edges: .top))
-    }
-
     private func arrow(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-                .frame(width: 38, height: 38)
-                .background(Brand.boardInk.opacity(0.07), in: .circle)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.ink)
         }
-        .buttonStyle(.press)
         .accessibilityLabel(label)
     }
 
     // ══════════════════════════ показание ══════════════════════════
 
-    private func reading(_ total: API.MonthTotal) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 5) {
+    /**
+     * Месяц одной лаймовой картой.
+     *
+     * Прибыль стояла голым числом на полотне, а под ней лежала карточка
+     * с выручкой и тремя показателями — два блока про одни и те же
+     * деньги подряд. Теперь всё в одной карте: главное число крупно,
+     * остальное фишками, и каждое число названо ровно один раз.
+     *
+     * Фишки переносятся строкой: по-армянски «Աշխատակիցներին» вдвое
+     * длиннее русского слова, и в жёсткий ряд из четырёх они не встают.
+     */
+    private func hero(_ total: API.MonthTotal) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Text(total.profit >= 0 ? L("calendar.monthProfit") : L("calendar.monthInTheRed"))
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .tracking(1.15)
-                    .foregroundStyle(Brand.boardMuted)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.onLime.opacity(0.75))
 
+            /* Минус настоящий, U+2212: дефис на таком кегле читается
+               точкой. Убыток краснеет — на лайме это единственный цвет,
+               который читается тревогой. */
             Text((total.profit < 0 ? "−" : "") + money(abs(total.profit), currency))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.sign(total.profit))
+                .foregroundStyle(total.profit < 0 ? Brand.badOnBoard : Brand.onLime)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
+                .padding(.top, 2)
                 // значение передаётся внутрь: по нему система понимает, в
                 // какую сторону крутить разряды
                 .contentTransition(.numericText(value: Double(total.profit)))
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            totals(total)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 2)
-    }
-
-    /**
-     * Итоги месяца четырьмя мягкими карточками.
-     *
-     * Тёмных плиток со свечением было две — выручка и машины, — и они
-     * отвечали на два вопроса из четырёх: куда делись деньги, из них не
-     * следовало. Светились при этом громче всего на экране, хотя главное
-     * здесь — форма месяца в сетке.
-     *
-     * Теперь цепочка названа целиком: пришло, за сколько машин, ушло
-     * людям, ушло на расходы. Краски те же, что на смене и в карточке дня:
-     * мята за объём работы, лаванда за деньги, кобальт за траты — и один и
-     * тот же смысл окрашен одинаково во всём продукте.
-     */
-    @ViewBuilder
-    private func totals(_ total: API.MonthTotal) -> some View {
-        if total.revenue > 0 || total.count > 0 {
-            VStack(spacing: 13) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(L("owner.revenue"))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Brand.boardMuted)
-                    Spacer(minLength: 8)
-                    Text(money(total.revenue, currency))
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.mintInk)
+            if total.revenue > 0 || total.count > 0 {
+                FlowLayout(spacing: 8) {
+                    pill("\(L("owner.revenue")) \(money(total.revenue, currency))")
+                    pill(Terms.units(total.count, session.tenant?.unitOne ?? ""))
+                    if total.payroll > 0 {
+                        pill("\(L("summary.toStaff")) \(money(total.payroll, currency))")
+                    }
+                    if total.expenses > 0 {
+                        pill("\(L("expenses.title")) \(money(total.expenses, currency))")
+                    }
                 }
-
-                Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
-
-                HStack(alignment: .top, spacing: 6) {
-                    monthMetric("\(total.count)", Terms.unitWord(total.count, session.tenant?.unitOne ?? ""), Brand.onBoard)
-                    divider
-                    monthMetric(money(total.payroll, currency), L("summary.toStaff"), Brand.lavenderInk)
-                    divider
-                    monthMetric(money(total.expenses, currency), L("expenses.title"), Brand.sandInk)
-                }
-            }
-            .padding(16)
-            .background(Brand.boardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07))
+                .padding(.top, 16)
             }
         }
-    }
-
-    private func monthMetric(_ value: String, _ label: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(2)
-        }
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.lime, in: .rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: Brand.lime.opacity(0.35), radius: 16, y: 8)
     }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
-            .frame(width: 1, height: 34)
+    private func pill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(Brand.onLime)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.white.opacity(0.55), in: .capsule)
     }
 
     // ══════════════════════════ сетка ══════════════════════════
@@ -258,7 +204,7 @@ struct CalendarView: View {
                         .font(.system(size: 10, weight: .semibold))
                         // выходные приглушены: на мойке они как раз самые
                         // сильные, и подсвечивать их красным было бы враньём
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -280,11 +226,7 @@ struct CalendarView: View {
            края. Белая коробка с волосяной кромкой — та же, в которой на
            этом экране живут все списки, — держит сетку предметом, а
            сиреневые клетки внутри становятся заметно чище. */
-        .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-        }
+        .paperCard(22)
         .opacity(loading && data == nil ? 0.4 : 1)
         .animation(reduceMotion ? nil : .easeOut(duration: Motion.normal), value: month)
     }
@@ -327,12 +269,12 @@ struct CalendarView: View {
                 Text(String(Int(day.date.suffix(2)) ?? 0))
                     .font(.system(size: 14, weight: day.revenue > 0 ? .bold : .regular))
                     .monospacedDigit()
-                    .foregroundStyle(day.revenue > 0 ? Brand.onBoard : Brand.boardMuted.opacity(0.55))
+                    .foregroundStyle(day.revenue > 0 ? Brand.ink : Brand.muted.opacity(0.55))
                 if day.count > 0 {
                     Text("\(day.count)")
                         .font(.system(size: 11, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -379,14 +321,15 @@ struct CalendarView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(L("calendar.weekShape"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
+                    Text(L("calendar.weekShape").uppercased())
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .tracking(1.3)
+                        .foregroundStyle(Brand.muted)
                     Spacer()
                     Text("\(weekdays[best]) · \(money(Int(peak), currency))")
                         .font(.system(size: 12))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                 }
                 .padding(.bottom, 12)
 
@@ -398,7 +341,7 @@ struct CalendarView: View {
                                 .frame(height: max(3, 62 * CGFloat(avg[i] / peak)))
                             Text(weekdays[i])
                                 .font(.system(size: 11))
-                                .foregroundStyle(Brand.boardMuted)
+                                .foregroundStyle(Brand.muted)
                         }
                         .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
@@ -409,11 +352,8 @@ struct CalendarView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
+            .paperCard(22)
+            .padding(.top, 12)
         }
     }
 

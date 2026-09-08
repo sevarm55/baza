@@ -24,8 +24,6 @@ struct StaffView: View {
     /// Открыта настройка общего процента команды.
     @State private var teamOpen = false
     @State private var loaded = false
-    /// Выбранная композиция. ВРЕМЕННО: пять видов на выбор владельца,
-    /// после выбора остаётся один и `StaffScreenStyles.swift` уходит.
     /**
      * Почему список пуст.
      *
@@ -36,7 +34,10 @@ struct StaffView: View {
     @State private var failed = false
     @State private var failNote: String?
 
-    private let gap: CGFloat = 10
+    /// Такт прихода: люди и правила собираются по очереди.
+    @State private var beat: Beat = .waiting
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /* Порядок задан состоянием, а не тем, в каком порядке людей завели:
        сначала те, кто стоит на мойке прямо сейчас, потом отработавшие в
@@ -54,38 +55,73 @@ struct StaffView: View {
         }
     }
 
-    /* Кто моет и кто владеет — разные списки.
+    /**
+     * На экране только те, кто моет.
      *
-     * Раньше владелец стоял в общем ряду последней строкой, и это читалось
-     * как работник, у которого почему-то нет ни ставки, ни смены, ни
-     * заработка: три пустоты подряд там, где у соседей числа. Метка «вы»
-     * положение не спасала, потому что глаз сравнивает столбцы, а не
-     * читает подписи. Теперь коробки разные, и сравнивать нечего.
+     * Владельца здесь нет вовсе: экран заведён, чтобы завести человека,
+     * поменять ему ставку и отключить, — а с собой владелец ничего из
+     * этого сделать не может. Своя строка стояла последней и читалась
+     * работником, у которого почему-то нет ни ставки, ни смены, ни
+     * заработка. Имя и телефон владельца живут в профиле.
      */
     private var crew: [API.StaffMember] { ordered.filter { $0.role != "owner" } }
-    private var owners: [API.StaffMember] { ordered.filter { $0.role == "owner" } }
+
+    private var currency: String { session.tenant?.currency ?? "AMD" }
+    private var totalDue: Int { crew.compactMap(\.due).reduce(0, +) }
+    private var onShiftCount: Int { crew.filter { $0.onShift == true }.count }
 
     var body: some View {
-        /* Стеклянные плиты живут в общем контейнере: он даёт системе
-           видеть их как одну группу и правильно считать преломление на
-           границах, когда список прокручивается под ними.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if loaded, !crew.isEmpty {
+                    chips
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .reveal(beat, step: 0)
 
-           Две плиты, а не три и не десять. Люди — однородный список, и
-           каждому по стеклу превратило бы экран в мозаику; правило
-           оплаты и владелец — другая порода вещи, и им своя плита. */
-        GlassEffectContainer(spacing: 22) {
-            ScrollView {
-                VStack(spacing: 22) {
-                    crewSection
-                    rulesSection
+                    grid
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .reveal(beat, step: 1)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 28)
+
+                if !loaded {
+                    Delayed(active: true) { TetrScreenLoader(height: 200) }
+                        .padding(.horizontal, 16)
+                } else if failed, staff.isEmpty {
+                    TetrFailure(title: L("common.loadFailed"), note: failNote, retry: { await reload() })
+                        .padding(.horizontal, 16)
+                } else if crew.isEmpty {
+                    staffEmpty
+                        .padding(.horizontal, 16)
+                        .padding(.top, 18)
+                }
+
+                if loaded {
+                    rules
+                        .padding(.horizontal, 16)
+                        .padding(.top, 26)
+                        .reveal(beat, step: 2)
+                }
             }
+            .padding(.bottom, 28)
         }
+            /* Обновление вешается на саму прокрутку, а не в конец
+               цепочки. Снаружи оно попадает в окружение всего, что ниже,
+               включая листы: форма найма наследовала «потянуть, чтобы
+               обновить», отвечала на движение вниз загрузчиком и не
+               давала закрыть себя смахиванием. */
+            .refreshable { await reload() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
+        .meshPage()
+        .brandTitleFont()
+        /* «Команда», а не форма слова «мойщик»: `Terms.staff().many`
+           даёт «Мойщика» — форму после числительного, и в заголовке она
+           читается опечаткой. Тем же словом раздел назван в «Ещё», через
+           которое сюда и заходят. */
+        .navigationTitle(L("more.team"))
+        .navigationSubtitle(subtitle)
+        .toolbarTitleDisplayMode(.inlineLarge)
         .safeAreaInset(edge: .bottom) { addButton }
         .sheet(item: $editing) { person in
             StaffEditor(person: person) { await reload() }
@@ -103,205 +139,136 @@ struct StaffView: View {
                 .presentationDragIndicator(.visible)
         }
         .task { await reload() }
-        .refreshable { await reload() }
     }
 
-    // ══════════════════ экран команды ══════════════════
+    private var subtitle: String {
+        guard loaded, !crew.isEmpty else { return "" }
+        return Terms.staff(crew.count, session.tenant?.staffRole ?? "")
+    }
 
-    private var currency: String { session.tenant?.currency ?? "AMD" }
-    private var totalDue: Int { crew.compactMap(\.due).reduce(0, +) }
-    private var onShiftCount: Int { crew.filter { $0.onShift == true }.count }
+    // ══════════════════════════ фишки ══════════════════════════
 
-    /**
-     * Люди: одна стеклянная плита, внутри строки.
-     *
-     * Стекло здесь нативное, то самое, которым система рисует панели на
-     * iOS 26. Оно даёт списку глубину, которой не даёт плоская белая
-     * заливка: под ним видно полотно, и плита читается лежащей НА экране,
-     * а не нарисованной в нём.
-     *
-     * Плита одна на группу, а не карточка на человека: люди — однородный
-     * список, и десять отдельных стёкол превратили бы его в мозаику.
-     * Внутри строки разделены волосяной чертой с отступом под кружок —
-     * так глаз ведёт по именам, а не спотыкается о линии во всю ширину.
-     */
-    private var crewSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHead(
-                Terms.staff(session.tenant?.staffRole ?? "").many,
-                note: loaded && totalDue > 0 ? money(totalDue, currency) : nil
-            )
-
-            VStack(spacing: 0) {
-                crewContent
-
-                ForEach(Array(crew.enumerated()), id: \.element.id) { index, person in
-                    if index > 0 { hairline }
-                    personRow(person)
-                }
+    /// Два факта о команде: сколько сейчас на площадке и сколько всем
+    /// вместе должны. Оба — состояние, а не действие, поэтому фишками.
+    private var chips: some View {
+        FlowLayout(spacing: 8) {
+            if onShiftCount > 0 {
+                PillChip(
+                    text: "\(onShiftCount) · \(L("staff.onShift"))",
+                    ink: Brand.onLime,
+                    fill: Brand.lime,
+                    outlined: false
+                )
             }
-            .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
-        }
-    }
-
-    /**
-     * Правила и владелец: вторая плита.
-     *
-     * Отдельной плитой, а не строками под людьми: это не человек, а
-     * устройство мойки. Одна плита на обе строки, потому что вопрос у
-     * них общий — как здесь платят и кто здесь главный.
-     */
-    private var rulesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHead(L("staff.rulesSection"), note: nil)
-
-            VStack(spacing: 0) {
-                teamRow
-
-                if loaded, !owners.isEmpty {
-                    ForEach(owners) { person in
-                        hairline
-                        personRow(person)
-                    }
-                }
-            }
-            .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
-        }
-    }
-
-    /// Подпись группы: слово слева, при нужде число справа. Тихая, серым.
-    private func sectionHead(_ title: String, note: String?) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
-            Spacer(minLength: 8)
-            if let note {
-                Text(note)
-                    .font(.system(size: 13, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
-                    .lineLimit(1)
+            if totalDue > 0 {
+                PillChip(text: sentence(L("staff.due", money(totalDue, currency))))
             }
         }
-        .padding(.horizontal, 8)
     }
 
-    /// Волосяная черта с отступом под кружок: линия во всю ширину режет
-    /// список на куски, а с отступом ведёт взгляд по именам.
-    private var hairline: some View {
-        Rectangle()
-            .fill(Brand.boardInk.opacity(0.08))
-            .frame(height: 0.7)
-            .padding(.leading, 68)
+    /// Первая буква заглавная, остальное как есть.
+    private func sentence(_ text: String) -> String {
+        text.prefix(1).uppercased() + text.dropFirst()
     }
 
-    @ViewBuilder
-    private var crewContent: some View {
-        if !loaded {
-            Delayed(active: true) { TetrScreenLoader(height: 180) }
-        } else if failed, staff.isEmpty {
-            TetrFailure(title: L("common.loadFailed"), note: failNote, retry: { await reload() })
-        } else if crew.isEmpty {
-            staffEmpty
+    // ══════════════════════════ люди ══════════════════════════
+
+    /**
+     * Люди плитками, а не строками.
+     *
+     * Строка отвечала колонками: имя слева, процент и долг справа, — и
+     * человек в ней читался записью таблицы. На мойке людей двое-трое, и
+     * список из двух строк выглядел недоделанным списком.
+     *
+     * Плитка начинается с самого человека: крупный кружок его цветом,
+     * тем же, каким он подписан в ленте, на смене и в зарплатах. Ставка
+     * под именем — это правило, за которым сюда и заходят; работа за
+     * месяц строкой ниже.
+     */
+    private var grid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
+            ForEach(crew) { person in
+                Button { editing = person } label: { tile(person) }
+                    .buttonStyle(.press)
+                    .disabled(person.isMe)
+            }
         }
     }
 
-    /**
-     * Строка человека.
-     *
-     * Слева кружок с буквой и зелёной точкой смены, в середине имя и
-     * работа за месяц, справа доля и долг. Владельцу вместо доли слово:
-     * у него она обычно нулевая, и «0 %» рядом с именем читается ошибкой,
-     * а не «долю не берёт».
-     *
-     * Сумма к выдаче — единственное, что набрано жирным и округлым: это
-     * ответ на вопрос, с которым сюда приходят.
-     */
-    private func personRow(_ person: API.StaffMember) -> some View {
-        let owner = person.role == "owner"
+    private func tile(_ person: API.StaffMember) -> some View {
+        let tone = Brand.personTone(person.name)
+        let onShift = person.onShift == true
 
-        return Button {
-            if !person.isMe { editing = person }
-        } label: {
-            HStack(spacing: 14) {
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
                 ZStack(alignment: .bottomTrailing) {
-                    Text(String(person.name.prefix(1)))
-                        .font(.system(size: 17, weight: .bold))
+                    Text(String(person.name.prefix(1)).uppercased())
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
-                        .frame(width: 42, height: 42)
-                        .background(Brand.personTone(person.name).base, in: .circle)
+                        .frame(width: 46, height: 46)
+                        .background(tone.base, in: .circle)
 
-                    if person.onShift == true {
+                    /* Точка смены лаймом, а не зелёным: лайм в продукте
+                       значит «здесь и сейчас», и это ровно оно. Кайма
+                       цвета бумаги отделяет её от кружка. */
+                    if onShift {
                         Circle()
-                            .fill(Brand.goodOnBoard)
-                            .frame(width: 12, height: 12)
-                            .overlay(Circle().strokeBorder(Brand.board, lineWidth: 2.5))
+                            .fill(Brand.lime)
+                            .frame(width: 13, height: 13)
+                            .overlay(Circle().strokeBorder(Brand.paper, lineWidth: 2.5))
                             .offset(x: 2, y: 2)
                             .accessibilityLabel(L("staff.onShift"))
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(person.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Brand.onBoard)
-                            .lineLimit(1)
+                Spacer(minLength: 0)
 
-                        if person.isMe {
-                            Text(L("common.you"))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Brand.boardMuted)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 6, style: .continuous))
-                        }
-                    }
-
-                    Text(personNote(person))
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    if owner {
-                        Text(L("roles.owner"))
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brand.boardMuted)
-                    } else {
-                        Text("\(person.percent)%")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.boardMuted)
-
-                        if let due = person.due, due > 0 {
-                            Text(money(due, currency))
-                                .font(.system(size: 19, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(Brand.onBoard)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
-                    }
+                if person.isMe {
+                    Text(L("common.you"))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Brand.muted)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Brand.ink.opacity(0.06), in: .capsule)
+                        .padding(.top, 4)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-            .contentShape(.rect)
+
+            Text(person.name)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.top, 12)
+
+            Text("\(person.percent)% \(L("staff.perRecord"))")
+                .font(.system(size: 12, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.grape)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.top, 2)
+
+            Spacer(minLength: 10)
+
+            Text(personNote(person))
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(Brand.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
-        .buttonStyle(.press)
-        .disabled(person.isMe)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .paperCard(20)
+        .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 
-    /// Вторая строка человека: работа за месяц, а если её нет — телефон.
+    /// Нижняя строка плитки: работа за месяц, а если её нет — телефон.
     /// Пустая строка на месте работы читалась бы «данные не пришли».
     private func personNote(_ person: API.StaffMember) -> String {
         if let cars = person.cars, let earned = person.earned, cars > 0 {
@@ -310,69 +277,25 @@ struct StaffView: View {
         return person.phone
     }
 
-    private var staffEmpty: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: -9) {
-                ForEach(Array([Tone.teal, Tone.violet, Tone.rose].enumerated()), id: \.offset) { index, tone in
-                    Circle()
-                        .fill(tone.base)
-                        .frame(width: 42, height: 42)
-                        .overlay {
-                            Image(systemName: index == 1 ? "plus" : "person.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white.opacity(index == 1 ? 1 : 0.84))
-                        }
-                        .overlay(Circle().strokeBorder(Brand.boardSurface, lineWidth: 3))
-                }
-            }
+    // ══════════════════════════ правила ══════════════════════════
 
-            Text(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 25)
-    }
-
-    /// Добавление — последней строкой того же списка, а не отдельной
-    /// плашкой под ним.
-    ///
-    /// Плюсик в углу панели ищут глазами; строка стоит там, где список
-    /// кончается, то есть ровно там, куда смотрит человек, не нашедший
-    /// нужного имени.
     /**
-     * «Добавить мойщика» — прижата ко дну, над панелью вкладок.
+     * Правила оплаты и владелец — одной бумагой.
      *
-     * Раньше это была последняя строка в коробке людей, и до неё
-     * приходилось долистывать: у мойки с шестью мойщиками кнопка
-     * оказывалась за краем экрана. Теперь она на одном месте всегда, и
-     * рука находит её не глядя — тем же движением, что «+ машину» на
-     * смене.
-     *
-     * Подложка цветом полотна, а не материалом: материал серый и на
-     * тёмной теме читался бы отдельной плитой. Сверху короткий градиент,
-     * чтобы список уходил под кнопку, а не обрывался под ней ножом.
+     * Отдельно от людей, а не строками под ними: это не человек, а
+     * устройство мойки. Вопрос у обеих строк общий — как здесь платят и
+     * кто здесь главный.
      */
-    private var addButton: some View {
-        Button(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc)) {
-            adding = true
-        }
-        .buttonStyle(LimeButton())
-        .padding(.horizontal, 16)
-        .padding(.top, 18)
-        .padding(.bottom, 8)
-        .background {
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: [Brand.board.opacity(0), Brand.board],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 20)
+    private var rules: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L("staff.rulesSection").uppercased())
+                .font(.system(size: 11, weight: .black, design: .rounded))
+                .tracking(1.3)
+                .foregroundStyle(Brand.muted)
+                .padding(.horizontal, 6)
 
-                Brand.board
-            }
-            .ignoresSafeArea(edges: .bottom)
+            teamRow
+                .paperCard(22)
         }
     }
 
@@ -389,27 +312,28 @@ struct StaffView: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Brand.grape)
                     .frame(width: 42, height: 42)
-                    .background(Brand.grape.opacity(0.10), in: .circle)
+                    .background(Brand.grapeFill.opacity(0.1), in: .circle)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L("crew.title"))
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.onBoard)
+                        .foregroundStyle(Brand.ink)
                     Text(L("crew.lead"))
                         .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
 
                 Spacer(minLength: 8)
 
                 Text(session.teamPercent.map { "\($0)%" } ?? L("crew.off"))
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(session.teamPercent == nil ? Brand.boardMuted : Brand.onBoard)
+                    .foregroundStyle(session.teamPercent == nil ? Brand.muted : Brand.ink)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -419,12 +343,49 @@ struct StaffView: View {
         .buttonStyle(.press)
     }
 
+    // ══════════════════════════ пусто и кнопка ══════════════════════════
+
+    private var staffEmpty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: -10) {
+                ForEach(Array([Brand.mintInk, Brand.grape, Brand.sandInk].enumerated()), id: \.offset) { _, tint in
+                    Circle()
+                        .fill(tint.opacity(0.85))
+                        .frame(width: 40, height: 40)
+                        .overlay(Circle().strokeBorder(Brand.paper, lineWidth: 2.5))
+                }
+            }
+            Spacer(minLength: 10)
+            Text(L("staff.empty"))
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L("staff.emptyNote"))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .paperCard(26)
+    }
+
+    private var addButton: some View {
+        Button(L("staff.add", Terms.staff(session.tenant?.staffRole ?? "").acc)) {
+            adding = true
+        }
+        .buttonStyle(LimeButton())
+        .shadow(color: Brand.lime.opacity(0.45), radius: 16, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+    }
+
     private func reload() async {
         do {
             let result = try await session.authed { token in
                 try await APIClient.shared.send("staff", token: token, as: API.Staff.self)
             }
-            staff = result.staff
+            withAnimation(.snappy(duration: Motion.normal)) { staff = result.staff }
             failed = false
             failNote = nil
         } catch is CancellationError {
@@ -438,6 +399,17 @@ struct StaffView: View {
             failNote = nil
         }
         loaded = true
+        arrive()
+    }
+
+    /// Фишки, люди и правила приходят по очереди.
+    private func arrive() {
+        guard beat == .waiting else { return }
+        if reduceMotion {
+            beat = .here
+        } else {
+            withAnimation { beat = .here }
+        }
     }
 }
 
@@ -472,6 +444,12 @@ struct StaffEditor: View {
     /// в ней читалось бы отказом.
     @State private var passwordDone = false
 
+    /// Куда сейчас смотрит клавиатура. Нужна, чтобы вести по форме
+    /// сверху вниз одной кнопкой «дальше», а не тыкать в каждое поле.
+    @FocusState private var focus: Slot?
+
+    private enum Slot: Hashable { case name, phone, password }
+
     /// Ставки, которые встречаются на мойке. Остальное — вручную.
     private let common = [30, 35, 40, 45, 50]
 
@@ -498,10 +476,20 @@ struct StaffEditor: View {
         ScrollView {
             VStack(spacing: 10) {
                 VStack(spacing: 0) {
-                    field(L("owner.clientName"), text: $name, placeholder: L("staff.namePlaceholder"))
+                    /* Имя поля стоит В САМОМ поле, а не подписью над ним.
+                       Подпись занимала строку, а под ней лежал пример —
+                       «Давид», «+374 …», — и форма спрашивала дважды:
+                       сначала чего от тебя хотят, потом как это выглядит.
+                       Пример здесь ничего не объясняет: что писать в поле
+                       «Имя», человек знает и без образца. */
+                    field(L("owner.clientName"), text: $name, slot: .name, submit: isNew ? .next : .done) {
+                        focus = isNew ? .phone : nil
+                    }
                     if isNew {
                         divider
-                        field(L("auth.phone"), text: $phone, placeholder: "+374 …", keyboard: .phonePad)
+                        field(L("auth.phone"), text: $phone, slot: .phone, keyboard: .phonePad, submit: .next) {
+                            focus = .password
+                        }
                         divider
                         /* Пароль, а не шесть цифр.
                          *
@@ -514,7 +502,9 @@ struct StaffEditor: View {
                          * Открытым текстом намеренно: владелец
                          * придумывает пароль вслух, стоя рядом с
                          * работником, и должен видеть, что набрал. */
-                        field(L("auth.staffPassword"), text: $password, placeholder: L("auth.passwordHint"))
+                        field(L("auth.staffPassword"), text: $password, slot: .password, submit: .done) {
+                            focus = nil
+                        }
                     }
                 }
                 .boardCard()
@@ -524,9 +514,17 @@ struct StaffEditor: View {
                    работником, и должен понимать, что диктует постоянный
                    пароль, с которым тот будет входить каждое утро. */
                 if isNew {
-                    Text(L("auth.staffPasswordNote"))
+                    /* Длина пароля больше не живёт в подсказке поля:
+                       подсказка исчезает с первой набранной буквой, ровно
+                       когда о длине и вспоминают. Здесь она появляется,
+                       только пока пароль короткий. */
+                    Text(password.isEmpty || password.count >= API.passwordMinLength
+                         ? L("auth.staffPasswordNote")
+                         : L("auth.passwordHint"))
                         .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(password.isEmpty || password.count >= API.passwordMinLength
+                                         ? Brand.boardMuted
+                                         : Brand.warnOnBoard)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
@@ -570,6 +568,14 @@ struct StaffEditor: View {
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
+        /* Короткая форма не тянется и не пружинит.
+           Прокрутка внутри листа перехватывала жест вниз: экран отвечал
+           оттягиванием, как будто это обновление списка, а лист при этом
+           не закрывался — поймать его удавалось только за полоску
+           сверху. С `basedOnSize` содержимое, которое помещается,
+           прокруткой не считается, и движение вниз достаётся листу: он
+           закрывается смахиванием откуда угодно. */
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.board.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { saveBar }
@@ -582,6 +588,14 @@ struct StaffEditor: View {
             // это не косметика: увольнение гасит его сессии, и человек
             // теряет доступ немедленно
             Text(L("staff.deactivateNote"))
+        }
+        /* У нового человека клавиатура открыта сразу на имени: экран
+           открыли, чтобы его завести, и первое поле известно. У правки
+           нет — там смотрят на ставку, а не переписывают имя. */
+        .task {
+            guard isNew else { return }
+            try? await Task.sleep(for: .milliseconds(360))
+            focus = .name
         }
         .onAppear {
             name = person?.name ?? ""
@@ -607,18 +621,33 @@ struct StaffEditor: View {
         Rectangle().fill(Brand.boardInk.opacity(0.07)).frame(height: 1)
     }
 
+    /**
+     * Поле формы: имя поля вместо подсказки, вся строка принимает касание.
+     *
+     * Кнопка клавиатуры ведёт к следующему полю, а на последнем закрывает
+     * её: три поля подряд заполняют, стоя рядом с человеком, и тянуться
+     * пальцем к каждому — лишнее движение в чужих руках.
+     */
     private func field(
-        _ title: String,
+        _ placeholder: String,
         text: Binding<String>,
-        placeholder: String,
-        keyboard: UIKeyboardType = .default
+        slot: Slot,
+        keyboard: UIKeyboardType = .default,
+        submit: SubmitLabel = .next,
+        onSubmit: @escaping () -> Void = {}
     ) -> some View {
-        FieldBox(title) {
-            TextField(placeholder, text: text)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Brand.onBoard)
-                .keyboardType(keyboard)
-        }
+        TextField(placeholder, text: text)
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Brand.onBoard)
+            .keyboardType(keyboard)
+            .autocorrectionDisabled()
+            .focused($focus, equals: slot)
+            .submitLabel(submit)
+            .onSubmit(onSubmit)
+            .padding(.horizontal, 16)
+            .frame(height: 58)
+            .contentShape(.rect)
+            .onTapGesture { focus = slot }
     }
 
     /**

@@ -42,7 +42,7 @@ struct TetrApp: App {
        не пересоздаёт, поэтому она идёт один раз за холодный старт и
        не встречает человека каждый раз, когда он переключился на камеру
        и вернулся. */
-    @State private var splash = true
+    @State private var splash = !Launch.debugScreen
 
     init() {
         /* Спиннер «потяни, чтобы обновить» — это UIRefreshControl из UIKit,
@@ -146,6 +146,11 @@ struct TetrApp: App {
                     if splash {
                         LaunchSplashView {
                             withAnimation(.easeOut(duration: 0.35)) { splash = false }
+                            /* Экраны под заставкой ждут этого момента,
+                               чтобы собраться на глазах: приход секций и
+                               накрутка чисел под заставкой пропадают зря. */
+                            Launch.splashShowing = false
+                            NotificationCenter.default.post(name: .splashDone, object: nil)
                         }
                         .transition(.opacity)
                         /* Имя нужно, чтобы дождаться конца заставки.
@@ -171,6 +176,13 @@ struct RootView: View {
 
     @State private var onboarding = false
     @State private var ownerGuide = false
+
+    /// Лист про уведомления перед системным окном.
+    @State private var pushPrimer = false
+
+    /// Согласился ли он на них. Системное окно поднимаем после того, как
+    /// лист уедет: два окна в одном такте наезжают друг на друга.
+    @State private var pushAsked = false
 
     /**
      * Знакомство при самом первом открытии, ДО входа.
@@ -205,6 +217,19 @@ struct RootView: View {
             .preferredColorScheme(.dark)
         } else if CommandLine.arguments.contains("--onboarding") {
             OnboardingView {}
+        } else if CommandLine.arguments.contains("--push-primer") {
+            /* Лист про уведомления, не заводя аккаунт и не сжигая
+               системное окно:
+               `xcrun simctl launch <udid> com.sevarm.tetr --push-primer`. */
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    /* Согласие здесь настоящее: поднимает то самое
+                       системное окно, ради которого лист и написан. */
+                    NotificationsPrimerView(
+                        onAllow: { Task { await Push.shared.askAndRegister() } },
+                        onSkip: {}
+                    )
+                }
         } else {
             content
         }
@@ -284,6 +309,8 @@ struct RootView: View {
                            сталкивает две презентации в один такт. */
                         if session.me?.isOwner == true && !session.welcomeSeen {
                             ownerGuide = true
+                        } else {
+                            Task { await refreshPush() }
                         }
                     }) {
                         OnboardingView {
@@ -292,13 +319,7 @@ struct RootView: View {
                         }
                     }
                     .sheet(isPresented: $ownerGuide, onDismiss: {
-                        /* Системный запрос уведомлений не перебивает
-                           обучение. Новому владельцу задаём его только
-                           после закрытия листа; уже знакомому — ниже при
-                           обычном входе. */
-                        if session.me?.isOwner == true {
-                            Task { await Push.shared.askAndRegister() }
-                        }
+                        Task { await refreshPush() }
                     }) {
                         OwnerWelcomeSheet(
                             onLook: { ownerGuide = false },
@@ -316,23 +337,96 @@ struct RootView: View {
                             await session.markWelcomeSeen()
                         }
                     }
+                    .sheet(isPresented: $pushPrimer, onDismiss: {
+                        /* Системное окно — после того, как лист уехал.
+                           Поднятое поверх уезжающего листа, оно встаёт
+                           на полпути анимации и читается сбоем. */
+                        guard pushAsked else { return }
+                        pushAsked = false
+                        Task { await Push.shared.askAndRegister() }
+                    }) {
+                        NotificationsPrimerView(
+                            onAllow: {
+                                PushPrimer.seen = true
+                                pushAsked = true
+                                pushPrimer = false
+                            },
+                            onSkip: {
+                                /* Отказ помним: второй раз тот же лист
+                                   был бы уговариванием. Системного окна
+                                   при этом не было вовсе, и включить
+                                   уведомления можно переключателем в
+                                   профиле. */
+                                PushPrimer.seen = true
+                                pushPrimer = false
+                            }
+                        )
+                    }
                     .task(id: session.me?.id) {
-                        if session.me?.isOwner == true && !Onboarding.seen {
+                        /* Очередь первых экранов владельца, по одному за
+                           раз: слайды, памятка, уведомления. Каждый
+                           следующий поднимается в `onDismiss`
+                           предыдущего — иначе лист про уведомления
+                           открывается под уже стоящим экраном и не
+                           показывается вовсе, молча. */
+                        guard session.me?.isOwner == true else { return }
+
+                        if !Onboarding.seen {
                             onboarding = true
-                        } else if session.me?.isOwner == true && !session.welcomeSeen {
+                        } else if !session.welcomeSeen {
                             ownerGuide = true
+                        } else {
+                            await refreshPush()
                         }
-                        /* Разрешение спрашиваем здесь, а не на запуске:
-                           только у владельца и только когда он уже внутри.
-                           Системный запрос без объяснения на первом экране
-                           отклоняют не глядя, а вернуть его потом можно
-                           лишь через настройки телефона. */
-                        if session.me?.isOwner == true && session.welcomeSeen {
-                            await Push.shared.askAndRegister()
-                        }
+                    }
+                    /* Предложение уведомлений ждёт первого события на
+                       мойке: его объявляет сводка, когда в ленте есть
+                       хотя бы одна запись. */
+                    .onReceive(NotificationCenter.default.publisher(for: .washAlive)) { _ in
+                        Task { await offerPush() }
                     }
             }
         }
+    }
+
+    /**
+     * Забрать токен у того, кто уведомления уже разрешил.
+     *
+     * Проходит молча и без единого окна, но нужен на каждом входе: токен
+     * устройства меняется, и без повторной регистрации уведомления
+     * однажды просто перестают приходить.
+     *
+     * Тому, кого система ещё не спрашивала, здесь не делаем ничего:
+     * его очередь наступает в `offerPush`, и не по расписанию запуска.
+     */
+    private func refreshPush() async {
+        guard session.me?.isOwner == true else { return }
+        guard await Push.shared.shouldPrime() == false else { return }
+
+        await Push.shared.askAndRegister()
+    }
+
+    /**
+     * Предложить уведомления.
+     *
+     * СПРАШИВАЕМ НЕ ПРИ ВХОДЕ, А ПОСЛЕ ПЕРВОГО СОБЫТИЯ НА МОЙКЕ. У
+     * системного окна одна попытка за установку: нажал «Запретить» — и
+     * вернуть его можно только через настройки телефона, куда никто не
+     * идёт. Значит вопрос надо задать в момент, когда ответ на него
+     * очевиден. В первый вход мойка пустая, уведомлять не о чем, и
+     * честный ответ на «пускать ли это приложение к себе» — нет. Когда в
+     * ленте уже есть записанные машины, тот же вопрос звучит про них.
+     *
+     * Порядок с остальными первыми экранами сторожим сами: лист,
+     * поднятый поверх слайдов или памятки, не показывается вовсе, молча.
+     */
+    private func offerPush() async {
+        guard session.me?.isOwner == true else { return }
+        guard !onboarding, !ownerGuide, !pushPrimer else { return }
+        guard !PushPrimer.seen else { return }
+        guard await Push.shared.shouldPrime() else { return }
+
+        pushPrimer = true
     }
 }
 
@@ -372,6 +466,31 @@ struct MainTabs: View {
         }
     }
 
+    /// Экран смены со своей панелью: один и тот же для обеих вкладок.
+    private var shiftStack: some View {
+        NavigationStack {
+            ShiftView()
+                .navigationTitle(session.canSwitch ? "" : (session.tenant?.name ?? "Tetrin"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    /* У кого мойка одна — прежний заголовок и
+                       больше ничего: ни шеврона, ни меню. */
+                    if session.canSwitch {
+                        ToolbarItem(placement: .principal) {
+                            PointMenu(
+                                points: session.points,
+                                currentId: session.tenant?.id
+                            ) { point in
+                                try? await session.switchTo(point, queue: queue)
+                            }
+                        }
+                    }
+                    languageMenu
+                    signOut
+                }
+        }
+    }
+
     enum Tabs { case shift, summary, payroll, more }
 
     /// Куда попадает человек при входе и при смене точки.
@@ -392,45 +511,27 @@ struct MainTabs: View {
                же во всех нишах один и тот же — журнал за смену, — и планшет
                одинаково читается и как карта приёма, и как лист заказов.
                Заодно это ровно то, что значит армянское «տետր» — тетрадь. */
-            Tab(value: Tabs.shift) {
-                NavigationStack {
-                    ShiftView()
-                        .navigationTitle(session.canSwitch ? "" : (session.tenant?.name ?? "Tetrin"))
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            /* У кого мойка одна — прежний заголовок и
-                               больше ничего: ни шеврона, ни меню. */
-                            if session.canSwitch {
-                                ToolbarItem(placement: .principal) {
-                                    PointMenu(
-                                        points: session.points,
-                                        currentId: session.tenant?.id
-                                    ) { point in
-                                        try? await session.switchTo(point, queue: queue)
-                                    }
-                                }
-                            }
-                            languageMenu
-                            signOut
-                        }
-                }
-            } label: {
+            /* Мойщику смена — единственная вкладка, и стоит она обычно.
+               У владельца она уезжает в отдельный круглый выступ справа
+               (`role: .search` в iOS 26 рисует вкладку отдельно от
+               остальных): три раздела про деньги вместе, работа —
+               отдельно, под большим пальцем. */
+            if session.me?.isOwner != true {
+                Tab(value: Tabs.shift) {
+                    shiftStack
+                } label: {
                     tabLabel(L("tab.shift"), "list.clipboard.fill", value: Tabs.shift)
                 }
+            }
 
             if session.me?.isOwner == true {
                 Tab(value: Tabs.summary) {
                     NavigationStack {
-                        /* Без заголовка панели: на этом экране заголовок
-                           страницы — дата, и «Ամփոփում» над ней было бы
-                           второй шапкой над шапкой. Имя раздела уже
-                           написано во вкладке. */
-                        /* Последний шаг настройки — записать машину, а
-                           она живёт в своей вкладке: экран смены
-                           корневой, и второй его копии поверх сводки
-                           быть не должно. */
+                        /* Заголовок панели нативный, крупный в одном ряду
+                           с колокольчиком; при прокрутке сжимается в
+                           центр. Ряд опущен от часов на отступ снизу:
+                           вплотную к ним владелец назвал «слишком высоко». */
                         OwnerView()
-                            .toolbar(.hidden, for: .navigationBar)
                     }
                 } label: {
                     tabLabel(L("tab.summary"), "chart.bar.fill", value: Tabs.summary)
@@ -438,12 +539,7 @@ struct MainTabs: View {
 
                 Tab(value: Tabs.payroll) {
                     NavigationStack {
-                        /* Без заголовка панели: показание «Վճարելու է» и
-                           есть заголовок страницы, а «Աշխատավարձեր» над ним
-                           было бы второй шапкой над шапкой. Имя раздела уже
-                           написано во вкладке. */
                         PayrollView()
-                            .toolbar(.hidden, for: .navigationBar)
                     }
                 } label: {
                     tabLabel(L("tab.payroll"), "banknote.fill", value: Tabs.payroll)
@@ -458,10 +554,15 @@ struct MainTabs: View {
                            вкладке, а прозрачная панель поверх плиток давала
                            «Ավելին», просвечивающее сквозь первый ряд. */
                         MoreView()
-                            .toolbar(.hidden, for: .navigationBar)
                     }
                 } label: {
                     tabLabel(L("tab.more"), "ellipsis.circle.fill", value: Tabs.more)
+                }
+
+                Tab(value: Tabs.shift, role: .search) {
+                    shiftStack
+                } label: {
+                    tabLabel(L("tab.shift"), "list.clipboard.fill", value: Tabs.shift)
                 }
             }
         }
@@ -487,6 +588,9 @@ struct MainTabs: View {
            уведомление, а не через привязку: вкладку держит этот вид, а
            повод открывают двумя экранами ниже, и тянуть привязку через
            всё дерево ради одного перехода — дороже, чем одно имя. */
+        .onChange(of: lang.current) { _, fresh in
+            Typo.applyNavigationTitles(for: fresh)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openPayroll)) { _ in
             tab = .payroll
         }
@@ -517,7 +621,9 @@ struct MainTabs: View {
                 }
                 .pickerStyle(.inline)
             } label: {
-                Image(systemName: "globe").foregroundStyle(Brand.grape)
+                /* Белым: панель смены лежит на фиолетовой сцене, и
+                   грейп на ней не виден. */
+                Image(systemName: "globe").foregroundStyle(.white)
             }
             .accessibilityLabel(L("common.language"))
             .accessibilityValue(lang.current.ownName)
@@ -530,8 +636,9 @@ struct MainTabs: View {
             Button {
                 Task { await session.signOut() }
             } label: {
-                // цвет явно: наследованный tint до символов доходит не везде
-                Image(systemName: "power").foregroundStyle(Brand.grape)
+                // цвет явно: наследованный tint до символов доходит не везде;
+                // белым, потому что панель смены лежит на фиолетовой сцене
+                Image(systemName: "power").foregroundStyle(.white)
             }
         }
     }
@@ -540,6 +647,33 @@ struct MainTabs: View {
 extension Notification.Name {
     /// Повод «зарплата копится» просит открыть свою вкладку.
     static let openPayroll = Notification.Name("tetr.openPayroll")
+    /// Заставка запуска ушла: можно показывать приход содержимого.
+    static let splashDone = Notification.Name("tetr.splashDone")
     /// Обучающий лист владельца ведёт к живому чек-листу на сводке.
     static let openOwnerSetup = Notification.Name("tetr.openOwnerSetup")
+    /// В ленте мойки есть хотя бы одно событие: на площадке что-то
+    /// произошло. Момент, когда уведомления перестают быть обещанием.
+    static let washAlive = Notification.Name("tetr.washAlive")
+}
+
+/// Состояние заставки запуска для экранов, которые собираются под ней.
+enum Launch {
+    @MainActor static var splashShowing = true
+
+    /**
+     * Запущены ли мы ради одного отладочного экрана.
+     *
+     * Заставка рисуется поверх всего и не знает, что под ней: проверяя
+     * онбординг или лист про уведомления, её приходилось пережидать, а
+     * первые полторы секунды экран был занят маркой. Отладочный запуск
+     * начинается сразу с того, что проверяют.
+     */
+    static var debugScreen: Bool {
+        #if DEBUG
+        let flags: Set<String> = ["--onboarding", "--loader", "--push-primer"]
+        return CommandLine.arguments.contains { flags.contains($0) }
+        #else
+        return false
+        #endif
+    }
 }

@@ -85,8 +85,11 @@ export default async function WorkPage({
      домой» — разные ответы, и форма обязана их различать. */
   const present = await whoIsOnShift(tenant.id, startOfDay(tenant.timezone));
   const presentIds = new Set(present.map((p) => p.userId));
+  /* Владельца в списке нет. Он не моет: отметить его участником значит
+     назначить долю тому, кто её не берёт, и раздуть бригаду на бумаге.
+     По той же причине его убрали из списка мойщиков на экране команды. */
   const mates = staff
-    .filter((s) => s.id !== me.id)
+    .filter((s) => s.id !== me.id && s.role !== 'owner')
     .map((s) => ({ id: s.id, name: s.name, onShift: presentIds.has(s.id) }));
 
   /* Сколько наличных на руках с начала смены. Считает тот же

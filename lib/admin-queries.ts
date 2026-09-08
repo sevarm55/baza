@@ -234,7 +234,15 @@ export async function listAccounts(opts: { q?: string; filter?: AccountFilter } 
     return {
       id: a.id,
       phone: a.phone,
-      verified: a.phoneVerifiedAt !== null,
+      /* Подтверждён ли вход. Раньше здесь стоял телефон, доказанный
+         кодом из SMS; кодов у продукта больше нет, и метка
+         «не подтверждён» повисла на всех подряд, ничего не различая.
+
+         Спрашиваем про почту: она и есть вход владельца, и её
+         подтверждение живо — по ссылке из письма. У сотрудника почты нет
+         вовсе, доступ ему выдаёт владелец паролем, и вопрос к нему не
+         относится: метки не будет. */
+      verified: a.email === null || a.emailVerifiedAt !== null,
       blockedAt: a.blockedAt,
       createdAt: a.createdAt,
       lastSeenAt: seenBy.get(a.id) ?? null,

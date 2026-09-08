@@ -8,7 +8,7 @@ import { intlLocale } from '@/lib/i18n/format';
 import type { Dict } from '@/lib/i18n';
 import { getDict } from '@/lib/i18n/server';
 import { localizeTenant } from '@/lib/i18n/terms';
-import { getTenant, getUser } from '@/lib/queries';
+import { getLoginEmail, getTenant, getUser } from '@/lib/queries';
 import { currentAccess } from '@/lib/subscription';
 import { LanguagePicker } from '@/components/language-picker';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -40,9 +40,10 @@ export default async function ProfilePage() {
   const session = await requireSession();
   await ensureDb();
 
-  const [raw, me, rememberLogin, sid] = await Promise.all([
+  const [raw, me, loginEmail, rememberLogin, sid] = await Promise.all([
     getTenant(session.tid),
     getUser(session.tid, session.uid),
+    getLoginEmail(session.tid, session.uid),
     rememberedLoginEnabled(),
     currentSessionId(),
   ]);
@@ -96,6 +97,21 @@ export default async function ProfilePage() {
           <div className="mt-4">
             <NameForm name={me.name} />
           </div>
+
+          {/* Почта стоит выше телефона намеренно: это и есть логин
+              владельца, и на странице «кто я» строка входа обязана быть
+              первой из двух. Строкой, а не полем: смена адреса меняет
+              ключ от кабинета и делается не между делом.
+
+              У сотрудника почты нет, вход у него по телефону, поэтому
+              строки просто не будет. */}
+          {loginEmail && (
+            <div className="mt-4 border-t border-border pt-4">
+              <div className="text-sm font-medium">{t.profile.email}</div>
+              <div className="mt-1 text-sm break-all">{loginEmail}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{t.profile.emailNote}</p>
+            </div>
+          )}
 
           {/* Телефон здесь же, среди личных данных, а не в безопасности:
               владелец входит почтой, и номер у него связь, а не ключ.

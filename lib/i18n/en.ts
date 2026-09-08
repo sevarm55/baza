@@ -240,6 +240,11 @@ export const en: Dict = {
     sentSub: (email: string) => `We sent a message to ${email}. Follow the link in it.`,
     sentNote: 'The link is valid for an hour. No email? Look in spam.',
 
+    /* Subtitle of the page the emailed link opens. It used to be
+       `sentSub`, telling someone who had just followed the link to
+       follow the link. */
+    confirmSub: (email: string) => `${email} is confirmed. One button left.`,
+
     resetPasswordTitle: 'Password recovery',
     resetPasswordSub: 'Enter your email and we will send a link',
     resetPasswordSend: 'Send the link',
@@ -279,8 +284,8 @@ export const en: Dict = {
     welcomeBack: 'Welcome back',
     tapAvatar: 'Tap your avatar to sign in',
     anotherAccount: 'Sign in with another account',
-    rememberedExpired: 'The saved sign-in has expired. Enter your number and PIN.',
-    wrongCredentials: 'Wrong number or PIN',
+    rememberedExpired: 'The saved sign-in has expired. Enter your login and password.',
+    wrongCredentials: 'Wrong number or password',
     phoneTaken: 'This number is already registered',
 
     pinHint: '6 digits',
@@ -302,9 +307,9 @@ export const en: Dict = {
     sending: 'Sending…',
     checking: 'Checking…',
     forgotPin: 'Forgot your PIN?',
-    tempAccessTitle: 'Your PIN is temporary',
-    tempAccessNote: (deadline: string) => `It stops working on ${deadline}. Set your own PIN.`,
-    tempAccessAction: 'Set your own PIN',
+    tempAccessTitle: 'Your password is temporary',
+    tempAccessNote: (deadline: string) => `It stops working on ${deadline}. Set your own password.`,
+    tempAccessAction: 'Set your own password',
     createPin: 'Create a PIN',
     pinMemo: 'Use 6 digits you will remember',
 
@@ -342,7 +347,7 @@ export const en: Dict = {
     pinTrivial: 'Pick a less obvious PIN',
 
     changePhone: 'Change number',
-    changePhoneNote: 'Your number is your sign-in. We will check it is you, then send a code to the new number.',
+    changePhoneNote: 'The number is for contact. You sign in with your email, so change it freely.',
     changePhoneProof: 'First confirm it is you',
     changePhoneNew: 'New number',
     changePhoneDone: 'Number changed',
@@ -377,7 +382,6 @@ export const en: Dict = {
     deleteAccessCodeAsk: 'Delete the PIN?',
     deleteAccessCodeDone: 'PIN deleted',
     staffAccessCode: 'Staff PIN',
-    staffAccessCodeNote: 'The staff member signs in with their own phone number and this PIN.',
   },
 
   onboarding: {
@@ -435,7 +439,8 @@ export const en: Dict = {
     s2Done: 'Expense added',
 
     s3Title: 'Add your first worker',
-    s3Note: 'A worker signs in with their phone number and PIN, opens a shift and records the cars they wash.',
+    s3Note:
+      'A worker signs in with their phone number and password, opens a shift and records the cars they wash.',
     s3PercentNote: 'of every car',
     s3Done: 'Worker added',
 
@@ -467,6 +472,10 @@ export const en: Dict = {
     interface: 'Interface',
     account: 'Account',
     phone: 'Phone',
+    /* The sign-in address. The owner signs in with it, and the page
+       owes them the very string they type into the login box. */
+    email: 'Email',
+    emailNote: 'This is your sign-in. To change the address, write to us.',
     passwordNote: 'You sign in to the cabinet and the app with it. Changing it signs out every device.',
     access: 'Subscription',
     session: 'This device',
@@ -667,6 +676,8 @@ export const en: Dict = {
     paying: 'Recording payout…',
     done: (sum: string) => `Payout recorded · ${sum}`,
     failed: "Couldn't do it. Try again.",
+    partial: (sum: string) => `Only part was recorded · ${sum}. Check the list`,
+    nothingOwed: 'These days were already marked as paid',
 
     dayToPay: 'due',
     dayAllPaid: 'Everything is paid',
@@ -735,6 +746,10 @@ export const en: Dict = {
     attentionCashNotDeclared: (name: string) => `${name}: cash not handed over`,
     attentionNobody: 'Nobody is on shift',
     nowWorking: 'Working now',
+    /* The same panel when nobody is on shift: they worked today but are
+       not here now. "Now" contradicted the neighbouring "0 washers on
+       shift" once the shift was closed. */
+    workedToday: 'Worked today',
   },
 
   passes: {
@@ -1192,7 +1207,7 @@ export const en: Dict = {
     role: 'Role',
     pinHidden: 'Not shown',
     staffNote:
-      'Staff sign in with their own phone and a PIN. Read them the PIN, no password to remember.',
+      'Staff sign in from their own phone with this password. Read it out to them: you do not need to remember it.',
     removeStaffNote:
       'The employee will be deactivated and lose access. Records and payroll history stay.',
     removeServiceNote: 'The service leaves the price list. Existing records stay unchanged.',

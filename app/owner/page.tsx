@@ -431,7 +431,17 @@ export default async function TodayPage({
           crew={crew}
           currency={tenant.currency}
           unitOne={tenant.unitOne}
-          title={isToday ? t.today.nowWorking : t.settings.staff}
+          /* «Сейчас работают» — только пока кто-то на смене. Смена
+             закрыта, а люди в списке остаются: это те, кто работал днём.
+             Пока заголовок стоял один на оба случая, вечерняя сводка
+             сообщала «сейчас работают 1» рядом с «0 мойщиков на смене». */
+          title={
+            isToday
+              ? present.length > 0
+                ? t.today.nowWorking
+                : t.today.workedToday
+              : t.settings.staff
+          }
         />
         <LiveActivity
           className="lg:col-span-8"

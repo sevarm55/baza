@@ -83,7 +83,9 @@ export async function accountOf(user: {
       tokenVersion: user.tokenVersion,
       createdAt: user.createdAt,
     })
-    .onConflictDoNothing({ target: accounts.phone })
+    /* Условие индекса повторяется дословно — см. `claimAccount`: без него
+       Postgres не находит ограничения под `ON CONFLICT` и падает. */
+    .onConflictDoNothing({ target: accounts.phone, where: sql`${accounts.phone} <> ''` })
     .returning();
 
   if (!created) {
@@ -250,7 +252,16 @@ export async function claimAccount(input: {
       passwordHash: input.passwordHash,
       emailVerifiedAt: input.emailVerified ? new Date() : null,
     })
-    .onConflictDoNothing({ target: accounts.phone })
+    /* Условие повторяет частичный индекс `accounts_phone_uniq` слово в
+       слово: Postgres выбирает индекс под `ON CONFLICT` по цели вместе с
+       её условием и на несовпадение отвечает не отказом вставки, а
+       ошибкой планировщика «нет подходящего ограничения». Регистрация
+       падала бы пятисоткой на ровном месте.
+
+       Смысл тот же, что был: занятый номер отдаёт пустой результат и
+       становится `PhoneTakenError`. Пустая строка теперь ни с чем не
+       конфликтует, потому что «телефона нет» — это не занятый номер. */
+    .onConflictDoNothing({ target: accounts.phone, where: sql`${accounts.phone} <> ''` })
     .returning();
 
   if (!created) throw new PhoneTakenError();

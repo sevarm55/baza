@@ -1,15 +1,28 @@
 import SwiftUI
 
 /**
- * База клиентов.
+ * База машин.
  *
- * Наверху — те, кто давно не был. Это не сортировка ради сортировки:
- * вернуть старого клиента дешевле, чем привести нового, и список нужен
- * ровно для одного действия — позвонить.
+ * Экран построен вокруг одного действия: позвонить тому, кто перестал
+ * ездить. Вернуть старого клиента дешевле, чем привести нового, и всё
+ * остальное на экране — способ до него добраться.
  *
- * Показание наверху отвечает на вопрос, ради которого сюда заходят: сколько
- * людей пропало. Раньше это число нигде не стояло, и «стоит ли звонить»
- * приходилось решать, пересчитывая строки глазами.
+ * Отсюда порядок сверху вниз:
+ *
+ *   1. кому звонить прямо сейчас → карусель карточек с трубкой;
+ *   2. найти конкретную машину   → поиск;
+ *   3. посмотреть кто вообще есть → полки и сетка номеров.
+ *
+ * Композиция сменилась целиком. Прежний экран открывался поиском, тремя
+ * счётчиками и полосой сортировки — тремя органами управления подряд, и
+ * ни один из них не был ответом. Счётчики за собой ничего не решали:
+ * «постоянных 12» отвечало на вопрос, которого владелец мойки себе не
+ * задаёт, а те, ради кого он сюда пришёл, лежали строчками ниже, среди
+ * всех прочих.
+ *
+ * Теперь машина — не строка таблицы, а плитка с номером: номер и есть
+ * имя клиента на мойке, и читается он с плитки быстрее, чем из строки,
+ * где слева от него стоит точка, а справа деньги.
  */
 struct ClientsView: View {
     @EnvironmentObject private var session: Session
@@ -27,26 +40,37 @@ struct ClientsView: View {
      * оба один: `try?` глотал отказ, `loaded` вставало в `true`, и
      * человек читал «пока ничего нет» о списке, который просто не
      * привезли.
-     *
-     * Причина отдельной строкой и только когда она известна точнее, чем
-     * «не вышло»: пропавшая связь — совет, который можно выполнить, а
-     * код ответа сервера владельцу мойки не говорит ничего.
      */
     @State private var failed = false
     @State private var failNote: String?
-    @State private var query = ""
 
+    @State private var query = ""
     @FocusState private var typingQuery: Bool
+
+    @State private var shelf: Shelf = .all
     @State private var sort: Sort = .recent
     @State private var opened: API.Client?
-    @State private var group: ClientGroupView.Group?
 
-    /** Чем упорядочен список.
+    /// Такт прихода: карусель, полки и сетка собираются по очереди.
+    @State private var beat: Beat = .waiting
 
-        Это порядок, а не отбор: ни один клиент не пропадает, меняется
-        только кто наверху. Отбор здесь был бы вреден — владелец ищет
-        конкретную машину, а не подмножество. */
-    private enum Sort: String, CaseIterable {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /**
+     * Полка: какую часть базы показывает сетка.
+     *
+     * Это отбор, а не порядок, и в этом отличие от прежней полосы
+     * сортировки. Владелец приходит с вопросом «кто у меня постоянный»
+     * или «кто заезжал впервые», а не «покажи всех, но в другом
+     * порядке»: порядок сам по себе ни одного вопроса не закрывает.
+     */
+    private enum Shelf: Hashable { case all, loyal, fresh }
+
+    /** Чем упорядочена сетка внутри полки.
+
+        Ушло из полосы под поиском в меню: порядок нужен раз в месяц, а
+        место занимал всегда. */
+    private enum Sort: Hashable, CaseIterable {
         case recent, often, richest
 
         var label: String {
@@ -56,24 +80,36 @@ struct ClientsView: View {
             case .richest: return L("owner.sortRichest")
             }
         }
+
+        var symbol: String {
+            switch self {
+            case .recent: return "clock"
+            case .often: return "repeat"
+            case .richest: return "banknote"
+            }
+        }
     }
 
     private var currency: String { session.tenant?.currency ?? "AMD" }
+    private var unitOne: String { session.tenant?.unitOne ?? "" }
+
+    // ══════════════════════════ отбор ══════════════════════════
 
     /// Поиск по номеру, имени и телефону. Пробелы и регистр не в счёт:
     /// номер диктуют вслух и записывают как придётся — «93LM227» и
     /// «93 lm 227» это одна машина. Имя с телефоном владелец вписывает
     /// сам и человека помнит по ним, а не по шести символам номера.
-    private var found: [API.Client] {
+    private func matching(_ base: [API.Client]) -> [API.Client] {
         let q = query.replacingOccurrences(of: " ", with: "").uppercased()
-        let base = q.isEmpty
-            ? clients
-            : clients.filter { client in
-                [client.key, client.name ?? "", client.phone ?? ""].contains {
-                    $0.replacingOccurrences(of: " ", with: "").uppercased().contains(q)
-                }
+        guard !q.isEmpty else { return base }
+        return base.filter { client in
+            [client.key, client.name ?? "", client.phone ?? ""].contains {
+                $0.replacingOccurrences(of: " ", with: "").uppercased().contains(q)
             }
+        }
+    }
 
+    private func ordered(_ base: [API.Client]) -> [API.Client] {
         switch sort {
         case .recent: return base.sorted { $0.daysSince < $1.daysSince }
         case .often: return base.sorted { $0.visits > $1.visits }
@@ -81,446 +117,506 @@ struct ClientsView: View {
         }
     }
 
-    private var lost: [API.Client] { found.filter { $0.daysSince > lostAfter } }
-    private var rest: [API.Client] { found.filter { $0.daysSince <= lostAfter } }
-
-    /* Счётчики в шапке считают по всей базе, а не по найденному.
-       Это показания продукта — «сколько у меня всего», «сколько
-       постоянных», — и они не должны меняться от того, что человек
-       набрал в поиске три буквы номера. Деление списка ниже, наоборот,
-       идёт по найденному: там речь ровно о том, что сейчас на экране. */
+    /// Был больше одного раза: тот же порог, что в кабинете.
     private var loyalAll: [API.Client] { clients.filter { $0.visits > 1 } }
-    /// Был ровно один раз: вернётся или нет — ещё неизвестно. Тот же
-    /// порог, что в кабинете; выдумывать здесь своё значило бы, что
-    /// продукт считает постоянных по-разному на двух экранах.
+    /// Был ровно один раз: вернётся или нет — ещё неизвестно.
     private var freshAll: [API.Client] { clients.filter { $0.visits == 1 } }
-    private var lostAll: [API.Client] { clients.filter { $0.daysSince > lostAfter } }
+    private var lostAll: [API.Client] {
+        clients.filter { $0.daysSince > lostAfter }.sorted { $0.total > $1.total }
+    }
 
-    /// Разделять на «стоит позвонить» и остальных имеет смысл только в
-    /// полном списке по умолчанию. При поиске или другом порядке человек
-    /// уже сказал, что ищет, и деление мешает.
-    private var grouped: Bool { query.isEmpty && sort == .recent }
+    private var shelved: [API.Client] {
+        switch shelf {
+        case .all: return clients
+        case .loyal: return loyalAll
+        case .fresh: return freshAll
+        }
+    }
+
+    private var shown: [API.Client] { ordered(matching(shelved)) }
+
+    /// Карусель «стоит позвонить» показывается, только пока не ищут:
+    /// человек уже сказал, какая машина ему нужна, и звать его звонить
+    /// другому в этот момент — перебивать.
+    private var calling: [API.Client] { query.isEmpty ? lostAll : [] }
 
     var body: some View {
         ScrollView {
-            /* Ленивая укладка, а не обычная. Обычный VStack строит все
-               строки сразу, и на трёхстах клиентах экран замирал на
-               секунду-полторы прямо при открытии: телефон рисовал
-               триста карточек, из которых видно семь. Ленивая строит по
-               мере прокрутки. */
-            LazyVStack(spacing: 10) {
-                if loaded { head }
+            VStack(alignment: .leading, spacing: 0) {
+                search
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
 
-                if grouped {
-                    if !lost.isEmpty { group(L("clients.worthCalling"), lost, lostOnes: true) }
-                    if !rest.isEmpty { group(L("owner.allClients"), rest, lostOnes: false) }
-                } else if !found.isEmpty {
-                    group(sort.label, found, lostOnes: false)
+                if loaded {
+                    if !calling.isEmpty {
+                        callBack
+                            .padding(.top, 20)
+                            .reveal(beat, step: 0)
+                    }
+
+                    if !clients.isEmpty {
+                        shelves
+                            .padding(.horizontal, 16)
+                            .padding(.top, calling.isEmpty ? 16 : 26)
+                            .reveal(beat, step: 1)
+                    }
                 }
 
                 if !loaded {
                     Delayed(active: true) { TetrScreenLoader(height: 280) }
+                        .padding(.horizontal, 16)
                 } else if failed, clients.isEmpty {
                     TetrFailure(
                         title: L("common.loadFailed"),
                         note: failNote,
                         retry: { await reload() }
                     )
+                    .padding(.horizontal, 16)
                 } else if clients.isEmpty {
                     emptyDatabase
-                } else if found.isEmpty {
-                    emptySearch
+                        .padding(.horizontal, 16)
+                } else if shown.isEmpty {
+                    emptyShelf
+                        .padding(.horizontal, 16)
+                } else {
+                    grid
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .reveal(beat, step: 2)
                 }
             }
-            .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
+            /* Обновление вешается на саму прокрутку, а не в конец
+               цепочки. Снаружи оно попадает в окружение всего, что ниже,
+               включая листы: форма найма наследовала «потянуть, чтобы
+               обновить», отвечала на движение вниз загрузчиком и не
+               давала закрыть себя смахиванием. */
+            .refreshable { await reload() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("owner.tabClients"))
+        .navigationSubtitle(subtitle)
+        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { sortMenu }
+        }
         .task { await reload() }
-        .refreshable { await reload() }
         .sheet(item: $opened) { client in
             ClientHistoryView(client: client, currency: currency)
                 .environmentObject(session)
         }
-        .sheet(item: $group) { which in
-            ClientGroupView(
-                group: which,
-                clients: clients,
-                lostAfter: lostAfter,
-                currency: currency
-            )
-            .environmentObject(session)
-        }
     }
 
+    /// Подзаголовок панели: сколько машин в базе. Число здесь уместно —
+    /// это подпись к разделу, а не показание, за которым идут.
+    private var subtitle: String {
+        guard loaded, !clients.isEmpty else { return "" }
+        return Terms.units(clients.count, unitOne).trimmingCharacters(in: .whitespaces)
+    }
+
+    // ══════════════════════════ поиск и порядок ══════════════════════════
+
+    /// Поиск капсулой на бумаге: тот же орган, что фишки на соседних
+    /// экранах, и он же первое, что видно под заголовком.
+    private var search: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.muted)
+
+            /* Подсказка называет всё, по чему ищут. Стояло «по номеру
+               машины», а поиск шёл ещё по имени и телефону — и имя,
+               вписанное вчера, искали номером и не находили. */
+            TextField(L("owner.clientsSearch"), text: $query)
+                .focused($typingQuery)
+                .font(.system(size: 16))
+                .foregroundStyle(Brand.ink)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.characters)
+                .submitLabel(.search)
+
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Brand.muted)
+                }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 50)
+        .background(Brand.paper, in: .capsule)
+        .overlay(Capsule().strokeBorder(Brand.ink.opacity(0.08), lineWidth: 1))
+        .shadow(color: Brand.ink.opacity(0.05), radius: 8, y: 3)
+        // по всей капсуле, а не по буквам подсказки
+        .contentShape(.capsule)
+        .onTapGesture { typingQuery = true }
+        .animation(.easeOut(duration: Motion.fast), value: query.isEmpty)
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("", selection: $sort) {
+                ForEach(Sort.allCases, id: \.self) { option in
+                    Label(option.label, systemImage: option.symbol).tag(option)
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+        }
+        .accessibilityLabel(sort.label)
+    }
+
+    // ══════════════════════════ кому звонить ══════════════════════════
+
     /**
-     * Шапка: сколько их, поиск, порядок.
+     * Карусель «стоит позвонить».
      *
-     * Было показание на пятьдесят пунктов — число клиентов огромной
-     * цифрой, — и то же число повторялось ещё дважды: в подписи группы
-     * «Բոլորը» и в её счётчике. Три раза одно и то же, и полэкрана
-     * воздуха до первой строки. Показание уместно там, где число само по
-     * себе ответ: выручка, зарплата к выдаче. «Сколько у меня машин в
-     * базе» такой вопрос не задаёт — с этим экраном приходят искать
-     * конкретную.
+     * Ровно то, ради чего в базу заходят, и поэтому оно наверху, до
+     * поиска по всем. Карточка в янтарном тоне — не украшение: янтарь в
+     * продукте значит «нужно внимание», и он же стоит на строке срока
+     * подписки.
      *
-     * Поэтому строка вместо плаката, а освободившееся место отдано
-     * поиску. На двадцати клиентах он не нужен, на двухстах без него
-     * страницу листают вслепую, и заводить его надо до того, как их
-     * станет двести, а не после.
+     * Порядок по деньгам, а не по давности: между тем, кто оставил сто
+     * тысяч и пропал, и тем, кто заехал раз на две тысячи, звонить
+     * начинают с первого.
+     *
+     * Трубка гаснет, когда телефона нет: владелец вписывает его сам, и
+     * у половины базы его не будет. Кнопка, которая ничего не делает,
+     * хуже её отсутствия — по ней жмут и не понимают, сломалось или так.
      */
-    private var head: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var callBack: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Brand.boardMuted)
-
-                /* Подсказка называет всё, по чему ищут. Стояло «по номеру
-                   машины», а поиск шёл ещё по имени и телефону — и имя,
-                   вписанное вчера, искали номером и не находили. */
-                TextField(L("owner.clientsSearch"), text: $query)
-                    .focused($typingQuery)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Brand.onBoard)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.characters)
-                    .submitLabel(.search)
-
-                if !query.isEmpty {
-                    Button {
-                        query = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Brand.boardMuted)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .background(Brand.boardInk.opacity(0.07), in: .rect(cornerRadius: 14, style: .continuous))
-            // по всей строке поиска, а не по буквам подсказки
-            .contentShape(.rect)
-            .onTapGesture { typingQuery = true }
-
-            counters
-
-            /* Порядок — прокруткой вбок: три слова по-армянски в строку
-               не помещаются, а перенос превратил бы переключатель в
-               абзац. */
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(Sort.allCases, id: \.self) { option in
-                        Button {
-                            sort = option
-                        } label: {
-                            Text(option.label)
-                                .font(.system(size: 13, weight: sort == option ? .semibold : .regular))
-                                .foregroundStyle(sort == option ? Brand.board : Brand.boardMuted)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(
-                                    sort == option ? Brand.onBoard : Brand.boardInk.opacity(0.07),
-                                    in: .rect(cornerRadius: 10, style: .continuous)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 1)
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
-    }
-
-    /**
-     * Три счётчика, и по каждому можно нажать.
-     *
-     * Число без списка за собой — тупик: «մշտական 12» видно, а кто эти
-     * двенадцать — нет, и владелец шёл сортировать список и считать
-     * строки глазами. Теперь за каждым числом открывается ровно его
-     * список.
-     *
-     * «Վաղուց չեն եղել 0» не нажимается: за нулём списка нет. Кнопка,
-     * которая ничего не открывает, хуже обычного текста — по ней жмут и
-     * не понимают, сломалось или так задумано.
-     */
-    private var counters: some View {
-        HStack(spacing: 10) {
-            Button { group = clients.isEmpty ? nil : .all } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("owner.clientsTotal"))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Brand.boardMuted)
-                    Text("\(clients.count)")
-                        .font(.system(size: 31, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.onBoard)
-                        .contentTransition(.numericText(value: Double(clients.count)))
-                    Text("\(L("owner.clientsLoyal")) \(loyalAll.count) · \(L("owner.clientsFresh")) \(freshAll.count)")
-                        .font(.system(size: 11, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                }
-            }
-            .buttonStyle(.press)
-            .disabled(clients.isEmpty)
-            // погашено — видно, а не только не отвечает
-            .opacity(clients.isEmpty ? 0.45 : 1)
-
-            Button { group = lostAll.isEmpty ? nil : .lost } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    Image(systemName: lostAll.isEmpty ? "checkmark" : "phone.arrow.up.right")
-                        .font(.system(size: 13, weight: .bold))
-                    Spacer(minLength: 2)
-                    Text("\(lostAll.count)")
-                        .font(.system(size: 25, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                    Text(L("owner.clientsLost"))
-                        .font(.system(size: 11, weight: .medium))
-                        .lineLimit(2)
-                }
-                .foregroundStyle(lostAll.isEmpty ? Brand.goodOnBoard : Brand.warnOnBoard)
-                .padding(13)
-                .frame(width: 106, alignment: .leading)
-                .frame(minHeight: 94, alignment: .leading)
-                .background(
-                    (lostAll.isEmpty ? Brand.mintCard : Brand.warnOnBoard.opacity(0.12)),
-                    in: .rect(cornerRadius: 22, style: .continuous)
-                )
-            }
-            .buttonStyle(.press)
-            .disabled(lostAll.isEmpty)
-            .opacity(lostAll.isEmpty ? 0.75 : 1)
-        }
-    }
-
-    private var emptyDatabase: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                ForEach(0..<3, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(index == 0 ? Brand.boardSurface : Brand.grape.opacity(0.055))
-                        .frame(width: 190 - CGFloat(index) * 18, height: 76)
-                        .overlay(alignment: .leading) {
-                            HStack(spacing: 10) {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Brand.grape.opacity(0.12 + Double(index) * 0.05))
-                                    .frame(width: 38, height: 38)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Capsule().fill(Brand.boardInk.opacity(0.14)).frame(width: 70, height: 6)
-                                    Capsule().fill(Brand.boardInk.opacity(0.07)).frame(width: 46, height: 5)
-                                }
-                            }
-                            .padding(.horizontal, 13)
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                        }
-                        .offset(y: CGFloat(index - 1) * 24)
-                }
-            }
-            .frame(height: 150)
-            .accessibilityHidden(true)
-
-            Text(L("common.empty"))
-                .font(.system(size: 21, weight: .semibold, design: .rounded))
-                .foregroundStyle(Brand.onBoard)
-                .padding(.top, 8)
-
-            Text(L("more.clientsLead"))
-                .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 24)
-                .padding(.top, 7)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-    }
-
-    private var emptySearch: some View {
-        Label(L("owner.clientsNotFound"), systemImage: "magnifyingglass")
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(Brand.boardMuted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 38)
-    }
-
-    /**
-     * Группа клиентов.
-     *
-     * Потерянные — на янтарной плитке, остальные строками на табло. Разный
-     * носитель, а не разный заголовок: список из двух одинаковых секций
-     * читается одним списком, и «кому позвонить» тонет в «всех».
-     */
-    private func group(_ title: String, _ items: [API.Client], lostOnes: Bool) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(lostOnes ? Brand.warnOnBoard : Brand.boardMuted)
-                Spacer()
-                Text("\(items.count)")
-                    .font(.system(size: 12))
+                Text(L("clients.worthCalling").uppercased())
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .tracking(1.3)
+                    .foregroundStyle(Brand.warnOnBoard)
+                Text("\(calling.count)")
+                    .font(.system(size: 11, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.warnOnBoard.opacity(0.7))
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 6)
-            .padding(.top, 14)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 20)
 
-            LazyVStack(spacing: 0) {
-                ForEach(items) { client in
-                    Button { opened = client } label: { clientRow(client, lost: lostOnes) }
-                        .buttonStyle(.press)
-                    if client.id != items.last?.id {
-                        Rectangle()
-                            .fill(Brand.boardInk.opacity(0.07))
-                            .frame(height: 1)
-                            .padding(.leading, 14)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 12) {
+                    ForEach(calling) { client in
+                        callCard(client)
+                            .containerRelativeFrame(.horizontal) { width, _ in
+                                calling.count > 1 ? width - 76 : width - 32
+                            }
                     }
                 }
+                .scrollTargetLayout()
             }
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 20, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(
-                        lostOnes ? Brand.warnOnBoard.opacity(0.22) : Brand.boardInk.opacity(0.07),
-                        lineWidth: 0.8
-                    )
-            }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
         }
     }
 
-    /**
-     * Строка клиента.
-     *
-     * Чернила по бумаге: заливки нет ни у кого. Тот, кому стоит
-     * позвонить, отличается ровно двумя знаками — янтарной точкой слева и
-     * янтарной подписью под номером, — и это заметно именно потому, что
-     * больше ничем строки не отличаются.
-     *
-     * Раньше такие лежали тёмно-коричневыми плитками, и на белом табло
-     * это читалось грязью, а не поводом.
-     */
-    private func clientRow(_ client: API.Client, lost: Bool) -> some View {
-        HStack(spacing: 10) {
-            if lost {
-                Circle()
-                    .fill(Brand.warnOnBoard)
-                    .frame(width: 7, height: 7)
-            }
+    private func callCard(_ client: API.Client) -> some View {
+        let phone = client.phone.flatMap { $0.isEmpty ? nil : $0 }
 
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(client.key)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Brand.onBoard)
-                        .lineLimit(1)
-
-                    /* Метка постоянного: «сколько раз был» и «свой ли это
-                       человек» — разные вопросы, и второй решается
-                       взглядом. */
-                    if client.visits > 1 {
-                        Text(L("owner.clientLoyal"))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Brand.goodOnBoard)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
-                            .background(Brand.goodOnBoard.opacity(0.16), in: .rect(cornerRadius: 5, style: .continuous))
-                    }
-
-                    /* Имя рядом с номером, а не строкой под ним: строкой
-                       оно делало запись с контактами выше соседних, и
-                       список получался рваным. */
-                    if let name = client.name, !name.isEmpty {
-                        Text(name)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Brand.boardMuted)
+        return Button {
+            opened = client
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(client.key)
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Brand.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        /* Вторая строка — то, чем человека зовут: имя,
+                           если владелец его вписал, иначе телефон. Когда
+                           нет ни того ни другого, честно сказано, что
+                           звонить некуда: гаснущая трубка справа это
+                           показывает знаком, а строка — словами. */
+                        Text(client.name?.isEmpty == false ? client.name! : (phone ?? L("owner.clientNoPhone")))
+                            .font(.system(size: 13))
+                            .monospacedDigit()
+                            .foregroundStyle(phone == nil && client.name?.isEmpty != false ? Brand.warnOnBoard.opacity(0.8) : Brand.muted)
                             .lineLimit(1)
                     }
+
+                    Spacer(minLength: 0)
+
+                    /* Звонок — отдельной кнопкой поверх карточки: сама
+                       карточка ведёт в историю машины, и одно нажатие не
+                       может значить два разных дела. */
+                    if let phone, let url = URL(string: "tel:\(phone)") {
+                        Button {
+                            UIApplication.shared.open(url)
+                        } label: {
+                            Image(systemName: "phone.fill")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Brand.onLime)
+                                .frame(width: 48, height: 48)
+                                .background(Brand.lime, in: .circle)
+                                .shadow(color: Brand.lime.opacity(0.5), radius: 10, y: 4)
+                                .contentShape(.circle)
+                        }
+                        .buttonStyle(.press)
+                        .accessibilityLabel(L("owner.clientCall"))
+                    } else {
+                        Image(systemName: "phone.badge.waveform")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Brand.warnOnBoard.opacity(0.55))
+                            .frame(width: 48, height: 48)
+                            .background(Brand.warnOnBoard.opacity(0.12), in: .circle)
+                    }
                 }
 
-                Text(visitLine(client))
-                    .font(.system(size: 12))
+                Spacer(minLength: 16)
+
+                Text(Ln("clients.daysAgo", client.daysSince))
+                    .font(.system(size: 15, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(lost ? Brand.warnOnBoard : Brand.boardMuted)
+                    .foregroundStyle(Brand.warnOnBoard)
                     .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(money(client.total, currency))
+                        .font(.system(size: 13, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.ink)
+                    Text("·")
+                        .foregroundStyle(Brand.muted)
+                    Text(Ln("clients.visitsCount", client.visits))
+                        .font(.system(size: 13))
+                        .monospacedDigit()
+                        .foregroundStyle(Brand.muted)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 2)
+            }
+            .padding(18)
+            .frame(height: 172, alignment: .topLeading)
+            .background {
+                ZStack(alignment: .topTrailing) {
+                    LinearGradient(
+                        colors: [Brand.warnOnBoard.opacity(0.16), Brand.warnOnBoard.opacity(0.06)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Brand.paper.opacity(0.35)
+                }
+            }
+            .clipShape(.rect(cornerRadius: 26, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(Brand.warnOnBoard.opacity(0.28), lineWidth: 1.2)
+            }
+            .shadow(color: Brand.warnOnBoard.opacity(0.18), radius: 14, y: 8)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+    }
+
+    // ══════════════════════════ полки ══════════════════════════
+
+    /// Три полки пилюлей: вся база, постоянные, новые. Счётчик внутри
+    /// пилюли — тот же ответ, что давали три отдельных счётчика, только
+    /// он же и есть орган переключения.
+    private var shelves: some View {
+        PillTabs(
+            items: [
+                (Shelf.all, "\(L("owner.allClients")) \(clients.count)"),
+                (Shelf.loyal, "\(L("owner.clientsLoyal")) \(loyalAll.count)"),
+                (Shelf.fresh, "\(L("owner.clientsFresh")) \(freshAll.count)"),
+            ],
+            selection: $shelf
+        )
+    }
+
+    // ══════════════════════════ сетка ══════════════════════════
+
+    /**
+     * Машины плитками по две в ряд.
+     *
+     * Номер на плитке крупный и стоит один — так его находят глазами, а
+     * не читают. В строке он всегда оказывался зажат между значком
+     * слева и суммой справа, и список из тридцати номеров приходилось
+     * просматривать построчно.
+     *
+     * Внизу плитки деньги и давность: два числа, по которым решают,
+     * стоит ли открывать историю.
+     */
+    private var grid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
+            ForEach(shown) { client in
+                Button { opened = client } label: { tile(client) }
+                    .buttonStyle(.press)
+            }
+        }
+    }
+
+    private func tile(_ client: API.Client) -> some View {
+        let lost = client.daysSince > lostAfter
+        let loyal = client.visits > 1
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 6) {
+                Text(client.key)
+                    .font(.system(size: 19, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+
+                Spacer(minLength: 0)
+
+                /* Один знак на плитку, не два. Постоянный — лаймовая
+                   точка, пропавший — янтарная; быть и тем и другим
+                   можно, но важнее второе, и оно перекрывает. */
+                if lost {
+                    Circle().fill(Brand.warnOnBoard).frame(width: 8, height: 8).padding(.top, 5)
+                } else if loyal {
+                    Circle().fill(Brand.good).frame(width: 8, height: 8).padding(.top, 5)
+                }
             }
 
-            Spacer(minLength: 8)
+            Text(client.name?.isEmpty == false ? client.name! : " ")
+                .font(.system(size: 12))
+                .foregroundStyle(Brand.muted)
+                .lineLimit(1)
+                .padding(.top, 1)
+
+            Spacer(minLength: 12)
 
             Text(money(client.total, currency))
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.6)
 
-            /* Шеврон, а не просто нажимаемая строка. Строка без знака
-               выглядит подписью: по ней не пробуют тапнуть и не узнают,
-               что за ней что-то есть. */
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Brand.boardInk.opacity(0.28))
+            Text(visitLine(client))
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(lost ? Brand.warnOnBoard : Brand.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.top, 1)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
+        .paperCard(20)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 
-    /// «213 այց · վերջինը՝ 3 օր առաջ».
-    ///
-    /// Слово «վերջինը» обязательно. Без него «3 օր առաջ» стоит рядом с
-    /// числом визитов и читается чем угодно — сроком, промежутком,
-    /// давностью первого приезда. Речь о последнем, и это надо сказать.
+    /// «3 визита · 12 дней назад». Слово «последний» на плитке не нужно:
+    /// в строке оно отделяло давность от числа визитов, а здесь между
+    /// ними стоит сумма и своя строка.
     private func visitLine(_ client: API.Client) -> String {
         let visits = Ln("clients.visitsCount", client.visits)
         if client.daysSince == 0 { return L("clients.visitsLastToday", visits) }
         return L("clients.visitsLastAgo", visits, Ln("clients.daysAgo", client.daysSince))
     }
 
+    // ══════════════════════════ пусто ══════════════════════════
+
+    /// Базы ещё нет вовсе. Не ошибка и не пустой экран: так выглядит
+    /// мойка в первый день, и сказать об этом надо словами.
+    private var emptyDatabase: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "car.2.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Brand.grape)
+                .frame(width: 52, height: 52)
+                .background(Brand.grapeFill.opacity(0.1), in: .circle)
+            Spacer(minLength: 10)
+            Text(L("owner.clientsEmpty"))
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L("owner.clientsEmptyNote"))
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .paperCard(26)
+        .padding(.top, 18)
+    }
+
+    /// На полке или в поиске ничего не нашлось.
+    private var emptyShelf: some View {
+        VStack(spacing: 6) {
+            Text(query.isEmpty ? L("owner.clientsShelfEmpty") : L("owner.clientsNotFound"))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+            if !query.isEmpty {
+                Text(query)
+                    .font(.system(size: 13, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.muted)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 42)
+        .paperCard(24)
+        .padding(.top, 12)
+    }
+
+    // ══════════════════════════ загрузка ══════════════════════════
+
     private func reload() async {
         do {
             let result = try await session.authed { token in
                 try await APIClient.shared.send("clients", token: token, as: API.Clients.self)
             }
-            /* С анимацией: счётчики над списком перекручиваются
-               разрядами, а не подменяются скачком, — до этого их
-               `contentTransition` не срабатывал ни разу. */
+            /* С анимацией: счётчики в полках перекручиваются разрядами,
+               а не подменяются скачком. */
             withAnimation(.snappy(duration: Motion.normal)) {
                 clients = result.clients
             }
             failed = false
             failNote = nil
+            loaded = true
+            arrive()
         } catch is CancellationError {
-            // потянули вниз и отпустили: ничего не сломалось
+            /* Потянули вниз и отпустили, или ушли с экрана. Ничего не
+               сломалось — и экран об этом молчит. */
             return
         } catch let error as APIError {
+            failNote = error.isOffline ? L("errors.offline") : nil
             failed = true
-            failNote = error.isOffline ? L("common.offlineNote") : nil
+            loaded = true
+            arrive()
         } catch {
             failed = true
-            failNote = nil
+            loaded = true
+            arrive()
         }
-        loaded = true
+    }
+
+    /// Секции приходят по очереди, как на сводке и зарплате.
+    private func arrive() {
+        guard beat == .waiting else { return }
+        if reduceMotion {
+            beat = .here
+        } else {
+            withAnimation { beat = .here }
+        }
     }
 }

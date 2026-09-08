@@ -64,7 +64,10 @@ export async function GET(request: Request) {
       getPeriodStats(ctx.tenant.id, from, to),
       getRevenueSeries(ctx.tenant.id, from, ctx.tenant.timezone, byHour ? 'hour' : 'day', to),
       getPaymentSplit(ctx.tenant.id, from, to),
-      getFeed(ctx.tenant.id, from),
+      /* С верхней границей, как в кабинете: без неё «прошлый месяц»
+         начинался с записей этого — лента идёт от новых к старым и
+         упиралась в лимит, не дойдя до самого прошлого месяца. */
+      getFeed(ctx.tenant.id, from, 100, to),
       getPeriodCosts(ctx.tenant.id, from, to, w.spread),
       whoIsOnShift(ctx.tenant.id, today),
       getPeriodStats(ctx.tenant.id, prevFrom, prevTo),

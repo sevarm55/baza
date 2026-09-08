@@ -68,24 +68,31 @@ struct ReportView: View {
                 if let failure {
                     problem(failure)
                 } else if let report {
-                    timeline(report.months)
+                    months(report.months)
+                        .padding(.top, 6)
+
+                    hero(report)
+                        .padding(.top, 16)
+
+                    composition(report.current)
 
                     VStack(alignment: .leading, spacing: 0) {
-                        reading(report)
-                        composition(report.current)
-
                         /* Когда приезжают и как шёл месяц — сразу после
                            состава, до разрезов по деньгам: это вопросы
                            про работу мойки, а не про её бухгалтерию, и
                            владелец задаёт их первыми. */
                         if let heat = report.heat, heat.contains(where: { $0.count > 0 }) {
-                            section(L("report.heatTitle"), total: report.current.count)
+                            section(L("report.heatTitle"), total: nil)
                             ReportHeatmap(cells: heat, currency: currency, unit: unit)
+                                .padding(14)
+                                .paperCard(22)
                         }
 
                         if let series = report.series, series.count > 1 {
                             section(L("report.trendTitle"), total: report.current.revenue)
                             ReportTrend(points: series, currency: currency)
+                                .padding(14)
+                                .paperCard(22)
                         }
 
                         income(report)
@@ -98,12 +105,15 @@ struct ReportView: View {
                         if let branches = report.branches, branches.count > 1 {
                             section(L("report.branchesTitle"), total: branches.reduce(0) { $0 + $1.revenue })
                             ReportBranches(branches: branches, currency: currency, unit: unit)
+                                .padding(14)
+                                .paperCard(22)
                         }
                     }
                     /* Пока идёт ответ по другому месяцу, содержимое гаснет,
-                       но остаётся на месте: график со свежим выбором стоит
-                       над ним и уже показывает, что нажатие услышано. Пустой
-                       экран вместо чисел на секунду читался бы поломкой. */
+                       но остаётся на месте: ряд месяцев со свежим выбором
+                       стоит над ним и уже показывает, что нажатие
+                       услышано. Пустой экран на секунду читался бы
+                       поломкой. */
                     .opacity(loading ? 0.45 : 1)
                     .animation(reduceMotion ? nil : .easeOut(duration: Motion.normal), value: loading)
                 } else {
@@ -111,13 +121,9 @@ struct ReportView: View {
                        большого лоадера на быстрый ответ читалась дрожью. */
                     Delayed(active: true) {
                         VStack(alignment: .leading, spacing: 14) {
-                            TetrSkeleton(height: 90, radius: 22)
-                            TetrSkeleton(width: 140, height: 12)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            TetrSkeleton(width: 230, height: 44, radius: 14)
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            TetrSkeleton(height: 92, radius: 22)
+                            TetrSkeleton(height: 150, radius: 26)
                             TetrSkeleton(height: 150, radius: 22)
-                            TetrSkeleton(height: 110, radius: 22)
                         }
                         .padding(.top, 12)
                     }
@@ -126,65 +132,59 @@ struct ReportView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 34)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.board.ignoresSafeArea())
-        .task { await reload() }
         .refreshable { await reload() }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .meshPage()
+        .brandTitleFont()
+        .navigationTitle(L("reports.title"))
+        .navigationSubtitle(report.map { monthTitle($0.current.from) } ?? "")
+        .toolbarTitleDisplayMode(.inlineLarge)
+        .task { await reload() }
     }
 
     // ══════════════════════════ месяцы ══════════════════════════
 
     /**
-     * Ряд месяцев графиком, а не плашками.
+     * Ряд месяцев: и выбор, и сравнение одной вещью.
      *
-     * Плашки отвечали «какой месяц открыт» и молчали про главное: ряд из
-     * шести чисел рядом друг с другом — это форма полугода, и она видна
-     * только фигурой. Столбик считает прибыль, а не выручку: наверху
-     * экрана стоит она же, и график обязан показывать то самое число, к
-     * которому ведёт.
+     * Пилюли выбрали бы месяц, но молчали бы про главное — как он
+     * выглядит рядом с соседними. Столбик отвечает на это без единого
+     * числа: видно, что август провалился, а сентябрь вернулся, и видно
+     * до того, как прочитана первая сумма.
      *
-     * Убыточный месяц уходит под нулевую линию и красится жёлтым. Это не
-     * украшение: столбик вниз читается провалом до всякого чтения, а
-     * красный в продукте значит «удалить» и здесь появиться не может.
-     *
-     * Выбранный месяц лежит на бумаге. Лайм сюда не годится вовсе: по
-     * светлому полотну он даёт контраст 1.06 и просто не виден, а грейп
-     * уже занят самим столбиком.
+     * Ноль делит поле по правде: если убытки вдвое мельче лучшей
+     * прибыли, под линией остаётся треть высоты. Половина на половину
+     * преувеличивала бы провал.
      */
     @ViewBuilder
-    private func timeline(_ months: [API.ReportMonth]) -> some View {
-        // одному месяцу не с чем стоять рядом: у новой мойки график был бы
-        // одиноким столбиком, который ничего не сравнивает
+    private func months(_ months: [API.ReportMonth]) -> some View {
         if months.count > 1 {
             let row = months.sorted { $0.back > $1.back }
             let up = CGFloat(max(0, row.map(\.profit).max() ?? 0))
             let down = CGFloat(max(0, -(row.map(\.profit).min() ?? 0)))
-            /* Ноль делит поле по правде: если убытки вдвое мельче лучшей
-               прибыли, под линией и остаётся треть высоты. Половина на
-               половину преувеличивала бы провал. */
             let upField = up > 0 ? (down > 0 ? (field * up / (up + down)).rounded() : field) : 0
             let downField = field - upField
 
-            HStack(spacing: 4) {
-                ForEach(row) { month in
-                    monthColumn(month, up: up, down: down, upField: upField, downField: downField)
+            ScrollView(.horizontal) {
+                HStack(spacing: 4) {
+                    ForEach(row) { month in
+                        monthColumn(month, up: up, down: down, upField: upField, downField: downField)
+                    }
                 }
-            }
-            /* Ширина под число месяцев, а не под экран. У мойки, которая
-               работает второй месяц, столбцов два, и растянутые на пол-экрана
-               они читаются не графиком, а парой плит. Шести столбцам предел
-               не мешает: до него они не дотягиваются и делят ширину поровну. */
-            .frame(maxWidth: CGFloat(row.count) * 66, alignment: .leading)
-            .overlay(alignment: .top) {
-                if up > 0 && down > 0 {
-                    Rectangle()
-                        .fill(Brand.boardInk.opacity(0.13))
-                        .frame(height: 1)
-                        .offset(y: 9 + upField)
-                        .allowsHitTesting(false)
+                .overlay(alignment: .top) {
+                    if up > 0 && down > 0 {
+                        Rectangle()
+                            .fill(Brand.ink.opacity(0.12))
+                            .frame(height: 1)
+                            .offset(y: 9 + upField)
+                            .allowsHitTesting(false)
+                    }
                 }
+                .padding(10)
             }
-            .padding(.top, 4)
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .paperCard(24)
         }
     }
 
@@ -197,10 +197,6 @@ struct ReportView: View {
     ) -> some View {
         let on = month.back == back
         let loss = month.profit < 0
-        /* Грейп, который знает про тёмную тему, а не заливка марки. Заливка
-           неизменна нарочно: она сама марка. Но на почти чёрном полотне
-           тёмно-фиолетовый столбик под четверть прозрачности пропадал
-           вовсе, и ряд месяцев в темноте оставался с одним столбиком. */
         /* Столбик убыточного месяца берёт тот же красный, что число над
            графиком: иначе один и тот же месяц назывался бы потерей в
            двух разных оттенках. Прибыльный остаётся грейповым — это
@@ -231,21 +227,20 @@ struct ReportView: View {
                 .frame(height: field)
 
                 Text(monthShort(month.from))
-                    .font(.system(size: 12, weight: on ? .bold : .medium))
-                    .foregroundStyle(on ? Brand.onBoard : Brand.boardMuted)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(on ? Brand.onInk : Brand.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity)
+            .frame(width: 58)
             .padding(.vertical, 9)
             .background {
+                /* Выбранный месяц — чернильная пилюля, та же, что на
+                   полках соседних экранов: орган выбора у продукта один
+                   и тот же, в какой бы фигуре он ни жил. */
                 if on {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Brand.boardSurface)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                        }
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Brand.ink)
                 }
             }
         }
@@ -260,8 +255,9 @@ struct ReportView: View {
         RoundedRectangle(cornerRadius: 3, style: .continuous)
             /* Невыбранные месяцы держат тот же цвет, только тише: ряд
                остаётся одним графиком, а не выбранным столбиком среди
-               серых палочек. */
-            .fill(tone.opacity(on ? 1 : 0.34))
+               серых палочек. Выбранный светлеет до лайма — на чернильной
+               пилюле грейп не читается. */
+            .fill(on ? (tone == Brand.grape ? Brand.lime : tone) : tone.opacity(0.34))
             .frame(width: 17, height: height)
             .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: on)
     }
@@ -269,40 +265,58 @@ struct ReportView: View {
     // ══════════════════════════ показание ══════════════════════════
 
     /**
-     * Сколько осталось за открытый месяц.
+     * Что осталось за месяц — лаймовой картой.
      *
-     * Месяц назван словом над числом, а не выведен из выбранной плашки:
-     * до графика взгляд доходит вторым, и подпись «Апрель» обязана
-     * стоять там же, где сумма, иначе число висит без периода.
+     * Число стояло голым посреди полотна, между графиком и кольцом, и
+     * было единственным ответом экрана без собственного места. Лайм в
+     * продукте значит «вот оно»: тем же цветом подписана прибыль на
+     * сводке, и отчёт не должен называть её иначе.
      */
-    private func reading(_ report: API.Report) -> some View {
+    private func hero(_ report: API.Report) -> some View {
         let m = report.current
-        return VStack(spacing: 0) {
-            Text(monthTitle(m.from))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
-                .contentTransition(.numericText())
-
+        return VStack(alignment: .leading, spacing: 0) {
             Text(m.profit < 0 ? L("reports.red") : L("reports.kept"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Brand.onBoard.opacity(0.85))
-                .padding(.top, 5)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.onLime.opacity(0.75))
 
             /* Минус настоящий, U+2212: дефис на таком кегле читается
-               точкой. Цвет по знаку — то же правило, что на сводке. */
+               точкой. Убыток краснеет — на лайме это единственный цвет,
+               который читается тревогой. */
             Text((m.profit < 0 ? "−" : "") + money(abs(m.profit), currency))
                 .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.sign(m.profit))
+                .foregroundStyle(m.profit < 0 ? Brand.badOnBoard : Brand.onLime)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
-                .padding(.top, 1)
+                .padding(.top, 2)
                 .contentTransition(.numericText(value: Double(m.profit)))
 
             change(report)
+
+            HStack(spacing: 8) {
+                heroPill(Terms.units(m.count, unit))
+                if m.avgCheck > 0 {
+                    heroPill("\(L("owner.avgCheck")) \(money(m.avgCheck, currency))")
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 16)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 14)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.lime, in: .rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: Brand.lime.opacity(0.35), radius: 16, y: 8)
+    }
+
+    private func heroPill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(Brand.onLime)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.white.opacity(0.55), in: .capsule)
     }
 
     /**
@@ -329,13 +343,10 @@ struct ReportView: View {
                         .monospacedDigit()
                     Text(L("summary.vsPrevMonth"))
                         .font(.system(size: 12))
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.onLime.opacity(0.7))
                 }
-                .foregroundStyle(Brand.sign(diff))
-                .padding(.horizontal, 11)
-                .padding(.vertical, 6)
-                .background(Brand.chipRest, in: .rect(cornerRadius: 10, style: .continuous))
-                .padding(.top, 10)
+                .foregroundStyle(Brand.onLime)
+                .padding(.top, 8)
             }
         }
     }
@@ -353,57 +364,51 @@ struct ReportView: View {
      *
      * Кусков ровно три, и больше их не станет: приход раскладывается на
      * долю владельца, людей и расходы, других слагаемых у него нет.
-     *
-     * Внизу карточки, за волосяной линией, стоит операционная строка:
-     * машины, средний чек, скидки. Она приросла сюда не для экономии
-     * места — это те самые числа, из которых сложился приход в шапке
-     * карточки, и стоять они должны при нём.
      */
     @ViewBuilder
     private func composition(_ m: API.ReportCurrent) -> some View {
         if m.revenue > 0 || m.costs > 0 || m.payroll > 0 {
             let parts = Split.money(mine: m.profit, staff: m.payroll, costs: m.costs)
 
-            VStack(spacing: 0) {
-                HStack(alignment: .center, spacing: 16) {
-                    MoneyDonut(
-                        parts: parts,
-                        percent: max(0, min(100, m.kept)),
-                        caption: L("common.you")
-                    )
+            VStack(alignment: .leading, spacing: 0) {
+                section(L("summary.paidIn"), total: m.revenue)
 
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(L("summary.paidIn"))
-                            .font(.system(size: 12))
-                            .foregroundStyle(Brand.boardMuted)
-                        Text(money(m.revenue, currency))
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(Brand.onBoard)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                            .contentTransition(.numericText(value: Double(m.revenue)))
+                VStack(spacing: 0) {
+                    HStack(alignment: .center, spacing: 16) {
+                        MoneyDonut(
+                            parts: parts,
+                            percent: max(0, min(100, m.kept)),
+                            caption: L("common.you")
+                        )
 
-                        VStack(spacing: 7) {
+                        VStack(spacing: 9) {
                             ForEach(parts) { part in
                                 legend(part)
                             }
                         }
-                        .padding(.top, 11)
+                    }
+                    .padding(16)
+
+                    /* Скидки называются, только когда они были: «скидок
+                       0 ֏» сообщает ровно то же, что их отсутствие. */
+                    if m.discounts > 0 {
+                        Hairline(inset: 0)
+                        HStack {
+                            Text(L("reports.discounts"))
+                                .font(.system(size: 13))
+                                .foregroundStyle(Brand.muted)
+                            Spacer()
+                            Text(money(m.discounts, currency))
+                                .font(.system(size: 13, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.ink)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
                 }
-                .padding(15)
-
-                hairline
-                operations(m)
+                .paperCard(22)
             }
-            .clipShape(.rect(cornerRadius: 22, style: .continuous))
-            .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-            }
-            .padding(.top, 18)
         }
     }
 
@@ -415,49 +420,19 @@ struct ReportView: View {
                 .frame(width: 7, height: 7)
             Text(part.label)
                 .font(.system(size: 13))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
                 .lineLimit(1)
 
             Spacer(minLength: 8)
 
             Text(money(part.amount, currency))
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .bold))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    /**
-     * Машины, средний чек и скидки — одной тихой строкой.
-     *
-     * Три числа в трёх карточках сделали бы четвёртый ряд коробок на
-     * экране, где их и так хватает, а отвечают они на подробность, а не
-     * на вопрос. Скидки называются, только когда они были: «скидок 0 ֏»
-     * сообщает ровно то же, что их отсутствие.
-     */
-    private func operations(_ m: API.ReportCurrent) -> some View {
-        HStack(spacing: 6) {
-            Text(Terms.units(m.count, unit))
-            if m.avgCheck > 0 {
-                dot
-                Text("\(L("owner.avgCheck")) \(money(m.avgCheck, currency))")
-            }
-            if m.discounts > 0 {
-                dot
-                Text("\(L("reports.discounts")) \(money(m.discounts, currency))")
-            }
-            Spacer(minLength: 0)
-        }
-        .font(.system(size: 13))
-        .monospacedDigit()
-        .foregroundStyle(Brand.boardMuted)
-        .lineLimit(1)
-        .minimumScaleFactor(0.68)
-        .padding(.horizontal, 15)
-        .padding(.vertical, 11)
     }
 
     // ══════════════════════════ приход ══════════════════════════
@@ -500,12 +475,7 @@ struct ReportView: View {
                         methods(ways)
                     }
                 }
-                .clipShape(.rect(cornerRadius: 22, style: .continuous))
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                }
+                .paperCard(22)
             }
         }
     }
@@ -527,7 +497,7 @@ struct ReportView: View {
         return VStack(alignment: .leading, spacing: 10) {
             Text(L("today.paidWith"))
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
 
             HStack(alignment: .top, spacing: 12) {
                 ForEach(ways) { way in
@@ -548,7 +518,7 @@ struct ReportView: View {
             HStack(spacing: 4) {
                 Text(paymentLabel(way.payment))
                     .font(.system(size: 11))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text("\(percent)%")
@@ -561,14 +531,14 @@ struct ReportView: View {
             Text(money(way.revenue, currency))
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .fill(Brand.boardInk.opacity(0.08))
+                        .fill(Brand.ink.opacity(0.08))
                     RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(ink)
                         // не тоньше трёх точек: метр нулевой длины читается
@@ -599,12 +569,7 @@ struct ReportView: View {
                 section(L("reports.whereGone"), total: total)
 
                 lines(rows, total: total, tone: Brand.sandInk)
-                    .clipShape(.rect(cornerRadius: 22, style: .continuous))
-                    .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                    }
+                    .paperCard(22)
             }
         }
     }
@@ -660,13 +625,13 @@ struct ReportView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(Brand.ink)
                     .lineLimit(1)
                 if !note.isEmpty {
                     Text(note)
                         .font(.system(size: 11))
                         .monospacedDigit()
-                        .foregroundStyle(Brand.boardMuted)
+                        .foregroundStyle(Brand.muted)
                         .lineLimit(1)
                 }
             }
@@ -676,12 +641,12 @@ struct ReportView: View {
             Text(money(value, currency))
                 .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
             Text("\(percent)%")
                 .font(.system(size: 12))
                 .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
+                .foregroundStyle(Brand.muted)
                 // «100 %» шире прочих долей, и на узкой колонке знак процента
                 // уезжал на вторую строку
                 .lineLimit(1)
@@ -722,7 +687,11 @@ struct ReportView: View {
         let rows = m.byStaff.filter { $0.count > 0 }.sorted { $0.earned > $1.earned }
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                section(Terms.staff(session.tenant?.staffRole ?? "").many, total: m.payroll)
+                /* «Команда», а не форма слова «мойщик»: `Terms.staff().many`
+                   даёт «Мойщика» — форму после числительного, и в заголовке
+                   раздела она читается опечаткой. Тем же словом раздел
+                   назван в «Ещё» и на своём экране. */
+                section(L("more.team"), total: m.payroll)
 
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -730,11 +699,7 @@ struct ReportView: View {
                         person(row)
                     }
                 }
-                .background(Brand.boardSurface, in: .rect(cornerRadius: 22, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(Brand.boardInk.opacity(0.07), lineWidth: 0.8)
-                }
+                .paperCard(22)
             }
         }
     }
@@ -752,12 +717,12 @@ struct ReportView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(Brand.ink)
                     .lineLimit(1)
                 Text(Terms.units(row.count, unit))
                     .font(.system(size: 12))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
             }
 
             Spacer(minLength: 8)
@@ -765,7 +730,7 @@ struct ReportView: View {
             Text(money(row.earned, currency))
                 .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(Brand.onBoard)
+                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -776,33 +741,37 @@ struct ReportView: View {
 
     // ══════════════════════════ общее ══════════════════════════
 
-    /// Заголовок раздела с его итогом справа.
-    private func section(_ title: String, total: Int) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.boardMuted)
+    /// Заголовок раздела: имя капителью слева, итог чернилами справа.
+    /// Тот же орган, что на расходах и клиентах.
+    private func section(_ title: String, total: Int?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .black, design: .rounded))
+                .tracking(1.3)
+                .foregroundStyle(Brand.muted)
             Spacer(minLength: 8)
-            Text(money(total, currency))
-                .font(.system(size: 13, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-                .lineLimit(1)
-                .contentTransition(.numericText(value: Double(total)))
+            if let total {
+                Text(money(total, currency))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                    .contentTransition(.numericText(value: Double(total)))
+            }
         }
-        .padding(.horizontal, 4)
-        .padding(.top, 22)
-        .padding(.bottom, 7)
+        .padding(.horizontal, 6)
+        .padding(.top, 24)
+        .padding(.bottom, 9)
     }
 
     private var hairline: some View {
         Rectangle()
-            .fill(Brand.boardInk.opacity(0.07))
+            .fill(Brand.ink.opacity(0.07))
             .frame(height: 1)
     }
 
     private var dot: some View {
-        Text("·").foregroundStyle(Brand.boardMuted.opacity(0.6))
+        Text("·").foregroundStyle(Brand.muted.opacity(0.6))
     }
 
     /// Единый вид отказа продукта, а не свой на каждом экране.
@@ -905,7 +874,7 @@ private struct MoneyDonut: View {
 
         ZStack {
             Circle()
-                .stroke(Brand.boardInk.opacity(0.07), lineWidth: width)
+                .stroke(Brand.ink.opacity(0.07), lineWidth: width)
 
             ForEach(Array(offsets(total: total).enumerated()), id: \.offset) { index, span in
                 /* Просвет отгрызается с обоих концов, но кусок от него не
@@ -924,11 +893,11 @@ private struct MoneyDonut: View {
                 Text("\(percent)%")
                     .font(.system(size: 19, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Brand.onBoard)
+                    .foregroundStyle(Brand.ink)
                     .contentTransition(.numericText(value: Double(percent)))
                 Text(caption)
                     .font(.system(size: 10))
-                    .foregroundStyle(Brand.boardMuted)
+                    .foregroundStyle(Brand.muted)
                     .lineLimit(1)
             }
         }

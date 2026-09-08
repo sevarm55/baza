@@ -142,6 +142,27 @@ export async function getUser(tenantId: string, userId: string) {
   return u ?? null;
 }
 
+/**
+ * Почта, которой человек входит.
+ *
+ * Лежит в аккаунте, а не в участии: участий у человека столько, сколько
+ * филиалов, а вход один. Профиль показывал имя, телефон и пароль и
+ * молчал ровно про то, что владелец набирает в окне входа.
+ *
+ * Отдельным чтением, а не полем `getUser`: та возвращает строку участия
+ * целиком и зовётся почти на каждой странице кабинета, а лишний join там
+ * нужен одному экрану. Создать аккаунт по дороге (как `accountOf`) чтение
+ * страницы права не имеет.
+ */
+export async function getLoginEmail(tenantId: string, userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ email: accounts.email })
+    .from(users)
+    .innerJoin(accounts, eq(accounts.id, users.accountId))
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)));
+  return row?.email ?? null;
+}
+
 export async function listStaff(tenantId: string) {
   return db
     .select()
@@ -1070,9 +1091,28 @@ export async function getClientHistory(tenantId: string, key: string, limit = 20
  * запись, «комплекс с химчисткой» распадался на две машины, и разрез по
  * услугам считал бы то же самое враньё.
  *
- * Считаем по прайсовой цене строки, а не по взятой: скидка живёт на счёте
- * целиком, и разносить её по услугам пришлось бы наугад. Владельцу здесь
- * важно другое — что чаще заказывают и что дороже стоит.
+ * Считаем по ВЗЯТОЙ цене, а не по прайсовой: скидка разносится по
+ * строкам записи пропорционально их цене.
+ *
+ * Раньше здесь стояла прайсовая цена, и разнести скидку казалось делом
+ * произвольным. Цена этого решения обнаружилась на экране: сверху
+ * «Выручка 24 000», ниже таблица услуг на 24 500, и разница ровно в
+ * скидку. Владелец видит два числа, называющих одно и то же, и не может
+ * узнать, какому верить. Разрез по услугам — часть финансового отчёта, и
+ * складываться он обязан в выручку, а не рядом с ней.
+ *
+ * Наугад делить и не приходится: скидка дана со всего счёта, доля строки
+ * в нём известна, и пропорция — единственный ответ, который не зависит от
+ * порядка услуг в записи. Одна услуга на запись (а это почти все записи)
+ * даёт ровно взятую цену.
+ *
+ * Дроби суммируются до округления: `sum(numeric)` точен, `::int`
+ * срабатывает один раз на услугу. Иначе округление каждой строки
+ * накопило бы тот самый разрыв, ради которого всё и переписано.
+ *
+ * `list_price` пуст у записей, сделанных до появления скидок. Там
+ * множитель обращается в единицу: у записи без скидки взятая цена и есть
+ * сумма строк.
  */
 export async function getServiceBreakdown(tenantId: string, from: Date, to?: Date) {
   return db
@@ -1080,7 +1120,11 @@ export async function getServiceBreakdown(tenantId: string, from: Date, to?: Dat
       serviceId: orderItems.serviceId,
       name: orderItems.serviceName,
       count: sql<number>`count(*)::int`,
-      revenue: sql<number>`coalesce(sum(${orderItems.price}), 0)::int`,
+      revenue: sql<number>`coalesce(sum(
+        ${orderItems.price}::numeric
+          * ${orders.price}
+          / nullif(coalesce(${orders.listPrice}, ${orders.price}), 0)
+      ), 0)::int`,
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))

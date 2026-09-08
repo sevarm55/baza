@@ -29,7 +29,7 @@ export function ConfirmForm({
     <form action={action} className="flex flex-col gap-8">
       <input type="hidden" name="token" value={token} />
 
-      <AuthHead title={business} subtitle={t.auth.sentSub(email)} />
+      <AuthHead title={business} subtitle={t.auth.confirmSub(email)} />
 
       <AuthError>{state?.error}</AuthError>
 

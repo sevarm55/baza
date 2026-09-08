@@ -491,18 +491,9 @@ export async function completeRegistration(input: {
     };
   }
 
-  /* Телефон теперь может отсутствовать: вход завели и по почте.
-   *
-   * ПРОБЕЛ, не забыть. Заявка по-прежнему несёт `pinHash` — приложение
-   * спрашивает PIN на регистрации и честно его присылает, — но
-   * `createBusiness` пин больше не принимает, и выбранный код никуда не
-   * записывается. Тем же движением ушёл `phoneVerified: true`. На живой
-   * базе видно: у моек, заведённых сегодня, `pin_hash` пуст и
-   * `phone_verified_at` пуст, а у заведённых до правки пин на месте.
-   * Пока приложение не переехало на пароль, войти по PIN такой владелец
-   * не сможет. */
+  /* Телефон теперь может отсутствовать: вход завели и по почте. */
   const phone = verified.challenge.phone ?? '';
-  const { niche, businessName, ownerName, currency } = verified.payload;
+  const { niche, businessName, ownerName, currency, pinHash } = verified.payload;
 
   try {
     const { tenant, owner } = await createBusiness({
@@ -519,6 +510,32 @@ export async function completeRegistration(input: {
     });
 
     const [account] = await db.select().from(accounts).where(eq(accounts.phone, phone));
+
+    /* Код из заявки кладётся в аккаунт здесь, а не в `createBusiness`:
+       та пина не принимает вовсе и знает только про пароли.
+
+       Без этой записи путь получался с дырой посередине: приложение
+       версии из магазина спрашивает PIN, честно присылает его, бизнес
+       создаётся — а секрет не сохраняется нигде, и войти этим PIN'ом
+       владелец не может уже никогда. Регистрация проходит, вход
+       отвечает «неверный номер или код», и понять причину со стороны
+       невозможно.
+
+       Номер здесь доказан кодом из SMS, который человек только что
+       ввёл, поэтому вместе с кодом ставится и отметка о проверке
+       номера — ровно то, чего стоила бы отдельная проверка позже.
+
+       Путь уходит вместе с переездом приложения на пароли; пока он жив,
+       он обязан работать целиком. */
+    if (account && pinHash) {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(accounts)
+          .set({ pinHash, phoneVerifiedAt: new Date() })
+          .where(eq(accounts.id, account.id));
+        await tx.update(users).set({ pinHash }).where(eq(users.id, owner.id));
+      });
+    }
 
     if (account) {
       await rememberDevice({
