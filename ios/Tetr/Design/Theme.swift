@@ -1369,11 +1369,11 @@ extension View {
 /**
  * Номерной знак в строке.
  *
- * Рамка чернилами, слева синий блок с флагом и кодом страны, как на
- * настоящем знаке. Страна — по валюте мойки: у арендатора нет поля
+ * Армянский знак — белая пластина с чёрной рамкой, флагом и AM слева.
+ * Страна — по валюте мойки: у арендатора нет поля
  * страны, а валюта выбирается один раз при заведении и не меняется.
  * У ниш без номеров (телефон клиента) блока нет: там это не знак.
- * Свежая запись — лаймом.
+ * У армянского знака свежая запись подсвечивает край, сохраняя белый фон.
  */
 struct PlateTag: View {
     let text: String
@@ -1381,7 +1381,69 @@ struct PlateTag: View {
     let country: (flag: String, code: String)?
     var fresh = false
 
+    @ViewBuilder
     var body: some View {
+        if country?.code == "AM" {
+            armenianPlate
+        } else {
+            standardTag
+        }
+    }
+
+    private var armenianPlate: some View {
+        HStack(spacing: 6) {
+            VStack(spacing: 2) {
+                VStack(spacing: 0) {
+                    Color(red: 0.85, green: 0.0, blue: 0.07)
+                    Color(red: 0.0, green: 0.20, blue: 0.63)
+                    Color(red: 0.95, green: 0.66, blue: 0.0)
+                }
+                .frame(width: 12, height: 6)
+
+                Text("AM")
+                    .font(.system(size: 6.5, weight: .bold))
+                    .tracking(0.3)
+            }
+            .accessibilityHidden(true)
+
+            Text(armenianDisplayText)
+                .font(.system(size: 22, weight: .semibold).width(.condensed))
+                .monospacedDigit()
+                .tracking(0.4)
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.black)
+        .padding(.leading, 6)
+        .padding(.trailing, 7)
+        .frame(height: 30)
+        .fixedSize()
+        .background(Color.white, in: .rect(cornerRadius: 3))
+        .overlay {
+            RoundedRectangle(cornerRadius: 3)
+                .strokeBorder(Color.black, lineWidth: 1.2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(fresh ? Brand.lime : .clear, lineWidth: 2)
+                .padding(-3)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("AM " + armenianDisplayText)
+    }
+
+    /// Только оформление: ключ клиента и неоднозначные символы не меняем.
+    private var armenianDisplayText: String {
+        let compact = text.uppercased().filter { !$0.isWhitespace && $0 != "-" }
+        if compact.range(of: #"^[0-9]{2}[A-Z]{2}[0-9]{3}$"#, options: .regularExpression) != nil {
+            return "\(compact.prefix(2)) \(compact.dropFirst(2).prefix(2)) \(compact.suffix(3))"
+        }
+        if compact.range(of: #"^[0-9]{3}[A-Z]{2}[0-9]{2}$"#, options: .regularExpression) != nil {
+            return "\(compact.prefix(3)) \(compact.dropFirst(3).prefix(2)) \(compact.suffix(2))"
+        }
+        return text
+    }
+
+    private var standardTag: some View {
         HStack(spacing: 0) {
             if let country {
                 VStack(spacing: 0) {
