@@ -161,16 +161,27 @@ struct WorkerWelcomeSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 22)
 
-            Spacer(minLength: 24)
-
-            /* Одна кнопка и никакого «пропустить»: соглашаться здесь не с
-               чем — под листом лежит тот же экран смены. Во всю ширину,
-               потому что жмут её мокрой рукой. */
-            Button(L("setup.workerCta"), action: onDone)
-                .buttonStyle(LimeButton())
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        /* Одна кнопка и никакого «пропустить»: соглашаться здесь не с
+           чем — под листом лежит тот же экран смены. Во всю ширину,
+           потому что жмут её мокрой рукой.
+         *
+         * Прижата к нижней кромке листа, а не идёт следом за текстом:
+         * внутри прокрутки `Spacer` не растягивается, и кнопка вставала
+         * сразу под словами, оставляя под собой пустую половину листа.
+         * Тут она там же, где кнопка на самой смене, — под большим
+         * пальцем.
+         */
+        .safeAreaInset(edge: .bottom) {
+            Button(L("setup.workerCta"), action: onDone)
+                .buttonStyle(LimeButton())
+                .padding(.horizontal, 22)
+                .padding(.top, 12)
+                .padding(.bottom, 22)
+                .background(Brand.board)
         }
         .background(Brand.board.ignoresSafeArea())
         .presentationDetents([.medium, .large])

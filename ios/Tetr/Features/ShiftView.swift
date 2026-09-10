@@ -5,7 +5,7 @@ import SwiftUI
  *
  * Экран собран как витрина, а не как таблица: сверху во весь верх
  * телефона стоит сцена — вымытая машина и маскот, — а на неё снизу
- * заезжает карточка смены: деньги и оба счётчика одним предметом.
+ * заезжает белый лист: деньги и оба счётчика, затем журнал.
  * Дальше по белому листу идёт лента записей нитью времени, и внизу
  * одна лаймовая кнопка.
  *
@@ -109,26 +109,16 @@ struct ShiftView: View {
            повешенный в конец цепочки, наследовался листами поверх смены
            и мешал им закрываться свайпом. */
         .refreshable { await reload() }
+        /* ПРОБА: системный эффект края вместо ручной смены одежды
+           панели. `.soft` растушёвывает содержимое под панелью, и знаки
+           на ней должны читаться сами, без флага и без скрима. */
+        .scrollEdgeEffectStyle(.soft, for: .top)
         /* Сцена уходит под панель и под часы: верх экрана — картинка,
            а не серая полоса над ней. */
         .ignoresSafeArea(edges: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            ZStack {
-                ShiftPalette.page
-                /* Сиреневый отсвет под сценой: стеклянные плитки под ней
-                   ловят его, и лист не выглядит листом бумаги, приклеенным
-                   к картинке. */
-                LinearGradient(
-                    stops: [
-                        .init(color: Brand.grapeFill.opacity(0.10), location: 0.42),
-                        .init(color: Brand.grapeFill.opacity(0), location: 0.72),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-            .ignoresSafeArea()
+            ShiftPalette.page.ignoresSafeArea()
         }
         .safeAreaInset(edge: .bottom) { actionBar }
         /* Панель лежит на сцене: у неё нет подложки, а её знаки белые.
@@ -136,6 +126,14 @@ struct ShiftView: View {
            отверг. */
         .toolbarBackground(pastScene ? .visible : .hidden, for: .navigationBar)
         .toolbarColorScheme(pastScene ? nil : .dark, for: .navigationBar)
+        /* Возврат на вкладку показывает экран сверху, но `pastScene`
+           остаётся с прошлого раза — со дна ленты. Панель тогда
+           одевается по-бумажному: светлая подложка, а знаки на ней
+           по-прежнему белые, и выход пропадает в собственном фоне.
+           Человек это чинил вытягиванием вниз: жест шевелил прокрутку,
+           та пересчитывала геометрию и возвращала панели сцену.
+           Сбрасываем сами, чтобы жест был не нужен. */
+        .onAppear { pastScene = false }
         .sheet(isPresented: $changingPassword) { PasswordChangeView() }
         .sheet(isPresented: $handingOver) {
             HandoverView(
@@ -179,13 +177,27 @@ struct ShiftView: View {
             onEnd: { handingOver = true }
         )
 
-        /* Карточка заезжает на сцену снизу. Отрицательный отступ, а не
-           сдвиг: сдвиг оставил бы под карточкой её собственную пустоту, а
-           так сцена, деньги и счётчики читаются одним предметом, а не
-           тремя этажами. */
+        /* Общий белый лист заходит на картинку. Закругляется его верх,
+           а сумма и журнал остаются на одной непрерывной поверхности. */
+        VStack(spacing: 0) {
+            sheetContent
+        }
+        .frame(maxWidth: .infinity)
+        .background {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 28, bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0, topTrailingRadius: 28,
+                style: .continuous
+            )
+            .fill(ShiftPalette.page)
+        }
+        .padding(.top, -42)
+    }
+
+    @ViewBuilder
+    private var sheetContent: some View {
         ledger
             .padding(.horizontal, 16)
-            .padding(.top, -42)
 
         if hasNotices {
             VStack(spacing: gap) {
@@ -323,9 +335,8 @@ struct ShiftView: View {
      *
      * Раньше сумма лежала прямо на фотографии, а под сценой стояли ещё
      * две отдельные плитки — три этажа на один вопрос «как идёт смена».
-     * Число, которое человек смотрит сорок раз за день, стоит теперь на
-     * стекле, а не на мокрой машине, и счётчики живут с ним в одной
-     * карточке под общей чертой.
+     * Главное число и счётчики стоят на общем белом листе под сценой,
+     * разделённые тонкой чертой.
      */
     private var ledger: some View {
         let count = shift?.count ?? 0
@@ -400,10 +411,6 @@ struct ShiftView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frostedGlass(28)
-        /* Карточка лежит на фотографии, а не на бумаге: без собственной
-           тени она выглядела наклейкой поверх сцены. */
-        .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
     }
 
     /// «7 ժ 15 ր». Часы отбрасываются, когда их нет, — как в вебе.
@@ -643,11 +650,18 @@ struct ShiftView: View {
     }
 
     /**
-     * Строка записи: время, нить, номер и цена.
+     * Строка записи: номер, цена, под ними время и услуга.
      *
      * Отмена ушла с глаз в долгое нажатие. Раньше в каждой строке стояли
      * три точки — из сорока записей отменяют одну, а место в строке
      * действие занимало каждый раз, оттесняя номер и цену.
+     *
+     * Тем же соображением убраны колонка времени и нить с точками:
+     * вдвоём они съедали шестьдесят точек слева в каждой строке, то
+     * есть седьмую часть ширины, и ради чего — ради украшения. Номер и
+     * сумма важнее, поэтому строка начинается прямо с них, а время
+     * ушло вниз, к услуге, где читается заодно с ней. Свежую запись
+     * по-прежнему видно: её подсвечивает сам номерной знак.
      */
     private func journalRow(_ order: API.ShiftOrder, first: Bool, last: Bool) -> some View {
         let fresh = newestOrderID == order.id
@@ -656,6 +670,7 @@ struct ShiftView: View {
            строка нечитаема: цена 12 000, а заработок 1 800, и почему —
            неизвестно. */
         let detail = [
+            at(order.createdAt),
             order.clientKey == nil ? nil : Terms.service(order.serviceName),
             order.shared
                 ? L("crew.joint") + " · "
@@ -666,38 +681,6 @@ struct ShiftView: View {
         .joined(separator: " · ")
 
         return HStack(alignment: .top, spacing: 0) {
-            Text(at(order.createdAt))
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.boardMuted)
-                .frame(width: 40, alignment: .leading)
-                .padding(.top, 15)
-
-            /* Нить: у первой записи начинается под точкой, у последней
-               гаснет книзу — обрубленная линия читалась бы обрывом
-               списка, которого нет. */
-            ZStack(alignment: .top) {
-                Rectangle()
-                    .fill(
-                        last
-                            ? AnyShapeStyle(LinearGradient(
-                                colors: [Brand.boardInk.opacity(0.12), Brand.boardInk.opacity(0)],
-                                startPoint: .top, endPoint: .bottom
-                            ))
-                            : AnyShapeStyle(Brand.boardInk.opacity(0.12))
-                    )
-                    .frame(width: 1.5)
-                    .padding(.top, first ? 21 : 0)
-
-                Circle()
-                    .fill(fresh ? Brand.lime : Brand.boardInk.opacity(0.22))
-                    .frame(width: 8, height: 8)
-                    .shadow(color: fresh ? Brand.lime.opacity(0.6) : .clear, radius: 6)
-                    .padding(.top, 17)
-            }
-            .frame(width: 18)
-            .accessibilityHidden(true)
-
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     PlateTag(
@@ -746,7 +729,6 @@ struct ShiftView: View {
                     }
                 }
             }
-            .padding(.leading, 4)
             .padding(.vertical, 11)
         }
         .contentShape(.rect)
@@ -929,14 +911,11 @@ struct ShiftView: View {
  * Краски этого экрана.
  *
  * Лист белый: сцена наверху и так даёт цвет, под ней нужна бумага.
- * Тёмный лист владелец отверг, как и пастельные плитки с объёмными
- * игрушками («слишком мультик»). Из трёх картинок низа он выбрал
- * матовое светлое стекло — им и одета карточка смены: белёсая, с
- * сиреневым отблеском от сцены и светлой гранью, значки чёрные, без
- * кружков.
+ * Светлая тема — чистый белый без сиреневого отсвета и стекла.
+ * В тёмной теме системная поверхность сохраняет читаемость текста.
  */
 private enum ShiftPalette {
-    static let page = Glass.page
+    static let page = Color(uiColor: .systemBackground)
 }
 
 // ═══════════════════════════ части экрана ═══════════════════════════
@@ -950,7 +929,7 @@ private enum ShiftPalette {
  * Сцена наверху.
  *
  * Картинка во весь верх телефона, уходящая под часы и панель, с
- * закруглённым низом. На тёмном полу сцены — обращение по имени и
+ * прямым низом под белым листом. На тёмном полу сцены — обращение по имени и
  * фишка состояния смены; денег на картинке больше нет, они переехали в
  * карточку, которая заезжает на сцену снизу.
  *
@@ -980,6 +959,31 @@ private struct ShiftScene: View {
                     Brand.heroGradient
                 }
             }
+            .overlay(alignment: .top) {
+                /* Верхний скрим, под панель.
+                 *
+                 * Знаки панели белые, а верх сцены — самое светлое её
+                 * место: сиреневое небо над машиной. Без этой полосы
+                 * глобус и выход лежат белым по светлому и почти не
+                 * видны, пока экран не потянут вниз — тогда панель
+                 * переодевается и контраст возвращается случайно.
+                 *
+                 * Полоса высотой в панель со статусной строкой и гаснет
+                 * задолго до машины: сцена остаётся собой, а кнопки
+                 * читаются всегда, а не через жест.
+                 */
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.38), location: 0),
+                        .init(color: .black.opacity(0.16), location: 0.55),
+                        .init(color: .black.opacity(0), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 180)
+                .allowsHitTesting(false)
+            }
             .overlay {
                 /* Скрим: от прозрачного до плотного к нижней кромке. Он
                    короче половины сцены, чтобы машина оставалась в
@@ -995,13 +999,7 @@ private struct ShiftScene: View {
                 )
             }
             .overlay(alignment: .bottomLeading) { reading }
-            .clipShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: 0, bottomLeadingRadius: 34,
-                    bottomTrailingRadius: 34, topTrailingRadius: 0,
-                    style: .continuous
-                )
-            )
+            .clipped()
             .animation(Motion.springSoft, value: onShift)
     }
 
